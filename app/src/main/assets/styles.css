@@ -420,12 +420,13 @@ label.sheet-option{flex-direction:row;margin:0;cursor:pointer}
 /* ---- 2026-10-19b: quick-action chips use the inline line-icon family, not emoji glyphs ---- */
 .quick-chip .quick-chip-icon{display:grid;place-items:center;width:22px;height:22px;color:var(--accent)}
 .quick-chip .quick-chip-icon svg,.quick-chip .quick-chip-icon img{width:22px;height:22px;display:block}
-/* 光学补偿：四个图标墨迹在 24 网格里的占比不同（weight 18u、meal 15u、training/camera 12u 高），
-   按墨迹高度 ≈13px 统一视觉大小，避免同一排看起来一大一小。 */
-.quick-chip[data-quick-icon="icon-meal.svg"] .quick-chip-icon :is(svg,img){width:21px;height:21px}
-.quick-chip[data-quick-icon="icon-training.svg"] .quick-chip-icon :is(svg,img){width:26px;height:26px}
+/* 光学补偿：按 getBBox 实测的墨迹高度（几何 + 0.9u 描边半径）统一到 ≈14px——
+   meal 16.8u→20px、training 13.8u→24px、weight 19.8u→17px、camera 15.8u→21px，
+   避免「体重秤撑满、哑铃偏小」的大小不一。 */
+.quick-chip[data-quick-icon="icon-meal.svg"] .quick-chip-icon :is(svg,img){width:20px;height:20px}
+.quick-chip[data-quick-icon="icon-training.svg"] .quick-chip-icon :is(svg,img){width:24px;height:24px}
 .quick-chip[data-quick-icon="icon-weight.svg"] .quick-chip-icon :is(svg,img){width:17px;height:17px}
-.quick-chip[data-quick-icon="icon-camera-flat.svg"] .quick-chip-icon :is(svg,img){width:26px;height:26px}
+.quick-chip[data-quick-icon="icon-camera-flat.svg"] .quick-chip-icon :is(svg,img){width:21px;height:21px}
 
 /* Per-food breakdown: every meal can show which food supplied the calories. */
 .meal-items-wrap{margin:6px 0 2px}
