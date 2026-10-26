@@ -1722,6 +1722,7 @@ import java.util.concurrent.Executors;
         if (del && path.startsWith("/api/drafts/")) return deleteStoredDraft(path.substring("/api/drafts/".length()));
         if (path.equals("/api/storage-status") && get) return storageStatus(false);
         if (path.equals("/api/storage-remirror") && (post || get)) return storageStatus(true);
+        if (post && path.equals("/api/backup-restore")) return restoreFromAutoBackup();
         if (path.equals("/api/context-preview")) return contextPreview(b);
         if (path.equals("/api/health-connect/status") && get) return healthConnectStatus();
         if (path.equals("/api/health-connect/sync") && post) return healthConnectSync(b);
@@ -1794,9 +1795,14 @@ import java.util.concurrent.Executors;
         if (!autoBackupQueued.compareAndSet(false, true)) return;
         JSONObject snapshot;
         try { snapshot = new JSONObject(state.toString()); } catch (Exception e) { autoBackupQueued.set(false); return; }
-        mirrorExecutor.execute(() -> {
-            try { writeAutoBackup(snapshot); } catch (Exception ignored) { } finally { autoBackupQueued.set(false); }
-        });
+        try {
+            mirrorExecutor.execute(() -> {
+                try { writeAutoBackup(snapshot); } catch (Exception ignored) { } finally { autoBackupQueued.set(false); }
+            });
+        } catch (Exception e) {
+            // Executor already shut down (activity teardown racing a save): nothing to back up.
+            autoBackupQueued.set(false);
+        }
     }
 
     /** Rotates auto-state-3 → delete, 2 → 3, 1 → 2, then atomically writes the fresh copy. */
@@ -1916,6 +1922,39 @@ import java.util.concurrent.Executors;
                 .put("autoBackup", autoBackup)
                 .put("mode", "JSON 为权威来源；SQLite 为同步镜像")
                 .put("windowLimit", 200);
+    }
+
+    /**
+     * Restores the newest in-app auto backup (backups/auto-state-1.json) over the live state.
+     * Destructive by design, so the current state is first written to backups/pre-restore.json as
+     * an undo copy, and the restored payload passes through the same cleanState normalization as an
+     * import. A missing or corrupt backup fails loudly without touching any data.
+     */
+    private JSONObject restoreFromAutoBackup() throws Exception {
+        ensureState();
+        File dir = new File(getFilesDir(), "backups");
+        File newest = new File(dir, "auto-state-1.json");
+        if (!newest.isFile()) throw fail("还没有应用内自动备份；等一次自动备份完成后再来恢复");
+        JSONObject restored;
+        try (InputStream in = new java.io.BufferedInputStream(new java.io.FileInputStream(newest))) {
+            restored = cleanState(new JSONObject(readText(in, LIMIT)));
+        } catch (Exception e) {
+            throw fail("备份文件无法解析，可能已损坏；没有改动任何数据");
+        }
+        if (!(restored.opt("meals") instanceof JSONArray) || !(restored.opt("profile") instanceof JSONObject)) {
+            throw fail("备份内容不完整；没有改动任何数据");
+        }
+        try {
+            File pre = new File(dir, "pre-restore.json"), temp = new File(dir, "pre-restore.tmp");
+            try (FileOutputStream out = new FileOutputStream(temp)) {
+                out.write(state.toString().getBytes(StandardCharsets.UTF_8));
+                out.getFD().sync();
+            }
+            if (pre.isFile()) pre.delete();
+            if (!temp.renameTo(pre)) temp.delete();
+        } catch (Exception ignored) { }
+        commit(new JSONObject(restored.toString()));
+        return snapshot();
     }
 
     // ---- Local push settings (SharedPreferences "push_prefs", readable by AlarmReceiver) ----
@@ -3743,6 +3782,7 @@ import java.util.concurrent.Executors;
         // Keep a pending capture across Activity teardown; cancel/JS acknowledgement performs cleanup.
         if (fileCallback != null) { fileCallback.onReceiveValue(null); fileCallback = null; }
         worker.shutdownNow();
+        mirrorExecutor.shutdown();
         if (web != null) { web.removeJavascriptInterface("QinghengNative"); web.stopLoading(); web.destroy(); web = null; }
         super.onDestroy();
     }

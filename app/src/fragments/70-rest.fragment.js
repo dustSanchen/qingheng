@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.1.54';
+  const APP_VERSION = '1.1.55';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -629,6 +629,20 @@
     const data = await loadStorageStatus(true);
     notice(data?.parity === true ? '已重新镜像，JSON 与 SQLite 记录一致。' : '镜像完成，但两边数量仍不一致，请查看关于页说明。', data?.parity !== true);
     storageRemirror.disabled = false;
+  });
+  // 应用内自动备份的恢复入口：双重确认；native 侧恢复前会把当前状态另存为 pre-restore 底档。
+  const backupRestore = $('#backup-restore');
+  if (backupRestore) backupRestore.addEventListener('click', async () => {
+    if (!await askConfirm('将用最近一次应用内自动备份覆盖手机上的全部记录（餐食、身体、习惯、问答与偏好）。覆盖前会把当前记录另存为底档。', {title: '从应用内备份恢复', ok: '下一步'})) return;
+    if (!await askConfirm('再次确认：覆盖后当前内容只能通过底档找回。确定恢复吗？', {title: '确认覆盖', ok: '覆盖恢复', danger: true})) return;
+    backupRestore.disabled = true;
+    try {
+      await api('/api/backup-restore', {});
+      await loadState({quiet: true});
+      await loadStorageStatus(false);
+      notice('已从应用内备份恢复；恢复前的记录已另存为底档。');
+    } catch (error) { notice(error.message, true); }
+    finally { backupRestore.disabled = false; }
   });
 
   $('#active-date').value=activeDate;setDefaultDates();
