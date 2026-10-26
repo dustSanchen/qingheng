@@ -4101,7 +4101,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.1.56';
+  const APP_VERSION = '1.1.57';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -4642,7 +4642,7 @@ const values = points.length<=7 ? points.map((item,i) => {
       ['icon-training.svg', '记训练', 'training-form'],
       ['icon-weight.svg', '记体重', 'measurement-weight'],
       ['icon-camera-flat.svg', '拍照', 'photo']
-    ].map(([icon, label, focus]) => `<button type="button" class="quick-chip" data-quick-focus="${focus}"><span class="quick-chip-icon" aria-hidden="true">${iconMarkup(icon)}</span>${label}</button>`).join('');
+    ].map(([icon, label, focus]) => `<button type="button" class="quick-chip" data-quick-focus="${focus}" data-quick-icon="${icon}"><span class="quick-chip-icon" aria-hidden="true">${iconMarkup(icon)}</span>${label}</button>`).join('');
     heading.after(row);
     row.addEventListener('click', event => {
       const chip = event.target.closest('[data-quick-focus]');

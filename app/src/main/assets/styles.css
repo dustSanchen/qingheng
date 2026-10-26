@@ -419,7 +419,13 @@ label.sheet-option{flex-direction:row;margin:0;cursor:pointer}
 
 /* ---- 2026-10-19b: quick-action chips use the inline line-icon family, not emoji glyphs ---- */
 .quick-chip .quick-chip-icon{display:grid;place-items:center;width:22px;height:22px;color:var(--accent)}
-.quick-chip .quick-chip-icon svg{width:22px;height:22px;display:block}
+.quick-chip .quick-chip-icon svg,.quick-chip .quick-chip-icon img{width:22px;height:22px;display:block}
+/* 光学补偿：四个图标墨迹在 24 网格里的占比不同（weight 18u、meal 15u、training/camera 12u 高），
+   按墨迹高度 ≈13px 统一视觉大小，避免同一排看起来一大一小。 */
+.quick-chip[data-quick-icon="icon-meal.svg"] .quick-chip-icon :is(svg,img){width:21px;height:21px}
+.quick-chip[data-quick-icon="icon-training.svg"] .quick-chip-icon :is(svg,img){width:26px;height:26px}
+.quick-chip[data-quick-icon="icon-weight.svg"] .quick-chip-icon :is(svg,img){width:17px;height:17px}
+.quick-chip[data-quick-icon="icon-camera-flat.svg"] .quick-chip-icon :is(svg,img){width:26px;height:26px}
 
 /* Per-food breakdown: every meal can show which food supplied the calories. */
 .meal-items-wrap{margin:6px 0 2px}
@@ -721,7 +727,8 @@ details[open]{background:var(--surface)}
 
 /* Time-of-day hint: one line that says what to log right now. */
 .slot-hint{margin:0 0 var(--space-2);padding:8px 12px;border-radius:var(--radius-sm);background:var(--surface-soft);color:var(--body-text);font-size:var(--text-sm);line-height:1.6}
-.slot-hint[data-slot="night"]{background:transparent;padding-left:0;color:var(--muted)}
+/* 夜间时段沿用同一带边距的容器（旧版「透明+零左距」覆盖会让时间顶到边框，已移除）；
+   仅边框左色随时段变化，见下方 .slot-hint 定义。 */
 .button.is-now{box-shadow:inset 0 0 0 2px var(--accent)}
 
 /* 「更多」折叠：把三张低频卡片收成一行，第一屏只留 5 张。 */
