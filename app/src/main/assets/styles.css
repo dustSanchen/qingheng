@@ -304,7 +304,7 @@ label.sheet-option{flex-direction:row;margin:0;cursor:pointer}
 
 /* Checklist text must wrap inside the card instead of running past its edge. */
 .check-row{flex-wrap:wrap}
-.check-row .row-meta span{min-width:0;overflow-wrap:anywhere}
+.check-row .row-meta span{min-width:0;white-space:normal;overflow-wrap:anywhere}
 .check-row .row-side .button{white-space:nowrap}
 
 .chart-mean{stroke-dasharray:5 4;opacity:.75}

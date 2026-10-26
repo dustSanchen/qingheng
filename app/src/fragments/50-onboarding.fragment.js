@@ -33,9 +33,16 @@
   }
   function obSyncTargets() {
     const values = obValues();
+    const node = $('#ob-result');
+    // 不预选目标：没有明确选择前，这里只提示，不偷偷按某个默认目标测算。
+    if (!document.querySelector('#ob-goals input[name=goal]:checked')) {
+      onboarding.result = null;
+      node.className = 'target-status empty';
+      node.textContent = '选择一个饮食目标后，这里会按你的口径给出测算结果。';
+      return null;
+    }
     const result = computeTargets(targetInputFrom(values));
     onboarding.result = result;
-    const node = $('#ob-result');
     if (result.incomplete) {
       node.className = 'target-status empty';
       node.textContent = result.lines.join('\n');
@@ -50,12 +57,15 @@
     const message = $('#ob-feedback');
     if (onboarding.step === 1) {
       const v = obValues();
-      if (!(v.height > 0)) {markFieldInvalid($('#ob-height'), '请填写身高，例如 166。'); feedback(message, '请填写身高，例如 166。', true); $('#ob-height').focus(); return;}
-      if (!(v.weight > 0)) {markFieldInvalid($('#ob-weight'), '请填写当前体重，例如 64.3。'); feedback(message, '请填写当前体重，例如 64.3。', true); $('#ob-weight').focus(); return;}
+      // 校验只做行内提示（markFieldInvalid + aria），不再往底部状态行重复同一句话。
+      if (!v.sex) {markFieldInvalid($('#ob-sex'), '请选择性别，用于测算基础代谢。'); $('#ob-sex').focus(); return;}
+      if (!(v.height > 0)) {markFieldInvalid($('#ob-height'), '请填写身高，例如 166。'); $('#ob-height').focus(); return;}
+      if (!(v.weight > 0)) {markFieldInvalid($('#ob-weight'), '请填写当前体重，例如 64.3。'); $('#ob-weight').focus(); return;}
       // Age is required: guessing it silently changes the whole target.
-      if (!(v.age > 0)) {markFieldInvalid($('#ob-age'), '请填写年龄，测算热量需要它（不会用默认值代替）。'); feedback(message, '请填写年龄，测算热量需要它（不会用默认值代替）。', true); $('#ob-age').focus(); return;}
+      if (!(v.age > 0)) {markFieldInvalid($('#ob-age'), '请填写年龄，测算热量需要它（不会用默认值代替）。'); $('#ob-age').focus(); return;}
     }
-    if (onboarding.step === 2 && (!onboarding.result || onboarding.result.incomplete)) {feedback(message, '请先选择饮食目标。', true); return;}
+    if (onboarding.step === 2 && !document.querySelector('#ob-goals input[name=goal]:checked')) {feedback(message, '请先选择饮食目标。', true); return;}
+    if (onboarding.step === 2 && (!onboarding.result || onboarding.result.incomplete)) {feedback(message, '请先补齐基本信息，再选择饮食目标。', true); return;}
     feedback(message, '');
     onboardingStep(onboarding.step + 1);
     if (onboarding.step === 2) obSyncTargets();
@@ -163,7 +173,7 @@
   $('#restart-onboarding').addEventListener('click', async () => {
     if (!await askConfirm('将重新走一遍四步向导（目标、身体数据、训练、连接）。档案可以重新填写，已有的饮食、训练和体重记录都不会删除。继续吗？', {title: '重新设置档案', ok: '开始设置'})) return;
     const form = $('#profile-form');
-    $('#ob-sex').value = form.elements.sex.value || 'male';
+    $('#ob-sex').value = form.elements.sex.value || '';
     $('#ob-height').value = form.elements.height.value || '';
     $('#ob-age').value = form.elements.age.value || '';
     $('#ob-weight').value = form.elements.weight.value || latestWeight() || '';
