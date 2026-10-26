@@ -51,7 +51,7 @@ adb shell dumpsys package cn.qingheng.health | Select-String 'versionName'
    或先 `adb ... > build\tmp.txt` 再 grep。
 3. **`--preview` 只接受预览像素**（≤877x1904）。设备像素 348,2320 配 `--preview` 会被脚本拒绝，
    这是**正确行为**，不是 bug。
-4. **仓库已有 git（2026-10-27 起）**：`.gitignore` 排除 toolchain/dist/build/backups/artifacts/downloads/.signing；签名密钥绝不入库。每轮改动在 assemble + `node tools/test-all.mjs` 全绿后提交一次，消息格式 `轻衡 <版本>：<摘要>`（中文，用 `git commit -F <文件>` 避免 cmd 转码），提交后 `git push localmirror master` 同步到 C 盘 bare 仓（异地层：OneDrive `qingheng-backup/` 的 bundle 与密钥副本）。回滚优先 `git checkout -- <文件>` / `git revert`；`backups/auto-*` 快照与文件旁 `.bak-rNN` 降级为补充手段，不再需要每个新会话重建基线。
+4. **仓库已有 git（2026-10-27 起）**：`.gitignore` 排除 toolchain/dist/build/backups/artifacts/downloads/.signing；签名密钥绝不入库。每轮改动在 assemble + `node tools/test-all.mjs` 全绿后提交一次，消息格式 `轻衡 <版本>：<摘要>`（中文，用 `git commit -F <文件>` 避免 cmd 转码），提交后 `git push localmirror master`（C 盘 bare）与 `git push origin master`（GitHub 私仓 dustSanchen/qingheng，凭据已由 GCM 缓存）双推送；OneDrive `qingheng-backup/` 的 bundle 与密钥副本为云冷备。回滚优先 `git checkout -- <文件>` / `git revert`；`backups/auto-*` 快照与文件旁 `.bak-rNN` 降级为补充手段，不再需要每个新会话重建基线。
 
 ## 双皮肤约束
 
