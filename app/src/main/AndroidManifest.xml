@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="cn.qingheng.health">
+    <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- The daily push runs as a short foreground service so a slow model call cannot be cut off
+         by the receiver's ~10 s goAsync() window; shortService needs no user-facing grant. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SHORT_SERVICE" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- Alarm-clock class permission: granted at install time on API 33+, so on-time reminders no
+         longer depend on the user finding 「闹钟与提醒」 in settings. -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.health.READ_SLEEP" />
+    <uses-permission android:name="android.permission.health.READ_STEPS" />
+    <uses-permission android:name="android.permission.health.READ_EXERCISE" />
+    <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" />
+    <uses-permission android:name="android.permission.health.READ_DISTANCE" />
+    <!-- Android 11+ hides other packages unless they are queried. Without this declaration
+         SpeechRecognizer.isRecognitionAvailable() answers false on devices that do have a
+         recogniser, and the app would wrongly fall back to the system speech screen. -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+    <application android:label="轻衡" android:theme="@style/AppTheme" android:icon="@drawable/ic_launcher" android:allowBackup="false" android:fullBackupContent="false" android:usesCleartextTraffic="false" android:supportsRtl="true">
+        <activity android:name=".MainActivity" android:exported="true" android:windowSoftInputMode="adjustResize" android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|uiMode">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+        </activity>
+        <!-- Health Connect asks the app why it needs health data; Android 14+ expects this entry. -->
+        <activity-alias android:name=".HealthPermissionsRationale" android:exported="true" android:label="轻衡"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
+        </activity-alias>
+        <!-- Daily push ticks come from our own AlarmScheduler, so the receiver stays unexported. -->
+        <receiver android:name=".AlarmReceiver" android:exported="false" android:enabled="true">
+            <intent-filter>
+                <action android:name="cn.qingheng.health.PUSH_TICK" />
+            </intent-filter>
+        </receiver>
+        <!-- System-only re-arm entry; the custom PUSH_TICK action remains private. -->
+        <receiver android:name=".BootReceiver" android:exported="true" android:enabled="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+        <!-- One delivery per tick runs here so the model call outlives the receiver. -->
+        <service android:name=".PushService" android:exported="false" android:foregroundServiceType="shortService" />
+    </application>
+</manifest>

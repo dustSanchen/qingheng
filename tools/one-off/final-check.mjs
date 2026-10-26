@@ -1,0 +1,11 @@
+﻿import fs from 'node:fs';
+const css = fs.readFileSync('app/src/main/assets/styles.css','utf8');
+const used = new Set([...css.matchAll(/var\((--[a-z0-9-]+)/g)].map(m=>m[1]));
+const decl = new Set([...css.matchAll(/(^|[{;\s])(--[a-z0-9-]+):/gm)].map(m=>m[2]));
+const undef = [...used].filter(t=>!decl.has(t));
+console.log('undeclared var:', undef.length, undef.slice(0,8).join(' '));
+console.log('--fw used:', (css.match(/var\(--fw-/g)||[]).length, '| --dur used:', (css.match(/var\(--dur-/g)||[]).length);
+console.log('literal font-weight left:', (css.match(/font-weight:\s*\d{3}/g)||[]).length);
+const app = fs.readFileSync('app/src/main/assets/app.js','utf8');
+console.log('ai-row delete wired:', app.includes('data-ai-remove-wired'));
+console.log('tabbar-safe:', css.includes('--tabbar-safe'));

@@ -1,0 +1,10 @@
+﻿import fs from 'node:fs';
+const frag = fs.readFileSync('app/src/fragments/70-rest.fragment.js','utf8').match(/const APP_VERSION = '([\d.]+)'/)[1];
+const b = fs.readFileSync('build.ps1','utf8').match(/Version='([\d.]+)',\[int\]\$VersionCode=(\d+)/);
+const tv = fs.readFileSync('tests/meal-date-java.test.mjs','utf8').match(/APP_VERSION = '([\d.]+)'/)[1];
+console.log('fragment:', frag, '| build.ps1:', b[1], b[2], '| test:', tv);
+const app = fs.readFileSync('app/src/main/assets/app.js','utf8');
+console.log('aria-busy:', (app.match(/aria-busy/g)||[]).length);
+console.log('popstate/back handling:', (app.match(/popstate|history\.pushState/g)||[]).length);
+console.log('segment keydown:', (app.match(/data-records-panel[\s\S]{0,80}keydown|ArrowRight/g)||[]).length);
+console.log('markFieldInvalid wiring (input clears):', app.includes("addEventListener(type") && app.includes("clearFieldError"));

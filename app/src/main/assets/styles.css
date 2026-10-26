@@ -1,0 +1,1036 @@
+/* design tokens — one scale for type, spacing and radius; edit here, not per rule. */
+:root{
+  --ink:#293c32;
+  --body-text:#3d3d3a;
+  --muted:#667169;
+  --line:#e4e9df;
+  --paper:#fffefa;
+  --surface-soft:#f3f2ee;
+  --surface:#fffdf7;
+  --accent:#3f6b4a;
+  --ring-green:#5f8a68;
+  --warn:#9e5c29;
+  --diet-in:#9cbaa2;
+  --diet-low:#dfcaa5;
+  --diet-over:#d39273;
+  --diet-track:#f1f3ee;
+  --diet-band:#edf2e7;
+  --diet-band-line:#dbe5d2;
+  --warn-soft:#f6efe3;
+  --warn-line:#e4d5bf;
+  --danger:#a74638;
+  --danger-soft:#f9ede7;
+  --danger-line:#ecd8ce;
+  --ok:#4f7a52;
+  --ok-soft:#eef4ea;
+  --ok-line:#cfe0cb;
+  --ink-soft:#506053;
+  --line-strong:#858e83;
+  --accent-soft:#eef4ea;
+  --accent-press:#2f5340;
+  --on-accent:#fff;
+  --shadow-rgb:41 60 50;
+  --overlay:rgb(var(--shadow-rgb)/.56);
+  --overlay-weak:rgb(var(--shadow-rgb)/.2);
+  --ring-focus-color:#5b8e76;
+  --ring-focus:0 0 0 3px var(--ring-focus-color);
+  --elev-1:var(--shape-card-shadow);
+  --elev-2:0 8px 28px -20px rgb(var(--shadow-rgb)/.3);
+  --elev-3:0 -14px 44px rgb(var(--shadow-rgb)/.15);
+  --elev-4:0 20px 70px rgb(var(--shadow-rgb)/.2);
+  --fw-medium:500;
+  --fw-semibold:600;
+  --tracking-label:.02em;
+  --dur-fast:.15s;
+  --dur-base:.22s;
+  --dur-spin:.8s;
+  --ease-out:cubic-bezier(.22,.8,.3,1);
+  --tone-protein:#8a5a2b;
+  --tone-carb:#6b6191;
+  --tone-training:#3f6c8a;
+  --tone-sleep:#5c6a9c;
+  --tone-water:#3c768e;
+  --tone-tip:#8e6a27;
+  --tone-neutral:#647468;
+  --tone-weight:#44755d;
+  --macro-protein:#719276;
+  --macro-fat:#9e8852;
+  --macro-carb:#728f99;
+  --radius-sm:8px;
+  --radius-md:12px;
+  --radius-lg:16px;
+  --space-1:4px;
+  --space-2:8px;
+  --space-3:12px;
+  --space-4:16px;
+  --space-5:24px;
+  --text-xs:11px;
+  --text-sm:12.5px;
+  --text-md:13.5px;
+  --text-lg:15.5px;
+  --text-heading:18px;
+  --text-xl:22px;
+  --measure:34em;
+  --card-pad:var(--space-4);
+  --card-gap:var(--space-3);
+  --body-leading:1.65;
+  --font-num:var(--font-ui);
+  --font-display:"Iowan Old Style","Palatino Linotype","Songti SC","Noto Serif SC",Georgia,serif;
+  --font-ui:-apple-system,"PingFang SC","Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;
+}
+
+dialog{border:1px solid var(--line);border-radius:22px;background:var(--paper);color:var(--ink);padding:26px;width:min(440px,calc(100% - 36px));box-shadow:0 20px 70px var(--elev-4)}dialog::backdrop{background:var(--overlay);backdrop-filter:blur(4px)}
+:root{--btn-h:48px;--gap:12px;--gap-sm:8px;font-family:var(--font-ui);color:var(--ink);background:var(--paper);font-synthesis:none}
+*{box-sizing:border-box}html,body{min-height:100%;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y}body{margin:0;font-size:14px;line-height:1.65}button,input,select,textarea{font:inherit}button,a,input,select,textarea{-webkit-tap-highlight-color:transparent}button{cursor:pointer}a{color:inherit}button:disabled{cursor:not-allowed}:is(.button,.text-button,.icon-button):disabled{opacity:1;cursor:not-allowed;background:var(--surface-soft);color:var(--muted);border-color:var(--line);box-shadow:none;transform:none}:is(.text-button,.icon-button.subtle):disabled{background:transparent}:is(.button,.text-button)[aria-busy="true"]{cursor:progress;pointer-events:none}.button.primary[aria-busy="true"]{background:var(--accent);color:var(--on-accent)}.button.subtle[aria-busy="true"]{background:var(--accent-soft);color:var(--accent);border-color:var(--line)}.text-button[aria-busy="true"]{background:transparent;color:var(--accent)}:is(.button,.text-button)[aria-busy="true"]::before{content:"";width:var(--icon-sm);height:var(--icon-sm);border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:busy-spin var(--dur-spin) linear infinite}@media (prefers-reduced-motion:reduce){:is(.button,.text-button)[aria-busy="true"]::before{animation:none;border-right-color:currentColor;opacity:.6}}[hidden]{display:none!important}#chat-log .meal-row p{white-space:pre-line;overflow-wrap:anywhere}div.check-label{display:flex;flex-direction:row;align-items:flex-start;gap:9px;margin:10px 0}.meal-row>div:first-child{flex:1 1 auto;min-width:0}.meal-actions{flex:0 0 auto}.delete-meal{white-space:nowrap;writing-mode:horizontal-tb;min-height:44px;min-width:44px}.app-shell{max-width:1180px;margin:auto;padding:0 20px 110px}.app-header{display:flex;justify-content:space-between;align-items:center;padding:25px 0 28px}.brand{display:flex;align-items:center;gap:10px;text-decoration:none}.brand>span{font-size:22px;font-weight:var(--fw-bold);letter-spacing:var(--tracking-caps)}.brand small{display:block;font-size:var(--text-xs);font-weight:var(--fw-regular);letter-spacing:var(--tracking-caps);color:var(--muted)}.status-chip,.tag{font-size:var(--text-xs);border-radius:30px;padding:5px 10px;background:var(--accent-soft);color:var(--ink-soft);white-space:nowrap}.status-chip.offline{background:var(--warn-soft);color:#8f6a39}.page-heading{display:flex;flex-direction:column;gap:15px;margin:8px 0 28px}.eyebrow{font-size:var(--text-xs);letter-spacing:var(--tracking-caps);color:#829480;font-weight:var(--fw-semibold);margin:0 0 8px}h1{font-size:26px;line-height:1.35;font-weight:var(--fw-semibold);letter-spacing:var(--tracking-label);margin:0 0 10px}h2{font-size:17px;font-weight:var(--fw-semibold);margin:0 0 14px}h3{font-size:16px;margin:0}.muted{color:var(--muted)}p{margin:8px 0}.fine-print{font-size:var(--text-xs);color:var(--muted);line-height:1.8}.card-heading{display:flex;align-items:center;justify-content:space-between;gap:var(--gap);margin-bottom:18px}.card-heading h2{margin:0}.soft-card{background:var(--accent-soft)}.leaf{font-size:32px;color:#7d9c77}.energy-body{display:flex;align-items:center;gap:22px;padding:5px 0 22px}.energy-ring{--progress:0deg;--over:0deg;--ring-fill:var(--ring-green);flex-shrink:0;width:132px;height:132px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--warn) var(--over),transparent 0),conic-gradient(var(--ring-fill) var(--progress),var(--accent-soft) 0);transform:rotate(-90deg)}
+.energy-ring>div{width:112px;height:112px;border-radius:50%;background:var(--paper);display:flex;align-items:center;justify-content:center;flex-direction:column;transform:rotate(90deg)}.energy-ring strong{font-size:32px;font-weight:var(--fw-semibold);line-height:1.2}.energy-ring span{font-size:var(--text-xs);color:var(--muted);margin-top:5px}.energy-detail p{font-size:var(--text-sm)}.energy-detail strong{font-weight:var(--fw-semibold)}.button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:var(--btn-h);border-radius:var(--shape-ctrl-radius);border:1px solid transparent;padding:var(--space-3) var(--space-4);text-decoration:none;font-size:var(--text-md);font-weight:var(--fw-semibold);letter-spacing:var(--tracking-label);transition:background var(--dur-fast),transform var(--dur-fast),box-shadow var(--dur-fast)}.button:active{transform:scale(.98)}.primary{background:var(--accent);color:var(--on-accent);box-shadow:var(--elev-2)}.primary:active{background:var(--accent-press);box-shadow:var(--elev-1)}.subtle{background:var(--accent-soft);color:var(--accent);border-color:var(--line)}.subtle:active{border-color:var(--accent)}.text-button{background:none;border:0;padding:var(--space-2);color:var(--accent);font-size:var(--text-sm);min-height:44px}.text-button:active,.icon-button.subtle:active{background:var(--accent-soft)}.full-width{width:100%}.button-row{display:flex;gap:var(--gap);flex-wrap:wrap;margin-top:16px}.macro-grid{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);padding-top:16px;gap:14px}.macro-label{font-size:var(--text-xs);color:var(--muted)}.macro-value{font-size:19px;font-weight:var(--fw-semibold);margin:5px 0}.macro-value small{font-size:var(--text-xs);font-weight:var(--fw-regular)}.progress-track{height:4px;background:var(--accent-soft);border-radius:6px;margin:9px 0;overflow:hidden}.progress-track span{height:100%;display:block;background:var(--macro-protein);border-radius:6px}.macro-grid>div:nth-child(2) .progress-track span{background:var(--macro-fat)}.macro-grid>div:nth-child(3) .progress-track span{background:var(--macro-carb)}.body-stats{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin:22px 0}.stat-label{font-size:var(--text-xs);color:var(--muted)}.stat-number{font-size:28px;line-height:1.5;font-weight:var(--fw-medium)}.stat-number small{font-size:var(--text-xs);font-weight:var(--fw-regular);margin-left:5px}.habit-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.habit-tile{display:flex;align-items:center;gap:12px;background:var(--surface-soft);border-radius:13px;padding:14px}.habit-symbol{display:grid;place-items:center;width:34px;height:34px;background:var(--accent-soft);border-radius:12px;color:#7d946e;font-size:19px}.habit-tile strong{display:block;font-size:15px;font-weight:var(--fw-medium)}.habit-tile small{font-size:var(--text-xs);color:var(--muted)}.advice-card{background:var(--accent-soft)}.advice-list{padding-left:20px;color:var(--ink-soft)}.meal-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:var(--space-3) 0;border-top:1px solid var(--line)}.meal-row:first-child{border-top:0}.meal-row strong{font-size:var(--text-md);font-weight:var(--fw-medium);overflow-wrap:anywhere}.meal-row p{margin:3px 0 0;font-size:var(--text-xs);color:var(--muted)}.meal-energy{white-space:nowrap;font-weight:var(--fw-semibold);font-size:14px}.meal-energy small{font-size:var(--text-xs);font-weight:var(--fw-regular)}.meal-actions{display:flex;align-items:center;gap:12px}.delete-meal{border:0;background:none;color:#9c6d61;font-size:var(--text-xs);padding:10px}.empty-state{padding:30px 12px;text-align:center;color:var(--muted);font-size:13px}.empty-state span{display:block;color:#a0b397;font-size:30px;margin-bottom:5px}.stack{min-width:0}label{display:flex;flex-direction:column;font-size:var(--text-sm);gap:7px;margin-bottom:15px;color:var(--ink-soft)}textarea{resize:vertical}input::placeholder,textarea::placeholder{color:var(--muted);font-size:var(--text-sm)}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 var(--gap)}.date-picker{max-width:170px;margin:0;font-size:var(--text-xs)}.date-picker input{font-size:var(--text-sm);background:var(--surface-soft)}.check-label{flex-direction:row;align-items:center;min-height:44px;gap:9px;font-size:var(--text-xs);line-height:1.8}.check-label input{width:16px;height:16px;min-height:0;flex-shrink:0;margin-top:3px;accent-color:var(--accent)}.upload-area{border:1px dashed var(--accent-line);border-radius:13px;padding:16px;background:var(--accent-soft);margin-bottom:18px}.upload-label{align-items:center;text-align:center;margin:0 0 10px;cursor:pointer}.upload-label>span{font-size:22px;color:#6e906c}.upload-label small{font-size:var(--text-xs);color:var(--muted);font-weight:var(--fw-regular)}.upload-area input[type=file]{background:none;font-size:var(--text-xs);padding:7px;min-height:30px}#meal-image-preview{max-width:100%;max-height:200px;display:block;border-radius:10px;margin-top:12px}.form-feedback{font-size:var(--text-sm);min-height:0;overflow-wrap:anywhere}.form-feedback.error{color:var(--danger)}.form-feedback.success{color:var(--ok)}.estimate-preview{border-top:1px solid var(--line);padding-top:20px;margin-top:22px}.estimate-item{padding:15px;border:1px solid var(--line);border-radius:12px;margin-top:12px}.estimate-item .form-grid{grid-template-columns:repeat(2,1fr)}.estimate-item label{margin-bottom:9px;font-size:var(--text-xs)}.estimate-item input{font-size:var(--text-sm);padding:var(--space-2) var(--space-3)}.estimate-item-head{display:flex;gap:10px;align-items:center}.estimate-item-head label{flex:1}.remove-item{background:none;border:0;font-size:var(--text-xs);color:#9c6d61;padding:8px}.preview-totals{background:var(--accent-soft);border-radius:12px;padding:12px;margin-top:16px;font-size:var(--text-sm)}.chart-wrap{width:100%;overflow:hidden;min-height:180px;max-width:560px;margin:0 auto}.chart-wrap svg{width:100%;height:auto;display:block;overflow:visible}.chart-grid{stroke:var(--accent-line);stroke-width:1;stroke-dasharray:4 5}.chart-text{fill:var(--ink-soft);font-size:13px;font-weight:var(--fw-semibold)}.chart-value{fill:var(--accent);font-size:var(--text-sm);font-weight:var(--fw-semibold)}.chart-line{stroke:#71937b;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}.chart-area{fill:url(#weight-fill)}.chart-point{fill:var(--paper);stroke:#71937b;stroke-width:3}.trend-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;border-top:1px solid var(--line);padding:20px 0 0;margin-top:15px}.trend-stats strong{font-size:22px;display:block;font-weight:var(--fw-medium)}.trend-stats small{font-size:var(--text-xs);color:var(--muted)}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:var(--text-sm);text-align:left;white-space:nowrap}th{font-size:var(--text-xs);font-weight:var(--fw-medium);color:var(--muted);background:var(--surface-soft)}th,td{padding:13px 12px;border-bottom:1px solid var(--line)}.page-footer{text-align:center;color:var(--muted);font-size:var(--text-sm);padding:30px 0}.page-footer img{vertical-align:middle;margin-right:5px}.page-footer p{font-size:var(--text-xs);margin-top:13px}.bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:var(--z-tabbar);background:var(--paper);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;padding:8px 16px max(8px,env(safe-area-inset-bottom));backdrop-filter:blur(12px)}.bottom-nav button{background:none;border:0;color:#97a08f;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:var(--text-xs);min-height:52px;border-radius:14px;padding:6px 0 5px;transition:color var(--dur-fast),background .15s}.bottom-nav button:active{background:var(--accent-soft)}.nav-icon{font-size:22px;line-height:1.3;min-height:28px}.bottom-nav button[aria-current=page]{color:var(--accent);font-weight:var(--fw-semibold);background:var(--accent-soft)}.notice{display:flex;align-items:flex-start;gap:var(--space-2);background:var(--surface);color:var(--body-text);padding:12px 14px;border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:var(--radius-md);font-size:var(--text-sm);line-height:1.6;margin-bottom:var(--space-3)}.notice.error{color:var(--danger);background:var(--danger-soft);border-color:var(--danger-line);border-left-color:var(--danger)}.sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}.skip-link{position:fixed;top:-100px;left:16px;z-index:100;background:white;padding:12px}.skip-link:focus-visible{top:12px}.view{animation:viewIn var(--dur-slow) cubic-bezier(.22,.8,.3,1)}.view.from-right{animation-name:viewInRight}.view.from-left{animation-name:viewInLeft}@keyframes appear{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}@media(min-width:700px){.app-shell{padding:0 36px 110px}.app-header{padding-top:32px}.page-heading{flex-direction:row;justify-content:space-between;align-items:center;margin:18px 0 32px}h1{font-size:32px}.card{padding:26px}.dashboard-grid{display:grid;grid-template-columns:1.55fr 1fr;gap:20px}.habit-grid{grid-template-columns:repeat(5,minmax(0,1fr))}.energy-ring{width:150px;height:150px}.energy-ring>div{width:130px;height:130px}.energy-body{gap:30px}.energy-detail p{font-size:13px}.record-grid,.profile-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:20px;align-items:start}.manual-card{grid-column:1/-1}.manual-card form{max-width:720px}.bottom-nav{left:50%;right:auto;transform:translateX(-50%);bottom:16px;width:420px;border:1px solid var(--line);border-radius:20px;box-shadow:0 8px 30px var(--elev-2);padding:8px 12px}.trend-stats{gap:25px}.chart-wrap{min-height:220px}}@media(max-width:370px){.app-shell{padding-left:14px;padding-right:14px}.card{padding:18px}.energy-body{gap:13px}.energy-ring{width:115px;height:115px}.energy-ring>div{width:97px;height:97px}h1{font-size:24px}.energy-detail .button{padding:9px 12px}.habit-tile{padding:10px;gap:7px}.habit-symbol{width:28px;height:28px}.form-grid{gap:0 var(--gap)}}@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+.app-dialog{position:fixed;inset:0;z-index:var(--z-dialog);display:flex;align-items:center;justify-content:center;padding:20px;background:var(--overlay)}.app-dialog-panel{width:min(380px,100%);background:var(--paper);border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:0 20px 70px var(--elev-4)}.app-dialog-panel h2{font-size:17px;margin:0 0 8px}.app-dialog-panel p{font-size:13px;color:var(--ink-soft);margin:0 0 18px;overflow-wrap:anywhere}.app-dialog-actions{display:flex;gap:var(--gap);justify-content:flex-end}.app-dialog-actions .button{min-width:88px}.button.primary.danger,.app-dialog-panel.danger #app-dialog-ok{background:var(--danger)}
+.onboarding{position:fixed;inset:0;z-index:60;background:var(--paper);overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;padding:22px 16px calc(30px + env(safe-area-inset-bottom))}
+.onboarding-panel{max-width:560px;margin:0 auto;background:var(--paper);border:1px solid var(--line);border-radius:24px;padding:24px;box-shadow:var(--elev-1)}
+.onboarding h1{font-size:24px;margin:0 0 6px}
+.onboarding h2{font-size:16px;margin:22px 0 12px}
+.onboarding-step{margin-top:6px}
+.steps{display:flex;gap:8px;margin:16px 0 6px}.step-dot{width:100%;height:4px;border-radius:4px;background:var(--line)}.step-dot.done{background:var(--accent)}
+.goal-grid{display:grid;gap:10px;margin-bottom:14px}
+.goal-card{display:flex;align-items:flex-start;gap:12px;border:1px solid var(--line);border-radius:16px;padding:14px;background:var(--accent-soft);cursor:pointer}
+.goal-card:has(input:checked){border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 2px var(--ring-select)}
+.goal-card input{margin-top:4px;flex-shrink:0}
+.goal-card span{display:block}.goal-card strong{display:block;font-size:15px;font-weight:var(--fw-semibold)}.goal-card small{display:block;color:var(--muted);font-size:var(--text-xs);line-height:1.6}
+.target-status{margin:8px 0 16px;padding:13px 15px;border-radius:14px;background:var(--accent-soft);color:var(--accent);font-size:12.5px;line-height:1.75;white-space:pre-line}
+.target-status.empty{background:var(--surface-soft);color:#7c6a48}
+details.advanced{border:1px dashed var(--line);border-radius:14px;padding:12px 14px;margin:6px 0 14px}details.advanced summary{cursor:pointer;font-size:12.5px;color:var(--muted);font-weight:var(--fw-semibold)}details.advanced .form-grid{margin-top:12px}
+.onboarding-actions{display:flex;flex-wrap:wrap;gap:var(--gap);align-items:center;margin-top:24px}
+.onboarding-actions .text-button{margin-left:auto}
+@media (min-width:620px){.goal-grid{grid-template-columns:1fr 1fr}.onboarding{padding-top:40px}}
+.upload-area.compact{padding:12px;margin:4px 0 14px}#chat-image-view{display:block;width:100%;max-height:320px;object-fit:contain;border-radius:12px;margin:10px 0}.upload-area.compact .upload-label{margin:0}.upload-area.compact .upload-label>span{font-size:18px}.upload-area.compact .upload-label strong{font-size:13px;display:block}.upload-area.compact .upload-label small{font-size:var(--text-xs)}
+
+#chat-source.error{color:var(--danger)}
+.collapse-toggle{flex:0 0 auto;width:40px;height:40px;min-height:40px;display:grid;place-items:center;border:1px solid var(--line);border-radius:10px;background:var(--accent-soft);color:var(--accent);padding:0}
+.collapse-toggle:hover{background:var(--accent-soft)}.collapse-toggle:active,.recalc-item:active{background:var(--accent-soft);transform:scale(.94)}.collapse-icon{font-size:18px;line-height:1;font-weight:var(--fw-bold)}
+.collapse-heading-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}.collapse-heading-row h2{margin:0}
+.collapsible-body[hidden]{display:none!important}
+details.advanced summary{display:flex;align-items:center;justify-content:space-between;gap:12px;list-style:none}details.advanced summary::-webkit-details-marker{display:none}details.advanced summary::after{content:'▾';display:grid;place-items:center;width:32px;height:32px;border:1px solid var(--line);border-radius:9px;color:var(--accent);font-size:17px}details.advanced[open] summary::after{content:'▴'}
+.estimate-item-actions{display:flex;align-items:center;gap:var(--gap-sm)}.recalc-item{width:40px;height:40px;min-height:40px;display:grid;place-items:center;border:1px solid var(--line);border-radius:10px;background:var(--accent-soft);color:var(--accent);padding:0;font-size:19px}
+.recalc-panel{width:min(520px,100%)}.recalc-panel fieldset{border:1px solid var(--line);border-radius:12px;padding:12px;margin:0 0 14px}.recalc-panel legend{font-size:var(--text-xs);color:var(--muted);padding:0 6px}.recalc-panel fieldset .fine-print{margin-top:0}.recalc-panel .form-grid{gap:0 12px}
+@media(max-width:370px){.estimate-item-head{align-items:flex-start}.estimate-item-actions{flex-direction:column}.collapse-toggle,.recalc-item{width:38px;height:38px;min-height:38px}}
+.data-preview-panel pre.data-preview{max-height:340px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--accent-soft);border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0 0;font-size:var(--text-xs);line-height:1.6}
+.draft-box{border:1px solid #b8cfb6;background:var(--accent-soft);border-radius:14px;padding:12px 14px;margin:0 0 14px}
+.draft-box p{margin:0 0 8px}
+#undated-meals{border:1px solid #e0c79a;background:var(--warn-soft);border-radius:14px;padding:12px 14px;margin:0 0 14px}
+#undated-meals p{margin:0 0 8px}
+
+/* ---- One visual language for every list, dropdown and picker ---------------------------------- */
+/* Inputs, selects and pickers share one height, radius, border, font and focus ring. */
+input:not([type=checkbox]):not([type=radio]),select,textarea{width:100%;border:1px solid var(--line-strong);border-radius:var(--shape-ctrl-radius);background:var(--paper);color:var(--ink);padding:13px 14px;font-size:var(--text-md);line-height:1.4;min-height:var(--btn-h)}
+textarea{min-height:96px;padding:14px}
+select{appearance:none;-webkit-appearance:none;padding-right:44px;background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1l6 6 6-6' fill='none' stroke='%233f6b4a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 15px center;background-size:14px 9px;text-overflow:ellipsis}
+input[type=date],input[type=time]{appearance:none;-webkit-appearance:none;min-height:var(--btn-h);display:flex;align-items:center}
+input[type=date]::-webkit-calendar-picker-indicator,input[type=time]::-webkit-calendar-picker-indicator{opacity:.55;width:20px;height:20px}
+input:not([type=checkbox]):not([type=radio]):focus-visible,select:focus-visible,textarea:focus-visible{border-color:var(--ring-focus-color);outline:none;box-shadow:var(--ring-focus)}
+:is(input,select,textarea)[aria-invalid="true"]{border-color:var(--danger);box-shadow:inset 0 0 0 1px var(--danger)}
+:is(input,select,textarea)[aria-invalid="true"]:focus-visible{box-shadow:inset 0 0 0 1px var(--danger),var(--ring-focus)}
+.field-error{display:block;margin:var(--space-1) 0 0;font-size:var(--text-sm);color:var(--danger)}
+.field-error::before{content:"! ";font-weight:var(--fw-semibold)}
+:is(input,textarea)[readonly]{background:var(--surface-soft);border-style:dashed}
+:is(input,select,textarea):disabled{background:var(--surface-soft);border-color:var(--line);color:var(--muted);cursor:not-allowed}
+
+/* Every row list (meals, chat, push history, drafts, food search) uses the same row shell. */
+.list-stack{display:flex;flex-direction:column}
+.list-row{display:flex;align-items:flex-start;gap:12px;padding:14px 0;border-bottom:1px solid var(--line);background:transparent;text-align:left;width:100%;font:inherit;color:inherit;border-radius:0}
+.list-row:last-child{border-bottom:none}
+.list-main{flex:1 1 auto;min-width:0}
+.list-title{margin:0;font-size:14.5px;font-weight:var(--fw-semibold);line-height:1.5;overflow-wrap:anywhere}
+.list-meta{margin:2px 0 0;font-size:var(--text-xs);color:var(--muted);line-height:1.7;overflow-wrap:anywhere}
+.list-actions{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:0 0 auto}
+.list-side{flex:0 0 auto;text-align:right;font-size:13px;color:var(--muted)}
+button.food-result.list-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 4px;min-height:var(--btn-h);cursor:pointer}
+button.food-result.list-row small{display:block;font-size:var(--text-xs);color:var(--muted);font-weight:var(--fw-regular)}
+button.food-result.list-row:hover,button.food-result.list-row:active{background:var(--accent-soft)}
+.danger-text{color:var(--danger)}
+.mic-button{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:56px;min-height:var(--btn-h);border:1px solid var(--line);border-radius:var(--shape-ctrl-radius);background:var(--accent-soft);color:var(--accent);font-size:var(--text-xs);font-weight:var(--fw-semibold)}
+.mic-button .mic-icon{font-size:17px;line-height:1}
+.field-with-action{display:flex;align-items:flex-start;gap:10px}
+.field-with-action textarea,.field-with-action input{flex:1 1 auto;min-width:0}
+
+/* Listening sheet: scrim + bottom panel with a live level animation, like mainstream health apps. */
+.voice-sheet{position:fixed;inset:0;z-index:60;background:var(--overlay);display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(3px)}
+.voice-panel{animation:voice-rise var(--dur-base) var(--ease-out)}
+@keyframes voice-rise{from{transform:translateY(18px);opacity:.6}to{transform:translateY(0);opacity:1}}
+.voice-bars{display:flex;align-items:flex-end;justify-content:center;gap:6px;height:54px;margin:14px 0 4px}
+.voice-bars span{display:block;width:7px;border-radius:6px;background:linear-gradient(180deg,#7fae92,#44755d);height:12px;animation:voice-level var(--dur-pulse) ease-in-out infinite}
+.voice-bars span:nth-child(2){animation-delay:.15s}.voice-bars span:nth-child(3){animation-delay:.3s}.voice-bars span:nth-child(4){animation-delay:.45s}.voice-bars span:nth-child(5){animation-delay:.6s}
+@keyframes voice-level{0%,100%{height:12px;opacity:.55}50%{height:46px;opacity:1}}
+.voice-status{margin:8px 0 0;text-align:center;font-size:14px;font-weight:var(--fw-semibold);color:var(--ink)}
+.voice-text{margin:6px 0 0;min-height:26px;text-align:center;font-size:15px;color:var(--accent);overflow-wrap:anywhere}
+.voice-panel .button-row{display:flex;gap:10px;margin-top:14px}
+.voice-panel .button{flex:1 1 0}
+@media (prefers-reduced-motion:reduce){.voice-bars span{animation:none}.voice-panel{animation:none}}
+
+/* ---- 2026-10-17: roomier rows, wider dialogs, rich answers, one icon family ------------------- */
+/* Dialogs were narrow enough that a two-column form or a table felt cramped. */
+.app-dialog{padding:16px}
+.app-dialog-panel{width:min(560px,100%);max-height:min(84vh,760px);overflow:auto;border-radius:24px;padding:24px}
+.app-dialog-panel .form-grid{gap:12px}
+.voice-panel{width:min(560px,100%)}
+.data-preview-panel pre.data-preview{max-height:min(46vh,420px)}
+
+/* Icons are SVG now: one optical box keeps the five tabs and the inline actions identical. */
+.nav-icon{display:grid;place-items:center;width:24px;height:24px;min-height:24px;line-height:1}
+.nav-icon img,.nav-icon svg{width:23px;height:23px;display:block}
+.mic-button .mic-icon{display:grid;place-items:center;width:22px;height:22px}
+.mic-button .mic-icon img,.mic-button .mic-icon svg{width:20px;height:20px;display:block}
+.icon-button{display:grid;place-items:center;width:44px;height:44px;min-width:44px;min-height:44px;padding:0;border:1px solid var(--line);border-radius:13px;background:var(--paper);color:var(--ink-soft)}
+.icon-button img,.icon-button svg{width:19px;height:19px;display:block}
+.icon-button.danger{color:var(--danger);border-color:var(--danger-line)}
+.icon-button:active{background:var(--accent-soft)}
+.icon-button.subtle{border-color:transparent;background:transparent}
+.inline-icon{display:inline-grid;place-items:center;width:18px;height:18px;vertical-align:-3px}
+.inline-icon img,.inline-icon svg{width:17px;height:17px;display:block}
+
+/* A row now carries identity, numbers and actions without wrapping into a narrow column. */
+.meal-row{align-items:flex-start;gap:10px}
+.row-body{flex:1 1 auto;min-width:0}
+.row-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.row-meta{display:flex;align-items:center;gap:4px 10px;flex-wrap:wrap;margin-top:4px}
+.row-meta span{white-space:nowrap;font-size:var(--text-xs);color:var(--muted)}
+.row-meta b{font-weight:var(--fw-semibold);color:var(--ink-soft)}
+.row-date{margin-left:auto;font-size:var(--text-xs);color:var(--muted);white-space:nowrap}
+.row-tag.subtle-tag{background:transparent;border:1px solid var(--line);color:#77897b}
+.row-toggle{align-self:flex-start;margin-top:6px;border:1px solid var(--line);background:var(--paper);color:var(--accent);font-size:var(--text-xs);font-weight:var(--fw-semibold);border-radius:20px;padding:4px 12px;min-height:32px}
+.answer.is-clamped{max-height:5.4em;overflow:hidden;position:relative}
+.answer.is-clamped::after{content:'';position:absolute;left:0;right:0;bottom:0;height:1.8em;background:linear-gradient(180deg,transparent,var(--paper))}
+.row-side{display:flex;align-items:center;gap:8px;flex:0 0 auto;padding-top:2px}
+.row-kcal{font-weight:var(--fw-semibold);font-size:14px;white-space:nowrap}
+.row-kcal small{font-size:var(--text-xs);font-weight:var(--fw-regular);color:var(--muted)}
+.row-tag{font-size:var(--text-xs);border-radius:20px;padding:2px 8px;background:var(--accent-soft);color:var(--ink-soft);white-space:nowrap}
+
+/* Rich answer: headings with a coloured icon, bullets, quotes and real tables. */
+.answer{color:var(--ink-soft);font-size:13.5px;line-height:1.75}
+.answer>*:first-child{margin-top:0}
+.answer-section{display:flex;align-items:center;gap:8px;margin:16px 0 4px}
+.answer-section .inline-icon img,.answer-section .inline-icon svg{width:18px;height:18px}
+.answer-eyebrow{margin:0;font-size:var(--text-xs);letter-spacing:var(--tracking-caps);text-transform:uppercase;color:#86988a;font-weight:var(--fw-bold)}
+.answer-heading{margin:0;font-size:14.5px;font-weight:var(--fw-semibold);color:var(--ink)}
+.answer-list{margin:6px 0;padding:0;list-style:none}
+.answer-list li{position:relative;padding-left:18px;margin:6px 0;overflow-wrap:anywhere}
+.answer-list li::before{content:'';position:absolute;left:3px;top:.6em;width:6px;height:6px;border-radius:50%;background:var(--accent);opacity:.7}
+.answer p{margin:8px 0;overflow-wrap:anywhere}
+.answer strong{color:var(--ink);font-weight:var(--fw-semibold)}
+.answer-table{width:100%;border-collapse:collapse;margin:10px 0;font-size:12.5px}
+.answer-table th,.answer-table td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+.answer-table th{background:var(--accent-soft);font-weight:var(--fw-semibold);color:var(--ink-soft);white-space:nowrap}
+.answer-table td.num{text-align:right;font-variant-numeric:tabular-nums}
+.answer-table caption{caption-side:top;text-align:left;font-size:var(--text-xs);color:var(--muted);padding-bottom:6px}
+.stats-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.stats-table th,.stats-table td{border-bottom:1px solid var(--line);padding:10px 8px;text-align:left}
+.stats-table thead th{background:var(--accent-soft);color:var(--ink-soft);font-weight:var(--fw-semibold);white-space:nowrap;border-bottom:1px solid var(--accent-line)}
+.stats-table td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.stats-table tbody tr:last-child td{border-bottom:none}
+.stats-trend{display:inline-flex;align-items:center;gap:5px;font-weight:var(--fw-semibold);white-space:nowrap}
+.stats-up{color:var(--warn)}.stats-down{color:var(--accent)}.stats-flat{color:var(--muted)}
+.stats-good{color:#3f7a5e}.stats-bad{color:#a8622c}
+/* One semantic colour per topic, shared by every section icon. */
+.tone-protein{color:var(--tone-protein)}.tone-fat{color:var(--warn)}.tone-carb{color:var(--tone-carb)}.tone-energy{color:var(--danger)}
+.tone-weight{color:var(--tone-weight)}.tone-training{color:var(--tone-training)}.tone-sleep{color:var(--tone-sleep)}.tone-water{color:var(--tone-water)}
+.tone-tip{color:var(--tone-tip)}.tone-warn{color:var(--danger)}.tone-ok{color:var(--ok)}.tone-neutral{color:var(--tone-neutral)}
+
+/* ---- 2026-10-17: one sheet for pickers and long-press actions -------------------------------- */
+/* Rows opt out of native selection so a long press can show app actions; "选择文字" re-enables it. */
+.meal-row,.meal-row *,.answer,.answer *,.list-row,.list-row *{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.row-body,.row-head,.row-meta,.row-tag{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.is-selecting,.is-selecting .row-body,.is-selecting .answer,.is-selecting .answer *,.is-selecting .meal-row,.is-selecting .meal-row *{user-select:text;-webkit-user-select:text;-webkit-touch-callout:default}
+.is-selecting{background:var(--accent-soft);border-radius:14px}
+.fav-badge{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:6px;background:var(--accent-soft);color:var(--accent)}
+.fav-badge img{width:14px;height:14px}
+.heading-actions{display:flex;align-items:center;gap:10px;flex:0 0 auto}
+.chip-toggle{border:1px solid var(--line);background:var(--paper);color:var(--muted);font-size:var(--text-xs);border-radius:20px;padding:5px 12px;min-height:32px;white-space:nowrap}
+.chip-toggle[aria-pressed=true]{background:var(--accent-soft);border-color:#c9dcc9;color:var(--accent);font-weight:var(--fw-semibold)}
+
+.sheet{position:fixed;inset:0;z-index:var(--z-overlay);background:var(--overlay);display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(3px)}
+.sheet-panel,.voice-panel,.term-panel{width:min(560px,100%);max-height:85vh;max-height:85dvh;overflow-y:auto;overscroll-behavior:contain;background:var(--paper);border:0;border-radius:var(--shape-card-radius) var(--shape-card-radius) 0 0;padding:var(--space-4) var(--space-4) calc(var(--space-4) + env(safe-area-inset-bottom));box-shadow:var(--elev-3)}
+.sheet-panel{animation:sheet-rise var(--dur-base) var(--ease-out)}
+@keyframes sheet-rise{from{transform:translateY(16px);opacity:.65}to{transform:translateY(0);opacity:1}}
+.sheet-title{position:sticky;top:calc(-1 * var(--space-4));z-index:1;margin:0 0 var(--space-3);background:var(--paper);font-size:var(--text-sm);font-weight:var(--fw-semibold);color:var(--ink-soft);letter-spacing:var(--tracking-label)}
+#action-sheet-cancel{position:sticky;bottom:0}
+.sheet-list{display:flex;flex-direction:column;margin-bottom:12px}
+.sheet-option{display:flex;align-items:center;gap:12px;width:100%;min-height:52px;padding:12px 6px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);font-size:15px;text-align:left;border-radius:0}
+.sheet-option:last-child{border-bottom:none}
+.sheet-option:active{background:var(--accent-soft)}
+/* 弹层里的选项是 <label for>：要横排，且不继承全局 label 的下边距 */
+label.sheet-option{flex-direction:row;margin:0;cursor:pointer}
+.sheet-option-icon{display:grid;place-items:center;width:22px;height:22px;color:var(--accent);flex:0 0 auto}
+.sheet-option-icon img{width:19px;height:19px}
+.sheet-option-label{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}
+.sheet-option.is-current{color:var(--accent);font-weight:var(--fw-semibold)}
+
+.sheet-option.is-danger{color:var(--danger)}
+.sheet-option.is-danger .sheet-option-icon{color:var(--danger)}
+@media (prefers-reduced-motion:reduce){.sheet-panel{animation:none}}
+
+/* ---- 2026-10-17: 我的 becomes a list of entries with sub-pages -------------------------------- */
+.hub{display:flex;flex-direction:column;gap:10px}
+.hub-row{display:flex;align-items:center;gap:14px;width:100%;min-height:var(--btn-h);padding:16px 18px;border:1px solid var(--line);border-radius:18px;background:var(--surface);color:var(--ink);text-align:left;box-shadow:var(--elev-1)}
+.hub-row:active{background:var(--accent-soft)}
+.hub-icon{display:grid;place-items:center;width:40px;height:40px;min-width:40px;border-radius:13px;background:var(--accent-soft);color:var(--accent);flex:0 0 auto}
+.hub-icon img{width:21px;height:21px}
+.hub-text{display:flex;flex-direction:column;gap:3px;flex:1 1 auto;min-width:0}
+.hub-title{font-size:15px;font-weight:var(--fw-semibold)}
+.hub-summary{font-size:var(--text-xs);color:var(--muted);overflow-wrap:anywhere;line-height:1.6}
+.hub-arrow{flex:0 0 auto;color:var(--muted);font-size:20px;line-height:1}
+.subpage{display:flex;flex-direction:column;gap:14px}
+.subpage-head{display:flex;align-items:center;gap:12px;margin:2px 0 4px}
+.subpage-head>.icon-button{flex:0 0 auto}
+.subpage-title{margin:0;font-size:20px;font-weight:var(--fw-semibold);letter-spacing:var(--tracking-label)}
+.subpage-head .eyebrow{margin:0 0 2px}
+.subpage .card:last-child{margin-bottom:0}
+.subpage h3{font-size:14px;font-weight:var(--fw-semibold);margin:16px 0 6px}
+#storage-status{background:var(--accent-soft);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:var(--text-xs)}
+
+/* Streaming answer bubble: text arrives progressively, with a caret while the model is talking. */
+.stream-row .stream-answer{white-space:pre-wrap;word-break:break-word}
+.stream-caret{display:inline-block;margin-left:2px;color:currentColor;animation:stream-blink var(--dur-pulse) steps(2,start) infinite}
+@keyframes stream-blink{to{visibility:hidden}}
+@media (prefers-reduced-motion: reduce){.stream-caret{animation:none}}
+
+/* Permission checklist rows: state is readable without relying on colour alone (tag text carries it). */
+.check-list{display:flex;flex-direction:column;gap:8px;margin:10px 0}
+.check-row{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.check-row.ok{border-color:var(--ok)}
+.check-row.todo{border-style:dashed}
+.check-row .row-body{flex:1 1 auto;min-width:0}
+.check-row .row-side{flex:0 0 auto;display:flex;align-items:center}
+.check-row .row-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;font-size:var(--text-sm)}
+.warn-text{color:var(--warn)}
+
+/* Checklist text must wrap inside the card instead of running past its edge. */
+.check-row{flex-wrap:wrap}
+.check-row .row-meta span{min-width:0;overflow-wrap:anywhere}
+.check-row .row-side .button{white-space:nowrap}
+
+.chart-mean{stroke-dasharray:5 4;opacity:.75}
+.chart-note{margin:2px 0 6px;font-size:var(--text-sm);opacity:.85}
+
+/* The weekly note sits inside the card heading row, so let it take a full line of its own. */
+.card-heading{flex-wrap:wrap}
+.card-heading .chart-note{flex:1 1 100%;order:3;margin:4px 0 0}
+
+/* Today's-three-things card and the copy-a-meal buttons stay compact on a phone. */
+#daily-three .form-grid{grid-template-columns:1fr}
+#copy-meal-buttons .button{justify-content:flex-start;text-align:left}
+
+/* Training log rows: compact, and the remove control sits with the volume readout. */
+.training-row{padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);margin-bottom:8px}
+.training-row .form-grid{margin-top:6px}
+.training-row .row-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px;font-size:var(--text-sm)}
+
+/* A wide table scrolls inside its own box instead of pushing the page sideways; long cells wrap. */
+.answer-table-wrap{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.answer-table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:12.5px}
+.answer-table th,.answer-table td{padding:5px 6px;border-bottom:1px solid var(--line,#e3e7e2);text-align:left;overflow-wrap:anywhere;vertical-align:top}
+.answer-table th{font-weight:var(--fw-semibold);opacity:.85}
+
+/* Quick pickers: dense chips instead of full-width buttons, so a six-field form does not grow taller. */
+#habit-chips,#training-advice-chips,#chat-chips{display:flex;flex-wrap:wrap;gap:6px}
+#habit-chips .button,#training-advice-chips .button,#chat-chips .button{padding:6px 10px;font-size:12.5px;min-height:0;line-height:1.3;flex:0 1 auto}
+
+/* The wizard's actions live in their own fixed bar: whatever the page height, 下一步 is always on
+   screen, never scrolled into a region that can swallow the tap. */
+.onboarding{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
+.onboarding-actions{position:fixed;left:0;right:0;bottom:0;z-index:90;margin:0;background:var(--paper);border-top:1px solid var(--line);box-shadow:0 -6px 18px var(--elev-3);padding:12px 16px calc(12px + env(safe-area-inset-bottom))}
+.onboarding-actions .button{flex:1 1 auto}
+
+/* The delete action sits at the end of the title row: away from the calorie number, small enough to
+   keep the row height. */
+.row-delete{width:32px;height:32px;min-width:32px;min-height:32px;border-radius:10px;margin-left:auto}
+.row-delete .inline-icon img{width:16px;height:16px}
+
+/* A render failure used to freeze the page silently; this bar makes it visible and retryable. */
+.render-error{position:fixed;left:12px;right:12px;top:calc(8px + env(safe-area-inset-top));z-index:200;display:flex;align-items:center;gap:10px;justify-content:space-between;padding:10px 12px;border-radius:14px;background:var(--danger-soft);border:1px solid #e8b4ae;color:#7d2a22;font-size:13px;box-shadow:0 8px 20px #7d2a2214}
+.render-error[hidden]{display:none}
+.render-error .button{padding:6px 12px;font-size:12.5px;flex:0 0 auto}
+
+/* Segmented control on the records page: one short screen per intent instead of one long column. */
+.segment-bar{position:sticky;top:calc(-4px + env(safe-area-inset-top));z-index:8;display:flex;gap:6px;margin:0 0 var(--space-3);padding:var(--space-1);border:1px solid var(--line);background:var(--paper);box-shadow:var(--elev-2)}
+.segment{flex:1 1 0;min-height:44px;padding:var(--space-2) var(--space-3);border:0;border-radius:var(--shape-ctrl-radius);background:transparent;color:var(--muted);font-size:var(--text-md);font-weight:var(--fw-medium)}
+.segment[aria-selected="true"]{background:var(--accent-soft);color:var(--ink);font-weight:var(--fw-semibold);border:0;box-shadow:none}
+.segment:focus-visible{outline-offset:-2px}
+.segment[hidden]{display:none}
+.record-panel{display:flex;flex-direction:column;gap:14px}
+.record-panel[hidden]{display:none}
+
+/* Today's four everyday actions, one tap away. */
+.quick-actions{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 14px}
+.quick-chip{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 4px;border:1px solid var(--line);border-radius:14px;background:var(--paper);color:var(--ink);font-size:13px;font-weight:var(--fw-semibold);line-height:1.2}
+.quick-chip:active{background:var(--accent-soft)}
+/* Day groups in the record list: a heading with that day's total, then its meals. */
+.meal-day{margin-bottom:12px}
+.meal-day-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:4px 2px 6px;color:var(--muted);font-size:12.5px}
+.meal-day-head strong{color:var(--ink);font-size:13.5px}
+/* Diet trend bars: one row per day, width relative to that day's target range. */
+.diet-bars{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.diet-day{display:flex;align-items:center;gap:10px;font-size:12.5px}
+.diet-day-label{flex:0 0 42px;color:var(--muted);font-variant-numeric:tabular-nums}
+.diet-bar{position:relative;flex:1 1 auto;height:6px;border-radius:999px;background:var(--diet-track);overflow:hidden}
+.diet-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:var(--diet-in)}
+.diet-bar i.over{background:var(--diet-over)}
+.diet-day-value{flex:0 0 56px;text-align:right;font-variant-numeric:tabular-nums}
+
+/* Bar colour states: inside the range is green, short is amber, over the cap is red. */
+.diet-bar i.low{background:var(--diet-low);opacity:.9}
+.diet-bar i.empty{background:transparent}
+.diet-day-value{font-variant-numeric:tabular-nums;white-space:nowrap}
+.diet-key{display:inline-flex;align-items:center;gap:4px;margin-left:8px;font-size:var(--text-sm)}
+.diet-key::before{content:'';width:8px;height:8px;border-radius:2px;background:currentColor;opacity:.85}
+.diet-key.in{color:var(--diet-in)}
+.diet-key.low{color:var(--diet-low)}
+.diet-key.over{color:var(--diet-over)}
+
+/* The acceptable range drawn inside the track, so a bar can be read against it at a glance. */
+.diet-band{position:absolute;top:-1px;bottom:-1px;border-radius:3px;background:var(--diet-band);box-shadow:inset 0 0 0 1px var(--diet-band-line)}
+.diet-band{z-index:0}
+.diet-bar i{z-index:1;opacity:1}
+
+/* ---- 2026-10-19: inline SVG icons inherit the text colour; <img> keeps the baked mint ---- */
+.hub-icon svg{width:21px;height:21px;display:block}
+.sheet-option-icon svg{width:19px;height:19px;display:block}
+.fav-badge svg{width:14px;height:14px;display:block}
+.habit-symbol svg{width:22px;height:22px;display:block}
+.bottom-nav button:not([aria-current=page]) .nav-icon img{opacity:.55;transition:opacity var(--dur-fast)}
+/* ---- 2026-10-19: motion — tab switch is direction-aware; dialogs, collapsibles and result lists enter smoothly.
+   Transform/opacity only, so everything runs on the compositor at full frame rate. ---- */
+@keyframes viewIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes viewInRight{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}
+@keyframes viewInLeft{from{opacity:0;transform:translateX(-18px)}to{opacity:1;transform:none}}
+.app-dialog{animation:scrimIn var(--dur-base) ease-out}
+.app-dialog-panel{animation:dialogRise var(--dur-slow) cubic-bezier(.22,.8,.3,1)}
+@keyframes scrimIn{from{opacity:0}to{opacity:1}}
+@keyframes dialogRise{from{opacity:0;transform:translateY(26px) scale(.97)}to{opacity:1;transform:none}}
+.collapsible-body{animation:unfoldIn var(--dur-base) ease-out}
+@keyframes unfoldIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.food-result{animation:rowIn var(--dur-base) ease-out both}
+#food-search-results .food-result:nth-child(2),#off-results .food-result:nth-child(2){animation-delay:.03s}
+#food-search-results .food-result:nth-child(3),#off-results .food-result:nth-child(3){animation-delay:.06s}
+#food-search-results .food-result:nth-child(4),#off-results .food-result:nth-child(4){animation-delay:.09s}
+#food-search-results .food-result:nth-child(5),#off-results .food-result:nth-child(5){animation-delay:.12s}
+#food-search-results .food-result:nth-child(6),#off-results .food-result:nth-child(6){animation-delay:.15s}
+#food-search-results .food-result:nth-child(7),#off-results .food-result:nth-child(7){animation-delay:.18s}
+#food-search-results .food-result:nth-child(8),#off-results .food-result:nth-child(8){animation-delay:.21s}
+@keyframes rowIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ---- 2026-10-19b: quick-action chips use the inline line-icon family, not emoji glyphs ---- */
+.quick-chip .quick-chip-icon{display:grid;place-items:center;width:22px;height:22px;color:var(--accent)}
+.quick-chip .quick-chip-icon svg{width:22px;height:22px;display:block}
+
+/* Per-food breakdown: every meal can show which food supplied the calories. */
+.meal-items-wrap{margin:6px 0 2px}
+.meal-items-toggle{padding:4px 10px;border:1px dashed var(--line);border-radius:10px;background:transparent;color:var(--muted);font-size:var(--text-sm)}
+.meal-items-toggle[aria-expanded="true"]{color:var(--ink);border-style:solid}
+.meal-items{margin-top:6px;padding:6px 10px;border-radius:10px;background:var(--surface-soft)}
+.meal-items[hidden]{display:none}
+.meal-item{display:flex;justify-content:space-between;gap:10px;padding:3px 0;font-size:12.5px;color:var(--muted)}
+.meal-item b{color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;flex:0 0 auto}
+.meal-item span{flex:1 1 auto;min-width:0;word-break:break-word}
+
+/* Close button inside the notice; hiding it returns the space to the page. */
+.notice{display:flex;align-items:flex-start;gap:10px}
+.notice[hidden]{display:none}
+.notice>span{flex:1 1 auto}
+.notice-close{flex:0 0 auto;width:24px;height:24px;padding:0;border:0;border-radius:8px;background:transparent;color:inherit;font-size:16px;line-height:1;opacity:.7}
+.notice-close:active{opacity:1;background:#00000010}
+
+/* The draft card: obviously a proposal, not a record, until the user confirms. */
+.training-draft{border-style:dashed;border-color:var(--accent-line);background:var(--accent-soft);margin:10px 0 14px}
+.training-draft h2{font-size:14px}
+.training-draft p{margin:6px 0;font-size:13.5px}
+
+/* Daily check: five compact metrics, the weakest one highlighted by colour. */
+.check-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:10px}
+.check-item{display:flex;flex-direction:column;gap:2px;padding:8px 6px;border:1px solid var(--line);border-radius:12px;background:var(--paper);text-align:center}
+.check-item.ok{border-color:var(--ok-line)}
+.check-item.bad{border-color:var(--danger-line);background:var(--danger-soft)}
+.check-dot{width:7px;height:7px;border-radius:50%;background:#cbd8c8;margin:0 auto}
+.check-item.ok .check-dot{background:#6f8f74}
+.check-item.bad .check-dot{background:#c9776f}
+.check-item small{color:var(--muted);font-size:var(--text-xs)}
+.check-item strong{font-size:13px;font-variant-numeric:tabular-nums}
+.check-item em{color:var(--muted);font-size:var(--text-xs);font-style:normal}
+.check-action{margin:0;padding:8px 10px;border-radius:10px;background:var(--surface-soft);font-size:13px}
+/* Week plan */
+.plan-days{display:flex;flex-direction:column;gap:10px;margin:10px 0}
+.plan-day{border:1px solid var(--line);border-radius:12px;padding:8px 10px}
+.plan-day-head{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;color:var(--muted);margin-bottom:4px}
+.plan-day-head strong{color:var(--ink)}
+.plan-item{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;padding:2px 0}
+.plan-item b{font-variant-numeric:tabular-nums;white-space:nowrap}
+/* Warnings */
+.trend-warnings{margin:0 0 10px}
+.trend-warnings[hidden]{display:none}
+.warn-line{margin:0 0 var(--space-1);padding:10px 12px;border-radius:var(--radius-sm);background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--danger);font-size:var(--text-sm);line-height:1.6;color:var(--body-text)}
+
+/* density pass: same information, less vertical space */
+.fine-print{font-size:var(--text-xs);line-height:1.5;margin:var(--space-1) 0}
+.muted{font-size:13px;line-height:1.5;margin:6px 0}
+
+.card-heading{margin-bottom:12px}
+.card h2{font-size:var(--text-lg);letter-spacing:var(--tracking-label)}
+.form-grid{gap:0 var(--space-3)}
+label{font-size:var(--text-sm)}
+.button-row{gap:8px}
+.list-stack{gap:10px}
+
+/* A brief outline tells the eye where the form is, without opening the keyboard. */
+.quick-target{animation:quickFlash var(--dur-pulse) ease-out 1}
+@keyframes quickFlash{0%{box-shadow:0 0 0 3px var(--flash-ring)}70%{box-shadow:0 0 0 3px var(--flash-ring)}100%{box-shadow:var(--elev-1)}}
+/* 状态：三行，一行一件事。标签定宽，值自己换行。 */
+.plan-state{margin:0 0 var(--space-2);padding:var(--space-2) var(--space-3);border-radius:10px;background:var(--accent-soft)}
+.plan-state-row{display:flex;flex-direction:row;align-items:baseline;gap:var(--space-2);margin:0;line-height:1.5}
+.plan-state-row+.plan-state-row{margin-top:2px}
+.plan-state-row>span{flex:0 0 5.5em;font-size:var(--text-xs);color:var(--ink-soft)}
+.plan-state-row>b{flex:1 1 auto;min-width:0;font-size:var(--text-sm);font-weight:var(--fw-medium);color:var(--ink);overflow-wrap:anywhere}
+/* 负荷：标签 + 数值 + 判定，不写成一句话。 */
+.plan-load{display:flex;flex-direction:row;align-items:baseline;gap:var(--space-2);margin:0 0 var(--space-2);padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-size:var(--text-sm)}
+.plan-load-label{flex:0 0 auto;font-size:var(--text-xs);color:var(--ink-soft)}
+.plan-load-value{flex:0 0 auto;font-weight:var(--fw-semibold);color:var(--ink);font-variant-numeric:tabular-nums}
+.plan-load-verdict{flex:0 1 auto;margin-left:auto;font-size:var(--text-xs);color:var(--muted);text-align:right}
+.plan-load.is-high{border-color:var(--warn-line);background:var(--warn-soft)}
+.plan-load.is-high .plan-load-value,.plan-load.is-high .plan-load-verdict{color:var(--warn)}
+/* 中文正文行宽 18–24 字：22em 约 22 字。 */
+#week-plan p{max-width:22em}
+
+/* One line under the daily check: which library rule backs the advice. */
+.check-rule{margin:6px 0 0;font-size:var(--text-xs);color:var(--muted)}
+
+/* Diet audit: two or three plain lines above the bars, no extra card. */
+.diet-audit{margin:0 0 10px;padding:8px 10px;border-radius:10px;background:var(--accent-soft)}
+.diet-audit p{margin:2px 0;font-size:var(--text-sm);color:var(--muted)}
+.diet-audit p:first-child{color:var(--ink)}
+
+/* Reference prescriptions from the community digest: collapsed, never overrides real history. */
+.plan-ref{margin:8px 0 0;border-top:1px dashed var(--line);padding-top:8px}
+.plan-ref summary{cursor:pointer;font-size:12.5px;color:var(--muted)}
+.plan-ref p{margin:8px 0;font-size:var(--text-sm);line-height:1.6;color:var(--ink)}
+.plan-ref p strong{font-size:12.5px}
+
+/* Two actionable cues from the transcript-level library, above the "what to train today" line. */
+.plan-cue{margin:0 0 8px;padding:7px 10px;border-radius:10px;background:var(--surface-soft);color:var(--body-text);font-size:var(--text-sm);line-height:1.55}
+
+/* Anatomy hints by body part: collapsed by default in the about card. */
+.body-parts{margin:10px 0 0;flex-basis:100%;border-top:1px dashed var(--line);padding-top:8px}
+.body-parts summary{cursor:pointer;font-size:12.5px;color:var(--muted)}
+.body-parts .part-title{margin:8px 0 2px;font-size:12.5px;font-weight:var(--fw-semibold);color:var(--ink)}
+.body-parts p{margin:3px 0;font-size:var(--text-sm);line-height:1.55;color:var(--ink)}
+.body-parts small{color:var(--muted)}
+
+/* Title hierarchy: one weight for card titles, one tighter tracking for page titles. */
+.card h2{font-weight:var(--fw-semibold);letter-spacing:var(--tracking-label)}
+.page-title,.hero-title,h1{letter-spacing:var(--tracking-label)}
+
+/* data typography — metrics use tabular figures so values do not jitter as they change. */
+.macro-value,.ring-value,.stat b,#calorie-target,#intake-total,.plan-item b,.check-item b{font-variant-numeric:tabular-nums;letter-spacing:var(--tracking-label)}
+
+/* one chip shape — chips and tags share a radius and a height. */
+.tag,.quick-chip,.plan-suggest,.check-tag,.chip{border-radius:var(--radius-sm);padding:2px 8px;line-height:1.6}
+
+/* visible keyboard focus — never remove the ring, only restyle it. */
+:focus-visible{outline:2px solid var(--ring-focus-color);outline-offset:2px}
+
+
+/* section rhythm — headings sit one step above body, never flush against the edge. */
+.card-heading{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-2);margin-bottom:var(--space-3)}
+.card-heading h2{margin:0}
+.card > .fine-print:last-child{margin-bottom:0}
+
+/* Claude-like typographic voice: serif for titles, sans for data and body. */
+body{font-family:var(--font-ui)}
+.page-title,.hero-title,h1,h2,.card h2,.section-title,.screen-title{font-family:var(--font-display);font-weight:var(--fw-semibold);letter-spacing:var(--tracking-label)}
+.macro-value,.plan-item b,.check-item b,#calorie-target,.ring-value,.stat b{font-family:var(--font-ui)}
+
+/* Warm hairline instead of a grey border; the card lifts with light, not with shadow contrast. */
+
+.card-heading h2{color:var(--ink)}
+.fine-print,.muted{color:var(--muted)}
+
+/* warm paper surfaces — page sits on paper, cards sit on paper with a lighter tone. */
+body,.app-shell{background:var(--paper)}
+
+
+/* editorial body colour — running text is body, not headline ink. */
+body,p,li,td,.muted{color:var(--body-text)}
+h1,h2,h3,.card h2,.page-title,.hero-title{color:var(--ink)}
+
+/* color-block cards — depth from surface tone and a hairline, not from shadow. */
+
+.diet-audit,.plan-cue{background:var(--surface-soft)}
+
+/* display weight: regular, never bold — bold serif reads as shouting. */
+.page-title,.hero-title,h1{font-weight:var(--fw-regular);letter-spacing:var(--tracking-display);line-height:1.25}
+.card h2{font-weight:var(--fw-regular);letter-spacing:0;color:var(--ink)}
+
+/* 控件高度回到 --btn-h（48px）；原 40px 统一覆盖已删除（阶段 3 第 3 批）。 */
+
+/* reading measure — prose stops at ~34 Chinese characters per line; data and grids stay full width. */
+.card p,.fine-print,.muted,details p{max-width:var(--measure);line-height:1.65}
+.card p + p{margin-top:var(--space-2)}
+.fine-print{line-height:1.6}
+
+/* one empty state — icon slot, one sentence, optional action; never a bare sentence in a corner. */
+.empty-state{display:flex;flex-direction:column;align-items:center;gap:var(--space-2);padding:var(--space-5) var(--space-4);text-align:center;color:var(--muted)}
+.empty-state .empty-title{font-size:var(--text-md);color:var(--body-text)}
+.empty-state .empty-hint{font-size:var(--text-sm);line-height:1.6;max-width:26em}
+.empty-state svg,.empty-state .empty-icon{width:28px;height:28px;opacity:.45}
+
+/* type hierarchy — four levels only; new card text must pick one of these. */
+.t-page{font-family:var(--font-display);font-size:var(--text-xl);line-height:1.25;letter-spacing:var(--tracking-display);color:var(--ink);font-weight:var(--fw-regular)}
+.t-card{font-family:var(--font-display);font-size:var(--text-lg);line-height:1.35;color:var(--ink);font-weight:var(--fw-regular)}
+.t-body{font-family:var(--font-ui);font-size:var(--text-md);line-height:1.65;color:var(--body-text)}
+.t-note{font-family:var(--font-ui);font-size:var(--text-xs);line-height:1.6;color:var(--muted)}
+
+/* bind the existing structure to those levels so nothing drifts by accident. */
+.page-title,.hero-title,h1{font-family:var(--font-display);font-size:var(--text-xl);line-height:1.25;font-weight:var(--fw-regular);letter-spacing:var(--tracking-display)}
+.card h2,.section-title,.screen-title{font-family:var(--font-display);font-size:var(--text-lg);line-height:1.35;font-weight:var(--fw-regular)}
+.card p,.muted,li,td{font-family:var(--font-ui);font-size:var(--text-md);line-height:1.65}
+.fine-print,details summary,caption,small{font-family:var(--font-ui);font-size:var(--text-xs);line-height:1.6}
+
+/* form controls must inherit the same voice as body text, not the system default. */
+button,input,select,textarea{font-family:var(--font-ui);font-size:var(--text-md);line-height:1.4}
+
+/* ── skins ─────────────────────────────────────────────────────────────────────────────
+   Every rule below must stay token-only: switching the attribute must not need new CSS.
+   paper = warm editorial (serif titles); ledger = crisp data-first (sans titles).      */
+[data-skin="ledger"]{
+  --paper:#f2f5f7;
+  --surface:#ffffff;
+  --line:#dfe3e8;
+  --ink:#16181a;
+  --body-text:#3a3d3c;
+  --muted:#6a6d6b;
+  --radius-sm:6px;
+  --radius-md:10px;
+  --radius-lg:14px;
+  --measure:36em;
+  --font-display:var(--font-ui);
+  --card-pad:14px;
+  --card-gap:10px;
+  --body-leading:1.55;
+  --font-num:ui-monospace,"SF Mono",Menlo,monospace;
+  --warn:#95602b;
+  --warn-soft:#f4f1ea;
+  --warn-line:#e2dccf;
+  --danger:#9c4a3e;
+  --danger-soft:#f7eeec;
+  --danger-line:#e8d6d2;
+  --ok:#3f6b52;
+  --ok-soft:#eef3f0;
+  --ok-line:#cfdfd8;
+  --surface-soft:#f2f5f4;
+  --diet-in:#95b39c;
+  --diet-low:#dcc9a8;
+  --diet-over:#cf9578;
+  --diet-track:#eef1f0;
+  --diet-band:#eaf1ec;
+  --diet-band-line:#d6e2dc;
+  --line-strong:#848b95;
+  --accent-soft:#eef3f0;
+  --shadow-rgb:20 20 19;
+  --elev-2:none;
+  --elev-3:none;
+}
+
+/* 账本暗色：只覆盖账本作用域的令牌，纸感保持暖纸不动（AGENTS.md 双皮肤约束）。
+   规则仍是 token-only：切换系统深浅色不需要任何新规则。 */
+@media (prefers-color-scheme: dark){
+  [data-skin="ledger"]{
+    --paper:#141719;
+    --surface:#1c2024;
+    --surface-soft:#22272b;
+    --line:#32383d;
+    --line-strong:#5b636b;
+    --ink:#e9ecef;
+    --ink-soft:#c2c8cd;
+    --body-text:#c2c8cd;
+    --muted:#8d949a;
+    --accent:#87b594;
+    --accent-press:#a3ccb0;
+    --accent-deep:#1c2b22;
+    --accent-soft:#26312b;
+    --accent-line:#3a4a42;
+    --on-accent:#10241a;
+    --ring-green:#7ba98a;
+    --ring-focus-color:#7fae97;
+    --ring-focus-color-soft:#5f8a6e;
+    --ring-select:0 0 0 2px #87b59455;
+    --flash-ring:0 0 0 3px #6f9d80;
+    --warn:#c9924f;
+    --warn-soft:#33291d;
+    --warn-line:#4d3f2a;
+    --danger:#d68274;
+    --danger-soft:#382623;
+    --danger-line:#57352e;
+    --ok:#83b093;
+    --ok-soft:#22312a;
+    --ok-line:#3b5146;
+    --diet-in:#8fb89a;
+    --diet-low:#d3c09b;
+    --diet-over:#d49a7e;
+    --diet-track:#262b2f;
+    --diet-band:#242e28;
+    --diet-band-line:#3a4a42;
+    --shadow-rgb:0 0 0;
+    --overlay:rgb(0 0 0/.62);
+    --overlay-weak:rgb(0 0 0/.4);
+  }
+}
+
+[data-skin="ledger"] .card h2{letter-spacing:0}
+[data-skin="ledger"] .page-title,[data-skin="ledger"] .hero-title,[data-skin="ledger"] h1{letter-spacing:var(--tracking-display);font-weight:var(--fw-semibold)}
+
+
+/* 皮肤切换控件：两枚按钮，选中态用强调色描边 */
+.skin-pick{display:flex;gap:var(--space-2);padding:0 var(--space-4) var(--space-3)}
+.skin-pick button{flex:1;padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius-md);background:var(--surface);color:var(--body-text);font-size:var(--text-sm)}
+.skin-pick button[aria-pressed="true"]{border-color:var(--accent);color:var(--ink);box-shadow:inset 0 0 0 1px var(--accent)}
+.skin-pick small{display:block;margin-top:2px;color:var(--muted);font-size:var(--text-xs)}
+
+/* density + numerals follow the skin — the second axis of differentiation, not just colour. */
+
+.card p,.muted,.t-body,li,td{line-height:var(--body-leading)}
+.macro-value,.ring-value,.stat b,#calorie-target,.plan-item b,.check-item b{font-family:var(--font-num)}
+
+/* disclosure rows stay neutral — no tan fill, just a hairline and a disclosure mark. */
+details{border:1px solid var(--line);border-radius:var(--radius-md);background:var(--surface);padding:10px 12px}
+details summary{padding:2px 0;color:var(--body-text)}
+details[open]{background:var(--surface)}
+
+/* Q&A history: search field + one date header per day. */
+.chat-search{display:block;margin:0 0 var(--space-2)}
+.chat-search input{width:100%}
+.chat-day{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-2);margin:var(--space-3) 0 var(--space-1);padding-top:var(--space-2);border-top:1px solid var(--line);font-size:var(--text-sm);color:var(--muted);font-variant-numeric:tabular-nums}
+.chat-day span{color:var(--muted);font-size:var(--text-xs)}
+.chat-day:first-child{border-top:0;padding-top:0;margin-top:0}
+
+/* A metric that has not been recorded yet is neutral, not a failure. */
+.check-item.idle{border-color:var(--line);background:var(--surface)}
+.check-item.idle .check-dot{background:var(--line)}
+.check-item.idle strong{color:var(--muted)}
+
+/* Below-target is amber, over-limit is red, unrecorded is neutral. */
+.check-item.low{border-color:var(--warn-line);background:var(--warn-soft)}
+.check-item.low .check-dot{background:var(--warn)}
+.check-item.high{border-color:var(--danger-line);background:var(--danger-soft)}
+.check-item.high .check-dot{background:var(--danger)}
+
+/* Time-of-day hint: one line that says what to log right now. */
+.slot-hint{margin:0 0 var(--space-2);padding:8px 12px;border-radius:var(--radius-sm);background:var(--surface-soft);color:var(--body-text);font-size:var(--text-sm);line-height:1.6}
+.slot-hint[data-slot="night"]{background:transparent;padding-left:0;color:var(--muted)}
+.button.is-now{box-shadow:inset 0 0 0 2px var(--accent)}
+
+/* 「更多」折叠：把三张低频卡片收成一行，第一屏只留 5 张。 */
+.day-more{margin:0 0 var(--space-3);border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface);padding:12px 14px}
+.day-more > summary{cursor:pointer;font-size:var(--text-sm);color:var(--muted)}
+.day-more[open] > summary{margin-bottom:var(--space-2)}
+.day-more .card{border:0;box-shadow:none;padding:var(--space-3) 0;margin:0;border-top:1px solid var(--line);border-radius:0}
+.day-more .card:first-of-type{border-top:0}
+
+/* 今日流水：时间在上、事件在下，一眼看完今天。 */
+#day-stream .meal-row{padding:var(--space-2) 0;border-top:1px solid var(--line)}
+#day-stream .meal-row:first-child{border-top:0}
+#day-stream .row-head strong{font-variant-numeric:tabular-nums;min-width:52px;display:inline-block}
+
+/* 手机上不排两列：能量卡只有 60% 宽度时，150px 的能量球会被裁掉。 */
+@media (max-width: 640px){
+  .dashboard-grid{grid-template-columns:1fr;gap:var(--card-gap)}
+/* 今日页密度：快捷区与提示条收紧，把能量卡提到更靠上的位置。 */
+.quick-grid{gap:var(--space-2)}
+.slot-hint{margin:0 0 var(--space-2)}
+  .dashboard-grid > *{min-width:0}
+}
+
+/* 能量球：更小、可换行，永不被裁。 */
+.energy-body{flex-wrap:wrap;gap:var(--space-4)}
+.energy-ring{width:112px;height:112px;max-width:100%}
+.energy-ring>div{width:94px;height:94px}
+.energy-ring strong{font-size:21px;line-height:1.05}
+.energy-ring span{font-size:var(--text-xs);margin-top:2px;letter-spacing:0}
+.energy-detail{flex:1 1 150px;min-width:0}
+/* eyebrow is now a plain label — no English kickers left, so drop the uppercase tracking. */
+.eyebrow{letter-spacing:0;text-transform:none;font-size:var(--text-sm);color:var(--muted);font-weight:var(--fw-medium)}
+
+/* 卡片内说明：默认收起，首屏只留状态与操作。 */
+.card-notes{margin:var(--space-3) 0 0;border-top:1px solid var(--line);padding-top:var(--space-2)}
+.card-notes > summary{cursor:pointer;font-size:var(--text-xs);color:var(--muted)}
+.card-notes[open] > summary{margin-bottom:var(--space-1)}
+.card-notes .fine-print{margin:var(--space-1) 0}
+
+/* 术语：虚线下划线，点一下出解释；不跳页、不打断记录。 */
+.term{display:inline;padding:0;border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;text-decoration:underline dotted var(--muted);text-underline-offset:3px;text-decoration-thickness:1px;line-height:inherit;vertical-align:baseline}
+
+.term-sheet{position:fixed;inset:0;z-index:var(--z-sheet);display:flex;align-items:flex-end;justify-content:center;background:var(--overlay);padding:0;backdrop-filter:blur(3px)}
+.term-sheet[hidden]{display:none}
+
+.term-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-2)}
+.term-head strong{font-size:var(--text-lg);color:var(--ink)}
+.term-close{width:44px;height:44px;border:0;background:transparent;color:var(--ink-soft);font-size:20px}
+.term-full{margin:0 0 var(--space-2);font-size:var(--text-sm);color:var(--muted)}
+.term-line{margin:0 0 var(--space-2);font-size:var(--text-md);line-height:1.65;color:var(--body-text)}
+.term-warn{color:var(--warn)}
+
+.weight-row{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);margin:var(--space-2) 0;font-size:var(--text-sm);color:var(--body-text)}
+.weight-row input{width:96px;text-align:right}
+#weight-result{font-weight:var(--fw-semibold);color:var(--ink)}
+
+/* 致谢列表：紧凑、可点、不抢正文。 */
+.credit-list{margin:var(--space-1) 0 var(--space-2);padding-left:1.1em;font-size:var(--text-sm);color:var(--body-text);line-height:1.8}
+.credit-list a{color:var(--accent);text-decoration:none;border-bottom:1px solid var(--ok-line)}
+#credits h3{margin:var(--space-3) 0 var(--space-1);font-size:var(--text-sm);color:var(--ink)}
+
+/* capture: one compact row, neutral colours, no dashed frame. */
+.upload-area{border:0;background:transparent;padding:0;margin:var(--space-2) 0 0}
+
+/* ---- design pass 18: icon scale, rhythm, ghost chips ---- */
+:root{--icon-sm:16px;--icon-md:20px;--icon-lg:24px}
+.upload-area{border:0;background:transparent;padding:0;margin:0}
+
+.slot-hint{display:flex;align-items:baseline;gap:var(--space-2);margin:0 0 var(--space-3);padding:10px 12px 10px 14px;border-radius:var(--radius-md);background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);font-size:var(--text-sm);color:var(--body-text);line-height:1.6}
+.slot-time{flex:0 0 auto;font-variant-numeric:tabular-nums;color:var(--muted);font-size:var(--text-xs);letter-spacing:var(--tracking-label)}
+.slot-text{flex:1 1 auto;min-width:0}
+.slot-hint[data-slot="night"]{border-left-color:var(--line);color:var(--muted)}
+
+/* 标题节奏：一页一个主标题，副标题只留一行 */
+.page-heading h1{margin:0 0 var(--space-2);line-height:1.22;letter-spacing:-.01em}
+.page-heading{row-gap:var(--space-2)}
+.card-heading{margin-bottom:var(--space-3)}
+.card-heading h2{font-size:var(--text-lg);line-height:1.3}
+
+
+/* 能量卡的两个按钮：拉开间距，避免贴在一起。 */
+.energy-detail{display:flex;flex-direction:column;align-items:flex-start;gap:var(--space-2)}
+.energy-detail p{margin:0}
+.energy-detail .button{margin-top:0}
+.energy-detail .button.primary{margin-top:var(--space-2)}
+/* 能量卡的两个按钮并排：正文各占一行，按钮贴在最后一行，
+   省下一行高度，「＋ 记录一餐」不再被挤出首屏。 */
+.energy-detail{flex-direction:row;flex-wrap:wrap;align-items:center}
+.energy-detail>p{flex:1 0 100%}
+.energy-detail .button{margin-top:0;flex:1 1 0;min-width:0;padding-left:8px;padding-right:8px;white-space:nowrap}
+/* 主操作行原先挂在 .energy-detail（右栏）里，只能占半张卡；移到卡片级后按内容宽度等分。 */
+.energy-actions{display:flex;gap:8px;margin-top:var(--space-3)}
+.energy-actions .button{flex:1 1 0;min-width:0;margin-top:0;white-space:nowrap}
+/* 弹窗里的「输入 + 麦克风」：麦克风叠在输入框内部右侧（而不是并排），
+   这样输入框的右边线与其它字段落在同一条竖线上，行整体也不超出内容区。 */
+.app-dialog .field-with-action{position:relative;display:block}
+.app-dialog .field-with-action input,.app-dialog .field-with-action textarea{width:100%;padding-right:calc(var(--btn-h) + 6px)}
+.app-dialog .field-with-action .mic-button{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:calc(var(--btn-h) - 8px);min-width:0;height:calc(var(--btn-h) - 8px);min-height:0;border-radius:calc(var(--shape-ctrl-radius) - 4px)}
+/* 快速记录字段多，面板按 84vh 截断后底部的「取消/保存」会落到面板外；
+   这里让表单自己滚动，操作行吸底。 */
+.app-dialog-panel--quick{display:flex;flex-direction:column;overflow:hidden}
+.app-dialog-panel--quick form{display:flex;flex-direction:column;gap:12px;min-height:0;overflow-y:auto;padding-right:2px}
+.app-dialog-panel--quick .app-dialog-actions{position:sticky;bottom:0;margin-top:auto;padding-top:12px;background:var(--paper)}
+/* 能量卡提示：一条可见，其余收起，避免把主按钮挤出屏幕。 */
+.energy-hint{margin:0;max-width:22em;font-size:var(--text-sm);line-height:1.55;color:var(--body-text)}
+.energy-more{margin:0}
+.energy-more summary{cursor:pointer;font-size:var(--text-xs);color:var(--muted)}
+.energy-more p{margin:var(--space-1) 0 0;max-width:22em;font-size:var(--text-xs);line-height:1.55;color:var(--muted)}
+
+/* 添加照片：一行入口（44px），比两个大砖省空间，比两个小胶囊好点。 */
+.photo-add{display:flex;align-items:center;gap:var(--space-2);width:100%;min-height:var(--btn-h);margin:var(--space-2) 0 0;padding:11px 12px;border:1px solid var(--line);border-radius:var(--radius-md);background:var(--surface);text-align:left}
+.photo-add:active{background:var(--surface-soft)}
+.photo-add-icon{width:var(--icon-md);height:var(--icon-md);opacity:.8;flex:0 0 auto}
+.photo-add>span{font-size:var(--text-md);color:var(--body-text);flex:0 0 auto}
+.photo-add small{margin-left:auto;font-size:var(--text-xs);color:var(--muted)}
+
+/* 操作表里的两行：56px，手指好点，又不喧宾夺主。 */
+.sheet-row{display:flex;align-items:baseline;gap:var(--space-2);width:100%;padding:14px 2px;border:0;border-top:1px solid var(--line);background:transparent;text-align:left}
+.sheet-row:active{background:var(--surface-soft)}
+.sheet-row>span{font-size:var(--text-md);color:var(--ink)}
+.sheet-row small{margin-left:auto;font-size:var(--text-xs);color:var(--muted)}
+
+/* 拍照/相册：两枚中等卡并排（72px），点击目标够大又不抢版面。 */
+.capture-card:active{background:var(--surface-soft)}
+.capture-card img{width:var(--icon-lg);height:var(--icon-lg);opacity:.85}
+
+/* 计划卡：先本周（已发生的），再下周（建议）。 */
+.plan-sub{margin:var(--space-2) 0 var(--space-1);font-size:var(--text-sm);color:var(--muted);font-weight:var(--fw-medium)}
+.plan-week{margin:0 0 var(--space-3);padding-left:1.1em;font-size:var(--text-sm);line-height:1.75;color:var(--body-text)}
+.plan-week strong{font-weight:var(--fw-semibold);font-variant-numeric:tabular-nums;margin-right:4px}
+
+/* capture v3：与应用里的 hub 行同一套语言——无边框、浅底、图标圆形托底。 */
+.capture-actions{display:flex;gap:var(--space-2);margin:var(--space-1) 0 0}
+.capture-card{flex:1 1 0;display:flex;flex-direction:row;margin:0;align-items:center;gap:var(--space-2);min-height:56px;padding:10px 12px;border:0;border-radius:var(--radius-md);background:var(--surface-soft);color:var(--body-text);font-size:var(--text-sm)}
+.capture-card:active{background:var(--line);transform:none}
+.capture-card img{width:var(--icon-md);height:var(--icon-md);padding:6px;box-sizing:content-box;border-radius:10px;background:var(--surface);opacity:.9;flex:0 0 auto}
+.capture-card span{font-weight:var(--fw-medium)}
+
+/* 问答页：减弱方框感——虚线框变细线、同意项合并为紧凑列表。 */
+.upload-area, .upload-area.compact{border:0;background:transparent;padding:0;margin:0}
+details[open] .preview-panel, .data-preview-panel{border:1px solid var(--line);border-radius:var(--radius-md);background:var(--surface-soft)}
+.check-label{padding:var(--space-2) 0;border-top:1px solid var(--line);gap:var(--space-2)}
+.check-label + .check-label{border-top:0;padding-top:0}
+
+/* 本周安排：七天一行行，状态用色点与文字区分，不再堆卡片。 */
+.plan-week{list-style:none;padding:0;margin:0 0 var(--space-3)}
+.plan-week li{display:flex;gap:var(--space-2);align-items:baseline;padding:6px 0;border-bottom:1px solid var(--line);font-size:var(--text-sm)}
+.plan-week li:last-child{border-bottom:0}
+.plan-week li strong{flex:0 0 44px;color:var(--muted);font-weight:var(--fw-medium);font-variant-numeric:tabular-nums}
+.plan-week li span{flex:1 1 auto;color:var(--body-text)}
+.plan-week .wk-done span{color:var(--accent)}
+.plan-week .wk-today span{color:var(--ink);font-weight:var(--fw-semibold)}
+.plan-week .wk-miss span{color:var(--muted)}
+.plan-week .wk-plan span{color:var(--body-text)}
+
+/* 训练偏好：两行两列，与应用表单同一套节奏。 */
+.plan-prefs{margin:var(--space-3) 0 0;padding-top:var(--space-3);border-top:1px solid var(--line)}
+.pref-row{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2)}
+.pref-row label{font-size:var(--text-sm);color:var(--muted)}
+.pref-row select{width:100%;margin-top:4px}
+.plan-prefs .button-row{margin-top:var(--space-2)}
+
+/* 趋势：两张子表之间要断开，表格本身可横向滚动，不再溢出卡片。 */
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.stats-table{min-width:100%;table-layout:auto;white-space:nowrap}
+.stats-table caption{text-align:left;padding:0 0 var(--space-2);color:var(--muted)}
+.section-gap{margin-top:var(--space-4);padding-top:var(--space-3);border-top:1px solid var(--line)}
+
+/* 今日顺序：数字在前，动作名居中，剂量靠右。 */
+.adv-order-list{list-style:none;margin:0 0 var(--space-3);padding:0}
+.adv-order-list li{display:flex;align-items:baseline;gap:var(--space-2);padding:8px 0;border-bottom:1px solid var(--line);font-size:var(--text-md)}
+.adv-order-list li:last-child{border-bottom:0}
+.adv-order{flex:0 0 20px;height:20px;border-radius:50%;background:var(--surface-soft);color:var(--muted);font-size:var(--text-xs);display:inline-flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
+.adv-name{flex:1 1 auto;color:var(--ink)}
+.adv-dose{flex:0 0 auto;color:var(--muted);font-size:var(--text-sm);font-variant-numeric:tabular-nums}
+
+/* ---- shape layer：第二层是颜色，这一层是形状。纸感靠「无边框 + 大圆角」，账本靠「实线 + 小圆角」。 ---- */
+:root{
+  --shape-card-radius:16px;
+  --shape-row-radius:12px;
+  --shape-ctrl-radius:12px;
+  --shape-card-shadow:0 1px 2px rgba(20,20,19,.045);
+  --shape-row-shadow:none;
+}
+[data-skin="ledger"]{
+  --shape-card-radius:5px;
+  --shape-row-radius:4px;
+  --shape-ctrl-radius:4px;
+  --shape-card-shadow:none;
+  --shape-row-shadow:none;
+}
+
+/* 卡片 */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--shape-card-radius);padding:var(--card-pad);margin-bottom:var(--card-gap);box-shadow:var(--elev-1)}
+.day-more,.plan-prefs,.card-notes{border-radius:var(--shape-card-radius)}
+
+/* 列表行与磁贴 */
+.hub-row,.list-row,.meal-row,.capture-card,.check-item,.slot-hint,.photo-add,.segment-bar,.segment{border-radius:var(--shape-row-radius)}
+
+/* 表单控件 */
+input,select,textarea,.button,.chip,.term,.text-button{border-radius:var(--shape-ctrl-radius)}
+
+
+/* 账本：实线边框顶替阴影 */
+[data-skin="ledger"] .card,
+[data-skin="ledger"] .capture-card,
+[data-skin="ledger"] .check-item,
+[data-skin="ledger"] .slot-hint{border:1px solid var(--line)}
+
+[data-skin="ledger"] .card-heading h2{letter-spacing:var(--tracking-display)}
+
+/* ---- density layer：账本更紧（表格感），纸感更松（阅读感）。 ---- */
+[data-skin="ledger"]{
+  --body-leading:1.5;
+  --card-pad:13px;
+  --card-gap:9px;
+}
+[data-skin="ledger"] .card-heading{margin-bottom:10px}
+[data-skin="ledger"] .card-heading h2{font-size:var(--text-md);letter-spacing:0}
+[data-skin="ledger"] .muted,[data-skin="ledger"] .fine-print{line-height:1.45}
+[data-skin="ledger"] .hub-summary,[data-skin="ledger"] .row-head{line-height:1.4}
+
+/* 480 dpi renders the shared 1px control border as 3 device pixels; keep the ledger record fields crisp at 2. */
+[data-skin="ledger"] #view-records input:not([type=checkbox]):not([type=radio]),
+[data-skin="ledger"] #view-records select,
+[data-skin="ledger"] #view-records textarea{border-width:.67px}
+
+/* 纸感的阴影再淡一档，避免卡片「浮」得过头。 */
+:root{--shape-card-shadow:0 1px 1px rgba(20,20,19,.035)}
+
+/* 图表标签：数值密集时缩到 10px 会看不清，改为更小字重 + 更淡色，靠位置错开。 */
+.chart-wrap text{font-variant-numeric:tabular-nums}
+
+/* 不健身模式：用状态类兜底，JS 重建节点也隐藏掉训练相关选项卡与入口。 */
+body.no-training [data-records-panel="training"],
+body.no-training [data-trends-panel="training"],
+body.no-training [data-go="training"],
+body.no-training [data-focus="training"],
+body.no-training #record-panel-training,
+body.no-training #trend-panel-training,
+body.no-training #week-plan-card,
+body.no-training #training-log,
+body.no-training #training-advice,
+body.no-training #training-volume-card,
+body.no-training #training-advice-order{display:none !important}
+
+/* 今日顺序（AI）：一行一个动作，勾选表示做完。 */
+.ai-plan{margin:var(--space-3) 0 0;padding-top:var(--space-3);border-top:1px solid var(--line)}
+.ai-plan .card-heading h3{margin:0;font-size:var(--text-sm);color:var(--muted);font-weight:var(--fw-medium)}
+#ai-plan-list{counter-reset:ai-step}
+.ai-plan-row{display:flex;flex-direction:row;align-items:center;gap:var(--space-2);margin:0;min-height:48px;padding:var(--space-2) 0;border-bottom:1px solid var(--line);font-size:var(--text-md)}
+.ai-plan-row input{order:-1;flex:0 0 auto;width:18px;height:18px;margin:0;accent-color:var(--accent)}
+.ai-plan-row::before{counter-increment:ai-step;content:counter(ai-step);flex:0 0 1.5em;color:var(--muted);font-size:var(--text-sm);font-variant-numeric:tabular-nums}
+.ai-plan-row:last-child{border-bottom:0}
+.ai-plan-name{flex:1 1 auto;min-width:0;overflow-wrap:anywhere;color:var(--ink)}
+/* 汇总条：组数 + 按组数算出的时长；差异大时给一个改时长的入口。 */
+.ai-plan-summary{display:flex;flex-direction:row;flex-wrap:wrap;align-items:baseline;gap:var(--space-1) var(--space-2);margin:var(--space-2) 0 0;font-size:var(--text-xs);color:var(--muted);font-variant-numeric:tabular-nums}
+.ai-plan-summary-text{flex:0 1 auto}
+.ai-plan-summary-note{flex:0 1 auto;color:var(--muted)}
+.ai-plan-summary .text-button{flex:0 0 auto;min-height:0;padding:0 2px;font-size:var(--text-xs)}
+.ai-plan-dose{flex:0 0 auto;white-space:nowrap;color:var(--muted);font-size:var(--text-sm);font-variant-numeric:tabular-nums}
+.ai-plan-row input:checked ~ .ai-plan-name{color:var(--muted);text-decoration:line-through}
+
+/* 等待层：半透明遮罩 + 旋转环 + 一行说明，轻量、不抢焦点。 */
+.busy-layer{position:fixed;inset:0;z-index:var(--z-busy);display:flex;align-items:center;justify-content:center;background:var(--overlay-weak)}
+.busy-layer[hidden]{display:none}
+.busy-card{display:flex;align-items:center;gap:var(--space-3);padding:14px 18px;border-radius:var(--radius-md);background:var(--surface);border:1px solid var(--line);box-shadow:0 8px 32px -24px rgba(20,20,19,.5)}
+.busy-spinner{width:18px;height:18px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--accent);animation:busy-spin var(--dur-spin) linear infinite}
+.busy-text{margin:0;font-size:var(--text-sm);color:var(--body-text)}
+@keyframes busy-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.busy-spinner{animation:none}}
+
+/* 今日顺序的「修改」：进入后可逐项删除。 */
+.ai-plan.editing .ai-plan-row{position:relative}
+#ai-plan-list.editing .ai-plan-row::after{content:"×";color:var(--muted);margin-left:var(--space-2)}
+
+/* 行内等待条：贴在按钮下方，胶囊 + 呼吸光带 + 细环，不遮挡页面。 */
+.inline-busy{display:flex;align-items:center;gap:10px;margin:10px 0 0;padding:10px 14px;border-radius:999px;background:var(--surface-soft);border:1px solid var(--line);position:relative;overflow:hidden}
+.inline-busy[hidden]{display:none}
+.inline-busy::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);transform:translateX(-100%);animation:busy-sheen var(--dur-pulse) ease-in-out infinite}
+.busy-ring{width:16px;height:16px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--accent);animation:busy-spin var(--dur-spin) linear infinite;flex:0 0 auto}
+.inline-busy-text{font-size:var(--text-sm);color:var(--body-text);letter-spacing:var(--tracking-label)}
+@keyframes busy-sheen{0%{transform:translateX(-100%)}60%,100%{transform:translateX(100%)}}
+@media (prefers-reduced-motion: reduce){.inline-busy::after{animation:none}.busy-ring{animation:none}}
+
+/* notice pinned to the bottom：不遮顶部内容，随时可点 × 关闭。 */
+#global-notice{position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));margin:0;z-index:var(--z-toast);box-shadow:0 10px 30px -22px rgba(20,20,19,.55)}
+#global-notice[hidden]{display:none}
+
+/* 阶段 2 令牌补齐（图标/动效/字重字距/间距/焦点环/强调线） */
+:root{--space-0:2px;--icon-xl:28px;--dur-slow:.28s;--dur-pulse:1.6s;--ease-inout:ease-in-out;--fw-regular:400;--fw-bold:700;--fw-display:600;--tracking-display:-.01em;--tracking-caps:.12em;--ring-focus-color-soft:#a9c6b3;--ring-select:0 0 0 2px #44755d22;--flash-ring:0 0 0 3px #9dbb9b;--accent-line:#cfded2;--accent-deep:#2f5340;}
+
+/* 底部安全区：固定 tab bar 上方留出可点击空间，最后一屏的同意勾选不再被压住。 */
+:root{--tabbar-safe:96px}
+.app-shell{padding-bottom:calc(var(--tabbar-safe) + env(safe-area-inset-bottom))}
+.check-label,.ai-plan,.plan-prefs{scroll-margin-bottom:calc(var(--tabbar-safe) + 12px)}
+.ai-plan-list.editing .ai-plan-row{cursor:pointer}
+.ai-plan-list.editing .ai-plan-row::after{content:"点此行移除";margin-left:var(--space-2);font-size:var(--text-xs);color:var(--muted)}
+
+/* 层级刻度：一处定义，所有固定层引用，避免同层竞争与底栏压内容。 */
+:root{--z-sticky:8;--z-tabbar:60;--z-overlay:80;--z-dialog:90;--z-sheet:120;--z-toast:180;--z-busy:200}
+html{scroll-padding-bottom:calc(var(--tabbar-safe,96px) + 16px)}
+
+/* 空状态三态：同一骨架，靠图标色与左侧色条区分「没数据 / 没权限 / 加载失败」。 */
+.empty-state{border-radius:var(--shape-row-radius);border:1px dashed var(--line);padding:var(--space-4) var(--space-3)}
+.empty-state.is-empty{border-style:dashed}
+.empty-state.is-denied{border-style:solid;border-left:3px solid var(--warn);background:var(--warn-soft)}
+.empty-state.is-denied .empty-icon{color:var(--warn)}
+.empty-state.is-error{border-style:solid;border-left:3px solid var(--danger);background:var(--danger-soft)}
+.empty-state.is-error .empty-icon{color:var(--danger)}
+.empty-title{margin:0;color:var(--ink-soft);font-weight:var(--fw-medium)}
+.empty-hint{margin:var(--space-1) 0 0;color:var(--muted);font-size:var(--text-sm);line-height:1.55}

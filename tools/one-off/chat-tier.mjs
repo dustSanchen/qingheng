@@ -1,0 +1,14 @@
+﻿import fs from 'node:fs';
+import { patch } from '../lib/patch.mjs';
+patch('app/src/main/java/cn/qingheng/health/MainActivity.java', [
+  ['fast tier: no web search, short answer',
+   "        // Lookup runs before the model call. The note goes right before the user turn so it outranks older history.\n        boolean wantWeb = b.optBoolean(\"webSearch\", false) && !question.isEmpty();",
+   "        // Tier decides cost: a fast answer is short, never searches the web, and skips the deep context.\n        boolean fastTier = \"fast\".equals(b.optString(\"tier\", \"deep\"));\n        if (fastTier) {\n            messages.put(new JSONObject().put(\"role\", \"system\").put(\"content\",\n                    \"本次是快速回答：最多 3 句，先给结论再给一个动作，不要复述数据，不解释推理过程。\"));\n        }\n        // Lookup runs before the model call. The note goes right before the user turn so it outranks older history.\n        boolean wantWeb = !fastTier && b.optBoolean(\"webSearch\", false) && !question.isEmpty();"],
+  ['the context is trimmed for a fast answer',
+   "        messages.put(new JSONObject().put(\"role\", \"system\").put(\"content\", chatDataContext(selectedDate)));",
+   "        messages.put(new JSONObject().put(\"role\", \"system\").put(\"content\", fastTier ? chatDataContextCompact(selectedDate) : chatDataContext(selectedDate)));"],
+  ['a compact context builder',
+   "    String chatDataContext(String selectedDate) throws Exception {",
+   "    /** Only what a short answer needs: today's totals, ranges and the last three days. */\n    String chatDataContextCompact(String selectedDate) throws Exception {\n        JSONObject context = new JSONObject().put(\"today\", dayOffset(0)).put(\"selectedDate\", selectedDate);\n        JSONObject profile = effectiveProfile(selectedDate);\n        String goal = optionalText(profile, \"goal\").trim();\n        if (!goal.isEmpty()) context.put(\"goal\", goal).put(\"goalLabel\", goalText(profile));\n        JSONObject targets = new JSONObject();\n        for (String key : new String[]{\"proteinMin\", \"proteinMax\", \"fatMin\", \"fatMax\", \"calorieTarget\",\n                \"intakeFloor\", \"trainingDayMin\", \"trainingDayMax\", \"restDayMin\", \"restDayMax\", \"training\"}) {\n            Double value = finite(profile, key);\n            if (value != null) targets.put(key, value);\n        }\n        targets.put(\"trainedOnSelectedDate\", trainedOn(selectedDate));\n        String from = dayOffsetFrom(selectedDate, -2);\n        context.put(\"profileTargets\", targets).put(\"window\", from + \"..\" + selectedDate)\n                .put(\"mealCount\", mealCount(selectedDate))\n                .put(\"dailyNutrition\", dailyNutrition(from, selectedDate))\n                .put(\"recordPolicy\", \"快速回答模式：只给了最近三天，缺数据就说缺失，不要推测。\");\n        return context.toString();\n    }\n\n    String chatDataContext(String selectedDate) throws Exception {"],
+]);
+console.log('fast tier wired');

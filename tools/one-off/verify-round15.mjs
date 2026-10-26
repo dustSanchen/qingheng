@@ -1,0 +1,10 @@
+﻿import fs from 'node:fs';
+const html = fs.readFileSync('app/src/main/assets/index.html','utf8');
+const today = html.slice(html.indexOf('id="view-today"'), html.indexOf('id="view-records"'));
+const cards = [...today.matchAll(/<h2[^>]*>([^<]{1,20})/g)].map(m => m[1]);
+console.log('今天页可见卡片:', cards.join(' → '));
+console.log('折叠块:', today.includes('class="day-more"'), '| 上次问答并入:', today.includes('last-chat-open'));
+console.log('记录页流水卡:', html.includes('id="day-stream-card"'));
+const app = fs.readFileSync('app/src/main/assets/app.js','utf8');
+console.log('renderDayStream:', app.includes('function renderDayStream'));
+console.log('missingMealSlots:', app.includes('function missingMealSlots'));

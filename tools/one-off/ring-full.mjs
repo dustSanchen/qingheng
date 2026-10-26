@@ -1,0 +1,10 @@
+﻿import fs from 'node:fs';
+const css = fs.readFileSync('app/src/main/assets/styles.css','utf8');
+const i = css.indexOf('.energy-ring{');
+console.log(css.slice(i, i + 700));
+console.log('--- dashboard-grid ---');
+const j = css.indexOf('.dashboard-grid{');
+console.log(css.slice(j, j + 200));
+const k = css.indexOf('@media');
+console.log('--- media queries ---');
+for (const m of css.matchAll(/@media[^{]+\{[\s\S]{0,160}?dashboard-grid[^}]*\}/g)) console.log(m[0].replace(/\s+/g,' ').slice(0,200));

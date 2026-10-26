@@ -1,0 +1,13 @@
+toolchain/
+downloads/
+build/
+dist/
+backups/
+artifacts/
+.signing/
+.browser-profile/
+*.log
+*.bak-r*
+*.tmp
+Thumbs.db
+.DS_Store

@@ -1,0 +1,10 @@
+﻿import fs from 'node:fs';
+let html=fs.readFileSync('app/src/main/assets/index.html','utf8');
+const from='<div class="card-heading"><h2>体重变化</h2>';
+if(html.split(from).length-1!==1) throw new Error('anchor missing');
+html=html.replace(from, from+'<p class="chart-note" id="trend-weekly" hidden></p>');
+fs.writeFileSync('app/src/main/assets/index.html', html);
+let css=fs.readFileSync('app/src/main/assets/styles.css','utf8');
+css += '\n.chart-mean{stroke-dasharray:5 4;opacity:.75}\n.chart-note{margin:2px 0 6px;font-size:12px;opacity:.85}\n';
+fs.writeFileSync('app/src/main/assets/styles.css', css);
+console.log('trend weekly note wired');

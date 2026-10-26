@@ -1,0 +1,10 @@
+﻿import fs from 'node:fs';
+const file = 'app/src/main/assets/styles.css';
+let css = fs.readFileSync(file, 'utf8');
+const from = 'background:#d8e6d5;box-shadow:inset 0 0 0 1px #bfd5bb';
+const to = 'background:#c9dfc4;box-shadow:inset 0 0 0 1px #a6c4a1';
+if (!css.includes(from)) throw new Error('anchor missing');
+css = css.replace(from, to);
+css = css.replace('.diet-band{position:absolute;top:0;bottom:0', '.diet-band{position:absolute;top:-1px;bottom:-1px');
+fs.writeFileSync(file, css);
+console.log('band strengthened');

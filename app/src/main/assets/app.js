@@ -1,0 +1,5398 @@
+/* Fragment of assets/app.js -- assembled by tools/assemble-app.ps1 in filename order.
+ * Edit this file, never the generated assets/app.js; tests/app-fragments.test.mjs fails on drift. */
+'use strict';
+(() => {
+  const $ = (selector, root = document) => root.querySelector(selector);
+  const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+  const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+  const number = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)) ? Number(value) : null;
+  const fmt = (value, digits = 1) => number(value) === null ? '—' : Number(value).toLocaleString('zh-CN', {maximumFractionDigits:digits});
+  const localDate = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+  /** Moves a YYYY-MM-DD key by whole days in local time; returns the input when it is not a date. */
+  function shiftDate(day, delta) {
+    if (!validDate(day)) return day;
+    const [year, month, date] = day.split('-').map(Number);
+    const moved = new Date(year, month - 1, date + delta);
+    const pad = value => String(value).padStart(2, '0');
+    return `${moved.getFullYear()}-${pad(moved.getMonth() + 1)}-${pad(moved.getDate())}`;
+  }
+  const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value || '') && Number.isFinite(Date.parse(`${value}T00:00:00Z`));
+  const dayTime = value => validDate(value) ? Date.parse(`${value}T00:00:00Z`) : NaN;
+  /** Calendar-day shift used by the copy-a-meal and daily-three helpers. */
+  const shiftDay = (value, days) => {const date = new Date(`${value}T12:00:00`); date.setDate(date.getDate() + days); return localDate(date);};
+  const mealNames = {breakfast:'早餐',lunch:'午餐',dinner:'晚餐',snack:'加餐'};
+  let state = {profile:{},measurements:[],meals:[],habits:[],settings:{}};
+  let loaded = false, settingsKnown = false, imageData = null, imageBusy = false, imageVersion = 0, draft = null, estimateBusy = false, savingDraft = false, requestRevision = 0;
+  let lastCaptureId = '';
+  let mealPhotoMeta = {photoTakenAt:null,photoTimeSource:'unknown'}, chatPhotoMeta = {photoTakenAt:null,photoTimeSource:'unknown'};
+  /**
+   * Runs a promise with a hard time limit. Used for native permission checks: a route that never
+   * returns must not leave a page waiting forever, which is what a frozen wizard looks like.
+   */
+  function withTimeout(promise, ms, label) {
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        (window.__perfLog = window.__perfLog || []).push({label: label || 'timeout', ms, at: Date.now()});
+        console.info('[timeout]', label, ms);
+        resolve({timeout: true});
+      }, ms);
+      Promise.resolve(promise).then(value => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(value);
+      }, error => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        reject(error);
+      });
+    });
+  }
+  function photoMeta(value) {
+    const source = ['camera','exif','exif-local'].includes(value?.photoTimeSource) ? value.photoTimeSource : 'unknown';
+    const raw = value?.photoTakenAt;
+    const time = source !== 'unknown' && typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(raw) && Number.isFinite(Date.parse(raw)) ? raw : null;
+    return {photoTakenAt:time,photoTimeSource:time ? source : 'unknown'};
+  }
+  function photoTimeLabel(meta) {
+    return meta?.photoTakenAt ? `拍摄时间：${new Date(meta.photoTakenAt).toLocaleString('zh-CN')}${meta.photoTimeSource === 'exif-local' ? '（原照片未注明时区，按本机时区解释，请核对）' : ''}` : '拍摄时间未知；请手动核对饮食日期，不以导入时间代替拍摄时间。';
+  }
+  function showPhotoTime(target, meta) {
+    const node = $(`#${target}-photo-time`); if (node) node.textContent = photoTimeLabel(meta);
+  }
+  // ---- Meal time ------------------------------------------------------------------------------
+  // The meal time is when the food was eaten, which is not the same as when the photo was taken or
+  // when the record was written. Defaults run from strongest evidence to weakest: the photo's own
+  // wall clock, then a time mentioned in the description, then the moment of recording.
+  const clockPattern = /^([01]\d|2[0-3]):[0-5]\d$/;
+  const mealSlotClock = {breakfast:'07:30', lunch:'12:30', dinner:'18:30', snack:'15:30'};
+  const nowClock = () => {const d = new Date(); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;};
+  /** The wall clock written on the photo: an offset in the string is the camera's own zone. */
+  function photoWallClock(meta) {
+    const iso = meta?.photoTakenAt;
+    if (typeof iso !== 'string' || iso.length < 16) return null;
+    const clock = iso.slice(11, 16);
+    return clockPattern.test(clock) ? clock : null;
+  }
+  /** Spoken Chinese numerals, e.g. 「早上七点」「晚上十点半」. */
+  function chineseHour(text) {
+    const digits = {一:1,两:2,二:2,三:3,四:4,五:5,六:6,七:7,八:8,九:9,十:10};
+    if (!text) return null;
+    if (text.includes('十')) {
+      const parts = text.split('十');
+      const tens = parts[0] === '' ? 1 : (digits[parts[0]] ?? null);
+      const ones = parts[1] === '' || parts[1] === undefined ? 0 : (digits[parts[1]] ?? null);
+      if (tens === null || ones === null) return null;
+      return tens * 10 + ones;
+    }
+    return digits[text] ?? null;
+  }
+  /** 上午/下午/晚上/凌晨 around a stated hour. */
+  function adjustHour(hour, before) {
+    if (/下午|晚上|傍晚|夜/.test(before) && hour < 12) return hour + 12;
+    if (/凌晨/.test(before) && hour === 12) return 0;
+    return hour;
+  }
+  /** A time the user wrote in the description, e.g. "12:30 吃了…", "早上七点", "晚上". */
+  function clockFromText(text) {
+    const value = String(text || '');
+    const explicit = value.match(/(\d{1,2})\s*[:：点时]\s*(\d{1,2})?/);
+    if (explicit) {
+      const before = value.slice(Math.max(0, explicit.index - 4), explicit.index);
+      const hour = adjustHour(Number(explicit[1]), before);
+      const minute = explicit[2] === undefined || explicit[2] === '' ? 0 : Number(explicit[2]);
+      if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) return `${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}`;
+    }
+    const spoken = value.match(/([一二两三四五六七八九十]{1,3})\s*[点时]/);
+    if (spoken) {
+      const before = value.slice(Math.max(0, spoken.index - 4), spoken.index);
+      const hour = chineseHour(spoken[1]);
+      if (hour !== null && hour <= 23) {
+        const adjusted = adjustHour(hour, before);
+        if (adjusted >= 0 && adjusted <= 23) return `${String(adjusted).padStart(2,'0')}:00`;
+      }
+    }
+    if (/凌晨/.test(value)) return '05:00';
+    if (/早上|早晨|早餐/.test(value)) return '07:30';
+    if (/上午/.test(value)) return '10:00';
+    if (/中午|午餐|午饭/.test(value)) return '12:30';
+    if (/下午/.test(value)) return '15:30';
+    if (/夜宵|宵夜|深夜/.test(value)) return '22:00';
+    if (/晚上|晚餐|晚饭|傍晚/.test(value)) return '18:30';
+    return null;
+  }
+  function defaultMealTime(photo, text, mealType) {
+    const fromPhoto = photoWallClock(photo);
+    if (fromPhoto) return {mealTime:fromPhoto, mealTimeSource:'photo'};
+    const fromText = clockFromText(text);
+    if (fromText) return {mealTime:fromText, mealTimeSource:'text'};
+    return {mealTime:nowClock(), mealTimeSource:'now', typical:mealSlotClock[mealType] || null};
+  }
+  function mealTimeNote(meal) {
+    const source = meal?.mealTimeSource;
+    if (source === 'photo') return '默认取照片的拍摄时刻；如果实际进餐时间不同，请在这里改。';
+    if (source === 'text') return '按描述里提到的时间填写；如果不对，请在这里改。';
+    if (source === 'manual') return '已手动确认的进餐时间。';
+    if (source === 'typical') return '没有拍摄时间，先按餐次的常见时段填写；请确认真实进餐时间。';
+    return '没有拍摄时间，也没有描述里的时间，先按记录时刻填写；请确认后保存。';
+  }
+
+  let activeDate = localDate();
+  let lastObservedToday = activeDate;
+  function syncCalendarDay() {
+    const today = localDate();
+    if (today === lastObservedToday) return;
+    // Follow the clock only while viewing the former today; intentional history selections stay put.
+    if (activeDate === lastObservedToday) {activeDate = today; $('#active-date').value = today; setDefaultDates(); if (loaded) render();}
+    lastObservedToday = today;
+  }
+  let noticeTimer = null;
+  /** Hides the notice and lets the page flow back up (it sits in the document flow, not as an overlay). */
+  function hideNotice() {
+    const node = $('#global-notice'), text = $('#global-notice-text');
+    if (noticeTimer) { clearTimeout(noticeTimer); noticeTimer = null; }
+    if (text) text.textContent = '';
+    if (node) node.hidden = true;
+  }
+  const notice = (message, error = false) => {
+    const node = $('#global-notice'), text = $('#global-notice-text');
+    if (!node || !text) return;
+    text.textContent = message;
+    node.classList.toggle('error', error);
+    node.hidden = !message;
+    if (noticeTimer) { clearTimeout(noticeTimer); noticeTimer = null; }
+    // A notice used to stay until the next action, pushing the page down the whole time.
+    if (message) noticeTimer = setTimeout(hideNotice, 10000);
+  };
+  const feedback = (node, message, error = false) => {if (!node) return; node.textContent = message; node.className = `form-feedback ${error ? 'error' : 'success'}`;};
+  let fieldErrorSequence = 0;
+  function clearFieldError(field) {
+    if (!field?.removeAttribute) return;
+    const errorId = field.dataset?.validationErrorId;
+    if (errorId) {
+      document.getElementById(errorId)?.remove();
+      delete field.dataset.validationErrorId;
+      const ids = (field.getAttribute('aria-describedby') || '').split(/\s+/).filter(id => id && id !== errorId);
+      if (ids.length) field.setAttribute('aria-describedby', ids.join(' '));
+      else field.removeAttribute('aria-describedby');
+    }
+    field.removeAttribute('aria-invalid');
+  }
+  /** 把浏览器的 validity 状态译成中文：validationMessage 跟系统语言走，不可靠。 */
+  function fieldMessage(field) {
+    const v = (field && field.validity) || {};
+    if (v.valueMissing) return field.type === 'checkbox' ? '这一项需要先勾选。' : '这一项还没填。';
+    if (v.badInput) return '这个值不是有效的数字。';
+    if (v.rangeUnderflow) return field.min !== '' ? '不能小于 ' + field.min + '。' : '这个值偏小。';
+    if (v.rangeOverflow) return field.max !== '' ? '不能大于 ' + field.max + '。' : '这个值偏大。';
+    if (v.stepMismatch) return '请按 ' + field.step + ' 的步长填写。';
+    if (v.tooShort) return '至少需要 ' + field.minLength + ' 个字。';
+    if (v.tooLong) return '最多 ' + field.maxLength + ' 个字。';
+    if (v.patternMismatch || v.typeMismatch) return '格式不对，请检查一下。';
+    return '请检查这一项。';
+  }
+  function markFieldInvalid(field, message) {
+    if (!field || field.disabled) return;
+    clearFieldError(field);
+    if (!field.id) field.id = `validation-field-${++fieldErrorSequence}`;
+    const errorId = `${field.id}-error-${++fieldErrorSequence}`;
+    const error = document.createElement('span');
+    error.id = errorId;
+    error.className = 'field-error';
+    error.textContent = message || fieldMessage(field);
+    const label = field.closest('label');
+    if (label) label.append(error);
+    else field.insertAdjacentElement('afterend', error);
+    const ids = (field.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean);
+    field.setAttribute('aria-describedby', [...new Set([...ids, errorId])].join(' '));
+    field.setAttribute('aria-invalid', 'true');
+    field.dataset.validationErrorId = errorId;
+  }
+  document.addEventListener('invalid', event => {
+    const field = event.target;
+    if (!field?.matches?.('input,select,textarea')) return;
+    // reportValidity() 会同时弹系统气泡；留下我们自己的行内提示就够了。
+    event.preventDefault();
+    markFieldInvalid(field, fieldMessage(field));
+  }, true);
+  for (const type of ['input', 'change']) document.addEventListener(type, event => {
+    const field = event.target;
+    if (field?.matches?.('input,select,textarea') && field.getAttribute('aria-invalid') === 'true') clearFieldError(field);
+  });
+  // In-app replacement for window.confirm(): the WebView would show a browser-style prompt.
+  let dialogResolve = null;
+  function askConfirm(text, options = {}) {
+    const root = $('#app-dialog');
+    if (!root) return Promise.resolve(false);
+    if (dialogResolve) dialogResolve(false);
+    $('#app-dialog-title').textContent = options.title || '请确认';
+    $('#app-dialog-text').textContent = text;
+    $('#app-dialog-ok').textContent = options.ok || '确定';
+    $('#app-dialog-cancel').textContent = options.cancel || '取消';
+    $('.app-dialog-panel', root).classList.toggle('danger', options.danger === true);
+    root.hidden = false;
+    $('#app-dialog-cancel').focus();
+    return new Promise(resolve => {dialogResolve = resolve;});
+  }
+  function closeDialog(result) {
+    const root = $('#app-dialog'); if (root) root.hidden = true;
+    const resolve = dialogResolve; dialogResolve = null;
+    if (resolve) resolve(result);
+  }
+  async function api(path, body, method) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 90000);
+    try {
+      const response = await fetch(path, {method:method || (body === undefined ? 'GET' : 'POST'), headers:body === undefined ? {'Accept':'application/json'} : {'Accept':'application/json','Content-Type':'application/json'}, body:body === undefined ? undefined : JSON.stringify(body), cache:'no-store', signal:controller.signal});
+      let data = null;
+      if (response.status !== 204) {
+        const text = await response.text();
+        if (text) { try {data = JSON.parse(text);} catch {if (response.ok) throw new Error('手机返回的数据无法读取，请重新打开应用。');} }
+      }
+      if (!response.ok) throw new Error(data?.error || `请求未成功（${response.status}）。请检查输入或手机本地存储后重试。`);
+      return data;
+    } catch (error) {
+      if (error.name === 'AbortError') throw new Error('请求超时。保存操作可能已写入手机，请先刷新检查记录，避免重复提交。');
+      if (error instanceof TypeError) throw new Error('无法读取手机存储。请重新打开应用；本地记录不需要网络。');
+      throw error;
+    } finally {clearTimeout(timer);}
+  }
+  // ---- Bottom sheet ---------------------------------------------------------------------------
+  // The platform draws <select> as a plain white dialog with system radio buttons, which clashes
+  // with this app, and a long-press needs a place for its actions. Both use one sheet built from
+  // the app's own tokens: same radii, same mint accents, same list rows.
+  let sheetResolve = null;
+  // Inline SVG copies of the semantic icons (currentColor). Loaded via <img> an SVG cannot inherit
+  // the page colour and renders black; inline markup follows the surrounding CSS colour instead.
+  const svgIcon = paths => `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><g stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths}</g></svg>`;
+  const SVG_ICONS = {
+    'icon-copy.svg': svgIcon('<rect x="8.5" y="8.5" width="11" height="12" rx="2.5"/><path d="M15.5 5.5H7A2.5 2.5 0 0 0 4.5 8v9"/>'),
+    'icon-select.svg': svgIcon('<path d="M12 5v14M9.5 5h5M9.5 19h5"/>'),
+    'icon-bookmark.svg': svgIcon('<path d="M7 4.5h10a1 1 0 0 1 1 1V20l-6-4-6 4V5.5a1 1 0 0 1 1-1Z"/>'),
+    'icon-trash.svg': svgIcon('<path d="M4.5 7h15"/><path d="M9 7V4.5h6V7"/><path d="M6.5 7l1 12.5h9L17.5 7"/><path d="M10.5 10.5v6M13.5 10.5v6"/>'),
+    'icon-check.svg': svgIcon('<path d="m5 12.5 4.5 4.5L19 7"/>'),
+    'icon-nutrient-protein.svg': svgIcon('<ellipse cx="12" cy="12.5" rx="6" ry="8"/>'),
+    'icon-nutrient-fat.svg': svgIcon('<path d="M12 3c4.5 4.9 6.5 8.5 6.5 11a6.5 6.5 0 0 1-13 0c0-2.5 2-6.1 6.5-11Z"/>'),
+    'icon-nutrient-carb.svg': svgIcon('<path d="M4.5 11.5h15a7.5 7.5 0 0 1-15 0Z"/><path d="M8 19.5h8"/><path d="M15.5 9.5l5-5.5"/>'),
+    'icon-energy.svg': svgIcon('<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5Z"/>'),
+    'icon-weight.svg': svgIcon('<path d="M8 3h8a5 5 0 0 1 5 5v8a5 5 0 0 1-5 5H8a5 5 0 0 1-5-5V8a5 5 0 0 1 5-5Z"/><path d="M8 15.5a4.5 4.5 0 0 1 8 0"/><path d="M12 12.5V9.5"/>'),
+    'icon-training.svg': svgIcon('<path d="M7 6v12M4 8.5v7M17 6v12M20 8.5v7M7 12h10"/>'),
+    'icon-sleep.svg': svgIcon('<path d="M20 14.7A8.4 8.4 0 0 1 9.3 4a8.6 8.6 0 1 0 10.7 10.7Z"/>'),
+    'icon-water.svg': svgIcon('<path d="M6 3.5h12l-1.5 15a1.5 1.5 0 0 1-1.5 1.5h-6a1.5 1.5 0 0 1-1.5-1.5Z"/><path d="M6.8 12.5h10.4"/>'),
+    'icon-warn.svg': svgIcon('<path d="M10.2 4.1a2.1 2.1 0 0 1 3.6 0l6.3 11a2.1 2.1 0 0 1-1.8 3.1H5.7a2.1 2.1 0 0 1-1.8-3.1Z"/><path d="M12 9v4"/><path d="M12 16.4h.01"/>'),
+    'icon-tip.svg': svgIcon('<circle cx="12" cy="10" r="5.5"/><path d="M9.5 18h5M10.5 21h3"/><path d="M12 3v2"/>'),
+    'icon-sparkle.svg': svgIcon('<path d="M12 3c.8 5.2 3 7.4 8.2 8.2-5.2.8-7.4 3-8.2 8.2-.8-5.2-3-7.4-8.2-8.2C9 10.4 11.2 8.2 12 3Z"/>'),
+    'icon-habit-training.svg': svgIcon('<path d="M4 9v6M20 9v6M7 12h10M7 8v8M17 8v8"/>'),
+    'icon-habit-steps.svg': svgIcon('<path d="M7 19.5c-1.6 0-2.4-1.2-2.4-3 0-2.1 1-3.5 2.1-4.4.9-.8 1.5-1.5 1.7-2.8.1-.9.6-1.4 1.3-1.4 1 0 1.5.8 1.3 2-.2 1.4-.8 2.3-.8 3.3 0 .9.5 1.4 1.4 1.9 1.1.6 1.7 1.5 1.7 2.7 0 1.5-1 2.7-2.7 2.7"/><path d="M5.2 16.8h4.2"/>'),
+    'icon-habit-sleep.svg': svgIcon('<path d="M19.5 14.3A8 8 0 0 1 9.7 4.5a8.2 8.2 0 1 0 9.8 9.8z"/>'),
+    'icon-habit-water.svg': svgIcon('<path d="M12 4s5 5.2 5 8.8A5 5 0 0 1 12 17.8a5 5 0 0 1-5-5C7 9.2 12 4 12 4z"/><path d="M9.8 13c0 1.5 1 2.4 2.2 2.4"/>'),
+    'icon-meal.svg': svgIcon('<path d="M9.5 4.5c.9.9.9 1.9 0 2.8M14.5 4.5c.9.9.9 1.9 0 2.8"/><path d="M4.5 11h15a7.5 7.5 0 0 1-15 0Z"/><path d="M9.5 19.5h5"/>'),
+    'icon-camera-flat.svg': svgIcon('<path d="M4.5 8.5a2 2 0 0 1 2-2h1.6l1.3-2h5.2l1.3 2h1.6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2Z"/><circle cx="12" cy="12.4" r="3.4"/>'),
+  };
+  /** Inline markup for a named icon; falls back to the <img> tag for skeleton icons. */
+  const iconMarkup = name => SVG_ICONS[name] || `<img src="./${esc(name)}" alt="" width="19" height="19">`;
+  function sheetOpen() {const root = $('#action-sheet'); return !!root && !root.hidden;}
+  function openSheet(config) {
+    const root = $('#action-sheet');
+    if (!root) return Promise.resolve(null);
+    clearSelectionMode();
+    if (sheetResolve) {const previous = sheetResolve; sheetResolve = null; previous(null);}
+    $('#action-sheet-title').textContent = config?.title || '';
+    $('#action-sheet-list').innerHTML = (config?.options || []).map((option, index) =>
+      `<button type="button" class="sheet-option${option.current ? ' is-current' : ''}${option.danger ? ' is-danger' : ''}" data-sheet-index="${index}" role="menuitem">`
+      + `<span class="sheet-option-icon" aria-hidden="true">${option.icon ? iconMarkup(option.icon) : ''}</span>`
+      + `<span class="sheet-option-label">${esc(option.label)}</span>`
+      + `${option.current ? `<span class="inline-icon" aria-hidden="true">${SVG_ICONS['icon-check.svg']}</span>` : ''}</button>`).join('');
+    root.hidden = false;
+    return new Promise(resolve => {sheetResolve = resolve;});
+  }
+  function closeSheet(result) {
+    const root = $('#action-sheet');
+    if (root) root.hidden = true;
+    const resolve = sheetResolve; sheetResolve = null;
+    if (resolve) resolve(result === undefined ? null : result);
+  }
+  $('#action-sheet').addEventListener('click', event => {
+    if (event.target === $('#action-sheet')) {closeSheet(null); return;}
+    const option = event.target.closest('[data-sheet-index]');
+    if (!option) return;
+    closeSheet(Number(option.dataset.sheetIndex));
+  });
+  $('#action-sheet-cancel').addEventListener('click', () => closeSheet(null));
+  document.addEventListener('keydown', event => {if (event.key === 'Escape' && sheetOpen()) closeSheet(null);});
+
+  // ---- Custom dropdown -------------------------------------------------------------------------
+  /** The label text that belongs to a control, taken from its own label's text node. */
+  function fieldLabelFor(control) {
+    const label = control.closest('label');
+    if (!label) return '请选择';
+    const text = [...label.childNodes].find(node => node.nodeType === 3 && node.textContent.trim());
+    return text ? text.textContent.trim().replace(/[·：:]$/, '') : '请选择';
+  }
+  async function chooseFromSelect(select) {
+    if (sheetOpen()) return;
+    const options = [...select.options].map((option, index) => ({
+      label: option.textContent.trim(), current: option.value === select.value, disabled: option.disabled, index,
+    }));
+    const choice = await openSheet({title: fieldLabelFor(select), options});
+    if (choice === null) return;
+    const option = select.options[choice];
+    if (!option || option.disabled) return;
+    if (option.value === select.value) return;
+    select.value = option.value;
+    // Existing handlers (provider switch, trend range, goal) all listen for change.
+    select.dispatchEvent(new Event('change', {bubbles: true}));
+  }
+  // touchstart is what reliably suppresses the platform popup on Android; mousedown covers mice.
+  document.addEventListener('touchstart', event => {
+    const select = event.target.closest?.('select');
+    if (!select) return;
+    event.preventDefault();
+    chooseFromSelect(select).catch(() => {});
+  }, {passive: false});
+  document.addEventListener('mousedown', event => {
+    const select = event.target.closest?.('select');
+    if (!select) return;
+    event.preventDefault();
+    chooseFromSelect(select).catch(() => {});
+  });
+  document.addEventListener('keydown', event => {
+    if (!['Enter', ' ', 'ArrowDown', 'ArrowUp'].includes(event.key)) return;
+    const select = event.target.closest?.('select');
+    if (!select) return;
+    event.preventDefault();
+    chooseFromSelect(select).catch(() => {});
+  });
+
+  // ---- Long-press actions ----------------------------------------------------------------------
+  const LONG_PRESS_MS = 520;
+  let pressTimer = null, pressRow = null, pressMoved = false;
+
+  function copyText(text) {
+    const value = String(text || '');
+    if (!value) return false;
+    try {
+      const bridge = window.QinghengNative;
+      if (bridge && typeof bridge.copyText === 'function' && bridge.copyText(value) === true) {notice('已复制到剪贴板。'); return true;}
+    } catch {}
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(value).then(() => notice('已复制到剪贴板。')).catch(() => notice('复制失败，可用「选择文字」后手动复制。', true));
+        return true;
+      }
+    } catch {}
+    notice('当前环境不能直接复制，可用「选择文字」后手动复制。', true);
+    return false;
+  }
+  // Chromium still starts its own word selection on a long press even with user-select:none, which
+  // puts a system toolbar on top of the sheet. A selection that starts inside a long-pressable row
+  // is therefore collapsed at once, unless the user explicitly asked for "选择文字".
+  let allowSelection = false;
+  document.addEventListener('selectionchange', () => {
+    if (allowSelection) return;
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed) return;
+    const node = selection.anchorNode;
+    const element = node && (node.nodeType === 1 ? node : node.parentElement);
+    if (element && element.closest && element.closest('[data-long-press]')) {
+      try {selection.removeAllRanges();} catch {}
+    }
+  });
+  function clearSelectionMode() {
+    allowSelection = false;
+    if (typeof $$ === 'function') $$('.is-selecting').forEach(row => row.classList.remove('is-selecting'));
+    stopCollapse();
+  }
+  /**
+   * Chromium's long-press gesture selects a word even where user-select is none, and the system
+   * toolbar then floats above the sheet. Collapsing that selection for a short, bounded window
+   * keeps the popup away and never touches a selection the user explicitly asked for.
+   */
+  let collapseTimer = null;
+  function stopCollapse() {if (collapseTimer) {clearInterval(collapseTimer); collapseTimer = null;}}
+  function collapseRowSelectionSoon(windowMs) {
+    if (collapseTimer) return;
+    const until = Date.now() + (windowMs || 1500);
+    collapseTimer = setInterval(() => {
+      if (allowSelection || Date.now() > until) {stopCollapse(); return;}
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed) return;
+      const node = selection.anchorNode;
+      const element = node && (node.nodeType === 1 ? node : node.parentElement);
+      if (element && element.closest && element.closest('[data-long-press]')) {
+        try {selection.removeAllRanges();} catch {}
+      }
+    }, 40);
+  }
+  /** Hands the row over to the platform's own selection handles, which is what "选择文字" means here. */
+  function selectRowText(row) {
+    try {
+      clearSelectionMode();
+      allowSelection = true;
+      row.classList.add('is-selecting');
+      const body = row.querySelector('.row-body') || row;
+      if (!body.hasAttribute('tabindex')) body.setAttribute('tabindex', '-1');
+      body.focus({preventScroll: true});
+      const range = document.createRange();
+      range.selectNodeContents(body);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      notice('已选中内容，可用系统菜单复制。');
+    } catch {notice('无法进入选择模式，请改用「复制文本」。', true);}
+  }
+  const chatRecordText = row => `问：${row.question || ''}\n答：${row.answer || ''}\n（${row.date || ''}）`;
+  const mealRecordText = row => {
+    const parts = [row.name || '未命名餐食', row.date || '', clockPattern.test(String(row.mealTime || '')) ? row.mealTime : '', mealNames[row.mealType] || '']
+      .filter(Boolean).join(' · ');
+    return `${parts}\n热量 ${fmt(row.calories, 0)} kcal · 蛋白 ${fmt(row.protein)}g · 脂肪 ${fmt(row.fat)}g · 碳水 ${fmt(row.carbs)}g`;
+  };
+  async function toggleFavorite(kind, record) {
+    const next = {...record, favorite: record.favorite !== true};
+    try {
+      await api(kind === 'chat' ? '/api/chats' : '/api/meals', next);
+      await loadState({quiet: true});
+      notice(next.favorite ? '已收藏，可用「只看收藏」筛选。' : '已取消收藏。');
+    } catch (error) {notice(error.message, true);}
+  }
+  async function showRowActions(row) {
+    const [kind, id] = String(row.dataset.longPress || '').split(':');
+    const record = kind === 'chat'
+      ? (state.chats || []).find(item => String(item.id) === id)
+      : (state.meals || []).find(item => String(item.id) === id);
+    if (!record) return;
+    const favorite = record.favorite === true;
+    const choice = await openSheet({
+      title: kind === 'chat' ? '问答记录' : (record.name || '餐食记录'),
+      options: [
+        {label: '复制文本', icon: 'icon-copy.svg'},
+        {label: '选择文字', icon: 'icon-select.svg'},
+        {label: favorite ? '取消收藏' : '收藏', icon: 'icon-bookmark.svg'},
+        {label: '删除', icon: 'icon-trash.svg', danger: true},
+      ],
+    });
+    if (choice === null) return;
+    if (choice === 0) {copyText(kind === 'chat' ? chatRecordText(record) : mealRecordText(record)); return;}
+    if (choice === 1) {selectRowText(row); return;}
+    if (choice === 2) {await toggleFavorite(kind, record); return;}
+    if (choice === 3) {
+      const label = kind === 'chat' ? '这条问答记录' : (record.name || '这条餐食记录');
+      if (!await askConfirm(`删除${label}？此操作无法撤销。`, {title: '删除记录', ok: '删除', danger: true})) return;
+      try {
+        await api(`/api/${kind === 'chat' ? 'chatlog' : 'meals'}/${encodeURIComponent(id)}`, undefined, 'DELETE');
+        await loadState({quiet: true});
+        notice('已删除。');
+      } catch (error) {notice(error.message, true);}
+    }
+  }
+  function cancelPress() {if (pressTimer) {clearTimeout(pressTimer); pressTimer = null;} pressRow = null;}
+  document.addEventListener('touchstart', event => {
+    const row = event.target.closest?.('[data-long-press]');
+    if (!row) return;
+    pressMoved = false; pressRow = row;
+    cancelPress();
+    pressRow = row;
+    pressTimer = setTimeout(() => {pressTimer = null; if (!pressMoved && pressRow) {collapseRowSelectionSoon(); showRowActions(pressRow).catch(() => {});}}, LONG_PRESS_MS);
+  }, {passive: true});
+  document.addEventListener('touchmove', () => {pressMoved = true; cancelPress();}, {passive: true});
+  ['touchend', 'touchcancel'].forEach(type => document.addEventListener(type, () => cancelPress(), {passive: true}));
+  // Long-pressing a link or a selection would otherwise show the browser's own menu.
+  document.addEventListener('contextmenu', event => {
+    const row = event.target.closest?.('[data-long-press]');
+    if (!row) return;
+    event.preventDefault();
+    collapseRowSelectionSoon();
+    showRowActions(row).catch(() => {});
+  });
+
+  function connection() {
+    const node = $('#connection-status');
+    if (!node) return;
+    const offline = !loaded;
+    const demo = loaded && !window.QinghengAdapter.hasNative();
+    node.classList.toggle('offline', offline);
+    // 常驻的「已保存到手机」没信息量（数据本来就在本机），刚好还会被误读成已备份到云。
+    // 只在「还没加载完」与「浏览器演示」这两种真需要说明的情况下才显示。
+    node.hidden = !offline && !demo;
+    node.textContent = offline ? '正在加载本地记录' : demo ? '浏览器本地演示' : '';
+  }
+  function populate(form, values) {for (const [key, value] of Object.entries(values || {})) {const control = form.elements.namedItem(key); if (!control || control.type === 'password' || control.type === 'checkbox') continue; control.value = value ?? '';}}
+  let selectedProvider = 'deepseek';
+  const consentStorageKey = 'qingheng.consent.onetime';
+  const consentIds = new Set(['advice','estimate','chat','ob-allow']);
+  function readConsent(){try{return new Set(JSON.parse(localStorage.getItem(consentStorageKey)||'[]').filter(x=>consentIds.has(x)));}catch{return new Set();}}
+  function persistConsent(ids){try{localStorage.setItem(consentStorageKey,JSON.stringify([...ids]));}catch{}}
+  // Consent rows stay visible: a remembered consent shows as a ticked box and unticking revokes it.
+  const consentBox=id=>document.getElementById(id==='ob-allow'?'ob-allow':id+'-consent');
+  function restoreConsent(){const ids=readConsent();for(const id of consentIds){const box=consentBox(id);if(!box)continue;box.checked=ids.has(id);const row=box.closest('[data-consent-once]');if(row)row.hidden=false;box.addEventListener('change',()=>{const next=readConsent();if(box.checked)next.add(id);else next.delete(id);persistConsent(next);});}}
+  function acceptConsent(id){const ids=readConsent();ids.add(id);persistConsent(ids);const box=consentBox(id);if(box)box.checked=true;}
+  const providerDrafts = {};
+  function captureProvider() {
+    const form=$('#settings-form');
+    providerDrafts[selectedProvider]={baseUrl:form.elements.baseUrl.value,model:form.elements.model.value,visionModel:form.elements.visionModel.value,visionEnabled:form.elements.visionEnabled.checked,allowExternal:form.elements.allowExternal.checked};
+  }
+  function showProvider(provider) {
+    selectedProvider=provider==='bai'?'bai':'deepseek';
+    const form=$('#settings-form'), config={...window.QinghengAdapter.defaults[selectedProvider],...(state.settings.providers?.[selectedProvider] || {}),...(providerDrafts[selectedProvider] || {})};
+    form.elements.provider.value=selectedProvider;
+    populate(form,config);form.elements.visionEnabled.checked=config.visionEnabled===true;
+    form.elements.allowExternal.checked=config.allowExternal===true;
+    form.elements.apiKey.value='';form.elements.clearKey.checked=false;
+    form.elements.model.placeholder=selectedProvider==='deepseek'?'deepseek-flash':'填写 B.AI 提供的文字模型';
+    $('#settings-status').textContent=config.apiConfigured ? '已配置 · 密钥不回传' : '此服务商未配置密钥';
+  }
+  function applySettings(data) {showProvider(data.provider || selectedProvider);}
+  /** Re-read the stored model config. Separate from loadState so records never clear it. */
+  async function refreshSettings() {
+    try {
+      const data = await api('/api/settings');
+      if (!data || typeof data !== 'object') return;
+      state.settings = {...(state.settings || {}), ...data};
+      if (typeof data.apiConfigured === 'boolean') settingsKnown = true;
+      applySettings(data); render();
+    // A subpage opened while data was still loading would otherwise keep its empty form.
+    const openSub = SUBPAGES.find(id => {const node = $('#subpage-' + id); return node && !node.hidden;});
+    if (openSub) showSubpage(openSub);
+    } catch { /* offline: keep the last known config */ }
+  }
+  $('#api-provider').addEventListener('change',event=>{captureProvider();showProvider(event.target.value);});
+  $('#connection-check').addEventListener('click', async event => {
+    if (!await askConfirm('检查已保存的服务商连接：仅发送 API Key 到已配置的 HTTPS 服务商，不发送图片或健康记录，不生成收费回答。请先保存连接设置。继续吗？', {title:'检查连接'})) return;
+    const button = event.currentTarget, message = $('#connection-check-feedback');
+    button.disabled = true; feedback(message,'正在检查 /models…');
+    try {
+      const result = await api('/api/connection-check',{allowExternal:true});
+      feedback(message, result.message + (result.visionModelListed ? ' 当前视觉模型在列表中。' : ' 当前视觉模型未在列表中，请核对名称。'));
+    } catch (error) {feedback(message,error.message,true);} finally {button.disabled = false;}
+  });
+  $('#key-info').addEventListener('click', async event => {
+    const button = event.currentTarget, box = $('#key-info-result');
+    button.disabled = true; box.textContent = '正在本机检查…';
+    try {
+      const data = await api('/api/key-info');
+      if (data?.configured !== true) {box.textContent = '当前服务商尚未保存 API Key。'; return;}
+      if (data?.unreadable === true) {box.textContent = '已保存的密钥无法由本机密钥库读取，请重新保存。'; return;}
+      const preview = typeof data.preview === 'string' && data.preview ? `预览 ${data.preview}` : '未显示内容预览';
+      box.textContent = `已保存 · 长度 ${number(data.length) ?? '—'} · ${preview}${data.cleaned === true ? '。检测到粘贴时带入的不可见字符，读取时已自动清理；建议重新复制完整密钥并保存。' : '。仅在本机检查，不发送也不显示完整密钥。'}`;
+    } catch (error) {box.textContent = error.message;}
+    finally {button.disabled = false;}
+  });
+  function searchFoods() {
+    const query = $('#food-search').value.trim(), library = window.QinghengFoods;
+    const matches = library ? library.search(query,8) : [];
+    $('#food-search-results').innerHTML = matches.map(row=>`<button type="button" class="food-result list-row" data-food-name="${esc(row.name)}"><span>${esc(row.name)}<small>${esc(row.category)} · ${esc(row.basis)} · 每100g</small></span><strong>${fmt(row.per100.calories,0)} kcal</strong></button>`).join('') || '<p class="fine-print">未找到匹配项，请使用食品包装信息或手动记录，不会擅自猜测。</p>';
+  }
+  $('#food-search').addEventListener('input',searchFoods);
+  $('#food-search-results').addEventListener('click',event=>{
+    const button = event.target.closest('[data-food-name]'); if(!button) return;
+    const name = button.dataset.foodName;
+    $('#meal-text').value = ($('#meal-text').value.trim() ? $('#meal-text').value.trim() + '、' : '') + name + ' 100g';
+    switchTab('records'); $('#meal-text').focus();
+    notice('已填入 '+name+' 100g 作为占位量，请替换成实际克重后估算。');
+  });
+  const offCell = value => (typeof value === 'number' && Number.isFinite(value)) ? String(Math.round(value * 10) / 10) : '—';
+  $('#off-search').addEventListener('click', async event => {
+    const button = event.currentTarget, query = $('#off-query').value.trim(), box = $('#off-results');
+    if (!query) {box.innerHTML = '<p class="fine-print">请先填写要搜索的食品或品牌。</p>'; return;}
+    if (!await askConfirm(`将把「${query}」发送给 Open Food Facts 查询包装食品营养（不发送你的健康记录）。继续吗？`, {title:'在线搜索'})) return;
+    button.disabled = true; box.innerHTML = '<p class="fine-print">正在查询…</p>';
+    try {
+      const data = await api('/api/food-search', {query, count:8, allowExternal:true});
+      const rows = Array.isArray(data?.results) ? data.results : [];
+      box.innerHTML = rows.length
+        ? `<p class="fine-print">找到 ${rows.length} 条（${esc(data.source || 'Open Food Facts')}，每 100g）：</p>` + rows.map(row => {
+            const p = row.per100 || {};
+            const kcal = offCell(p.calories);
+            const detail = `${esc(row.brand || '未标注品牌')}${row.quantity ? ' · ' + esc(row.quantity) : ''} · 蛋白 ${offCell(p.protein)}g · 脂肪 ${offCell(p.fat)}g · 碳水 ${offCell(p.carbs)}g`;
+            return `<button type="button" class="food-result list-row" data-off-name="${esc(row.name)}"><span>${esc(row.name)}<small>${detail}</small></span><strong>${kcal} kcal</strong></button>`;
+          }).join('')
+        : empty('没有匹配结果', '换个说法，或直接在描述里写明食物与克重。');
+      box.dataset.licence = data?.licence || '';
+    } catch (error) {box.innerHTML = `<p class="fine-print error">${esc(error.message)}</p>`;} finally {button.disabled = false;}
+  });
+  $('#off-results').addEventListener('click', event => {
+    const button = event.target.closest('[data-off-name]'); if (!button) return;
+    const name = button.dataset.offName;
+    $('#meal-text').value = ($('#meal-text').value.trim() ? $('#meal-text').value.trim() + '、' : '') + name + ' 100g';
+    $('#meal-text').focus();
+    notice('已填入「' + name + '」100g 作为占位量，请改成实际克重；营养值请以包装标签为准。');
+  });
+  $('#calibrate-foods').addEventListener('click',()=>{
+    if (!window.QinghengFoods) return;
+    try {
+      const data = window.QinghengFoods.calibrateDraft({items:readItems(true),notes:[]});
+      data.items.forEach((item,i)=>{
+        const row = $$('.estimate-item')[i];
+        for(const key of ['calories','protein','fat','carbs']) $('[data-item-field="'+key+'"]',row).value = item[key];
+        row.dataset.baseGrams = number(item.grams) ?? number($('[data-item-field="grams"]', row)?.value);
+        for(const key of nutritionKeys) {
+          const input = $('[data-item-field="'+key+'"]', row);
+          if (input) input.dataset.baseValue = number(input.value);
+        }
+      });
+      $('#estimate-notes').innerHTML = data.notes.map(note=>`<li>${esc(note)}</li>`).join('');
+      updatePreviewTotals(); feedback($('#preview-feedback'),'已按本地模型校核。菜品配方、油量和图片估计克重仍需人工确认。');
+    } catch(error){feedback($('#preview-feedback'),error.message,true);}
+  });
+  function setDefaultDates() { $$('[data-default-date]').forEach(input => input.value = activeDate); }
+  // ---- 用户偏好收编进 state.json：localStorage 保持即时缓存，导出/换机随之携带 ----------------------
+  let prefsSyncTimer = 0;
+  /** Collects the per-date AI plans (newest 10) from localStorage into one portable object. */
+  function collectedAiPlans() {
+    const plans = {};
+    try {
+      const prefix = 'qingheng.aiPlan.';
+      const keys = Object.keys(localStorage).filter(key => key.startsWith(prefix)).sort().slice(-10);
+      for (const key of keys) { try { plans[key.slice(prefix.length)] = JSON.parse(localStorage.getItem(key)); } catch { } }
+    } catch { }
+    return plans;
+  }
+  /** Debounced fire-and-forget write; a failed sync must never interrupt the user's action. */
+  function schedulePrefsSync(patch) {
+    try { clearTimeout(prefsSyncTimer); } catch { }
+    prefsSyncTimer = setTimeout(() => { api('/api/prefs', {prefs: patch}).catch(() => { }); }, 400);
+  }
+  /** Restores localStorage from state.prefs on load, so a fresh phone regains its preferences.
+   *  Uses the shared key constants (PLAN_PREFS_KEY / AI_PLAN_KEY) instead of new literals. */
+  function hydratePrefsFromState(data) {
+    const prefs = data && typeof data.prefs === 'object' && data.prefs !== null ? data.prefs : null;
+    if (!prefs) return;
+    try { if (prefs.planPrefs !== undefined && prefs.planPrefs !== null) localStorage.setItem(PLAN_PREFS_KEY, JSON.stringify(prefs.planPrefs)); } catch { }
+    try {
+      if (prefs.aiPlans && typeof prefs.aiPlans === 'object') {
+        for (const [date, plan] of Object.entries(prefs.aiPlans)) localStorage.setItem(AI_PLAN_KEY(date), JSON.stringify(plan));
+      }
+    } catch { }
+  }
+  async function loadState(options = {}) {
+    const revision = ++requestRevision;
+    try {
+      const data = await api('/api/state');
+      if (!data || !data.profile || !Array.isArray(data.measurements) || !Array.isArray(data.meals) || !Array.isArray(data.habits)) throw new Error('手机本地数据结构不完整，请检查备份或重新打开应用。');
+      if (revision !== requestRevision) return;
+      // /api/state carries records only. Replacing settings with {} here used to erase the
+      // saved model config, which silently disabled photo analysis until the app restarted.
+      const keptSettings = (state && typeof state.settings === 'object' && state.settings) || {};
+      state = {...data, settings: (data.settings && typeof data.settings === 'object') ? data.settings : keptSettings}; loaded = true;
+      settingsKnown = typeof state.settings.apiConfigured === 'boolean';
+      hydratePrefsFromState(state);
+      if (options.populate !== false) {populate($('#profile-form'), state.profile); applySettings(state.settings);
+        const weightField = $('#profile-form').elements.weight;
+        if (weightField && !weightField.value) weightField.value = latestWeight() || '';
+      }
+      render(); connection();
+      renderUndatedMeals();
+      if (!options.quiet) notice('');
+      const repair = state.mealDateRepair;
+      if (repair && number(repair.count) > 0) {
+        const key = `qingheng.mealdate.${repair.at || repair.count}`;
+        let seen = false;
+        try {seen = localStorage.getItem(key) === '1';} catch {}
+        if (!seen) {
+          try {localStorage.setItem(key, '1');} catch {}
+          notice(`已为 ${fmt(repair.count, 0)} 条缺少日期的餐食按拍摄时间或记录时间补上日期，请核对记录。`);
+        }
+      }
+      if (!state.onboardingDone && number((state.profile || {}).height) === null && !options.skipOnboarding) showOnboarding(true);
+      if (options.offerTargetAdjustment !== false) setTimeout(() => {maybeOfferTargetAdjustment().catch(() => {});}, 0);
+    } catch (error) {loaded = false; connection(); notice(error.message,true); throw error;}
+  }
+  // ---- Profile hub and its sub-pages -----------------------------------------------------------
+  // "我的" is a list of entries; each one opens a sub-page under #profile/<name>. Everything stays
+  // in the document, so forms, validation, collapse state and existing test anchors are untouched.
+  const SUBPAGES = ['targets', 'model', 'push', 'data', 'about'];
+  function parseHash() {
+    const parts = String(location.hash || '').replace(/^#/, '').split('/');
+    const tab = ['today','records','chat','trends','profile'].includes(parts[0]) ? parts[0] : '';
+    const sub = SUBPAGES.includes(parts[1]) ? parts[1] : '';
+    return {tab, sub};
+  }
+  function showSubpage(sub) {
+    const hub = $('#profile-hub');
+    if (hub) hub.hidden = !!sub;
+    SUBPAGES.forEach(id => {const node = $('#subpage-' + id); if (node) node.hidden = id !== sub;});
+    // The storage panel is the only card that needs a read when it appears.
+    if (sub === 'about') {loadStorageStatus(false).catch(() => {}); loadVersions().catch(() => {});}
+    // 每日推送与建议 must open on today's advice, not on an empty query form.
+    if (sub === 'push') {loadTodayAdvice().catch(() => {});}
+    if (sub) window.scrollTo({top:0, behavior:'auto'});
+  }
+  function openSubpage(id) {
+    if (!SUBPAGES.includes(id)) return;
+    // pushState gives the system back button something to return to.
+    try {history.pushState(null, '', `#profile/${id}`);} catch {location.hash = `profile/${id}`;}
+    switchTab('profile', false, id);
+  }
+  const TAB_ORDER = ['today','records','chat','trends','profile'];
+  let lastShownTab = '';
+  function switchTab(tab, moveFocus = false, sub = '') {
+  document.documentElement.dataset.tab = tab;
+  if (typeof applySkin === 'function') applySkin(document.documentElement.dataset.skinChoice || 'paper', false);
+    if (!TAB_ORDER.includes(tab)) tab = 'today';
+    const dir = lastShownTab ? TAB_ORDER.indexOf(tab) - TAB_ORDER.indexOf(lastShownTab) : 0;
+    $$('.view').forEach(view => {
+      const active = view.id === `view-${tab}`;
+      view.hidden = !active;
+      view.classList.remove('from-left','from-right');
+      if (active && dir) view.classList.add(dir > 0 ? 'from-right' : 'from-left');
+    });
+    $$('[data-tab]').forEach(button => {if (button.dataset.tab === tab) button.setAttribute('aria-current','page'); else button.removeAttribute('aria-current');});
+    history.replaceState(null,'',`#${tab}${tab === 'profile' && sub ? '/' + sub : ''}`);
+    if (tab === 'profile') showSubpage(sub);
+    // Survives an Android activity recreation (for example while the camera is open).
+    try {localStorage.setItem('qingheng.tab', tab);} catch {}
+    if (tab === 'trends') renderTrends();
+    if (moveFocus) {window.scrollTo({top:0,behavior:'auto'}); $('#main').focus({preventScroll:true});}
+    lastShownTab = tab;
+  }
+  function restoreTab() {
+    const fromHash = parseHash().tab;
+    if (fromHash) return fromHash;
+    try {const saved = localStorage.getItem('qingheng.tab') || ''; if (['today','records','chat','trends','profile'].includes(saved)) return saved;} catch {}
+    return 'today';
+  }
+  function sumMeals(meals, key) {return meals.length && meals.every(meal => number(meal[key]) !== null) ? meals.reduce((sum, meal) => sum + Number(meal[key]),0) : null;}
+  function totalsFor(meals) {return Object.fromEntries(['calories','protein','fat','carbs'].map(key => [key,sumMeals(meals,key)]));}
+  function empty(text, hint = "", kind = "empty") {
+    // 三态空状态：empty=还没有数据 / denied=没有权限 / error=加载失败；图标与语气随状态变化。
+    const glyph = kind === "denied" ? "⊘" : kind === "error" ? "!" : "✧";
+    const role = kind === "error" ? ' role="alert"' : "";
+    return `<div class="empty-state is-${esc(kind)}"${role}><span class="empty-icon" aria-hidden="true">${glyph}</span><p class="empty-title">${esc(text)}</p>${hint ? `<p class="empty-hint">${esc(hint)}</p>` : ""}</div>`;
+  }
+  function latestField(records, key) {return records.find(record => number(record[key]) !== null);}
+  function targetAdjustmentForDate(date = activeDate) {
+    const adjustment = state?.temporaryTargets;
+    return adjustment?.status === 'active' && adjustment.effectiveDate === date && adjustment.temporary && typeof adjustment.temporary === 'object' ? adjustment : null;
+  }
+  /**
+   * The intake range that applies to a date, and where the answer came from.
+   *
+   * A goal that derives its own plan (薄肌) wins over the 口径 ranges, because those were written for
+   * the recomp phase; showing both would leave the daily page and the plan disagreeing.
+   */
+  /**
+   * Continuous "how close to the target" colour: ratio 0 = on target (green), 1 = far off (red),
+   * passing through amber. Used instead of hard good/bad buckets so a near miss still looks near.
+   */
+  function goalColor(ratio) {
+    const t = Math.max(0, Math.min(1, Number.isFinite(ratio) ? ratio : 1));
+    const hue = t < 0.5 ? 142 - (142 - 42) * (t / 0.5) : 42 - (42 - 6) * ((t - 0.5) / 0.5);
+    const saturation = 34 + 30 * t;
+    const lightness = 42 + 5 * t;
+    return `hsl(${Math.round(hue)} ${Math.round(saturation)}% ${Math.round(lightness)}%)`;
+  }
+  /** 健身术语表：含义 + 注意事项。点一下词就出解释，不跳页。 */
+  const TERMS = {
+    "RPE": {full: "Rate of Perceived Exertion，自觉用力程度", meaning: "用 1~10 描述这一组有多难。RPE 8 = 还能再做约 2 次，RPE 10 = 力竭。", caution: "它靠自我感受，不同动作的体感不一样；第一次用建议对照「停下来还能做几次」校准。"},
+    "RM": {full: "Repetition Maximum，最大重复次数", meaning: "12RM 指某个重量最多只能做 12 次。计划里写「12 次」通常不是 12RM，而是留了余量的 12 次。", caution: "把「12 次」当 12RM 做，会让每组都变成力竭，恢复跟不上。"},
+    "ACWR": {full: "Acute:Chronic Workload Ratio，急慢性负荷比", meaning: "最近 7 天训练量 ÷ 最近 28 天周均训练量。1.0 左右是维持，超过 1.5 通常提示负荷涨太快。", caution: "它只是提示，不是判决；换动作、换计划都会让它短暂失真。"},
+    "TDEE": {full: "Total Daily Energy Expenditure，每日总消耗", meaning: "基础代谢 + 日常活动 + 训练 + 食物热效应。本 App 用公式估算，再用两周体重均值校准。", caution: "公式天生有 10%~20% 误差，别把估算值当精确值。"},
+    "减载": {full: "Deload", meaning: "主动安排一周降低负荷（负重 ×0.9、组数 −1），让神经与关节恢复。", caution: "减载不是休息，动作照做，只是量降下来。"},
+    "渐进超负荷": {full: "Progressive Overload", meaning: "让训练刺激逐步变大：加重、加次数、加组，一次只动一个变量。", caution: "同时加重又加量是最常见的过载方式，也是最先崩的方式。"},
+    "力竭": {full: "Muscular Failure", meaning: "这一组再也做不出一次标准动作。单关节动作可以接近力竭，复合主项不建议。", caution: "大重量复合动作做到力竭，恢复成本很高，容易影响接下来几天。"},
+    "负重": {full: "Training Load，这一组用的重量", meaning: "按总重量记：杠铃 = 杆重 + 两侧片重（15 kg/侧 + 20 kg 杆 = 50 kg）；哑铃按单只记；器械按配重片标示。", caution: "同一动作前后口径必须一致，否则容量、ACWR 与进步曲线都会失真。"},
+    "离心": {full: "Eccentric，下放阶段", meaning: "肌肉被拉长的阶段，比如卧推下放。离心能承受更大张力，也更容易酸痛。", caution: "离心放慢到 3 秒以上会显著增加酸痛，训练日之间要留够间隔。"}
+  };
+  /** 把已知术语包成可点击的按钮；只处理纯文本，避免破坏已有标签。 */
+  function annotateTerms(html) {
+    let out = String(html || "");
+    for (const term of Object.keys(TERMS)) {
+      if (out.includes("data-term=\"" + term + "\"")) continue;
+      const safe = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = new RegExp("(?<![A-Za-z0-9-])" + safe + "(?![A-Za-z0-9-])");
+      if (!re.test(out)) continue;
+      out = out.replace(re, "<button type=\"button\" class=\"term\" data-term=\"" + term + "\">" + term + "</button>");
+    }
+    return out;
+  }
+  function openTerm(name) {
+    const sheet = $("#term-sheet");
+    const term = TERMS[name];
+    if (!sheet || !term) return;
+    $("#term-title").textContent = name;
+    $("#term-full").textContent = term.full;
+    $("#term-meaning").textContent = term.meaning;
+    $("#term-caution").textContent = term.caution;
+    sheet.hidden = false;
+    sheet.dataset.term = name;
+  }
+  function closeTerm() { const sheet = $("#term-sheet"); if (sheet) sheet.hidden = true; }
+  /** 三条关闭路径：按钮、遮罩、Esc。之前只绑了「点外部」。 */
+  function installTermSheet() {
+    const sheet = $("#term-sheet"), close = $("#term-close");
+    if (close && !close.dataset.wired) {
+      close.dataset.wired = "1";
+      close.addEventListener("click", event => { event.preventDefault(); event.stopPropagation(); closeTerm(); });
+    }
+    if (sheet && !sheet.dataset.wired) {
+      sheet.dataset.wired = "1";
+      sheet.addEventListener("click", event => { if (event.target === sheet) closeTerm(); });
+      document.addEventListener("keydown", event => { if (event.keyCode === 27) closeTerm(); });
+    }
+    const weightClose = $("#weight-close");
+    if (weightClose && !weightClose.dataset.wired) {
+      weightClose.dataset.wired = "1";
+      weightClose.addEventListener("click", () => { const box = $("#weight-sheet"); if (box) box.hidden = true; });
+    }
+  }
+  installTermSheet();
+  document.addEventListener("click", event => {
+    const trigger = event.target.closest && event.target.closest("[data-term]");
+    if (trigger) { event.preventDefault(); openTerm(trigger.dataset.term); return; }
+    const sheet = $("#term-sheet");
+    if (sheet && !sheet.hidden && !event.target.closest("#term-sheet")) closeTerm();
+  });
+  /** 一天里的时段：决定「现在最该记什么」，而不是让用户面对 9 张卡自己找。 */
+  function daySlot(now = new Date()) {
+    const hour = now.getHours();
+    if (hour >= 5 && hour < 10) return {key: "morning", label: "早上", hint: "记体重、睡眠，顺手看一眼今天目标"};
+    if (hour >= 10 && hour < 14) return {key: "noon", label: "中午", hint: "记午餐；早上没记的话，趁现在补上体重"};
+    if (hour >= 14 && hour < 17) return {key: "afternoon", label: "下午", hint: "有加餐或训练就记一笔，晚上会轻松很多"};
+    if (hour >= 17 && hour < 22) return {key: "evening", label: "晚上", hint: "记晚餐 + 训练，再看一眼今天还差多少"};
+    return {key: "night", label: "夜里", hint: "只补记录，不追额度；睡够比凑数字重要"};
+  }
+  /** 17 点后没记午餐、21 点后没记晚餐 —— 提示「补一下」，并允许一键跳去记录。 */
+  function missingMealSlots(date, now = new Date()) {
+    const rows = (Array.isArray(state.meals) ? state.meals : []).filter(row => row && row.date === date);
+    const minutes = row => {
+      const m = /^(\d{1,2}):(\d{2})$/.exec(String(row.mealTime || ""));
+      return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+    };
+    const inWindow = (from, to) => rows.some(row => { const m = minutes(row); return m !== null && m >= from && m < to; });
+    const hour = now.getHours();
+    const missing = [];
+    if (hour >= 17 && !inWindow(630, 900)) missing.push({key: "lunch", label: "午餐"});
+    if (hour >= 21 && !inWindow(1020, 1380)) missing.push({key: "dinner", label: "晚餐"});
+    return missing;
+  }
+  function renderSlotHint() {
+    const node = $("#slot-hint");
+    if (!node) return;
+    const now = new Date();
+    const slot = daySlot(now);
+    const clock = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
+    const missing = missingMealSlots(activeDate, now);
+    const suffix = missing.length ? "；" + missing.map(item => item.label).join("、") + "好像还没记，点一下去补" : "";
+    const timeNode = $("#slot-time"), textNode = $("#slot-text");
+    if (timeNode) timeNode.textContent = clock;
+    if (textNode) textNode.textContent = slot.label + "：" + slot.hint + suffix;
+    node.style.cursor = missing.length ? "pointer" : "";
+    node.dataset.missing = missing.length ? missing.map(item => item.key).join(",") : "";
+    if (!node.dataset.wired) {
+      node.dataset.wired = "1";
+      node.addEventListener("click", () => {
+        if (!node.dataset.missing) return;
+        switchTab("records");
+        const field = $("#meal-text"); if (field) { field.focus(); }
+      });
+    }
+    node.dataset.slot = slot.key;
+    for (const button of $$("[data-go]")) {
+      const target = button.dataset.go;
+      const spotlight = (slot.key === "evening" || slot.key === "noon") && target === "records";
+      button.classList.toggle("is-now", spotlight);
+    }
+  }
+  /** Inside the range: clean greens, deeper near the centre. */
+  function rangeColor(kcal, min, max) {
+    const mid = (min + max) / 2, half = Math.max(1, (max - min) / 2);
+    const t = Math.abs(kcal - mid) / half; // 0 centre .. 1 edge
+    return `hsl(${Math.round(132 + 8 * t)} ${Math.round(26 - 6 * t)}% ${Math.round(63 + 5 * t)}%)`;
+  }
+  /** Below the floor turns amber, far below turns orange. */
+  function underColor(kcal, min) {
+    const t = Math.min(1, (min - kcal) / Math.max(200, min * 0.2));
+    return `hsl(${Math.round(46 - 10 * t)} ${Math.round(38 + 8 * t)}% ${Math.round(70 - 4 * t)}%)`;
+  }
+  /** Above the cap turns warm immediately; 8% over is already full red. */
+  function overColor(kcal, max) {
+    const t = Math.min(1, (kcal - max) / Math.max(60, max * 0.08));
+    return `hsl(${Math.round(20 - 12 * t)} ${Math.round(44 + 10 * t)}% ${Math.round(66 - 4 * t)}%)`;
+  }
+  function dietBarColor(kcal, min, max) {
+    if (kcal > max) return overColor(kcal, max);
+    if (kcal < min) return underColor(kcal, min);
+    return rangeColor(kcal, min, max);
+  }
+  /** Training volume: growth is green (bigger = deeper), a drop warms up quickly. */
+  function volumeColor(delta, previous) {
+    const pct = previous > 0 ? delta / previous : 0;
+    if (pct >= 0) return `hsl(${Math.round(134 - 10 * Math.min(1, pct / 0.15))} ${Math.round(36 - 8 * Math.min(1, pct / 0.15))}% ${Math.round(36 + 4 * Math.min(1, pct / 0.15))}%)`;
+    const t = Math.min(1, -pct / 0.15);
+    return `hsl(${Math.round(38 - 30 * t)} ${Math.round(60 + 6 * t)}% ${Math.round(48 - 4 * t)}%)`;
+  }
+  /** Observed weekly change vs the rate the plan implies. */
+  function rateGoalColor(observed, planned) {
+    const deviation = Math.abs(observed - planned) / Math.max(0.15, Math.abs(planned));
+    if (deviation <= 0.6) return `hsl(${Math.round(140 - 26 * (deviation / 0.6))} 34% ${Math.round(38 + 3 * (deviation / 0.6))}%)`;
+    const t = Math.min(1, (deviation - 0.6) / 1.4);
+    return `hsl(${Math.round(40 - 34 * t)} ${Math.round(60 + 6 * t)}% ${Math.round(48 - 4 * t)}%)`;
+  }
+  /** True when the user told us they do not train, so training UI should not be shown at all. */
+  function trainingEnabled() {
+    const raw = state && state.profile ? String(state.profile.training ?? '') : '';
+    return raw !== 'none';
+  }
+  /** Hides every training-only block when the profile says 不健身. Idempotent. */
+  /** 分段控件键盘可达：←/→ 在 [role=tablist] 内移动并激活，Home/End 跳首尾。 */
+  function installSegmentKeys() {
+    if (document.body.dataset.segmentKeys === "1") return;
+    document.body.dataset.segmentKeys = "1";
+    document.addEventListener("keydown", event => {
+      const key = event.key;
+      if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(key)) return;
+      const bar = event.target.closest && event.target.closest('[role="tablist"]');
+      if (!bar) return;
+      const items = [...bar.querySelectorAll("[role=\"tab\"]:not([hidden])")];
+      if (items.length < 2) return;
+      const current = items.indexOf(document.activeElement);
+      if (current < 0) return;
+      event.preventDefault();
+      let next = current;
+      if (key === "ArrowRight") next = (current + 1) % items.length;
+      else if (key === "ArrowLeft") next = (current - 1 + items.length) % items.length;
+      else if (key === "Home") next = 0;
+      else next = items.length - 1;
+      items[next].focus();
+      items[next].click();
+    });
+  }
+  function hideTrainingTabs(on) {
+    // 状态类留给 CSS：即使分段按钮被 JS 重建，display:none 依然生效。
+    if (document.body) document.body.classList.toggle("no-training", !on);
+    const selector = '[data-records-panel="training"], [data-trends-panel="training"], [data-go="training"], [data-focus="training"]';
+    for (const node of document.querySelectorAll(selector)) node.hidden = !on;
+    for (const id of ['record-panel-training', 'trend-panel-training']) {
+      const node = document.getElementById(id);
+      if (node) node.hidden = !on;
+    }
+  }
+function applyTrainingVisibility() {
+    const on = trainingEnabled();
+    for (const id of ['training-log', 'training-advice', 'training-volume-card', 'week-plan-card', 'training-advice-order']) {
+      const node = document.getElementById(id);
+      if (node) node.hidden = !on;
+    }
+    hideTrainingTabs(on);
+    // 分段按钮由 JS 在渲染后创建，这里再补一次，避免第一次调用时还找不到节点。
+    if (typeof setTimeout === "function") setTimeout(() => hideTrainingTabs(trainingEnabled()), 0);
+    if (!on) {
+      const recordActive = document.querySelector('[data-records-panel].active');
+      if (recordActive && recordActive.dataset.recordsPanel === "training") {
+        const food = document.querySelector('[data-records-panel="food"]');
+        if (food) food.click();
+      }
+      const trendActive = document.querySelector('[data-trends-panel].active');
+      if (trendActive && trendActive.dataset.trendsPanel === "training") {
+        const weight = document.querySelector('[data-trends-panel="weight"]');
+        if (weight) weight.click();
+      }
+      const prefs = document.getElementById("plan-prefs");
+      if (prefs) prefs.hidden = true;
+    }
+  }
+  function rateCalibration(goal) {
+    // 目标速率：减脂 0.4~0.7%/周、增肌 0.25~0.5%/周、维持 ±0.2%/周（知识库：可持续区间）
+    const want = goal === 'gain' ? {min: 0.25, max: 0.5} : (goal === 'maintain' ? {min: -0.2, max: 0.2} : {min: 0.4, max: 0.7});
+    const weights = (Array.isArray(state && state.habits) ? state.habits : [])
+      .filter(row => row && /^\d{4}-\d{2}-\d{2}$/.test(String(row.date)) && Number(row.weight) > 0)
+      .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    if (weights.length < 2) return null;
+    const last = weights[weights.length - 1];
+    const cutoff = shiftDay(last.date, -14);
+    const window = weights.filter(row => String(row.date) >= cutoff);
+    if (window.length < 2) return null;
+    const first = window[0], base = Number(first.weight), now = Number(last.weight);
+    if (!(base > 0)) return null;
+    const days = Math.max(1, Math.round((new Date(last.date + "T00:00:00") - new Date(first.date + "T00:00:00")) / 86400000));
+    const weeklyPercent = Math.round(((now - base) / base) * (7 / days) * 1000) / 10;
+    const loss = -weeklyPercent;
+    if (goal === 'gain') {
+      if (weeklyPercent < want.min) return {text: "近 " + days + " 天体重每周变化 " + weeklyPercent + "%，低于增肌区间 " + want.min + "~" + want.max + "%，可考虑把盈余上调约 3%。"};
+      if (weeklyPercent > want.max) return {text: "近 " + days + " 天每周涨 " + weeklyPercent + "%，高于增肌区间，建议把盈余下调约 3%。"};
+      return {text: "增肌速率 " + weeklyPercent + "%/周，在 " + want.min + "~" + want.max + "% 区间内。"};
+    }
+    if (goal === 'maintain') return {text: "近 " + days + " 天体重每周变化 " + weeklyPercent + "%，维持目标看趋势不看单点。"};
+    if (loss < want.min) return {text: "近 " + days + " 天每周降 " + loss + "%，低于 " + want.min + "~" + want.max + "% 区间，可考虑把缺口上调约 3%。"};
+    if (loss > want.max) return {text: "近 " + days + " 天每周降 " + loss + "%，高于 " + want.max + "%，建议把缺口下调约 3%，别掉肌肉。"};
+    return {text: "减脂速率 " + loss + "%/周，落在 " + want.min + "~" + want.max + "% 的可持续区间内。"};
+  }
+  function goalLabel(goal) {
+    const map = {gain: '增肌', cut: '减脂', recomp: '增肌同时减脂', lean: '薄肌', maintain: '保持身材'};
+    return map[String(goal || 'recomp')] || '饮食';
+  }
+function intakeRangeForDate(date = activeDate) {
+    const profile = state?.profile || {}, rules = targetRules(profile);
+    const habit = (state?.habits || []).find(row => row && row.date === date);
+    const trained = habit ? (habit.training === true || habit.training === 'true' ? true : habit.training === false || habit.training === 'false' ? false : null) : null;
+    const useTraining = trained === true;
+    const plan = computeTargets({
+          sex: profile.sex || 'male',
+          weight: number(profile.weight) ?? latestWeight(),
+          height: profile.height,
+          age: profile.age,
+          goal: profile.goal || 'recomp',
+          applyGoalPresets: true,
+          training: profile.training,
+          rules: profile
+        });
+    const active = plan && !plan.incomplete ? plan : null;
+    const trainingDay = active ? active.trainingDay : {min: rules.trainingDayMin, max: rules.trainingDayMax};
+    const restDay = active ? active.restDay : {min: rules.restDayMin, max: rules.restDayMax};
+    const basis = active
+      ? `${goalLabel(profile.goal)}（按维持 ${active.tdee}${active.leanPlan ? ' 与有效缺口 ' + active.leanPlan.effectivePercent + '%' : ''}）`
+      : trained === null ? '当天未记录是否训练，按休息日区间' : useTraining ? '当天标记为训练日' : '当天标记为休息日';
+    return {
+      min: useTraining ? trainingDay.min : restDay.min,
+      max: useTraining ? trainingDay.max : restDay.max,
+      trained,
+      basis,
+      trainingDay,
+      restDay,
+      floor: rules.intakeFloor,
+      expectedWeeklyKg: active && Number.isFinite(active.expectedWeeklyKg) ? active.expectedWeeklyKg : null
+    };
+  }
+  /**
+   * Profile for a given date with the day's own budget applied: a training day uses the training-day
+   * ceiling, a rest day (or an unrecorded day) uses the rest-day ceiling. The 口径 range is never
+   * replaced by a single number — `intakeRange` is carried along for the UI to show.
+   */
+  function effectiveProfileForDate(date = activeDate) {
+    const profile = {...(state?.profile || {})}, adjustment = targetAdjustmentForDate(date);
+    const range = intakeRangeForDate(date);
+    // The stored ceiling only wins when the 口径 has nothing to say (older data without rules).
+    const hasRules = number(state?.profile?.trainingDayMax) !== null || number(state?.profile?.restDayMax) !== null;
+    if (hasRules) profile.calorieTarget = range.max;
+    if (adjustment) Object.assign(profile, adjustment.temporary);
+    profile.intakeRange = {min: range.min, max: range.max, basis: range.basis};
+    profile.intakeFloor = range.floor;
+    return profile;
+  }
+/* Fragment of assets/app.js -- assembled by tools/assemble-app.ps1 in filename order.
+ * Edit this file, never the generated assets/app.js; tests/app-fragments.test.mjs fails on drift. */
+  // ---- Rich answers ---------------------------------------------------------------------------
+  // The model writes plain Chinese text. A small, explicit subset is understood so a reply can
+  // carry a heading with a coloured icon, a bullet list, an uppercase label and a real table,
+  // without ever trusting the text as markup: everything is escaped first, then re-assembled.
+  const answerIconRules = [
+    {tone:'protein', icon:'icon-nutrient-protein.svg', words:['蛋白质','蛋白']},
+    {tone:'fat', icon:'icon-nutrient-fat.svg', words:['脂肪','油']},
+    {tone:'carb', icon:'icon-nutrient-carb.svg', words:['碳水','主食','米饭','面条']},
+    {tone:'energy', icon:'icon-energy.svg', words:['热量','卡路里','kcal','千卡']},
+    {tone:'weight', icon:'icon-weight.svg', words:['体重','体脂','BMI','腰围','体重变化']},
+    {tone:'training', icon:'icon-training.svg', words:['训练','力量','运动','健身']},
+    {tone:'sleep', icon:'icon-sleep.svg', words:['睡眠','休息','入睡']},
+    {tone:'water', icon:'icon-water.svg', words:['饮水','喝水','水分']},
+    {tone:'warn', icon:'icon-warn.svg', words:['注意','警告','风险','偏高','超标','不足']},
+    {tone:'ok', icon:'icon-check.svg', words:['完成','达标','很好','不错','已经']},
+    {tone:'tip', icon:'icon-tip.svg', words:['建议','明天','调整','可以','优先']},
+  ];
+  function answerIcon(text) {
+    const value = String(text || '');
+    for (const rule of answerIconRules) if (rule.words.some(word => value.includes(word))) return rule;
+    return {tone:'neutral', icon:'icon-sparkle.svg', words:[]};
+  }
+  /** Latin runs that were written in capitals are kept as an uppercase label above the heading. */
+  function answerEyebrow(text) {
+    const latin = String(text || '').match(/[A-Za-z][A-Za-z0-9 .,%/+-]{2,}/g);
+    if (!latin) return '';
+    const upper = latin.filter(run => run === run.toUpperCase() && /[A-Z]/.test(run));
+    return upper.length ? upper.join(' · ').slice(0, 40) : '';
+  }
+  const answerInline = text => esc(text)
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/[`]{1}([^`]+)[`]{1}/g, '<code>$1</code>');
+  function answerSection(title) {
+    const clean = String(title || '').replace(/^[#\s【\[（(]+|[\s】\]）)】]+$/g, '').replace(/\*\*/g, '').trim();
+    if (!clean) return '';
+    const rule = answerIcon(clean);
+    const eyebrow = answerEyebrow(clean);
+    return `<div class="answer-section tone-${rule.tone}"><span class="inline-icon" aria-hidden="true">${iconMarkup(rule.icon)}</span>`
+      + `<div>${eyebrow ? `<p class="answer-eyebrow">${esc(eyebrow)}</p>` : ''}<p class="answer-heading">${answerInline(clean)}</p></div></div>`;
+  }
+  /** Renders a pipe table when the block looks like one; returns '' otherwise. */
+  /** Widest table that still reads on a phone: 4 columns, 8 body rows, short cells. */
+  const ANSWER_TABLE_COLUMNS = 4, ANSWER_TABLE_ROWS = 8, ANSWER_TABLE_CELL = 12;
+  /** False when a parsed block would overflow a phone screen, so it is shown as prose instead. */
+  function answerTableFits(rows) {
+    if (!Array.isArray(rows) || rows.length < 2) return false;
+    if (rows[0].length > ANSWER_TABLE_COLUMNS || rows.length - 1 > ANSWER_TABLE_ROWS) return false;
+    return rows.every(cells => cells.every(cell => String(cell).length <= ANSWER_TABLE_CELL));
+  }
+  function answerTable(rows) {
+    const cells = row => row.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|').map(cell => cell.trim());
+    const head = cells(rows[0]);
+    const body = rows.slice(1).filter(row => !/^[\s|:-]+$/.test(row)).map(cells);
+    if (!head.length || !body.length) return '';
+    // A table wider or longer than a phone screen reads worse than prose, so it is not drawn as one.
+    if (!answerTableFits([head].concat(body))) return '';
+    const numbers = new Set(body.map(row => row.length));
+    const numeric = new Set();
+    body.forEach(row => row.forEach((cell, i) => {if (cell && number(cell.replace(/[^\d.-]/g, '')) !== null && /^[\d.,%\s\-+]+$/.test(cell)) numeric.add(i);}));
+    const headHtml = head.map(cell => `<th scope="col">${answerInline(cell)}</th>`).join('');
+    const bodyHtml = body.map(row => `<tr>${head.map((_, i) => `<td${numeric.has(i) ? ' class="num"' : ''}>${answerInline(row[i] ?? '')}</td>`).join('')}</tr>`).join('');
+    return `<div class="answer-table-wrap"><table class="answer-table"><thead><tr>${headHtml}</tr></thead><tbody>${bodyHtml}</tbody></table></div>`;
+  }
+  /** Plain text (or a light subset of it) rendered as safe, readable answer HTML. */
+  const answerNumericCell = token => /^[-−+]?[\d.,%]+$/.test(String(token || '').trim());
+  /**
+   * Models often answer a "make a table" request with whitespace-separated columns instead of
+   * Markdown pipes. That shape is recognised here — a short header row plus rows whose remaining
+   * columns are all numbers — so a real table still comes out, while ordinary prose never matches.
+   */
+  function answerSpaceTable(rows) {
+    if (!Array.isArray(rows) || rows.length < 2 || rows.length > 30) return '';
+    const split = row => String(row).trim().split(/\s+/).filter(Boolean);
+    const head = split(rows[0]);
+    if (head.length < 3 || head.length > 8) return '';
+    if (head.some(answerNumericCell)) return '';
+    const body = rows.slice(1).map(split);
+    if (!body.every(cells => cells.length === head.length)) return '';
+    if (!body.every(cells => cells.slice(1).every(answerNumericCell))) return '';
+    if (!body.some(cells => cells.slice(1).some(cell => /\d/.test(cell)))) return '';
+    // The phone-width guard applies to the split cells, not to the raw lines: checking the lines
+    // rejected every whitespace table, because a whole line is longer than four "columns".
+    if (!answerTableFits([head].concat(body))) return '';
+    const headHtml = head.map(cell => `<th scope="col">${answerInline(cell)}</th>`).join('');
+    const bodyHtml = body.map(cells => `<tr><td>${answerInline(cells[0])}</td>${cells.slice(1).map(cell => `<td class="num">${answerInline(cell)}</td>`).join('')}</tr>`).join('');
+    return `<div class="answer-table-wrap"><table class="answer-table"><thead><tr>${headHtml}</tr></thead><tbody>${bodyHtml}</tbody></table></div>`;
+  }
+  /** Plain text (or a light subset of it) rendered as safe, readable answer HTML. */
+  function answerHtml(text) {
+    const blocks = String(text ?? '').replace(/\r/g, '').split(/\n\s*\n/);
+    const out = [];
+    for (const block of blocks) {
+      const lines = block.split('\n').map(line => line.trim()).filter(Boolean);
+      if (!lines.length) continue;
+      // A pipe table, a whitespace table, or plain prose/bullets — decided per block.
+      if (lines.every(line => /^\|.*\|$/.test(line))) {const html = answerTable(lines); out.push(html || lines.map(line => `<p>${answerInline(line)}</p>`).join('')); continue;}
+      const space = answerSpaceTable(lines);
+      if (space) {out.push(space); continue;}
+      let bullets = [];
+      const flushBullets = () => {if (bullets.length) {out.push(`<ul class="answer-list">${bullets.map(item => `<li>${item}</li>`).join('')}</ul>`); bullets = [];}};
+      for (const line of lines) {
+        const heading = line.match(/^#{1,6}\s*(.+)$/) || line.match(/^【(.+)】$/) || line.match(/^\*\*([^*]+)\*\*$/) || (/^(?:[一二三四五六七八九十]+[、.]|\d+[、.])/.test(line) && line.length <= 26 ? [null, line.replace(/^(?:[一二三四五六七八九十]+[、.]|\d+[、.])/, '')] : null);
+        if (heading) {flushBullets(); out.push(answerSection(heading[1])); continue;}
+        const bullet = line.match(/^[-*•·]\s*(.+)$/) || line.match(/^\d+[.)]\s*(.+)$/);
+        if (bullet) {bullets.push(answerInline(bullet[1])); continue;}
+        flushBullets();
+        out.push(`<p>${answerInline(line)}</p>`);
+      }
+      flushBullets();
+    }
+    return out.join('') || empty('暂无内容。');
+  }
+  function adviceHtml(value) {
+    return esc(value).replace(/\*\*([^*\n]{1,160})\*\*/g, '<strong>$1</strong>');
+  }
+  /** Identity of one day's records: any change makes previously generated advice stale. */
+  function mealsFingerprint(date) {
+    const rows = (state.meals || []).filter(row => row.date === date)
+      .map(row => [row.mealType || '', row.mealTime || '', number(row.calories), number(row.protein), number(row.fat), number(row.carbs)].join(','));
+    return `${date}|${rows.length}|${rows.sort().join(';')}`;
+  }
+  function renderAdvice(messages, date) {
+    const container = $('#advice-content');
+    const rows = Array.isArray(messages) ? messages.map(value => String(value || '').trim()).filter(Boolean) : [];
+    const rich = messages.some(message => /\n|^\s*\||^#{1,6}\s|^【/.test(String(message || '')));
+    container.innerHTML = rows.length
+      ? (rich
+        ? `<div class="answer">${rows.map(message => answerHtml(message)).join('')}</div>`
+        : `<div class="answer"><ul class="answer-list">${rows.map(message => `<li>${adviceHtml(message)}</li>`).join('')}</ul></div>`)
+      : empty('目前记录不足，暂不作判断', '先记两三天，建议会自己长出来。');
+    container.dataset.date = date || '';
+    container.dataset.fingerprint = validDate(date) ? mealsFingerprint(date) : '';
+  }
+  // Carbohydrate headroom left after protein and fat targets; null when targets are incomplete.
+  function carbCap(p, range) {
+    // calorieTarget can be empty on a temporary-target day; fall back to the day's range max so the
+    // carbohydrate limit still renders instead of showing a dash.
+    const kcal = number(p.calorieTarget) ?? number(range && range.max), protein = number(p.proteinMax), fat = number(p.fatMax);
+    if (kcal === null || kcal <= 0) return null;
+    const rest = kcal - (protein === null ? 0 : protein * 4) - (fat === null ? 0 : fat * 9);
+    return rest > 0 ? Math.round(rest / 4) : null;
+  }
+  /** Shows a retryable bar instead of leaving the page half-drawn. */
+  function showRenderError(error) {
+    const bar = $('#render-error'), text = $('#render-error-text');
+    if (text) { text.textContent = ''; text.innerHTML = empty('这一屏没能画出来', '点「重新加载」通常就好（记录已保存在本机）。错误：' + (error && error.message ? error.message : '未知错误'), 'error'); }
+    if (bar) bar.hidden = false;
+  }
+  function render() {
+    if (!state) return; // nothing to draw yet; loadState() calls render() again
+    try { renderBody(); } catch (error) { showRenderError(error); }
+  }
+  function renderBody() {
+    const count=state.meals.filter(row=>row.date===activeDate).length;
+    const chatDate=$('#chat-date'); if(chatDate && document.activeElement!==chatDate) chatDate.value=activeDate;
+    const hint=$('#chat-data-context'); if(hint)hint.textContent=`分析日期：${activeDate} · 已保存 ${count} 条餐食（未确认预览和问答照片不计入饮食）`;
+    const adviceHint=$('#advice-data-context'); if(adviceHint)adviceHint.textContent=`分析日期：${activeDate} · 已保存 ${count} 条餐食`;
+    const adviceNode=$('#advice-content'), stale=$('#advice-stale');
+    if (stale) {
+      const baked=adviceNode?.dataset?.fingerprint, shown=adviceNode?.dataset?.date;
+      const isStale=!!baked && shown===activeDate && baked!==mealsFingerprint(activeDate);
+      stale.hidden=!isStale;
+      if (isStale) stale.textContent='这条建议是按当时的记录生成的，之后记录有变化。请点「获取建议」重新生成。';
+    }
+    const meals = state.meals.filter(meal => meal.date === activeDate);
+    const totals = totalsFor(meals), p = effectiveProfileForDate(activeDate);
+    $('#calorie-value').textContent = fmt(totals.calories,0);
+    const range = p.intakeRange;
+    $('#calorie-target').textContent = range ? `${fmt(range.min,0)}~${fmt(range.max,0)}` : fmt(p.calorieTarget,0);
+    // 不截断：超出目标的部分要能被环和下方差额行看到。
+    const rawRatio = totals.calories !== null && number(p.calorieTarget) > 0 ? totals.calories / p.calorieTarget : 0;
+    const ratio = Math.min(1, Math.max(0, rawRatio));
+    // 绿环始终走满一圈；超出部分从起点起覆盖一段棕红，长度按超出比例。
+    const overRatio = Math.max(0, rawRatio - 1);
+    $('#energy-ring').style.setProperty('--progress',`${ratio*360}deg`);
+    $('#energy-ring').style.setProperty('--over',`${Math.min(overRatio, 1) * 360}deg`);
+    // 差值必须跟屏幕上显示的上下限同一口径：以前用 calorieTarget 算「超出区间上限」会多算。
+    const floor = number(range ? range.min : p.calorieTarget);
+    const cap = number(range ? range.max : p.calorieTarget);
+    $('#calorie-caption').textContent = !meals.length ? '还没有餐食记录，摄入量未知。' : totals.calories === null ? '部分餐食缺少热量，无法计算完整汇总。' : number(p.calorieTarget) === null ? '尚未设置每日热量目标。' : `${range ? `按${range.basis.startsWith('当天标记为训练') ? '训练日' : '休息日'}区间：` : ''}${totals.calories < floor ? `距区间下限还差 ${fmt(floor-totals.calories,0)} kcal` : totals.calories <= cap ? `在区间内，距上限 ${fmt(cap-totals.calories,0)} kcal` : `超出区间上限 ${fmt(totals.calories-cap,0)} kcal`}。`;
+    // What to do next, not just how far off the target is: a number without an action is useless.
+    const actionBox = $('#calorie-action');
+    if (actionBox) {
+      const parts = [];
+      const protein = number(totals.protein), proteinMin = number(p.proteinMin);
+      const fat = number(totals.fat), fatMax = number(p.fatMax);
+      const kcal = number(totals.calories), actionCap = range ? number(range.max) : number(p.calorieTarget);
+      if (protein !== null && proteinMin !== null && protein < proteinMin) {
+        const gap = proteinMin - protein;
+        parts.push(`优先补蛋白：还差 ${fmt(gap,0)} g，下一餐先吃蛋白质`);
+      }
+      if (fat !== null && fatMax !== null && fat > fatMax) parts.push(`脂肪超 ${fmt(fat - fatMax,0)} g：剩下的菜改白灼或清蒸，别再额外加油`);
+      if (kcal !== null && actionCap !== null && kcal > actionCap) parts.push(`热量已超上限 ${fmt(kcal - actionCap,0)} kcal：不再加餐，晚餐只吃蛋白加蔬菜`);
+      if (!parts.length && protein !== null && proteinMin !== null && protein >= proteinMin) parts.push('蛋白质已达标，剩下的额度分给主食与蔬菜即可。');
+      // 能量卡曾经一口气列出三条提示，把「＋ 记录一餐」挤到了屏幕外。
+      // 现在只留最该做的一条，其余收进 details。
+      const note = parts.length > 1
+        ? '<details class="energy-more"><summary>另外 ' + (parts.length - 1) + ' 条提示</summary>'
+          + parts.slice(1).map(text => '<p>' + esc(text) + '</p>').join('') + '</details>'
+        : '';
+      actionBox.innerHTML = parts.length ? '<p class="energy-hint">' + esc(parts[0]) + '</p>' + note : '';
+    }
+    $('#macro-summary').innerHTML = [['protein','蛋白质',p.proteinMin,p.proteinMax],['fat','脂肪',p.fatMin,p.fatMax],['carbs','碳水',null,carbCap(p, range)]].map(([key,label,min,max]) => {const value = totals[key], progress = value !== null && number(max)>0 ? Math.min(100,value/max*100) : 0; return `<div><span class="macro-label">${label}</span><div class="macro-value">${fmt(value)} <small>g</small></div><div class="progress-track"><span data-progress="${progress}"></span></div><span class="fine-print">${min !== null && number(min)!==null && number(max)!==null ? `目标 ${fmt(min)}–${fmt(max)} g` : key === 'carbs' ? (number(max)>0 ? `参考上限约 ${fmt(max,0)} g（热量目标扣除蛋白质与脂肪）` : '设置热量目标后显示进度') : '目标未设置'}</span></div>`;}).join('');
+    $$('#macro-summary [data-progress]').forEach(node => {node.style.width=`${Number(node.dataset.progress)}%`;});
+    const measurements = state.measurements.filter(item => validDate(item.date) && item.date <= activeDate).sort((a,b) => b.date.localeCompare(a.date));
+    const weight = latestField(measurements,'weight'), waist = latestField(measurements,'waist'), bodyFat = latestField(measurements,'bodyFat');
+    const bmi = weight && number(p.height)>0 ? weight.weight / ((p.height/100)**2) : null;
+    $('#latest-measurement').innerHTML = [['体重',weight?.weight,'kg',weight?.date],['BMI',bmi,'',weight?.date],['腰围',waist?.waist,'cm',waist?.date],['体脂率',bodyFat?.bodyFat,'%',bodyFat?.date]].map(([label,value,unit,date]) => `<div><span class="stat-label">${label}</span><div class="stat-number">${fmt(value)}<small>${unit}</small></div><span class="fine-print">${date ? esc(date) : '尚无测量'}</span></div>`).join('');
+    const habit = state.habits.find(item => item.date === activeDate) || {};
+    const training = habit.training === true || habit.training === 'true' ? '已训练' : habit.training === false || habit.training === 'false' ? '休息日' : habit.training ? String(habit.training) : '未记录';
+    // SVG icons instead of ↗ ♧ ☾ ◇: those characters rendered differently on every ROM.
+    const tiles = [
+      ...(trainingEnabled() ? [['icon-habit-training.svg', training, '训练']] : []),
+      ['icon-habit-steps.svg', number(habit.steps) === null ? '未记录' : `${fmt(habit.steps,0)} 步`, '日常活动'],
+      ['icon-habit-sleep.svg', number(habit.sleep) === null ? '未记录' : `${fmt(habit.sleep)} 小时`, '睡眠'],
+      ['icon-habit-water.svg', number(habit.water) === null ? '未记录' : `${fmt(habit.water,0)} ml`, '饮水']
+    ];
+    $('#habit-summary').innerHTML = tiles.map(([icon, value, label]) => `<div class="habit-tile"><span class="habit-symbol" aria-hidden="true">${iconMarkup(icon)}</span><div><strong>${esc(value)}</strong><small>${label}</small></div></div>`).join('');
+    $('#today-meal-count').textContent = meals.length ? `${meals.length} 餐已记录` : '尚无记录';
+    const recordMeals=[...state.meals].sort((a,b) => String(b.date).localeCompare(String(a.date)));
+    renderMeals($('#today-meals'),meals,false);
+    renderRecordMeals(favoriteOnlyMeals ? recordMeals.filter(row => row.favorite === true) : recordMeals);
+    $('#settings-status').textContent = state.settings.apiConfigured === true ? '已配置 · 密钥不回传' : settingsKnown ? '未配置外部 API' : '配置状态未知';
+    $('#estimate-mode').textContent = state.settings.apiConfigured === true ? '已配置外部文字模型；勾选本次同意才调用外部 API。不勾选时按明确克重离线估算；照片还需已启用视觉模型。' : settingsKnown ? '当前使用本地估算，不发送给外部模型；结果仍需手动检查确认。' : '尚未加载手机配置，请稍后重试。';
+    renderChat();
+    renderTrainingInsights();
+    renderDailyCheck();
+    renderWeekPlan();
+    renderTrendWarnings();
+    if (typeof renderDietTrend === 'function') renderDietTrend();
+    applyTrainingVisibility();
+    if (typeof renderAiPlan === "function") renderAiPlan();
+    if (typeof renderAdviceOrder === "function") renderAdviceOrder();
+    if (typeof renderSlotHint === "function") renderSlotHint();
+    if (typeof renderLastChat === "function") renderLastChat();
+    renderTargetStatus();
+    renderTrends();
+    renderUndatedMeals();
+    renderHub();
+  }
+  /** Progressive answer bubble; removed again once the saved record is rendered. */
+  function beginChatStream(question, hasImage) {
+    const log = $('#chat-log');
+    if (!log) return null;
+    const box = document.createElement('div');
+    box.className = 'meal-row list-row stream-row';
+    box.setAttribute('role', 'listitem');
+    box.innerHTML = '<div class="row-body"><div class="row-head"><strong></strong>'
+      + `${hasImage ? '<span class="row-tag">含照片</span>' : ''}<span class="row-tag">正在回答</span></div>`
+      + '<div class="answer stream-answer"><div class="stream-think" hidden></div><span class="stream-text"></span><span class="stream-caret" aria-hidden="true">▍</span></div></div>';
+    $('strong', box).textContent = question || '（照片提问）';
+    log.prepend(box);
+    const state = {box, text: '', thinking: '', body: $('.stream-text', box), caret: $('.stream-caret', box), think: $('.stream-think', box), started: false};
+    // A reasoning model can think for a while before the first fragment; say so instead of showing an
+    // empty bubble, and drop the hint as soon as real text arrives.
+    state.body.textContent = '模型正在思考…';
+    state.hint = setTimeout(() => {if (!state.started && state.body) state.body.textContent = '模型正在思考…（推理模型会先思考再作答）';}, 4000);
+    return state;
+  }
+  function pushChatStream(box, chunk) {
+    if (!box || !chunk) return;
+    if (!box.started) {
+      box.started = true;
+      box.text = '';
+      clearTimeout(box.hint);
+      // Keep the reasoning visible but small once the answer starts: a one-line summary, tappable.
+      if (box.thinking && box.think) {
+        box.think.textContent = `已思考 ${box.thinking.length} 字（点击展开）`;
+        box.think.classList.add('is-summary');
+      }
+    }
+    box.text += chunk;
+    box.body.textContent = box.text;
+    box.caret.hidden = false;
+  }
+  /** Reasoning fragments from a reasoning model: shown, never merged into the answer. */
+  function pushChatThinking(box, chunk) {
+    if (!box || !chunk || !box.think) return;
+    if (box.started) return;
+    box.thinking += chunk;
+    box.think.hidden = false;
+    box.think.textContent = box.thinking.length > 600 ? '…' + box.thinking.slice(-600) : box.thinking;
+  }
+  function endChatStream(box) {
+    if (box?.hint) clearTimeout(box.hint);
+    if (box?.box?.parentNode) box.box.parentNode.removeChild(box.box);
+  }
+  /** Streams the answer through the adapter; throws when streaming is unavailable so the caller can fall back. */
+  async function streamChat(payload) {
+    if (!window.QinghengAdapter?.hasNative?.() || !navigator.onLine) throw new Error('当前环境不支持流式输出');
+    const box = beginChatStream(payload.question, Boolean(payload.image));
+    window.QinghengStream = {onDelta: text => pushChatStream(box, text), onThink: text => pushChatThinking(box, text)};
+    try {
+      return await api('/api/chat/stream', payload);
+    } finally {
+      window.QinghengStream = null;
+      endChatStream(box);
+    }
+  }
+  /** Citations for a saved answer: real https links only, collapsed by default. */
+  function citationBlock(row) {
+    const sources = Array.isArray(row && row.sources) ? row.sources.filter(item => item && typeof item.url === 'string' && /^https:\/\//.test(item.url)) : [];
+    if (!sources.length) return '';
+    const items = sources.map((item, index) => `<li><a href="${esc(item.url)}" target="_blank" rel="noreferrer">[${index + 1}] ${esc(String(item.title || item.url).slice(0, 90))}</a></li>`).join('');
+    return `<details class="row-sources"><summary>来源 ${sources.length} 条</summary><ol>${items}</ol></details>`;
+  }
+  /** Rows the user marked as unhelpful; kept on the phone only, as a UI signal. */
+  const unhelpfulChats = (() => {
+    try {const saved = JSON.parse(localStorage.getItem('qingheng.chat.unhelpful') || '[]'); return new Set(Array.isArray(saved) ? saved.map(String) : []);} catch {return new Set();}
+  })();
+  function markUnhelpful(id) {
+    if (!id) return;
+    unhelpfulChats.add(id);
+    try {localStorage.setItem('qingheng.chat.unhelpful', JSON.stringify([...unhelpfulChats]));} catch {}
+    renderChat();
+  }
+  /** Refills the question box and, when consent is already given, asks again. */
+  async function regenerateChat(id) {
+    const row = (state.chats || []).find(item => String(item && item.id) === String(id));
+    if (!row) {notice('找不到这条记录，可能已被清除。', true); return;}
+    const box = $('#chat-question');
+    if (box) {box.value = String(row.question || ''); box.focus();}
+    window.scrollTo({top: 0, behavior: 'smooth'});
+    const consent = $('#chat-consent');
+    if (consent && !consent.hidden && consent.checked) {await sendChat();}
+    else notice('问题已填回输入框；勾选同意后点「提问」即可重新生成。');
+  }
+  let chatQuery = "";
+  /** 按日期分组，组内保持倒序（最新在前）。 */
+  function groupChatsByDate(rows) {
+    const groups = [];
+    for (const row of rows) {
+      const date = String(row.date || "未标注日期");
+      let group = groups.find(item => item.date === date);
+      if (!group) { group = {date, rows: []}; groups.push(group); }
+      group.rows.push(row);
+    }
+    return groups;
+  }
+  function chatMatches(row, query) {
+    if (!query) return true;
+    const hay = (String(row.question || "") + " " + String(row.answer || "")).toLowerCase();
+    return hay.includes(query.toLowerCase());
+  }
+  function renderChat() {
+    const chats = Array.isArray(state.chats) ? state.chats : [];
+    const log = $('#chat-log');
+    const baseRows = favoriteOnlyChats ? chats.filter(row => row.favorite === true) : chats;
+    const shown = baseRows.filter(row => chatMatches(row, chatQuery));
+    // No inline delete here: a long press opens copy / select / favourite / delete instead, so the
+    // row keeps its width for the question, its tags, the date and a readable answer preview.
+    const groups = groupChatsByDate([...shown].reverse());
+    if (log) log.innerHTML = shown.length ? groups.map(group => "<p class=\"chat-day\">" + esc(group.date) + "<span>" + group.rows.length + " 条</span></p>" + group.rows.map(row => {
+      // An answer that is nothing but JSON nulls ("nullnull…") is not an answer: say what happened
+      // instead of showing the raw text, even if the stored record was never repaired.
+      const raw = String(row.answer || '');
+      const answer = /^(?:[\s\u200b-\u200f\u2060\ufeff]*null){3,}/i.test(raw)
+        ? '这次回答没有正确返回（模型只返回了思考过程，没有输出内容）。请重新提问；如果反复出现，请在「我的 → 模型连接」换一个非推理模型。'
+        : raw;
+      const id = String(row.id ?? '');
+      const expanded = expandedChats.has(id);
+      const long = answer.length > 140;
+      const tags = []
+        .concat(String(row.question || '').includes('含照片') ? ['含照片'] : [])
+        .concat(/联网检索|参考来源|来源（联网/.test(answer) ? ['联网检索'] : [])
+        .concat(row.source === 'api' ? [] : [])
+        .join('');
+      return `<div class="meal-row list-row" role="listitem" data-long-press="chat:${esc(id)}"><div class="row-body">`
+        + `<div class="row-head"><strong>${esc(row.question || '')}</strong>`
+        + `${row.favorite === true ? `<span class="fav-badge" aria-label="已收藏"><span class="inline-icon" aria-hidden="true">${SVG_ICONS['icon-bookmark.svg']}</span></span>` : ''}`
+        + `${tags ? `<span class="row-tag">${esc(tags)}</span>` : ''}`
+        + `<span class="row-date">${esc(row.date || '')}</span></div>`
+        + `<div class="answer${long && !expanded ? ' is-clamped' : ''}">${answerHtml(answer)}</div>`
+        + `${long ? `<button type="button" class="row-toggle" data-chat-toggle="${esc(id)}" aria-expanded="${expanded ? 'true' : 'false'}">${expanded ? '收起' : '展开全文'}</button>` : ''}`
+        + citationBlock(row)
+        + `<div class="button-row row-actions"><button type="button" class="button subtle" data-chat-again="${esc(id)}">重新生成</button><button type="button" class="button subtle" data-chat-unhelpful="${esc(id)}">${unhelpfulChats.has(id) ? '已标记没用' : '这条没用'}</button></div>`
+        + `</div></div>`;
+    }).join("")).join("") : empty(chatQuery ? "没有匹配「" + chatQuery + "」的记录。" : (favoriteOnlyChats ? "还没有收藏的问答记录。长按一条记录即可收藏。" : "还没有问答记录。有疑问时，问一句。"));
+    const node = $('#chat-mode');
+    if (node) {
+      const base = state.settings.apiConfigured === true
+        ? '已配置模型：确认上方已勾选同意即可提问；问题与部分健康数据会发送给该服务商，按 token 计费。'
+        : '尚未配置 API Key：请先到「我的 → 模型连接」保存密钥；本地记录功能不受影响。';
+      node.textContent = base;
+    }
+  }
+  // ---- 上次 AI 回答（今天页的入口行）--------------------------------------------------------------
+  /** Fills the "上次 AI 回答" row with the newest chat record; the row stays hidden until one exists. */
+  function renderLastChat() {
+    const open = $('#last-chat-open');
+    if (!open) return;
+    const chats = (state && Array.isArray(state.chats) ? state.chats : []).filter(row => row && (row.question || row.answer));
+    const last = chats[chats.length - 1] || null;
+    open.hidden = !last;
+    if (!last) return;
+    const question = $('#last-chat-question'), preview = $('#last-chat-preview');
+    if (question) question.textContent = String(last.question || '（未记录问题）').slice(0, 42);
+    if (preview) {
+      const text = String(last.answer || '').replace(/\s+/g, ' ').trim();
+      preview.textContent = text ? text.slice(0, 48) : '点开看上次 AI 给的完整回答';
+    }
+  }
+  $('#last-chat-open')?.addEventListener('click', () => {
+    switchTab('chat');
+    // The newest record renders as the first row of the log; bring it into view after the switch.
+    requestAnimationFrame(() => $('#chat-log')?.scrollIntoView({block: 'start', behavior: 'auto'}));
+  });
+  function renderPush(push) {
+    const p = push || (window.QinghengAdapter.currentPush ? window.QinghengAdapter.currentPush() : (window.QinghengAdapter.pushDefaults || {}));
+    const form = $('#push-form');
+    if (form) {form.elements.enabled.checked = p.enabled === true; form.elements.analysisEnabled.checked = p.analysisEnabled === true; if (p.morningTime) form.elements.morningTime.value = p.morningTime; if (p.eveningTime) form.elements.eveningTime.value = p.eveningTime;}
+    const exactButton = $('#exact-alarm-settings');
+    if (exactButton) {exactButton.disabled = p.canScheduleExact === true; exactButton.textContent = p.canScheduleExact === true ? '精确闹钟已允许' : '允许精确闹钟';}
+    const status = $('#push-status');
+    if (status) status.textContent = p.enabled === true ? (p.analysisEnabled === true ? '已开启 · 后台自动分析' : '已开启 · 仅提醒') : '未开启';
+    const detail = $('#push-detail');
+    const weeklyEnabled = $('#weekly-enabled'), weeklyDay = $('#weekly-day'), weeklyTime = form?.elements?.weeklyTime;
+    if (weeklyEnabled) weeklyEnabled.checked = p.weeklyEnabled !== false;
+    if (weeklyDay) weeklyDay.value = String(number(p.weeklyDay) ?? 7);
+    if (weeklyTime && p.weeklyTime) weeklyTime.value = p.weeklyTime;
+    if (detail) detail.textContent = p.enabled !== true ? '开启后到点会收到本地通知；需要允许通知权限。' : `已设置 ${p.morningTime || '07:00'} 与 ${p.eveningTime || '20:30'}。每天最多 2 条（白天与晚间各一条），两次之间至少间隔 3 小时，不会在同一时段连发两条；周报${p.weeklyEnabled === false ? '已关闭' : `每周${['','一','二','三','四','五','六','日'][number(p.weeklyDay) ?? 7] || '日'} ${p.weeklyTime || '20:00'} 一条`}。精确时间${p.canScheduleExact ? '已就绪' : '可能被系统延迟，建议在系统设置允许「闹钟与提醒」'}；通知权限${p.notificationsGranted ? '已允许' : '未允许，请到系统设置开启'}。通知正文会自动精简到一行，展开可看全文；记录后还会有一次即时反馈（同样计入每日上限）。`;
+    const summary = $('#hub-summary-push');
+    if (summary) summary.textContent = p.enabled === true
+      ? `${p.morningTime || '07:00'} / ${p.eveningTime || '20:30'} · ${p.analysisEnabled === true ? '后台自动分析' : '仅提醒'}`
+      : '未开启 · 到点提醒与建议';
+    return p;
+  }
+  async function loadPush() {
+    try {renderPush(await api('/api/push'));}
+    catch (error) {const detail = $('#push-detail'); if (detail) detail.textContent = error.message;}
+  }
+  let chatImage = null, chatImageVersion = 0, chatImageBusy = false;
+  function clearChatImage() {lastCaptureId='';chatPhotoMeta=photoMeta(null);chatImageVersion++;chatImage=null;chatImageBusy=false;$('#chat-image').value='';$('#chat-gallery').value='';$('#chat-image-preview').hidden=true;$('#chat-image-view').removeAttribute('src');}
+  $('#chat-image').addEventListener('change', async event => {
+    const file = event.target.files[0], message = $('#chat-feedback');
+    if (!file) {clearChatImage(); return;}
+    const revision = ++chatImageVersion;
+    chatImage = null; chatImageBusy = true;
+    feedback(message,'正在本地压缩照片…');
+    try {
+      const result = await compressImage(file);
+      if (revision !== chatImageVersion) return;
+      chatImage = result; chatPhotoMeta=photoMeta(null); showPhotoTime('chat',chatPhotoMeta);
+      $('#chat-image-view').src = result;
+      $('#chat-image-preview').hidden = false;
+      feedback(message,'照片已压缩为 JPEG，原始元数据不会上传。');
+    } catch (error) {
+      if (revision === chatImageVersion) {clearChatImage(); feedback(message,error.message,true);}
+    } finally {if (revision === chatImageVersion) chatImageBusy = false;}
+  });
+  $('#chat-image-remove').addEventListener('click',()=>{clearChatImage();feedback($('#chat-feedback'),'已移除照片。');});
+  // Tell the native layer which field opened the camera, so a recovered capture lands in the right place.
+  const declareImageTarget = target => {try {const bridge = window.QinghengNative; if (bridge && typeof bridge.imageTarget === 'function') bridge.imageTarget(target);} catch {}};
+  ['#meal-image','#meal-gallery'].forEach(id=>$(id).addEventListener('click',()=>declareImageTarget('meal')));
+  ['#chat-image','#chat-gallery'].forEach(id=>$(id).addEventListener('click',()=>declareImageTarget('chat')));
+  // The Android layer hands a capture back here when the page had to reload while the camera was open.
+  window.__qinghengPendingImage = payload => {
+    let parsed;
+    try {parsed = typeof payload === 'string' ? JSON.parse(payload) : payload;} catch {return false;}
+    if (!parsed || !['chat','meal'].includes(parsed.target) || typeof parsed.data !== 'string' || !/^data:image\/(jpeg|png|webp);base64,/.test(parsed.data)) return false;
+    if (parsed.id && parsed.id === lastCaptureId) return true;
+    if (parsed.target === 'chat') {
+      chatImageVersion++; chatImageBusy = false; chatImage = parsed.data; chatPhotoMeta=photoMeta(parsed); showPhotoTime('chat',chatPhotoMeta);
+      $('#chat-image-view').src = parsed.data; $('#chat-image-preview').hidden = false;
+      switchTab('chat');
+      feedback($('#chat-feedback'),'照片已就绪，已压缩并移除元数据。勾选本次同意后即可提问。');
+      $('#chat-image-preview').scrollIntoView({block:'nearest',behavior:'auto'});
+    } else {
+      syncCalendarDay(); imageVersion++; imageBusy = false; imageData = parsed.data; mealPhotoMeta=photoMeta(parsed); showPhotoTime('meal',mealPhotoMeta);
+      $('#meal-image-preview').src = parsed.data; $('#image-preview').hidden = false;
+      switchTab('records');
+      feedback($('#estimate-feedback'),'照片已就绪，已压缩并移除元数据。确认同意后可生成估算预览。');
+      $('#image-preview').scrollIntoView({block:'nearest',behavior:'auto'});
+    }
+    lastCaptureId = parsed.id || '';
+    return true;
+  };
+  window.__qinghengImageError = message => notice(String(message), true);
+  async function sendChat() {
+    const button = $('#chat-send'), message = $('#chat-feedback'), question = $('#chat-question').value.trim();
+    if (button.disabled) return;
+    if (chatImageBusy) {feedback(message,'照片还在压缩，请稍等一下。',true); return;}
+    if (!question && !chatImage) {feedback(message,'请先写下你的问题，或拍一张照片。',true); $('#chat-question').focus(); return;}
+    if (!$('#chat-consent').hidden && !$('#chat-consent').checked) {feedback(message,'发送给外部模型前，请先勾选本次同意。',true); $('#chat-consent').focus(); return;}
+    if (question.length > 2000) {feedback(message,'问题请控制在 2000 字以内。',true); return;}
+    // A sentence describing finished training becomes a draft card; nothing is written until confirmed.
+    if (typeof parseTrainingDraft === 'function') {
+      const draft = parseTrainingDraft(question, activeDate);
+      if (draft) showTrainingDraft(draft); else renderTrainingDraft(null);
+    }
+    if (chatImage && (state.settings.apiConfigured !== true || state.settings.visionEnabled !== true || !state.settings.visionModel)) {feedback(message,'带照片提问需要已启用的视觉模型：DeepSeek 请使用 deepseek-flash，B.AI 请填写其支持图片的模型。',true); return;}
+    if ((chatImage || $('#chat-consent').checked) && !navigator.onLine) {feedback(message,'当前离线，带照片或外部提问不可用；可先记录数据，联网后再问。',true); return;}
+    syncCalendarDay();
+    const submittedImage = chatImage, submittedPhotoMeta = photoMeta(chatPhotoMeta), submittedDate = activeDate;
+    button.disabled = true; feedback(message, submittedImage ? '正在上传照片并思考，请稍候…' : '正在思考，请稍候…');
+    try {
+      const history = (Array.isArray(state.chats) ? state.chats : []).slice(-5).flatMap(row => [{role:'user',content:String(row.question || '').slice(0,4000)},{role:'assistant',content:String(row.answer || '').slice(0,4000)}]);
+      // Routing rule: a short question with no lookup intent is answered in the fast tier.
+      const deepIntent = /(检索|搜索|查一下|最新|研究|证据|为什么|原理|对比|论文|指南)/.test(question);
+      const tier = !submittedImage && !deepIntent && question.length <= 24 ? 'fast' : 'deep';
+      const payload = {question,history,date:submittedDate,allowExternal:true,anchors:anchorSummary(),tier,library:(libraryLookup(question, 8) || librarySummary(6)),webSearch:$('#chat-web').checked && navigator.onLine && tier === 'deep',...(submittedImage?{image:submittedImage,...submittedPhotoMeta}:{})};
+      let data = null;
+      try {
+        data = await streamChat(payload);
+      } catch (streamError) {
+        // Streaming is only a nicety: whatever went wrong (a provider without SSE support, a proxy that
+        // buffers, a mid-stream error, a timeout), the question still gets answered through the normal
+        // route. Only if that also fails does the user see an error.
+        try {
+          data = await api('/api/chat', payload);
+          feedback(message, '流式输出不可用，已改用一次性返回…');
+        } catch (bufferedError) {
+          throw new Error(`${bufferedError?.message || '回答失败'}（流式尝试：${streamError?.message || '失败'}）`);
+        }
+      }
+      const reply = typeof data?.reply === 'string' ? data.reply.trim() : '';
+      if (!reply) throw new Error('模型没有返回可读取的回答，请重试。');
+      const sourceUrls = Array.isArray(data?.sources) ? data.sources.map(row => row && row.url).filter(url => typeof url === 'string' && /^https:\/\//.test(url)) : [];
+      const withSources = reply;
+      const stored = submittedImage ? `［含照片］${question}`.slice(0,2000) : question;
+      feedback(message, data?.webSearch ? (data.webSearch.connected ? '已收到回答，已联网检索（' + data.webSearch.via + '，检索词：' + (data.webSearch.query || '') + '）。' : '已收到回答，但本次未能联网检索。') : (tier === 'fast' ? '已收到回答（快速档：不联网、只带最近三天数据）。' : '已收到回答。'));
+      $('#chat-question').value = ''; acceptConsent('chat'); clearChatImage();
+      try {await loadState({quiet:true});} catch {state.chats = [...(Array.isArray(state.chats) ? state.chats : []),{date:localDate(),question:stored,answer:withSources}]; renderChat(); notice('回答已显示，但保存到手机失败，请勿重复提问。',true);}
+    } catch (error) {feedback(message,error.message,true);} finally {button.disabled = false;}
+  }
+  async function savePush(form) {
+    const button = $('button[type=submit]',form), message = $('#push-feedback');
+    if (button.disabled || !form.reportValidity()) return;
+    button.disabled = true; feedback(message,'正在保存推送设置…');
+    const body = {enabled:form.elements.enabled.checked, morningTime:form.elements.morningTime.value, eveningTime:form.elements.eveningTime.value, weeklyEnabled:form.elements.weeklyEnabled.checked, weeklyDay:Number(form.elements.weeklyDay.value) || 7, weeklyTime:form.elements.weeklyTime.value, analysisEnabled:form.elements.analysisEnabled.checked};
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(body.morningTime) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(body.eveningTime)) {feedback(message,'请输入 24 小时制时间，例如 07:00 与 20:30。',true); button.disabled = false; return;}
+    if (body.analysisEnabled && state.settings.apiConfigured !== true) {feedback(message,'后台自动分析需要先在「我的 → 模型连接」保存 API Key。',true); button.disabled = false; return;}
+    if (body.enabled) {
+      const granted = await ensureNotificationPermission();
+      if (!granted) feedback(message,'已保存设置，但系统通知权限未允许：请到手机「设置 → 应用 → 轻衡 → 通知」开启，否则到点不会有提醒。',true);
+      try {renderPush(await api('/api/push',body)); feedback(message, granted ? '推送设置已保存。' : '推送设置已保存，但还需要在系统设置里允许通知。', !granted);}
+      catch (error) {feedback(message,error.message,true);}
+      button.disabled = false; return;
+    }
+    try {renderPush(await api('/api/push',body)); feedback(message,'推送设置已保存。');}
+    catch (error) {feedback(message,error.message,true);} finally {button.disabled = false;}
+  }
+  async function ensureNotificationPermission() {
+    try {
+      const state = await api('/api/notification-permission');
+      if (state?.granted === true) return true;
+      if (state?.requestable !== true) return false;
+      const result = await api('/api/notification-permission',{});
+      return result?.granted === true;
+    } catch {return false;}
+  }
+
+/* Fragment of assets/app.js -- assembled by tools/assemble-app.ps1 in filename order.
+ * Edit this file, never the generated assets/app.js; tests/app-fragments.test.mjs fails on drift. */
+  // ---- The three things that decide whether reminders and watch data actually work --------------
+  const PERMISSION_ITEMS = [
+    {key: 'notifications', label: '通知权限', why: '没有它，到点的提醒不会出现。', action: '申请通知权限', required: true},
+    {key: 'exactAlarm', label: '精确闹钟', why: '系统默认可以把提醒推迟最多 1 小时；开启后按点送达。', action: '去系统设置允许', required: true},
+    {key: 'health', label: '健康数据（Health Connect）', why: '读取睡眠、步数、运动、活动热量与距离；不授权时其余功能照常可用。', action: '打开授权页', required: false}
+  ];
+  let permissionState = {notifications: null, exactAlarm: null, health: null, healthReason: ''};
+  /** Reads all three states from the routes that already own them; a failure stays "unknown". */
+  async function readPermissionState() {
+    const next = {notifications: null, exactAlarm: null, health: null, healthReason: ''};
+    // Each check is capped: a native route that stops answering must not freeze the checklist.
+    try {const s = await withTimeout(api('/api/notification-permission'), 3000, 'perm.notifications'); next.notifications = s?.granted === true;} catch {}
+    try {const p = await withTimeout(api('/api/push'), 3000, 'perm.push'); next.exactAlarm = p?.canScheduleExact === true;} catch {}
+    try {const h = await withTimeout(api('/api/health-connect/status'), 3000, 'perm.health'); next.health = h?.permissionsGranted === true; next.healthReason = h?.reason || '';} catch {}
+    permissionState = next;
+    console.info('[perm] checklist ready', JSON.stringify(next));
+    return next;
+  }
+  function permissionRow(item, granted) {
+    const state = granted === null ? 'unknown' : granted ? 'ok' : 'todo';
+    const tag = granted === null ? '状态未知' : granted ? '已开启' : (item.required ? '未开启' : '未授权');
+    return `<div class="check-row ${state}" role="listitem" data-check="${item.key}"><div class="row-body">`
+      + `<div class="row-head"><strong>${esc(item.label)}</strong><span class="row-tag ${state === 'ok' ? '' : 'subtle-tag'}">${esc(tag)}</span></div>`
+      + (item.key === 'notifications' && granted === false
+        ? `<div class="permission-denied">${empty('通知权限没有打开', '到系统设置 → 应用 → 轻衡 → 通知开启；否则到点提醒不会出现。', 'denied')}</div>`
+        : `<div class="row-meta"><span>${esc(item.why)}</span></div>`)
+      + (item.key === 'health' && !granted && permissionState.healthReason ? `<div class="row-meta"><span>${esc(permissionState.healthReason)}</span></div>` : '')
+      + `</div><div class="row-side">${granted === true ? '' : `<button type="button" class="button subtle" data-check-fix="${item.key}">${esc(item.action)}</button>`}</div></div>`;
+  }
+  function renderPermissionChecklist() {
+    const html = PERMISSION_ITEMS.map(item => permissionRow(item, permissionState[item.key])).join('');
+    for (const id of ['#ob-checks', '#data-checks']) {
+      const node = $(id);
+      if (node) node.innerHTML = html;
+    }
+    const done = PERMISSION_ITEMS.filter(item => permissionState[item.key] === true).length;
+    const tag = $('#perm-check-tag');
+    if (tag) tag.textContent = done === PERMISSION_ITEMS.length ? '全部就绪' : `${done}/${PERMISSION_ITEMS.length} 已开启`;
+    for (const id of ['#ob-check-note', '#data-check-note']) {
+      const node = $(id);
+      if (!node) continue;
+      if (permissionState.health === false) node.textContent = '健康数据未授权：提醒与其他记录功能不受影响；授权方式见上方按钮。';
+      else if (done === PERMISSION_ITEMS.length) node.textContent = '三项都已就绪。';
+      else node.textContent = '状态会在你回到应用时自动刷新。';
+    }
+  }
+  async function refreshPermissionChecklist() {
+    await readPermissionState();
+    renderPermissionChecklist();
+    return permissionState;
+  }
+  async function fixPermission(key) {
+    const item = PERMISSION_ITEMS.find(entry => entry.key === key);
+    if (key === 'notifications') {
+      const granted = await ensureNotificationPermission();
+      notice(granted ? '通知权限已开启。' : '仍未获得通知权限：请到系统设置 → 应用 → 轻衡 → 通知开启。', !granted);
+    } else if (key === 'exactAlarm') {
+      const bridge = window.QinghengNative;
+      if (bridge && typeof bridge.openExactAlarmSettings === 'function') {bridge.openExactAlarmSettings(); notice('已打开系统设置；允许「闹钟与提醒」后返回应用。');}
+      else notice('精确闹钟设置需要已安装的 APK。', true);
+    } else if (key === 'health') {
+      const bridge = window.QinghengNative;
+      if (bridge && typeof bridge.requestHealthConnectPermissions === 'function') {
+        notice('请在 Health Connect 中允许这五项读取；返回应用后会自动继续。');
+        try {bridge.requestHealthConnectPermissions();} catch {notice('无法发起健康数据授权请求。', true);}
+        await waitHealthResult(180000).catch(() => null);
+      } else notice('健康数据授权需要已安装的 APK。', true);
+    } else return;
+    await refreshPermissionChecklist().catch(() => {});
+    if (item) notice(`${item.label}：${permissionState[key] === true ? '已开启' : '仍未开启'}`, permissionState[key] !== true);
+  }
+
+  // ---- Backup reminder: JSON is the only authoritative store, so an uninstall loses everything ---
+  let backupState = null;
+  /** Records that an export just happened, then refreshes the panel. */
+  async function markBackedUp() {
+    try {
+      const info = await api('/api/backup', {records: number(backupState?.records) ?? 0});
+      backupState = info;
+      renderBackupStatus();
+    } catch { /* A failed bookkeeping write must not fail the export the user already got. */ }
+  }
+  function renderBackupStatus() {
+    const tag = $('#backup-tag'), status = $('#backup-status'), info = backupState || {};
+    if (tag) tag.textContent = info.due ? '建议备份' : '已备份';
+    if (status) {
+      const when = info.at ? new Date(info.at).toLocaleString('zh-CN') : '从未';
+      status.innerHTML = `<span>上次导出：<b>${esc(when)}</b></span><span>当前记录：<b>${fmt(info.records, 0)}</b> 条</span>`
+        + (info.reason ? `<span class="warn-text">${esc(info.reason)}</span>` : '');
+    }
+  }
+  async function refreshBackupStatus() {
+    const tag = $('#backup-tag'), status = $('#backup-status');
+    try {
+      backupState = await api('/api/backup');
+    } catch (error) {
+      if (tag) tag.textContent = '读取失败';
+      if (status) status.textContent = error.message;
+      return null;
+    }
+    const info = backupState || {};
+    if (tag) tag.textContent = info.due ? '建议备份' : '已备份';
+    if (status) {
+      const when = info.at ? new Date(info.at).toLocaleString('zh-CN') : '从未';
+      status.innerHTML = `<span>上次导出：<b>${esc(when)}</b></span><span>当前记录：<b>${fmt(info.records, 0)}</b> 条</span>`
+        + (info.reason ? `<span class="warn-text">${esc(info.reason)}</span>` : '');
+    }
+    return info;
+  }
+  function maybeRemindBackup(info) {
+    if (!info?.due) return;
+    const key = `qingheng.backup-reminded.${localDate()}`;
+    try {if (localStorage.getItem(key) === '1') return; localStorage.setItem(key, '1');} catch {}
+    notice(`建议现在导出一次备份：${info.reason}。文件在手机本地，卸载应用会一起删除。`, true);
+  }
+  async function maybeOfferTargetAdjustment() {
+    if (!loaded || activeDate !== localDate() || state?.temporaryTargets?.status === 'active') return;
+    const meals = state.meals.filter(meal => meal.date === activeDate), totals = totalsFor(meals), p = state.profile || {};
+    const target = number(p.calorieTarget), fatMin = number(p.fatMin), fatMax = number(p.fatMax);
+    if (!meals.length || totals.calories === null || target === null || fatMin === null || fatMax === null) return;
+    const threshold = target + Math.max(50, target * .05);
+    if (totals.calories <= threshold) return;
+    const promptKey = `qingheng.target-adjustment.${activeDate}`;
+    try {if (localStorage.getItem(promptKey) === '1') return; localStorage.setItem(promptKey, '1');} catch {}
+    const floor = p.sex === 'female' ? 1200 : 1500;
+    const adjustedCalories = Math.max(floor, Math.round((target - Math.min(250, Math.max(100, target * .10))) / 50) * 50);
+    const adjustedFatMax = Math.max(fatMin, Math.round(fatMax * .90));
+    const message = `今天已记录 ${fmt(totals.calories, 0)} kcal，超过目标约 ${fmt(totals.calories - target, 0)} kcal。是否仅在明天临时调整为热量 ${fmt(adjustedCalories, 0)} kcal、脂肪不超过 ${fmt(adjustedFatMax, 0)} g？原目标不会改变，明天结束后自动恢复。`;
+    if (!await askConfirm(message, {title:'调整明日目标', ok:'调整明日'})) return;
+    try {
+      await api('/api/target-adjustment', {action:'adjust'});
+      await loadState({quiet:true, offerTargetAdjustment:false});
+      notice(`明日将临时使用 ${fmt(adjustedCalories, 0)} kcal 与脂肪上限 ${fmt(adjustedFatMax, 0)} g；原目标已保留。`);
+    } catch (error) {
+      try {localStorage.removeItem(promptKey);} catch {}
+      notice(error.message, true);
+    }
+  }
+
+  function installExactAlarmControl() {
+    const form = $('#push-form');
+    if (!form || $('#exact-alarm-settings')) return;
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'button subtle'; button.id = 'exact-alarm-settings'; button.textContent = '允许精确闹钟';
+    form.insertBefore(button, $('#push-feedback'));
+    button.addEventListener('click', () => {
+      const bridge = window.QinghengNative;
+      if (bridge && typeof bridge.openExactAlarmSettings === 'function') bridge.openExactAlarmSettings();
+      else notice('精确闹钟设置需要已安装的 APK。', true);
+    });
+  }
+  let quickRecordSources = [];
+  function installQuickRecordControls() {
+    const detail = $('.energy-actions') || $('.energy-detail');
+    if (detail && !$('#quick-record')) {
+      const button = document.createElement('button');
+      button.type = 'button'; button.className = 'button subtle'; button.id = 'quick-record'; button.textContent = '快速记录';
+      // 插在主按钮之后：「＋ 记录一餐」是主路径，不能被次按钮挤到屏外。
+      detail.appendChild(button);
+      button.addEventListener('click', openQuickRecord);
+    }
+    if (!$('#quick-record-dialog')) {
+      const root = document.createElement('div');
+      root.className = 'app-dialog'; root.id = 'quick-record-dialog'; root.hidden = true;
+      root.innerHTML = `<div class="app-dialog-panel app-dialog-panel--quick" role="dialog" aria-modal="true" aria-labelledby="quick-record-title"><h2 id="quick-record-title">快速记录</h2><form id="quick-record-form"><label>日期<input id="quick-record-date" type="date" required></label><label>餐次<select id="quick-record-type"><option value="breakfast">早餐</option><option value="lunch">午餐</option><option value="dinner">晚餐</option><option value="snack">加餐</option></select></label><label>复制哪一餐<select id="quick-record-source"></select></label><label>份量比例<input id="quick-record-scale" type="number" min="0.1" max="10" step="0.1" value="1"></label><label>进餐时间<input id="quick-record-time" type="time" required></label><label>名称补充<span class="field-with-action"><input id="quick-record-text" maxlength="120" placeholder="可选，也可使用语音输入"><button type="button" class="mic-button" data-voice-target="quick" aria-label="用语音补充名称"><span class="mic-icon" aria-hidden="true"><img src="./icon-mic.svg" alt="" width="20" height="20"></span></button></span></label><p class="form-feedback" id="quick-record-feedback" role="status" aria-live="polite"></p><div class="app-dialog-actions"><button type="button" class="button subtle" id="quick-record-cancel">取消</button><button type="submit" class="button primary">保存</button></div></form></div>`;
+      document.body.appendChild(root);
+      $('#quick-record-cancel').addEventListener('click', () => {root.hidden = true;});
+      root.addEventListener('click', event => {if (event.target === root) root.hidden = true;});
+      $('#quick-record-form').addEventListener('submit', submitQuickRecord);
+    }
+  }
+  function openQuickRecord() {
+    const root = $('#quick-record-dialog'), select = $('#quick-record-source'), feedback = $('#quick-record-feedback');
+    quickRecordSources = state.meals.slice().sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))).slice(0, 12);
+    select.innerHTML = quickRecordSources.length
+      ? quickRecordSources.map((meal, index) => `<option value="${index}">${esc(meal.date || '')} · ${esc(meal.name || '未命名餐食')}</option>`).join('')
+      : '<option value="">还没有可复制的餐食</option>';
+    $('#quick-record-date').value = activeDate;
+    const quickTime = $('#quick-record-time'); if (quickTime) quickTime.value = nowClock();
+    $('#quick-record-type').value = 'snack';
+    $('#quick-record-scale').value = '1';
+    $('#quick-record-text').value = '';
+    feedback.textContent = quickRecordSources.length ? '' : '先记录一餐后，就可以在这里快速复制。';
+    root.hidden = false;
+  }
+  async function submitQuickRecord(event) {
+    event.preventDefault();
+    const root = $('#quick-record-dialog'), feedback = $('#quick-record-feedback');
+    const source = quickRecordSources[Number($('#quick-record-source').value)];
+    if (!source) {feedback.textContent = '请选择要复制的餐食。'; return;}
+    const factor = number($('#quick-record-scale').value);
+    if (factor === null || factor < .1 || factor > 10) {feedback.textContent = '份量比例要在 0.1 到 10 之间。'; return;}
+    const scale = value => value === null || value === undefined ? null : Math.round(Number(value) * factor * 100) / 100;
+    const items = Array.isArray(source.items) ? source.items.map(item => ({...item, grams:scale(item.grams), calories:scale(item.calories), protein:scale(item.protein), fat:scale(item.fat), carbs:scale(item.carbs)})) : [];
+    const totals = Object.fromEntries(['calories','protein','fat','carbs'].map(key => [key, scale(source[key] ?? source.totals?.[key])]));
+    const name = $('#quick-record-text').value.trim() || `${source.name || '未命名餐食'}（快速记录）`;
+    const button = $('button[type="submit"]', event.currentTarget);
+    button.disabled = true;
+    try {
+      const quickTime = clockPattern.test($('#quick-record-time').value) ? $('#quick-record-time').value : nowClock();
+      await api('/api/meals', {date:$('#quick-record-date').value, mealType:$('#quick-record-type').value, mealTime:quickTime, mealTimeSource:'manual', name, source:'quick-copy', items, ...totals, totals});
+      root.hidden = true;
+      await loadState({quiet:true});
+      notice('快速记录已保存。');
+    } catch (error) {feedback.textContent = error.message;}
+    finally {button.disabled = false;}
+  }
+/* Fragment of assets/app.js -- assembled by tools/assemble-app.ps1 in filename order.
+ * Edit this file, never the generated assets/app.js; tests/app-fragments.test.mjs fails on drift. */
+  // ---- Voice input ----------------------------------------------------------------------------
+  // Mainstream health apps keep the microphone inside the field and show a listening sheet with the
+  // text appearing as it is recognised, plus explicit stop and cancel. The system recogniser screen
+  // cannot be styled, so the app runs SpeechRecognizer itself and falls back to that screen only
+  // when the platform has no in-app recogniser.
+  const voice = {target:null, partial:'', active:false, retry:false, timer:null};
+  const voiceBridge = () => window.QinghengNative || null;
+  const voiceInputFor = target => target === 'quick' ? $('#quick-record-text') : $('#meal-text');
+  function insertVoiceText(target, text) {
+    const input = voiceInputFor(target), value = String(text || '').trim();
+    if (!input || !value) return false;
+    input.value = input.value.trim() ? `${input.value.trim()}、${value}` : value;
+    input.focus();
+    return true;
+  }
+  function setVoiceStatus(text) {const node = $('#voice-status'); if (node) node.textContent = text;}
+  function voiceButton(primary) {
+    const button = $('#voice-done');
+    if (!button) return;
+    button.textContent = primary ? '重试' : '完成';
+  }
+  function closeVoiceSheet() {
+    const sheet = $('#voice-sheet'); if (sheet) sheet.hidden = true;
+    if (voice.timer) {clearTimeout(voice.timer); voice.timer = null;}
+    voice.active = false; voice.retry = false; voice.partial = '';
+    const text = $('#voice-text'); if (text) text.textContent = '';
+  }
+  function systemVoiceFallback(bridge) {
+    if (!bridge || typeof bridge.startVoiceInput !== 'function') {
+      setVoiceStatus('这台设备没有可用的语音识别；可以直接输入食物与克重。');
+      return;
+    }
+    closeVoiceSheet();
+    try {bridge.startVoiceInput(voice.target || 'meal');}
+    catch {notice('无法启动语音输入，可以直接输入食物与克重。', true);}
+  }
+  function beginListening() {
+    const bridge = voiceBridge();
+    if (!bridge) {setVoiceStatus('语音输入需要已安装的 APK；浏览器演示里可以直接打字。'); return;}
+    setVoiceStatus('正在聆听…');
+    voiceButton(false);
+    $('#voice-text').textContent = '';
+    // The in-app recogniser is tried first; "unavailable" comes back through the state callback
+    // and hands over to the system screen, so the microphone never becomes a dead end.
+    try {bridge.startVoice(voice.target || 'meal');}
+    catch {systemVoiceFallback(bridge); return;}
+    if (voice.timer) clearTimeout(voice.timer);
+    voice.timer = setTimeout(() => {if (voice.active) setVoiceStatus('还在听…说完点「完成」，或点「取消」。');}, 12000);
+  }
+  function openVoiceSheet(target) {
+    const sheet = $('#voice-sheet');
+    if (!sheet) return;
+    voice.target = target === 'quick' ? 'quick' : 'meal';
+    voice.active = true; voice.partial = ''; voice.retry = false;
+    sheet.hidden = false;
+    beginListening();
+  }
+  $('#voice-cancel').addEventListener('click', () => {
+    const bridge = voiceBridge();
+    if (bridge && typeof bridge.cancelVoice === 'function') {try {bridge.cancelVoice();} catch {}}
+    closeVoiceSheet();
+  });
+  $('#voice-done').addEventListener('click', () => {
+    if (voice.retry) {voice.retry = false; beginListening(); return;}
+    const text = voice.partial.trim();
+    if (text) {insertVoiceText(voice.target, text); closeVoiceSheet(); notice('已把语音识别结果填入输入框，可再修改。'); return;}
+    const bridge = voiceBridge();
+    setVoiceStatus('正在识别…');
+    if (bridge && typeof bridge.stopVoice === 'function') {try {bridge.stopVoice();} catch {}}
+  });
+  window.__qinghengVoicePartial = payload => {
+    try {
+      const data = typeof payload === 'string' ? JSON.parse(payload) : payload;
+      const text = String(data?.text || '').trim();
+      if (!text) return false;
+      voice.partial = text;
+      const node = $('#voice-text'); if (node) node.textContent = text;
+      setVoiceStatus('正在识别…');
+      return true;
+    } catch {return false;}
+  };
+  window.__qinghengVoiceState = payload => {
+    try {
+      const data = typeof payload === 'string' ? JSON.parse(payload) : payload;
+      const state = String(data?.state || '');
+      if (state === 'listening') setVoiceStatus('正在聆听…');
+      else if (state === 'ready') setVoiceStatus('请开始说，例如「米饭 100 克、鸡胸肉 150 克」。');
+      else if (state === 'speaking') setVoiceStatus('听到了，继续说…');
+      else if (state === 'processing') setVoiceStatus('正在识别…');
+      else if (state === 'unavailable') systemVoiceFallback(voiceBridge());
+      else if (state === 'empty' || state === 'error') {
+        if (voice.timer) {clearTimeout(voice.timer); voice.timer = null;}
+        setVoiceStatus(String(data?.message || '没有听清，可以再说一次或直接输入。'));
+        voice.retry = true; voiceButton(true);
+      }
+      return true;
+    } catch {return false;}
+  };
+  window.__qinghengVoiceInput = payload => {
+    try {
+      const data = typeof payload === 'string' ? JSON.parse(payload) : payload;
+      const inserted = insertVoiceText(data?.target, data?.text);
+      if (!inserted) return false;
+      closeVoiceSheet();
+      return true;
+    } catch {return false;}
+  };
+  // One delegated handler covers the static mic buttons and anything built later.
+  document.addEventListener('click', event => {
+    const button = event.target.closest('[data-voice-target]');
+    if (!button || button.disabled) return;
+    openVoiceSheet(button.dataset.voiceTarget);
+  });
+  function installHealthConnectControls() {
+    const row = $('#export-data')?.parentElement;
+    if (!row || $('#health-connect-sync')) return;
+    const sync = document.createElement('button');
+    sync.type = 'button'; sync.className = 'button subtle'; sync.id = 'health-connect-sync'; sync.textContent = '同步手表数据';
+    const settings = document.createElement('button');
+    settings.type = 'button'; settings.className = 'button subtle'; settings.id = 'health-connect-settings'; settings.textContent = 'Health Connect 权限';
+    row.prepend(settings); row.prepend(sync);
+    settings.addEventListener('click', () => {
+      const bridge = window.QinghengNative;
+      if (bridge && typeof bridge.openHealthConnectSettings === 'function') bridge.openHealthConnectSettings();
+      else notice('Health Connect 权限设置需要已安装的 APK。', true);
+    });
+    const typeNames = {steps:'步数', sleep:'睡眠', exercise:'运动', activeCalories:'活动热量', distance:'距离'};
+    const countText = counts => Object.keys(typeNames)
+      .filter(key => counts && Number(counts[key]) > 0)
+      .map(key => `${typeNames[key]} ${Number(counts[key])}`).join('、');
+    sync.addEventListener('click', async event => {
+      const button = event.currentTarget, message = $('#data-feedback');
+      button.disabled = true;
+      try {
+        // Health Connect read permission is a user decision: ask for it here instead of sending the
+        // user to a settings screen and leaving the sync button as a dead end.
+        const status = await api('/api/health-connect/status');
+        if (status?.permissionsGranted !== true) {
+          const bridge = window.QinghengNative;
+          if (!bridge || typeof bridge.requestHealthConnectPermissions !== 'function') {
+            feedback(message, '手表数据读取需要已安装的 APK。', true);
+            return;
+          }
+          feedback(message, '正在请求健康数据读取权限，请在系统弹窗中允许…');
+          // The native side decides between the framework request and Health Connect's own screen;
+          // without this call the promise below would wait for an answer nobody asked for.
+          try {bridge.requestHealthConnectPermissions();}
+          catch {feedback(message, '无法发起健康数据授权请求。', true); return;}
+          const answer = await waitHealthResult();
+          if (answer?.granted !== true) {
+            feedback(message, `仍未获得授权：${answer?.message || '需要睡眠、步数、运动、活动热量与距离的读取权限'}。`
+              + '如果 Health Connect 的「应用权限」里根本没有列出轻衡，说明系统没有把这个侧载安装识别为健康数据应用：'
+              + '可先打开「Health Connect 权限」查看列表，或改用应用商店安装的版本；手表数据本身仍可在小米运动健康里查看。', true);
+            return;
+          }
+        }
+        feedback(message, '正在同步手表数据…');
+        const result = await api('/api/health-connect/sync', {days:30});
+        if (result?.permissionsGranted !== true) {
+          feedback(message, `未能读取：${result?.reason || '权限不足'}。`, true);
+          return;
+        }
+        await loadState({quiet:true});
+        const total = Number(result.count || 0), detail = countText(result.counts);
+        if (total === 0) {
+          feedback(message, '权限已就绪，但最近 30 天 Health Connect 里没有这五类记录。请确认小米运动健康已开启向 Health Connect 写入（小米运动健康 → 我的 → 设置 → 第三方数据/Health Connect），并戴着手表同步过一次。', true);
+          return;
+        }
+        feedback(message, `已同步 ${total} 条手表记录到手机${detail ? `（${detail}）` : ''}。`);
+      } catch (error) {feedback(message, error.message, true);}
+      finally {button.disabled = false;}
+    });
+  }
+  /** Resolves with the native answer to the Health Connect permission prompt. */
+  function waitHealthResult(timeoutMs = 120000) {
+    return new Promise(resolve => {
+      let done = false;
+      const finish = value => {if (done) return; done = true; window.__qinghengHealthResult = previous; resolve(value);};
+      const previous = window.__qinghengHealthResult;
+      window.__qinghengHealthResult = payload => {
+        try {finish(typeof payload === 'string' ? JSON.parse(payload) : payload);}
+        catch {finish(null);}
+        return true;
+      };
+      setTimeout(() => finish(null), timeoutMs);
+    });
+  }
+  function setupCollapsibleSections() {
+    const specs = [
+      {anchor:'#food-search', collapsed:true},
+      {anchor:'#manual-meal-form', collapsed:true},
+      {anchor:'#settings-form', collapsed:true},
+      {anchor:'#push-history', collapsed:true},
+      {anchor:'#export-data', collapsed:true}
+    ];
+    specs.forEach((spec, index) => {
+      const anchor = $(spec.anchor), card = anchor?.closest('.card');
+      if (!card || card.dataset.collapsibleReady === 'true') return;
+      let heading = card.querySelector(':scope > .card-heading');
+      if (!heading) {
+        const title = card.querySelector(':scope > h2');
+        if (!title) return;
+        heading = document.createElement('div');
+        heading.className = 'card-heading collapse-heading-row';
+        card.insertBefore(heading, title);
+        heading.appendChild(title);
+      }
+      const body = document.createElement('div');
+      body.className = 'collapsible-body';
+      body.id = `collapsible-body-${index}`;
+      while (heading.nextSibling) body.appendChild(heading.nextSibling);
+      card.appendChild(body);
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'collapse-toggle';
+      button.dataset.collapseTarget = body.id;
+      const label = heading.querySelector('h2,h3')?.textContent.trim() || '这部分';
+      const storageKey = `qingheng.collapse.${body.id}`;
+      let collapsed = spec.collapsed;
+      try {const saved = localStorage.getItem(storageKey); if (saved === '1' || saved === '0') collapsed = saved === '1';} catch {}
+      button.setAttribute('aria-expanded', String(!collapsed));
+      button.title = collapsed ? `展开${label}` : `收起${label}`;
+      button.setAttribute('aria-label', button.title);
+      button.innerHTML = `<span class="collapse-icon" aria-hidden="true">${collapsed ? '▾' : '▴'}</span>`;
+      heading.appendChild(button);
+      body.hidden = collapsed;
+      button.addEventListener('click', () => {
+        body.hidden = !body.hidden;
+        const expanded = !body.hidden;
+        button.setAttribute('aria-expanded', String(expanded));
+        button.title = expanded ? `收起${label}` : `展开${label}`;
+        button.setAttribute('aria-label', button.title);
+        button.querySelector('.collapse-icon').textContent = expanded ? '▴' : '▾';
+        try {localStorage.setItem(storageKey, body.hidden ? '1' : '0');} catch {}
+      });
+      card.dataset.collapsibleReady = 'true';
+    });
+  }
+  /**
+   * Intake 口径 (defaults mirror D:\AI\health\rules.md and are editable in the profile form).
+   * Every number the app hands back is derived from these, so the app and the written rules can
+   * never drift apart silently.
+   */
+/* Fragment of assets/app.js -- assembled by tools/assemble-app.ps1 in filename order.
+ * Edit this file, never the generated assets/app.js; tests/app-fragments.test.mjs fails on drift. */
+  const TARGET_RULES = {
+    intakeFloor: 2000,        // 日摄入硬底线 kcal
+    deficitCapPercent: 20,    // 缺口不超过维持热量的 20%
+    proteinPerKgMin: 2.0,     // g/kg
+    proteinPerKgMax: 2.2,
+    fatFloorG: 50,            // 脂肪下限：低于此影响激素水平
+    fatIdealMinG: 55,
+    fatIdealMaxG: 70,
+    trainingDayMin: 2150,     // 训练日摄入区间
+    trainingDayMax: 2350,
+    restDayMin: 2000,         // 休息日摄入区间
+    restDayMax: 2150
+  };
+  /**
+   * Goal presets: the deficit each goal plans (negative = surplus) and the protein band it needs.
+   * Presets live *inside* the 口径 — the intake floor and the deficit cap still win, and a plan that
+   * cannot fit is reported instead of silently trimmed.
+   */
+  const GOAL_PRESETS = {
+    gain:     {deficitPercent: -8, proteinPerKgMin: 2.0, proteinPerKgMax: 2.2},
+    recomp:   {deficitPercent: 8,  proteinPerKgMin: 2.0, proteinPerKgMax: 2.2},
+    cut:      {deficitPercent: 18, proteinPerKgMin: 2.2, proteinPerKgMax: 2.4},
+    maintain: {deficitPercent: 0,  proteinPerKgMin: 1.6, proteinPerKgMax: 2.0},
+    lean:     {deficitPercent: 12, proteinPerKgMin: 2.2, proteinPerKgMax: 2.4}
+  };
+  const RULE_KEYS = Object.keys(TARGET_RULES);
+  /** 蛋白区间按缺口幅度分档（ISSN 2017：缺口期 2.3~3.1，越大越靠上限）。 */
+  function proteinBandFor(goal, gapPercent) {
+    if (goal === 'maintain') return {min: 1.6, max: 2.0};
+    const gap = Math.abs(Number(gapPercent) || 0);
+    if (gap < 10) return {min: 2.0, max: 2.2};
+    if (gap <= 20) return {min: 2.3, max: 2.5};
+    return {min: 2.5, max: 2.8};
+  }
+  /** 增肌盈余按训练年限分级。 */
+  function surplusForYears(years) {
+    const y = Number(years);
+    if (!Number.isFinite(y) || y <= 0) return 8;
+    if (y < 1) return 10;
+    if (y <= 3) return 8;
+    return 5;
+  }
+
+  /** Weekly strength sessions -> activity factor. Unset is NOT the same as sedentary. */
+  function activityFactorFor(sessions) {
+    const s = Number(sessions);
+    if (!Number.isFinite(s) || s <= 0) return 1.2;
+    return s >= 6 ? 1.725 : s >= 4 ? 1.55 : s >= 2 ? 1.375 : 1.2;
+  }
+  function targetRules(overrides) {
+    const rules = {...TARGET_RULES};
+    for (const key of RULE_KEYS) {
+      const value = number(overrides && overrides[key]);
+      if (value !== null && value > 0) rules[key] = value;
+    }
+    return rules;
+  }
+  /**
+   * Mifflin-St Jeor BMR -> activity TDEE -> intake ranges straight from the user's own 口径.
+   *
+   * Two things this deliberately does NOT do: pick a silent default for a missing age, or treat an
+   * unanswered training frequency as sedentary. Missing input is reported instead of guessed, and an
+   * unset training frequency yields a provisional result that says which factor it assumed.
+   */
+  function computeTargets(input) {
+    const {sex, weight, height, age, goal} = input;
+    const rules = targetRules(input.rules);
+    const w = number(weight), h = number(height), a = number(age);
+    const missing = [];
+    if (!(w > 0)) missing.push('体重');
+    if (!(h > 0)) missing.push('身高');
+    if (!(a > 0)) missing.push('年龄');
+    if (missing.length) {
+      return {
+        incomplete: true, missing, goal: goal,
+        lines: [`还缺 ${missing.join('、')}，补齐后才能测算目标（不猜默认值）。`]
+      };
+    }
+    const rawTraining = input.training;
+    // "不健身" is an answer, not a missing value: it means sedentary, and it must not be called unset.
+    const trainingOff = String(rawTraining) === 'none';
+    const trainingUnset = !trainingOff && (rawTraining === null || rawTraining === undefined || rawTraining === '');
+    const sessions = trainingUnset || trainingOff ? 0 : Number(rawTraining);
+    const factor = activityFactorFor(sessions);
+    const bmr = Math.round(10 * w + 6.25 * h - 5 * a + (sex === 'female' ? -161 : 5));
+    const tdee = Math.round(bmr * factor);
+    const floor = rules.intakeFloor;
+    // Goal presets: the deficit each goal plans and the protein band it needs. The 口径 stays a hard
+    // constraint — a preset can never push intake below the floor or past the deficit cap.
+    const preset = GOAL_PRESETS[goal] || GOAL_PRESETS.recomp;
+    const cap = rules.deficitCapPercent;
+    const deficitOf = value => Math.round((tdee - value) / tdee * 1000) / 10;
+
+    let trainingDay = {min: Math.max(floor, rules.trainingDayMin), max: Math.max(floor, rules.trainingDayMax)};
+    let restDay = {min: Math.max(floor, rules.restDayMin), max: Math.max(floor, rules.restDayMax)};
+    let proteinPerKgMin = rules.proteinPerKgMin;
+    let proteinPerKgMax = rules.proteinPerKgMax;
+    let leanPlan = null;
+    if (goal === 'lean') {
+      // The floor is what usually binds: a 2,157 kcal maintenance with a 2,000 kcal floor allows at most
+      // a ~7% deficit, so the plan must say so instead of pretending a 12% cut is available.
+      const floorPercent = Math.max(0, Math.round((tdee - floor) / tdee * 1000) / 10);
+      const centre = tdee * (1 - Math.min(preset.deficitPercent, cap) / 100);
+      // A thin look is carb-cycled: train near maintenance, take the deficit on rest days. The floor then
+      // decides how much deficit is actually available, which is the number worth reporting.
+      const trainMid = Math.max(floor + 20, Math.round(centre * 1.03));
+      const restMid = Math.max(floor, Math.round(centre * 0.96));
+      trainingDay = {min: Math.max(floor, Math.round(trainMid * 0.98)), max: Math.max(floor, Math.round(trainMid * 1.05))};
+      restDay = {min: Math.max(floor, Math.round(restMid * 0.97)), max: Math.max(floor, Math.round(restMid * 1.02))};
+      proteinPerKgMin = Math.max(rules.proteinPerKgMin, preset.proteinPerKgMin);
+      proteinPerKgMax = Math.max(rules.proteinPerKgMax, preset.proteinPerKgMax);
+      const weeklyCentre = (trainMid * 4 + restMid * 3) / 7;
+      const effectivePercent = Math.max(0, Math.round((tdee - weeklyCentre) / tdee * 1000) / 10);
+      const weeklyLoss = Math.round(effectivePercent / 100 * tdee * 7 / 7700 * 100) / 100;
+      leanPlan = {
+        plannedPercent: preset.deficitPercent,
+        effectivePercent,
+        floorPercent,
+        weeklyLoss,
+        limitedByFloor: floorPercent < preset.deficitPercent,
+        lossRatePercent: w > 0 ? Math.round(weeklyLoss / w * 1000) / 10 : null,
+        fatPerMonth: Math.round(weeklyLoss * 4.3 * 10) / 10
+      };
+    }
+    // non-lean goal ranges：只在没有自定义日区间时套用目标预设，口径永远优先。
+    const customRanges = !!(input.rules && (input.rules.trainingDayMin || input.rules.trainingDayMax || input.rules.restDayMin || input.rules.restDayMax));
+    if (goal !== 'lean' && !customRanges) {
+      const years = (typeof state !== "undefined" && state && state.profile) ? number(state.profile.trainingYears) : null;
+      const gap = goal === 'gain' ? -surplusForYears(years) : preset.deficitPercent;
+      const centre = Math.round(tdee * (1 - Math.min(gap, cap) / 100));
+      trainingDay = {min: Math.max(floor, Math.round(centre * 0.98)), max: Math.max(floor, Math.round(centre * 1.04))};
+      restDay = {min: Math.max(floor, Math.round(centre * 0.95)), max: Math.max(floor, Math.round(centre * 1.01))};
+      const band = proteinBandFor(goal, gap);
+      proteinPerKgMin = Math.max(rules.proteinPerKgMin, band.min);
+      proteinPerKgMax = Math.max(rules.proteinPerKgMax, band.max);
+    }
+    const proteinMin = Math.round(w * proteinPerKgMin);
+    const proteinMax = Math.round(w * proteinPerKgMax);
+    const proteinMid = Math.round(w * (proteinPerKgMin + proteinPerKgMax) / 2);
+    const fatMin = Math.round(Math.max(rules.fatFloorG, rules.fatIdealMinG));
+    const fatMax = Math.round(Math.max(fatMin, rules.fatIdealMaxG));
+    const fatMid = Math.round((fatMin + fatMax) / 2);
+    const budget = trainingDay.max;
+    const carbs = Math.max(0, Math.round((budget - proteinMid * 4 - fatMid * 9) / 4));
+    const trainingDeficit = deficitOf(trainingDay.max);
+    const restDeficit = deficitOf(restDay.max);
+    const weeklyAverage = Math.round((trainingDay.max * 4 + restDay.max * 3) / 7);
+    const weeklyAverageDeficit = deficitOf(weeklyAverage);
+    const warnings = [];
+    if (rules.trainingDayMin < floor || rules.restDayMin < floor) warnings.push(`已把低于 ${floor} kcal 的目标抬到硬底线上（口径：日摄入 ≥ ${floor}）`);
+    if (trainingDeficit > cap) warnings.push(`训练日缺口 ${trainingDeficit}% 超过口径上限 ${cap}%；要么降目标，要么把缺口上限调高并说明理由`);
+    if (restDeficit > cap) warnings.push(`休息日缺口 ${restDeficit}% 超过口径上限 ${cap}%`);
+    if (trainingDeficit < 0) warnings.push(`训练日目标上限比维持热量高 ${Math.abs(trainingDeficit)}%（盈余）`);
+    if (goal === 'cut' && trainingDeficit <= 0) warnings.push('目标是减脂，但当前区间不低于维持热量，减脂期不会有效果');
+    if (goal === 'gain' && trainingDeficit > 10) warnings.push('目标是增肌，但当前缺口偏大，增肌原料可能不足');
+    if (fatMin < 40) warnings.push('脂肪下限低于 40 g 会影响激素水平（口径：≥ 50 g，理想 55~70 g）');
+    if (trainingUnset) warnings.push('每周训练次数未填，暂按久坐（系数 1.2）估算；填好后重新测算才准确');
+    if (leanPlan) {
+      if (leanPlan.limitedByFloor) warnings.push(`薄肌计划想要 ${leanPlan.plannedPercent}% 的缺口，但硬底线 ${floor} kcal 把可用缺口压到 ${leanPlan.floorPercent}%（约每周 -${leanPlan.weeklyLoss} kg）。想更快只有三条路：提高维持热量（增肌/加日常活动）、延长周期、或经你确认后下调硬底线`);
+      if (leanPlan.effectivePercent < 8) warnings.push(`有效缺口只有 ${leanPlan.effectivePercent}%，线条变化会很慢（每月约 -${leanPlan.fatPerMonth} kg 脂肪）；这是硬底线的直接后果，不是执行不力`);
+      if (leanPlan.lossRatePercent !== null && leanPlan.lossRatePercent > 0.7) warnings.push(`每周减重 ${leanPlan.lossRatePercent}% 体重，超过保肌的安全上限 0.5~0.7%/周；薄肌要慢，快减必掉肌肉`);
+    }
+    const lines = [
+      `维持热量（TDEE）：约 ${tdee} kcal／天（基础代谢 ${bmr} × 活动系数 ${factor}${trainingUnset ? '（训练次数未填，按久坐）' : `，按每周 ${sessions} 次训练`}）`,
+      `目标摄入：训练日 ${trainingDay.min}~${trainingDay.max} kcal／天；休息日 ${restDay.min}~${restDay.max} kcal／天（周均 ${weeklyAverage}，相当于缺口 ${weeklyAverageDeficit}%）`,
+      `与维持热量相比：训练日缺口 ${trainingDeficit}%，休息日缺口 ${restDeficit}%（口径：缺口 ≤ 维持的 ${cap}%，摄入 ≥ ${floor} kcal）`,
+      `蛋白质：${proteinMin}~${proteinMax} g（${proteinPerKgMin}~${proteinPerKgMax} g/kg）· 脂肪：${fatMin}~${fatMax} g（不低于 ${rules.fatFloorG} g）`,
+      `碳水：约 ${carbs} g（按训练日上限 ${budget} kcal 推算剩余热量）`
+    ];
+    if (leanPlan) {
+      // Raising maintenance is the only lever that speeds this up without touching the 口径.
+      const altFactor = activityFactorFor(4);
+      const altTdee = Math.round(bmr * altFactor);
+      const altTarget = Math.round(altTdee * (1 - Math.min(preset.deficitPercent, cap) / 100));
+      lines.push(
+        `训练频率杠杆：3 次/周（系数 ${activityFactorFor(3)}）→ 维持 ${Math.round(bmr * activityFactorFor(3))}；4 次/周（系数 ${altFactor}）→ 维持约 ${altTdee}，12% 缺口目标约 ${altTarget} kcal` +
+        (altTarget >= floor ? `，仍在硬底线 ${floor} 之上，不必下调口径` : `，会跌破硬底线 ${floor}，需要另议`)
+      );
+      lines.push(
+        `薄肌（线条）路径：计划缺口 ${leanPlan.plannedPercent}%，实际按 ${leanPlan.effectivePercent}% 执行 → 预计每周 -${leanPlan.weeklyLoss} kg（约 ${leanPlan.fatPerMonth} kg 脂肪/月，占体重 ${leanPlan.lossRatePercent}%）`,
+        `体脂跑道：媒体常给男性 10~15% 可见腹肌，但缺少可靠实证阈值（受脂肪分布、腹肌厚度、光线与水合影响），只当参考；按当前速度每减 1 kg 脂肪约 ${leanPlan.weeklyLoss > 0 ? Math.round(1 / leanPlan.weeklyLoss) : '—'} 周，2 kg 约 ${leanPlan.weeklyLoss > 0 ? Math.round(2 / leanPlan.weeklyLoss) : '—'} 周`
+      );
+    }
+    return {
+      incomplete: false, goal, rules, preset,
+      bmr, factor, tdee, sessions, trainingUnset,
+      trainingDay, restDay, floor, cap,
+      proteinMin, proteinMax, proteinMid, proteinPerKgMin, proteinPerKgMax,
+      fatMin, fatMax, fatMid, carbs, budget,
+      trainingDeficit, restDeficit, weeklyAverage, weeklyAverageDeficit,
+      // 1 kg of fat is ~7700 kcal, so the weekly gap converts to a rate the trend can grade against.
+      expectedWeeklyKg: Math.round(((tdee - weeklyAverage) * 7 / 7700) * 100) / 100,
+      leanPlan,
+      warnings,
+      provisional: trainingUnset,
+      trainingOff,
+      lines
+    };
+  }
+  const GOAL_LABEL = {gain: '增肌', cut: '减脂', recomp: '增肌同时减脂', maintain: '保持身材', lean: '薄肌（线条）'};
+  /** Onboarding values -> computeTargets input. An unanswered training frequency stays unanswered. */
+  function targetInputFrom(values) {
+    return {
+      sex: values.sex || 'male',
+      weight: values.weight,
+      height: values.height,
+      age: values.age,
+      goal: values.goal || 'recomp',
+      training: values.training === '' || values.training === undefined ? null : values.training,
+      rules: values.rules
+    };
+  }
+  function latestWeight() {
+    const rows = (state.measurements || []).filter(row => number(row.weight) !== null && validDate(row.date)).sort((a, b) => a.date.localeCompare(b.date));
+    return rows.length ? rows[rows.length - 1].weight : null;
+  }
+  /** Reads the 口径 overrides currently typed into the profile form. */
+  function ruleOverridesFrom(form) {
+    const rules = {};
+    for (const key of RULE_KEYS) {
+      const field = form.elements[key];
+      if (!field) continue;
+      const value = number(field.value);
+      if (value !== null && value > 0) rules[key] = value;
+    }
+    return rules;
+  }
+  /** Reads the profile form into the raw input computeTargets expects (no silent defaults). */
+  function profileTargetInput(form, options = {}) {
+    const weightField = number(form.elements.weight.value);
+    return {
+      sex: form.elements.sex.value,
+      height: form.elements.height.value,
+      weight: weightField !== null ? weightField : latestWeight(),
+      age: form.elements.age.value,
+      goal: form.elements.goal.value || 'recomp',
+      training: options.training !== undefined ? options.training : form.elements.training.value,
+      rules: ruleOverridesFrom(form)
+    };
+  }
+  /**
+   * Real maintenance calories from the user's own log: mean intake minus the energy implied by the
+   * weight change over the same window. This is the only maintenance number that is not an estimate.
+   *
+   * Deliberately works on dates that actually have records (no "today minus N days" arithmetic), so a
+   * timezone or a gap in logging cannot silently shift the window.
+   */
+  function calibratedTdee(maxDays = 21) {
+    const meals = Array.isArray(state.meals) ? state.meals : [];
+    const byDay = new Map();
+    for (const meal of meals) {
+      const date = String(meal.date || '');
+      if (!validDate(date)) continue;
+      const kcal = number(meal.calories);
+      if (kcal === null) continue;
+      byDay.set(date, (byDay.get(date) || 0) + kcal);
+    }
+    const intakeDays = [...byDay.keys()].sort().slice(-maxDays);
+    if (intakeDays.length < 14) {
+      return {ok: false, reason: `有热量的记录只有 ${intakeDays.length} 天，至少需要 14 天`};
+    }
+    const from = intakeDays[0], to = intakeDays[intakeDays.length - 1];
+    const points = (Array.isArray(state.measurements) ? state.measurements : [])
+      .filter(row => validDate(String(row.date)) && number(row.weight) !== null && String(row.date) >= from && String(row.date) <= to)
+      .map(row => ({date: String(row.date), weight: number(row.weight)}))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    if (points.length < 2) {
+      return {ok: false, reason: `窗口内只有 ${points.length} 次体重记录，至少需要 2 次`};
+    }
+    const spanDays = Math.max(1, Math.round((Date.parse(points[points.length - 1].date) - Date.parse(points[0].date)) / 86400000));
+    const deltaKg = points[points.length - 1].weight - points[0].weight;
+    const meanIntake = [...byDay.entries()].filter(([date]) => date >= from && date <= to).reduce((sum, [, kcal]) => sum + kcal, 0) / intakeDays.length;
+    const tdee = Math.round(meanIntake - deltaKg * 7700 / spanDays);
+    return {
+      ok: true,
+      tdee,
+      meanIntake: Math.round(meanIntake),
+      deltaKg: Math.round(deltaKg * 10) / 10,
+      spanDays,
+      days: intakeDays.length,
+      from, to
+    };
+  }
+  /**
+   * 薄肌 is an 8~12 week block, not a permanent setting. The start date is stamped when the goal is
+   * saved, and the plan says which week it is and when to review.
+   */
+  function leanPhase(goal, startedAt) {
+    if (goal !== 'lean') return null;
+    const start = validDate(String(startedAt || '')) ? String(startedAt) : '';
+    if (!start) return {weeks: 0, start: null, due: false, text: '薄肌是 8~12 周一个阶段：保存档案后开始计时。'};
+    const days = Math.max(0, Math.round((Date.parse(localDate()) - Date.parse(start)) / 86400000));
+    const weeks = Math.floor(days / 7) + 1;
+    return {
+      weeks, start, due: weeks >= 8,
+      text: weeks >= 8
+        ? `薄肌阶段第 ${weeks} 周（起点 ${start}），已满 8 周：用实测维持热量重算，并考虑安排 1~2 周维持或换阶段`
+        : `薄肌阶段第 ${weeks} 周（起点 ${start}），第 8~12 周复盘`
+    };
+  }
+  /** Writes computed targets back into the profile form and reports the basis. */
+  async function recalcProfileTargets(options = {}) {
+    const form = $('#profile-form');
+    const status = $('#profile-target-status');
+    const input = profileTargetInput(form, options);
+    const result = computeTargets(input);
+    if (result.incomplete) {
+      status.className = 'target-status empty';
+      status.textContent = result.lines.join('\n');
+      return result;
+    }
+    // The saved number is the rest-day ceiling; the training-day range is shown alongside it so a
+    // single figure is never mistaken for "the" target.
+    form.elements.calorieTarget.value = result.trainingDay.max;
+    form.elements.referenceCalories.value = result.tdee;
+    form.elements.proteinMin.value = result.proteinMin;
+    form.elements.proteinMax.value = result.proteinMax;
+    form.elements.fatMin.value = result.fatMin;
+    form.elements.fatMax.value = result.fatMax;
+    // The formula TDEE is a starting point; the log-derived one is what the plan should trust.
+    const calibration = calibratedTdee();
+    const calibrationLine = calibration.ok
+      ? `实测维持热量：约 ${calibration.tdee} kcal（${calibration.days} 天记录，平均摄入 ${calibration.meanIntake}，${calibration.spanDays} 天体重变化 ${calibration.deltaKg} kg）`
+        + (Math.abs(calibration.tdee - result.tdee) >= 120 ? `；与公式值 ${result.tdee} 相差 ${calibration.tdee - result.tdee > 0 ? '+' : ''}${calibration.tdee - result.tdee} kcal，以实测为准` : '；与公式值一致')
+      : `还测不出实测维持热量：${calibration.reason}（记录满 2~3 周再回来看）`;
+    status.className = 'target-status';
+    const phase = leanPhase(result.goal, state.profile && state.profile.leanPhaseStartedAt);
+    status.textContent = [options.auto ? '已按当前选择自动重算（未保存，点「保存档案」生效）：' : '已按「' + (GOAL_LABEL[result.goal] || '增肌同时减脂') + '」与你的口径测算：']
+      .concat(result.lines)
+      .concat(phase ? [phase.text] : [])
+      .concat([calibrationLine])
+      .concat(result.warnings.map(text => '⚠ ' + text))
+      .concat(['这是起点而非结论，用 2~4 周真实记录校准更可靠。'])
+      .join('\n');
+    // Weight doubles as the first measurement so the trend chart has a starting point.
+    if (options.saveMeasurement !== false && number(input.weight) !== null) {
+      const today = localDate();
+      const exists = (state.measurements || []).some(row => row.date === today && number(row.weight) !== null);
+      if (!exists) {
+        try {await api('/api/measurements', {date: today, weight: number(input.weight)});}
+        catch {notice('目标已测算，但体重起始记录保存失败；可稍后手动补记。', true);}
+      }
+    }
+    return result;
+  }
+  /**
+   * Changing weekly training frequency (or the goal) changes TDEE, so every derived target is
+   * recalculated at once: calorie ranges, protein, fat, carbs and the weekly average. Nothing is
+   * written until 保存档案, and the status line says so.
+   */
+  function installProfileAutoRecalc() {
+    const form = $('#profile-form');
+    if (!form) return;
+    const fields = ['goal', 'training', 'weight', 'height', 'age'];
+    form.addEventListener('change', event => {
+      const name = event.target && event.target.name;
+      if (!fields.includes(name)) return;
+      recalcProfileTargets({saveMeasurement: false, auto: true}).catch(() => {});
+    });
+  }
+  async function persistProfile(extra) {
+    const form = $('#profile-form');
+    const training = number(form.elements.training.value);
+    const goal = form.elements.goal.value || 'recomp';
+    const payload = {
+      sex: form.elements.sex.value,
+      height: number(form.elements.height.value),
+      age: number(form.elements.age.value),
+      goal,
+      // Stamping the start date here is what makes the 8~12 week review possible at all.
+      ...(goal === 'lean' && !(state.profile && state.profile.leanPhaseStartedAt) ? {leanPhaseStartedAt: localDate()} : {}),
+      training,
+      ...ruleOverridesFrom(form),
+      ...extra
+    };
+    for (const key of ['calorieTarget', 'referenceCalories', 'proteinMin', 'proteinMax', 'fatMin', 'fatMax']) {
+      const value = number(form.elements[key].value);
+      if (value !== null) payload[key] = value;
+    }
+    return api('/api/profile', payload);
+  }
+/* Fragment of assets/app.js -- assembled by tools/assemble-app.ps1 in filename order.
+ * Edit this file, never the generated assets/app.js; tests/app-fragments.test.mjs fails on drift. */
+  const onboarding = {step: 1, total: 4, done: false, result: null, saving: false};
+  function onboardingStep(step) {
+    const started = (window.performance && performance.now ? performance.now() : Date.now());
+    onboarding.step = Math.min(onboarding.total, Math.max(1, step));
+    $$('.onboarding-step').forEach(node => {node.hidden = Number(node.dataset.step) !== onboarding.step;});
+    $$('#onboarding-dots .step-dot').forEach(dot => dot.classList.toggle('done', Number(dot.dataset.step) <= onboarding.step));
+    $('#ob-back').hidden = onboarding.step === 1;
+    $('#ob-next').hidden = onboarding.step === onboarding.total;
+    $('#ob-finish').hidden = onboarding.step !== onboarding.total;
+    const spent = ((window.performance && performance.now ? performance.now() : Date.now()) - started);
+    (window.__perfLog = window.__perfLog || []).push({label: 'onboardingStep', step: onboarding.step, ms: Math.round(spent)});
+    console.info('[ob] step', onboarding.step, 'in', Math.round(spent), 'ms');
+  }
+  function showOnboarding(show) {
+    const node = $('#onboarding');
+    if (!node) return;
+    node.hidden = !show;
+    document.body.style.overflow = show ? 'hidden' : '';
+    if (show) onboardingStep(1);
+  }
+  function obValues() {
+    const g = name => {const checked = document.querySelector(`#ob-goals input[name=${name}]:checked`); return checked ? checked.value : '';};
+    return {
+      sex: $('#ob-sex').value,
+      height: number($('#ob-height').value),
+      weight: number($('#ob-weight').value),
+      age: number($('#ob-age').value),
+      goal: g('goal') || 'recomp',
+      training: $('#ob-training').value === '' ? null : Number($('#ob-training').value)
+    };
+  }
+  function obSyncTargets() {
+    const values = obValues();
+    const result = computeTargets(targetInputFrom(values));
+    onboarding.result = result;
+    const node = $('#ob-result');
+    if (result.incomplete) {
+      node.className = 'target-status empty';
+      node.textContent = result.lines.join('\n');
+      return result;
+    }
+    node.className = 'target-status';
+    node.textContent = ['按「' + (GOAL_LABEL[result.goal] || '') + '」与你的口径测算：'].concat(result.lines)
+      .concat(result.warnings.map(text => '⚠ ' + text)).join('\n');
+    return result;
+  }
+  function obNext() {
+    const message = $('#ob-feedback');
+    if (onboarding.step === 1) {
+      const v = obValues();
+      if (!(v.height > 0)) {markFieldInvalid($('#ob-height'), '请填写身高，例如 166。'); feedback(message, '请填写身高，例如 166。', true); $('#ob-height').focus(); return;}
+      if (!(v.weight > 0)) {markFieldInvalid($('#ob-weight'), '请填写当前体重，例如 64.3。'); feedback(message, '请填写当前体重，例如 64.3。', true); $('#ob-weight').focus(); return;}
+      // Age is required: guessing it silently changes the whole target.
+      if (!(v.age > 0)) {markFieldInvalid($('#ob-age'), '请填写年龄，测算热量需要它（不会用默认值代替）。'); feedback(message, '请填写年龄，测算热量需要它（不会用默认值代替）。', true); $('#ob-age').focus(); return;}
+    }
+    if (onboarding.step === 2 && (!onboarding.result || onboarding.result.incomplete)) {feedback(message, '请先选择饮食目标。', true); return;}
+    feedback(message, '');
+    onboardingStep(onboarding.step + 1);
+    if (onboarding.step === 2) obSyncTargets();
+    // Show step 4 first, then do the checks: a slow native route must not hold the transition.
+    if (onboarding.step === 4) setTimeout(() => refreshPermissionChecklist().catch(() => {}), 30);
+    if (onboarding.step === 3) {
+      const provider = $('#ob-provider').value;
+      const defaults = (window.QinghengAdapter.defaults || {})[provider] || {};
+      const current = (state.settings.providers || {})[provider] || {};
+      if (!$('#ob-baseurl').value) $('#ob-baseurl').value = current.baseUrl || defaults.baseUrl || '';
+      if (!$('#ob-model').value) $('#ob-model').value = current.model || defaults.model || '';
+    }
+  }
+  async function obFinish() {
+    if (onboarding.saving) return;
+    const message = $('#ob-feedback');
+    const values = obValues();
+    const result = onboarding.result || computeTargets(targetInputFrom(values));
+    if (result.incomplete) {feedback(message, result.lines.join(' '), true); return;}
+    onboarding.saving = true;
+    $('#ob-finish').disabled = true;
+    feedback(message, '正在保存并测算…');
+    try {
+      $('#profile-form').elements.sex.value = values.sex;
+      $('#profile-form').elements.height.value = values.height;
+      $('#profile-form').elements.age.value = values.age ?? '';
+      $('#profile-form').elements.goal.value = values.goal;
+      $('#profile-form').elements.weight.value = values.weight;
+      $('#profile-form').elements.training.value = values.training === null ? '' : String(values.training);
+      $('#profile-form').elements.calorieTarget.value = result.trainingDay.max;
+      $('#profile-form').elements.referenceCalories.value = result.tdee;
+      $('#profile-form').elements.proteinMin.value = result.proteinMin;
+      $('#profile-form').elements.proteinMax.value = result.proteinMax;
+      $('#profile-form').elements.fatMin.value = result.fatMin;
+      $('#profile-form').elements.fatMax.value = result.fatMax;
+      await persistProfile({onboardingDone: true});
+      // First weight becomes the trend baseline.
+      const today = localDate();
+      if (!(state.measurements || []).some(row => row.date === today && number(row.weight) !== null)) {
+        await api('/api/measurements', {date: today, weight: values.weight}).catch(() => undefined);
+      }
+      const provider = $('#ob-provider').value;
+      const key = $('#ob-apikey').value.trim();
+      const baseUrl = $('#ob-baseurl').value.trim();
+      const model = $('#ob-model').value.trim();
+      const allowExternal = $('#ob-allow').hidden || $('#ob-allow').checked;
+      if (baseUrl && model && (key || allowExternal)) {
+        await api('/api/settings', {provider, baseUrl, model, allowExternal, ...(key ? {apiKey: key} : {})});
+      }
+      obSyncTargets();
+      feedback(message, '已保存，开始记录吧。');
+      await loadState({quiet: true}).catch(() => undefined);
+      onboarding.done = true;
+      showOnboarding(false);
+      notice('设置完成。已按你的目标写入热量与蛋白质、脂肪区间。');
+      switchTab('today');
+    } catch (error) {
+      feedback(message, error.message, true);
+    } finally {
+      onboarding.saving = false;
+      $('#ob-finish').disabled = false;
+    }
+  }
+  function renderTargetStatus() {
+    const node = $('#profile-target-status');
+    const p = state.profile || {};
+    if (number(p.calorieTarget) === null) {
+      node.className = 'target-status empty';
+      node.textContent = '尚未测算。填写身高、体重、年龄与每周训练次数后点「按目标重新测算」。';
+      return;
+    }
+    node.className = 'target-status';
+    const goal = GOAL_LABEL[p.goal] || '未设置目标';
+    const temporary = targetAdjustmentForDate(localDate());
+    const rules = targetRules(p);
+    const missing = [];
+    if (number(p.age) === null) missing.push('年龄');
+    if (number(p.training) === null) missing.push('每周训练次数');
+    const trainingToday = (state.habits || []).some(row => row.date === localDate() && (row.training === true || row.training === 'true'));
+    node.textContent = [
+      `当前目标：${goal}`,
+      `维持热量 ${number(p.referenceCalories) !== null ? fmt(p.referenceCalories, 0) + ' kcal' : '未测算'} · 训练日 ${fmt(rules.trainingDayMin, 0)}~${fmt(rules.trainingDayMax, 0)} kcal · 休息日 ${fmt(rules.restDayMin, 0)}~${fmt(rules.restDayMax, 0)} kcal`,
+      `今日按${trainingToday ? '训练日' : '休息日'}：${trainingToday ? fmt(rules.trainingDayMin, 0) + '~' + fmt(rules.trainingDayMax, 0) : fmt(rules.restDayMin, 0) + '~' + fmt(rules.restDayMax, 0)} kcal（在记录页把当天标为「已训练」后自动切换）`,
+      `蛋白质 ${fmt(p.proteinMin, 0)}~${fmt(p.proteinMax, 0)} g · 脂肪 ${fmt(p.fatMin, 0)}~${fmt(p.fatMax, 0)} g · 摄入硬底线 ${fmt(rules.intakeFloor, 0)} kcal`,
+      ...(missing.length ? [`⚠ 还缺 ${missing.join('、')}：现在的数字是按默认值算的，补齐后点「按目标重新测算」。`] : []),
+      ...(temporary ? [`今日临时目标：热量 ${fmt(temporary.temporary.calorieTarget, 0)} kcal · 脂肪上限 ${fmt(temporary.temporary.fatMax, 0)} g；原目标不变，明日结束后恢复。`] : []),
+      '口径与阈值可在下方「口径与手动调整」中修改，改完点「按目标重新测算」。'
+    ].join('\n');
+  }
+  $('#profile-goal').addEventListener('change', () => {
+    const form = $('#profile-form');
+    form.elements.weight.value = form.elements.weight.value || latestWeight() || '';
+    recalcProfileTargets();
+  });
+  $('#recalc-target').addEventListener('click', async event => {
+    const button = event.currentTarget, message = $('.form-feedback', $('#profile-form'));
+    button.disabled = true;
+    feedback(message, '正在测算…');
+    try {
+      const result = await recalcProfileTargets();
+      if (result) {await persistProfile({}); await loadState({quiet: true}); feedback(message, '已按目标测算并保存。');}
+      else feedback(message, '请先填写身高和体重。', true);
+    } catch (error) {feedback(message, error.message, true);} finally {button.disabled = false;}
+  });
+  $('#restart-onboarding').addEventListener('click', async () => {
+    if (!await askConfirm('将重新走一遍四步向导（目标、身体数据、训练、连接）。档案可以重新填写，已有的饮食、训练和体重记录都不会删除。继续吗？', {title: '重新设置档案', ok: '开始设置'})) return;
+    const form = $('#profile-form');
+    $('#ob-sex').value = form.elements.sex.value || 'male';
+    $('#ob-height').value = form.elements.height.value || '';
+    $('#ob-age').value = form.elements.age.value || '';
+    $('#ob-weight').value = form.elements.weight.value || latestWeight() || '';
+    const goal = form.elements.goal.value || 'recomp';
+    const radio = document.querySelector(`#ob-goals input[value="${goal}"]`);
+    if (radio) radio.checked = true;
+    showOnboarding(true);
+  });
+  $('#ob-next').addEventListener('click', obNext);
+  $('#ob-back').addEventListener('click', () => {feedback($('#ob-feedback'), ''); onboardingStep(onboarding.step - 1);});
+  $('#ob-finish').addEventListener('click', obFinish);
+  $('#ob-skip').addEventListener('click', async () => {
+    showOnboarding(false);
+    try {await api('/api/profile', {onboardingDone: true}); await loadState({quiet: true});}
+    catch {notice('已跳过引导；可随时在「我的」重新填写。', true);}
+  });
+  $$('#ob-goals input').forEach(input => input.addEventListener('change', obSyncTargets));
+  $('#ob-training').addEventListener('change', obSyncTargets);
+  $('#ob-height').addEventListener('input', obSyncTargets);
+  $('#ob-weight').addEventListener('input', obSyncTargets);
+  $('#export-markdown').addEventListener('click', async event => {
+    const button = event.currentTarget, message = $('#data-feedback');
+    button.disabled = true;
+    feedback(message, '正在生成 Markdown…');
+    try {
+      const data = await api('/api/export-markdown', {});
+      if (!data || typeof data.markdown !== 'string' || !data.markdown.length) throw new Error('生成的内容为空，请检查是否有记录。');
+      const filename = String(data.filename || `qingheng-${localDate()}.md`);
+      if (window.QinghengAdapter.hasNative() && typeof window.QinghengNative.exportText === 'function') {
+        window.QinghengNative.exportText(filename, data.markdown);
+        feedback(message, '请选择手机保存位置，即可得到 Markdown 文件。');
+      } else {
+        const url = URL.createObjectURL(new Blob([data.markdown], {type: 'text/markdown;charset=utf-8'}));
+        const link = document.createElement('a');
+        link.href = url; link.download = filename; document.body.append(link); link.click(); link.remove();
+        feedback(message, 'Markdown 已开始下载。');
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+      }
+    } catch (error) {feedback(message, error.message, true);} finally {button.disabled = false;}
+  });
+  $('#chat-send').addEventListener('click',sendChat);
+  $('#app-dialog-ok').addEventListener('click',()=>closeDialog(true));
+  $('#app-dialog-cancel').addEventListener('click',()=>closeDialog(false));
+  $('#app-dialog').addEventListener('click',event=>{if(event.target.id==='app-dialog')closeDialog(false);});
+  document.addEventListener('keydown',event=>{if(event.key!=='Escape')return;if(!$('#item-recalc-dialog').hidden)closeItemRecalc();else if(!$('#app-dialog').hidden)closeDialog(false);});
+  // Deleting one Q&A record now happens from its long-press sheet, so this list only clears all.
+  $('#chat-clear').addEventListener('click',async event=>{if(!await askConfirm('确定清空本机问答记录吗？此操作无法撤销。',{title:'清空问答记录',ok:'清空',danger:true}))return;const button=event.currentTarget;button.disabled=true;try{await api('/api/chatlog',undefined,'DELETE');await loadState({quiet:true});notice('问答记录已清空。');}catch(error){notice(error.message,true);}finally{button.disabled=false;}});
+  $('#push-form').addEventListener('submit',event=>{event.preventDefault();savePush(event.currentTarget);});
+  $('#push-test').addEventListener('click',async event=>{const message=$('#push-feedback'),button=event.currentTarget;button.disabled=true;feedback(message,'正在发送测试通知…');try{await api('/api/notification-test',{});feedback(message,'已发送；若没看到通知，请检查系统通知权限。');}catch(error){feedback(message,error.message,true);}finally{button.disabled=false;}});
+  $('#chat-question').addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key==='Enter')sendChat();});
+  /** "用油 1 勺" when the record carries an explicit oil amount; empty otherwise. */
+  function oilLabel(meal) {
+    const grams = number(meal?.oilGrams);
+    if (grams === null || grams <= 0) return '';
+    const spoons = number(meal?.oilSpoons);
+    return `<span>用油 <b>${spoons !== null ? fmt(spoons, 1) + ' 勺/' : ''}${fmt(grams, 0)} g</b></span>`;
+  }
+  /** Row markup for one meal; split out so day-grouped lists can reuse it. */
+  function mealRowsHtml(meals, showDate) {
+    return meals.map(meal => {
+      const type = esc(mealNames[meal.mealType] || meal.mealType || '餐食');
+      const clock = clockPattern.test(String(meal.mealTime||'')) ? esc(meal.mealTime) : '';
+      const source = ({manual:'手动',local:'本地估算',api:'模型估算','quick-copy':'复制','import':'导入'})[meal.source] || '';
+      const items = Array.isArray(meal.items) && meal.items.length ? `共 ${meal.items.length} 项` : '';
+      const photo = meal.photoTakenAt ? '有照片' : '';
+      return `<div class="meal-row list-row" role="listitem" data-long-press="meal:${esc(meal.id ?? '')}"><div class="row-body"><div class="row-head"><strong>${esc(meal.name || '未命名餐食')}</strong>`
+        + `${meal.favorite === true ? `<span class="fav-badge" aria-label="已收藏"><span class="inline-icon" aria-hidden="true">${SVG_ICONS['icon-bookmark.svg']}</span></span>` : ''}`
+        + `${type ? `<span class="row-tag">${type}</span>` : ''}`
+        + `${source ? `<span class="row-tag subtle-tag">${esc(source)}</span>` : ''}`
+        + `${items ? `<span class="row-tag subtle-tag">${esc(items)}</span>` : ''}`
+        + `${showDate ? `<span class="row-date">${esc(meal.date)}</span>` : ''}`
+        + `${meal.id !== undefined ? `<button type="button" class="icon-button danger row-delete" data-delete-meal="${esc(meal.id)}" aria-label="删除${esc(meal.name || '餐食')}" title="删除这条餐食"><span class="inline-icon" aria-hidden="true">${SVG_ICONS['icon-trash.svg']}</span></button>` : ''}</div>`
+        + `${Array.isArray(meal.items) && meal.items.length ? `<div class="meal-items-wrap"><button type="button" class="meal-items-toggle" data-meal-items="${esc(meal.id ?? '')}" aria-expanded="false">共 ${meal.items.length} 项 · 查看每项热量</button><div class="meal-items" hidden>${[...meal.items].sort((a, b) => (number(b.calories) ?? 0) - (number(a.calories) ?? 0)).map(item => `<div class="meal-item"><span>${esc(item.name || '未命名')}</span><b>${number(item.grams) !== null ? `${fmt(item.grams, 0)} g · ` : ''}${fmt(number(item.calories) ?? 0, 0)} kcal</b></div>`).join('')}</div></div>` : ''}`
+        + `<div class="row-meta">${clock ? `<span>${clock}</span>` : ''}`
+        + `<span>蛋 <b>${fmt(meal.protein)}</b></span><span>脂 <b>${fmt(meal.fat)}</b></span><span>碳 <b>${fmt(meal.carbs)}</b></span>`
+        + `${oilLabel(meal)}`
+        + `${photo ? `<span>${photo}</span>` : ''}</div></div>`
+        + `<div class="row-side"><span class="row-kcal">${fmt(meal.calories,0)} <small>kcal</small></span></div></div>`;
+    }).join('');
+  }
+  function renderMeals(container, meals, showDate) {
+    container.innerHTML = meals.length ? mealRowsHtml(meals, showDate) : empty('还没有餐食记录。记下第一餐，从了解自己开始。');
+  }
+  /**
+   * The record list is grouped by day (the way 薄荷健康 shows 按天卡片) and capped at five meals until
+   * the user asks for everything. Both keep the page short without hiding data.
+   */
+  const RECORD_MEALS_COLLAPSED = 5;
+  let recordMealsExpanded = false;
+  function renderRecordMeals(rows) {
+    const container = $('#record-meals');
+    if (!container) return;
+    if (!rows.length) { container.innerHTML = empty('还没有餐食记录。记下第一餐，从了解自己开始。'); return; }
+    const shown = recordMealsExpanded ? rows : rows.slice(0, RECORD_MEALS_COLLAPSED);
+    const groups = new Map();
+    for (const row of shown) {
+      const day = String(row.date || '');
+      if (!groups.has(day)) groups.set(day, []);
+      groups.get(day).push(row);
+    }
+    const html = [...groups].map(([day, list]) => {
+      const kcal = Math.round(totalsFor(list).calories ?? 0);
+      return `<div class="meal-day"><div class="meal-day-head"><strong>${esc(dayLabel(day))}</strong><span>${list.length} 餐 · ${fmt(kcal, 0)} kcal</span></div>${mealRowsHtml(list, false)}</div>`;
+    }).join('');
+    const toggle = rows.length > RECORD_MEALS_COLLAPSED
+      ? `<button type="button" class="button subtle" id="record-meals-toggle">${recordMealsExpanded ? '收起' : `显示全部 ${rows.length} 条`}</button>`
+      : '';
+    container.innerHTML = html + toggle;
+    $('#record-meals-toggle')?.addEventListener('click', () => {recordMealsExpanded = !recordMealsExpanded; renderRecordMeals(rows);});
+  }
+  /** 10-18 for this year, 2025-10-18 otherwise. */
+  function dayLabel(day) {
+    if (!validDate(day)) return '未标日期';
+    const today = localDate();
+    const sameYear = day.slice(0, 4) === today.slice(0, 4);
+    return sameYear ? day.slice(5) : day;
+  }
+  /** Median of the finite values, or null when there is nothing to summarise. */
+  function median(values) {
+    const clean = values.filter(value => number(value) !== null).map(Number).sort((a, b) => a - b);
+    if (!clean.length) return null;
+    const middle = Math.floor(clean.length / 2);
+    return clean.length % 2 ? clean[middle] : (clean[middle - 1] + clean[middle]) / 2;
+  }
+  /**
+   * Two 30-day windows compared with medians: robust to a single unusual reading, and honest about
+   * its own limits — it reports the direction of the numbers, not a judgement about health.
+   */
+  function statsTableHtml() {
+    const rows = [];
+    const window = (fromDays, toDays) => {
+      const end = dayTime(activeDate) - toDays * 86400000;
+      const start = dayTime(activeDate) - fromDays * 86400000;
+      return (state.measurements || []).filter(record => validDate(record.date) && record.date <= activeDate
+        && dayTime(record.date) > start && dayTime(record.date) <= end);
+    };
+    const previous = window(60, 30), current = window(30, 0);
+    if (!previous.length || !current.length)
+      return `<p class="fine-print">需要前后各至少一个 30 天窗口的测量才能对照，目前${previous.length ? '' : '缺少 30~60 天前的记录'}${(!previous.length && !current.length) ? '，也' : ''}${current.length ? '' : '缺少最近 30 天的记录'}。</p>`;
+    const height = number(state.profile.height);
+    const specs = [
+      {label:'体重', unit:'kg', key:'weight', direction:'down', digits:2},
+      {label:'BMI', unit:'', key:'bmi', direction:'down', digits:2},
+      {label:'体脂率', unit:'%', key:'bodyFat', direction:'down', digits:1},
+      {label:'肌肉量', unit:'kg', key:'muscle', direction:'up', digits:2},
+      {label:'腰围', unit:'cm', key:'waist', direction:'down', digits:1},
+      {label:'基础代谢', unit:'kcal', key:'bmr', direction:'up', digits:0},
+    ];
+    const value = (record, spec) => spec.key === 'bmi'
+      ? (number(record.weight) !== null && height > 0 ? Number(record.weight) / ((height / 100) ** 2) : null)
+      : number(record[spec.key]);
+    const goal = (state.profile || {}).goal;
+    // Which direction of the scale is "towards the goal" is a user choice, not a health claim.
+    const lighterIsGoal = goal !== 'gain';
+    for (const spec of specs) {
+      const before = median(previous.map(record => value(record, spec)));
+      const after = median(current.map(record => value(record, spec)));
+      if (before === null || after === null) continue;
+      const diff = after - before;
+      const flat = Math.abs(diff) < Math.max(0.05, Math.abs(before) * 0.005);
+      const wants = spec.key === 'muscle' || spec.key === 'bmr' ? 'up' : (lighterIsGoal ? 'down' : 'up');
+      const tone = flat ? 'flat' : ((diff > 0 ? 'up' : 'down') === wants ? 'good' : 'bad');
+      const arrow = flat ? '' : `<span class="inline-icon" aria-hidden="true"><img src="./icon-nav-trends.svg" alt="" width="15" height="15" style="transform:${diff > 0 ? 'none' : 'scale(-1,-1)'}"></span>`;
+      const label = flat ? '基本持平' : `${diff > 0 ? '+' : '−'}${fmt(Math.abs(diff), spec.digits)}${spec.unit}`;
+      rows.push(`<tr><td>${esc(spec.label)}</td><td class="num">${fmt(before, spec.digits)}${spec.unit ? ` <small>${esc(spec.unit)}</small>` : ''}</td>`
+        + `<td class="num">${fmt(after, spec.digits)}${spec.unit ? ` <small>${esc(spec.unit)}</small>` : ''}</td>`
+        + `<td><span class="stats-trend stats-${tone}">${arrow}${esc(label)}</span></td></tr>`);
+    }
+    if (!rows.length) return '<p class="fine-print">前后两个窗口里可对照的指标不足。</p>';
+    return `<table class="stats-table"><caption class="fine-print">按中位数比较「30~60 天前」与「最近 30 天」，只描述数字方向，不是健康或医疗结论。</caption>`
+      + `<thead><tr><th scope="col">指标</th><th scope="col">30~60 天前</th><th scope="col">最近 30 天</th><th scope="col">变化</th></tr></thead>`
+      + `<tbody>${rows.join('')}</tbody></table>`;
+  }
+  function renderTrends() {
+    const range = $('#trend-range').value;
+    const cutoff = range === 'all' ? -Infinity : dayTime(activeDate)-(Number(range)-1)*86400000;
+    const records = state.measurements.filter(record => validDate(record.date) && record.date <= activeDate && dayTime(record.date)>=cutoff).sort((a,b) => a.date.localeCompare(b.date));
+    const points = records.filter(record => number(record.weight)!==null && Number(record.weight)>0);
+    const height = number(state.profile.height);
+    $('#measurement-history').innerHTML = records.length ? [...records].reverse().map(item => `<tr><td>${esc(item.date)}</td><td>${fmt(item.weight)}</td><td>${fmt(item.waist)}</td><td>${fmt(item.bodyFat)}</td><td>${fmt(item.muscle)}</td><td>${fmt(number(item.weight)!==null && height>0 ? item.weight / ((height/100)**2) : null)}</td></tr>`).join('') : '<tr><td colspan="6">这个范围内尚无测量记录。缺失数值显示为 —。</td></tr>';
+    // Body-composition comparison, computed locally: the previous 30-day window versus the last
+    // 30 days. It reports direction only, never a medical verdict, and shows — for missing values.
+    $('#stats-table').innerHTML = statsTableHtml();
+    if (!points.length) {$('#weight-chart').innerHTML = empty('还没有可绘制的体重数据。开始记录，让变化慢慢浮现。'); $('#trend-stats').innerHTML = ''; return;}
+    const first = points[0], last = points[points.length-1];
+    // View-box sized close to the rendered phone width so axis text stays legible after scaling.
+    const W=330,H=215,L=46,R=16,T=18,B=36,plotW=W-L-R,plotH=H-T-B;
+    const weights = points.map(item => Number(item.weight));
+    // Weekly means are what the written rules use for weight judgement, so they are drawn on top
+    // of the raw points instead of being left to the eye.
+    const weeklyMeans = (() => {
+      const byWeek = new Map();
+      for (const row of points) {
+        const date = new Date(`${row.date}T00:00:00`);
+        if (Number.isNaN(date.getTime())) continue;
+        const monday = new Date(date);
+        const iso = (date.getDay() + 6) % 7;
+        monday.setDate(date.getDate() - iso);
+        const key = localDate(monday);
+        if (!byWeek.has(key)) byWeek.set(key, []);
+        byWeek.get(key).push(number(row.weight));
+      }
+      return [...byWeek.entries()].map(([week, values]) => ({week, mean: values.reduce((sum, v) => sum + v, 0) / values.length}))
+        .sort((a, b) => a.week.localeCompare(b.week));
+    })();
+    const lastTwo = weeklyMeans.slice(-2);
+    const weeklyNote = lastTwo.length === 2
+      ? `本周均值 ${fmt(lastTwo[1].mean)} kg（${lastTwo[1].week} 起）· 上周均值 ${fmt(lastTwo[0].mean)} kg · 变化 ${lastTwo[1].mean - lastTwo[0].mean >= 0 ? '+' : ''}${fmt(lastTwo[1].mean - lastTwo[0].mean)} kg`
+      : lastTwo.length === 1 ? `本周均值 ${fmt(lastTwo[0].mean)} kg · 还缺上一周的数据，暂时无法对比` : '';
+    const minWeight=Math.min(...weights),maxWeight=Math.max(...weights), pad=Math.max(.6,(maxWeight-minWeight)*.22), low=Math.max(0,minWeight-pad), high=maxWeight+pad;
+    const start = dayTime(first.date), end=dayTime(last.date);
+    const x = date => end===start ? L+plotW/2 : L+(dayTime(date)-start)/(end-start)*plotW;
+    const y = value => T+(high-value)/(high-low)*plotH;
+    const coords=points.map(item => [x(item.date),y(item.weight)]);
+    const path=coords.map(([px,py],index) => `${index?'L':'M'}${px.toFixed(2)},${py.toFixed(2)}`).join(' ');
+    const grid=Array.from({length:5},(_,i) => {const value=low+(high-low)*i/4,py=y(value);return `<line class="chart-grid" x1="${L}" x2="${W-R}" y1="${py}" y2="${py}"/><text class="chart-text" x="${L-8}" y="${py+4.5}" text-anchor="end">${fmt(value)}</text>`;}).join('');
+    const labels = end===start ? `<text class="chart-text" x="${x(first.date)}" y="${H-10}" text-anchor="middle">${esc(first.date)}</text>` : `<text class="chart-text" x="${L}" y="${H-10}" text-anchor="start">${esc(first.date)}</text><text class="chart-text" x="${W-R}" y="${H-10}" text-anchor="end">${esc(last.date)}</text>`;
+    // Few points are readable individually; many would collide, so only label short ranges.
+    // 相邻同值只标一次（内联判定，不引入外部函数）：连续几天体重相同会把标签叠成一团。
+const values = points.length<=7 ? points.map((item,i) => {
+  const prev = i > 0 ? fmt(points[i-1].weight) : '';
+  if (prev === fmt(item.weight)) return '';
+  return `<text class="chart-value" x="${coords[i][0]}" y="${coords[i][1]-12}" text-anchor="middle">${fmt(item.weight)}</text>`;
+}).join('') : '';
+    // The weekly mean is the line the written rules judge by, drawn dashed over the raw points.
+    const meanCoords = weeklyMeans
+      .filter(entry => entry.mean > 0 && (end === start || (dayTime(entry.week) >= start - 6 * 86400000 && dayTime(entry.week) <= end)))
+      .map(entry => [x(entry.week), y(entry.mean)]);
+    const meanPath = meanCoords.length > 1 ? `<path class="chart-line chart-mean" d="${meanCoords.map(([px,py],index) => `${index?'L':'M'}${px.toFixed(2)},${py.toFixed(2)}`).join(' ')}"/>` : '';
+    $('#weight-chart').innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-labelledby="chart-title chart-desc"><title id="chart-title">按真实日期绘制的体重趋势</title><desc id="chart-desc">${esc(points.map(item => `${item.date}：${fmt(item.weight)}公斤`).join('；'))}${weeklyNote ? `；${esc(weeklyNote)}` : ''}</desc><defs><linearGradient id="weight-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#a7c2a3" stop-opacity=".3"/><stop offset="100%" stop-color="#a7c2a3" stop-opacity=".015"/></linearGradient></defs>${grid}${points.length>1 ? `<path class="chart-area" d="${path} L${coords[coords.length-1][0]},${H-B} L${coords[0][0]},${H-B} Z"/><path class="chart-line" d="${path}"/>` : ''}${meanPath}${points.map((item,i) => `<circle class="chart-point" cx="${coords[i][0]}" cy="${coords[i][1]}" r="5"><title>${esc(item.date)} · ${fmt(item.weight)} kg</title></circle>`).join('')}${values}${labels}</svg>`;
+    const delta = Number(last.weight)-Number(first.weight);
+    // Observed weekly rate vs the rate the current plan implies; the closer they are, the greener.
+    const spanDays = Math.max(1, Math.round((dayTime(last.date) - dayTime(first.date)) / 86400000));
+    const plannedRate = intakeRangeForDate(last.date).expectedWeeklyKg;
+    const observedRate = spanDays >= 7 ? (delta / spanDays) * 7 : null;
+    const rateRatio = plannedRate === null || observedRate === null || plannedRate === 0
+      ? null
+      : Math.min(1, Math.abs(observedRate - plannedRate) / Math.max(0.2, Math.abs(plannedRate) * 1.5));
+    const rateColor = rateRatio === null ? '' : rateGoalColor(observedRate, plannedRate);
+    $('#trend-stats').innerHTML = `<div><small>最新已测体重</small><strong>${fmt(last.weight)} <small>kg</small></strong></div><div><small>范围内首末变化</small><strong>${points.length<2?'—':`${delta>0?'+':''}${fmt(delta)}`} <small>${points.length<2?'需至少两次测量':'kg'}</small></strong></div><div><small>真实测量次数</small><strong>${points.length} <small>次</small></strong></div>`;
+    // The delta is the second <strong> in the stats row; colour it by distance from the planned rate.
+    if (rateColor) {
+      const stats = $$('#trend-stats strong');
+      if (stats[1]) {
+        stats[1].style.color = rateColor;
+        stats[1].title = `计划每周 ${plannedRate > 0 ? '+' : ''}${fmt(plannedRate, 2)} kg，实际每周 ${observedRate > 0 ? '+' : ''}${fmt(observedRate, 2)} kg`;
+      }
+    }
+    renderDailyThree();
+    renderCopyMeals();
+    renderTrainingLog();
+    renderVolumeTable();
+    const weeklyNode = $('#trend-weekly');
+    if (weeklyNode) {
+      weeklyNode.textContent = weeklyNote || '';
+      weeklyNode.hidden = !weeklyNote;
+    }
+  }
+  /** The habit row for a date; older builds could append duplicates, so keep the fullest one. */
+  function habitRowFor(date) {
+    const rows = (state.habits || []).filter(row => row && row.date === date);
+    if (rows.length <= 1) return rows[0] || null;
+    return rows.slice().sort((a, b) => JSON.stringify(b).length - JSON.stringify(a).length)[0];
+  }
+  const TRAINING_TEMPLATES = {push: '推', pull: '拉', legs: '腿', other: '其他'};
+  /** Normalised exercise list of one day: [{name, sets, reps, weight}]. */
+  function exercisesFor(date) {
+    const row = habitRowFor(date);
+    const list = Array.isArray(row?.exercises) ? row.exercises : [];
+    return list.map(item => ({
+      name: String(item?.name ?? '').slice(0, 60),
+      sets: number(item?.sets), reps: number(item?.reps), weight: number(item?.weight)
+    })).filter(item => item.name || item.sets !== null || item.reps !== null || item.weight !== null);
+  }
+  /** Volume = sets × reps × weight; null when any factor is missing, so nothing is invented. */
+  function exerciseVolume(item) {
+    const sets = number(item?.sets), reps = number(item?.reps), weight = number(item?.weight);
+    if (sets === null || reps === null || weight === null) return null;
+    return sets * reps * weight;
+  }
+  /** Common lifts per template, ordered the way most people train them. */
+  const EXERCISE_PRESETS = {
+    push: ['卧推', '上斜哑铃卧推', '哑铃肩推', '侧平举', '绳索下压', '双杠臂屈伸'],
+    pull: ['引体向上', '杠铃划船', '高位下拉', '面拉', '哑铃弯举', '直臂下压'],
+    legs: ['深蹲', '硬拉', '腿举', '保加利亚分腿蹲', '罗马尼亚硬拉', '提踵', '卷腹', '平板支撑'],
+    other: ['农夫行走', '壶铃摇摆', '有氧 20 分钟', '拉伸 10 分钟']
+  };
+  /** Most recent recorded values for one exercise, so a repeat is one tap instead of retyping. */
+  function latestExerciseValues(name) {
+    const wanted = String(name || '').trim();
+    if (!wanted) return null;
+    const rows = (state.habits || []).filter(row => row && Array.isArray(row.exercises) && validDate(row.date))
+      .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    for (const row of rows) {
+      for (const item of row.exercises) {
+        if (!item || String(item.name || '').trim() !== wanted) continue;
+        const sets = number(item.sets), reps = number(item.reps), weight = number(item.weight);
+        if (sets === null || reps === null || weight === null) continue;
+        return {sets, reps, weight, date: row.date};
+      }
+    }
+    return null;
+  }
+  /** Adds one exercise row, optionally pre-filled; shared by the 添加动作 button and the preset chips. */
+  function appendExerciseRow(name, values) {
+    const box = $('#training-exercises');
+    if (!box) return null;
+    const index = box.querySelectorAll('[data-exercise-row]').length;
+    if (index >= 12) {notice('一次最多记录 12 个动作。', true); return null;}
+    const row = document.createElement('div');
+    row.className = 'training-row';
+    row.dataset.exerciseRow = String(index);
+    const attr = value => value === null || value === undefined ? '' : ` value="${Number(value)}"`;
+    row.innerHTML = `<label>动作<input data-exercise="name" maxlength="60" placeholder="例如 深蹲" value="${esc(name || '')}"></label><div class="form-grid"><label>组数<input data-exercise="sets" type="number" min="0" max="30" step="1"${attr(values && values.sets)}></label><label>每组次数<input data-exercise="reps" type="number" min="0" max="200" step="1"${attr(values && values.reps)}></label><label>负重 · kg<input data-exercise="weight" type="number" min="0" max="500" step="0.5"${attr(values && values.weight)}></label></div><div class="row-meta"><span>容量 —</span><button type="button" class="icon-button danger" data-exercise-remove="${index}" aria-label="移除这个动作">×</button></div>`;
+    box.append(row);
+    return row;
+  }
+  /** Chips for the selected template. */
+  function renderTrainingPresets() {
+    const box = $('#training-presets'), form = $('#training-form');
+    if (!box || !form) return;
+    const template = TRAINING_TEMPLATES[form.elements.template.value] ? form.elements.template.value : 'push';
+    box.innerHTML = (EXERCISE_PRESETS[template] || []).map(name => `<button type="button" class="button subtle" data-training-preset="${esc(name)}">${esc(name)}</button>`).join('');
+    box.dataset.template = template;
+  }
+  function renderTrainingLog() {
+    const form = $('#training-form');
+    if (!form) return;
+    const row = habitRowFor(activeDate);
+    const exercises = exercisesFor(activeDate);
+    const template = TRAINING_TEMPLATES[row?.template] ? row.template : 'push';
+    if (document.activeElement !== form.elements.template) form.elements.template.value = template;
+    const box = $('#training-exercises');
+    const rows = exercises.length ? exercises : [{name: '', sets: null, reps: null, weight: null}];
+    box.innerHTML = rows.map((item, index) => `<div class="training-row" data-exercise-row="${index}"><label>动作<input data-exercise="name" value="${esc(item.name)}" maxlength="60" placeholder="例如 卧推"></label><div class="form-grid"><label>组数<input data-exercise="sets" type="number" min="0" max="30" step="1" value="${item.sets ?? ''}"></label><label>每组次数<input data-exercise="reps" type="number" min="0" max="200" step="1" value="${item.reps ?? ''}"></label><label>负重 · kg<input data-exercise="weight" type="number" min="0" max="500" step="0.5" value="${item.weight ?? ''}"></label></div><div class="row-meta"><span>${number(item.distanceKm) !== null ? `${fmt(item.distanceKm)} km` : `容量 ${exerciseVolume(item) === null ? '—' : `${fmt(exerciseVolume(item), 0)} kg`}`}${number(item.durationMin) !== null ? ` · ${fmt(item.durationMin, 0)} 分钟` : ''}</span><button type="button" class="icon-button danger" data-exercise-remove="${index}" aria-label="移除这个动作">×</button></div></div>`).join('');
+    renderTrainingPresets();
+    const tag = $('#training-tag');
+    if (tag) tag.textContent = exercises.length ? `${TRAINING_TEMPLATES[template]} · ${exercises.length} 个动作` : row?.training === true ? '已标记训练' : '未记录';
+  }
+  function readTrainingExercises() {
+    const box = $('#training-exercises');
+    return [...box.querySelectorAll('[data-exercise-row]')].map(row => ({
+      name: $('[data-exercise="name"]', row).value.trim().slice(0, 60),
+      sets: number($('[data-exercise="sets"]', row).value),
+      reps: number($('[data-exercise="reps"]', row).value),
+      weight: number($('[data-exercise="weight"]', row).value)
+    })).map((item, index) => {
+      // Runs carry distance/duration instead of sets/reps/weight; keep them across edits.
+      const previous = exercisesFor(activeDate)[index];
+      if (previous && (number(previous.distanceKm) !== null || number(previous.durationMin) !== null)) {
+        item.distanceKm = number(previous.distanceKm);
+        item.durationMin = number(previous.durationMin);
+      }
+      return item;
+    }).filter(item => item.name || item.sets !== null || item.reps !== null || item.weight !== null || item.distanceKm != null || item.durationMin != null);
+  }
+  /** Saves the log onto the day's habit row, preserving every other field it already carries. */
+  async function saveTrainingLog() {
+    const form = $('#training-form'), message = $('.form-feedback', form), button = $('button[type=submit]', form);
+    const exercises = readTrainingExercises();
+    const incomplete = exercises.find(item => !item.name || item.sets === null || item.reps === null || item.weight === null);
+    if (incomplete) {
+      const row = $$('[data-exercise-row]', form).find(node => {
+        const name = $('[data-exercise="name"]', node).value.trim();
+        const sets = number($('[data-exercise="sets"]', node).value);
+        const reps = number($('[data-exercise="reps"]', node).value);
+        const weight = number($('[data-exercise="weight"]', node).value);
+        return !name || sets === null || reps === null || weight === null;
+      });
+      const missing = row ? ['name', 'sets', 'reps', 'weight'].map(key => $('[data-exercise="' + key + '"]', row)).filter(field => field && (field.dataset.exercise === 'name' ? !field.value.trim() : number(field.value) === null)) : [];
+      missing.forEach(field => markFieldInvalid(field, '请补全这个动作的记录。'));
+      feedback(message, '每个动作都要填完整：名称、组数、次数、负重；不想记的动作请先移除。', true);
+      missing[0]?.focus();
+      return;
+    }
+    if (!exercises.length) {feedback(message, '还没有动作可保存；可以先用「清空今天的训练」。', true); return;}
+    if (button.disabled) return;
+    button.disabled = true;
+    feedback(message, '正在保存训练…');
+    try {
+      const existing = habitRowFor(activeDate) || {};
+      await api('/api/habits', {...existing, date: activeDate, training: true, template: form.elements.template.value, exercises,
+        ...(exerciseVolume(exercises[0]) === null ? {} : {})});
+      await loadState({quiet: true});
+      feedback(message, `已保存 ${exercises.length} 个动作。`);
+      renderTrainingLog();
+    } catch (error) {feedback(message, error.message, true);}
+    finally {button.disabled = false;}
+  }
+  /** Weekly volume per exercise, newest week first, using ISO weeks (Monday start). */
+  function weeklyVolume() {
+    const byExercise = new Map();
+    for (const row of (state.habits || [])) {
+      if (!row || !Array.isArray(row.exercises) || !validDate(row.date)) continue;
+      const date = new Date(`${row.date}T00:00:00`);
+      if (Number.isNaN(date.getTime())) continue;
+      const monday = new Date(date);
+      monday.setDate(date.getDate() - ((date.getDay() + 6) % 7));
+      const week = localDate(monday);
+      for (const item of row.exercises) {
+        const name = String(item?.name ?? '').trim();
+        const volume = exerciseVolume(item);
+        if (!name || volume === null) continue;
+        if (!byExercise.has(name)) byExercise.set(name, new Map());
+        const weeks = byExercise.get(name);
+        weeks.set(week, (weeks.get(week) || 0) + volume);
+      }
+    }
+    const out = [];
+    for (const [name, weeks] of byExercise) {
+      const ordered = [...weeks.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+      if (ordered.length < 2) continue;
+      const [lastWeek, lastVolume] = ordered[ordered.length - 1];
+      const [prevWeek, prevVolume] = ordered[ordered.length - 2];
+      out.push({name, lastWeek, lastVolume, prevWeek, prevVolume, delta: lastVolume - prevVolume});
+    }
+    return out.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta) || b.lastVolume - a.lastVolume).slice(0, 6);
+  }
+  function renderVolumeTable() {
+    const box = $('#volume-table');
+    if (!box) return;
+    const rows = weeklyVolume();
+    if (!rows.length) {
+      box.innerHTML = '<p class="fine-print">还不足以比较：同一动作至少需要两周的训练记录（趋势页按周一为一周起点）。</p>';
+      return;
+    }
+    box.innerHTML = '<table class="stats-table"><caption class="fine-print">容量 = 组数 × 次数 × 负重；只比较你自己记录过的同一动作。</caption>'
+      + '<thead><tr><th scope="col">动作</th><th scope="col">' + esc(String(rows[0].prevWeek).slice(5)) + ' 周</th><th scope="col">' + esc(String(rows[0].lastWeek).slice(5)) + ' 周</th><th scope="col">变化</th></tr></thead><tbody>'
+      + rows.map(row => `<tr><td>${esc(row.name)}</td><td class="num">${fmt(row.prevVolume, 0)} <small>kg</small></td><td class="num">${fmt(row.lastVolume, 0)} <small>kg</small></td><td><span class="stats-trend" style="color:${volumeColor(row.delta, row.prevVolume)}">${row.delta >= 0 ? '+' : ''}${fmt(row.delta, 0)} <small>kg</small></span></td></tr>`).join('')
+      + '</tbody></table>';
+  }
+/* Fragment of assets/app.js -- assembled by tools/assemble-app.ps1 in filename order.
+ * Edit this file, never the generated assets/app.js; tests/app-fragments.test.mjs fails on drift. */
+  /** "Today's three things" card: training, cooking oil and weight in one submit. */
+  /** Strength movements worth recognising without a model. */
+  const DRAFT_MOVES = ['卧推', '上斜卧推', '哑铃卧推', '深蹲', '硬拉', '罗马尼亚硬拉', '腿举', '划船', '杠铃划船', '哑铃划船',
+    '引体向上', '高位下拉', '肩推', '推举', '侧平举', '弯举', '面拉', '绳索下压', '双杠臂屈伸', '腿弯举', '腿屈伸', '提踵', '卷腹', '平板支撑'];
+  /** Training drafts are parsed by parseDraft + the parseTrainingDraft wrapper further down this fragment. */
+
+  function renderTrainingDraft(draft) {
+    const box = $('#chat-training-draft');
+    if (!box) return;
+    if (!draft) { box.hidden = true; box.innerHTML = ''; return; }
+    const missing = draft.missing.length
+      ? '<p class="fine-print">还缺：' + esc(draft.missing.join('、')) + '。可以先写入，稍后在训练日志里补；也可以点「补充信息」再改这句描述。</p>'
+      : '<p class="fine-print">信息齐全，确认后会写入当天的训练记录。</p>';
+    box.hidden = false;
+    box.innerHTML = `<div class="card training-draft"><div class="card-heading"><h2>识别到训练草稿</h2><span class="tag">待确认</span></div>`
+      + `<p><strong>${esc(draft.date)}</strong> · ${esc(draftSummary(draft))}</p>` + missing
+      + `<div class="button-row"><button type="button" class="button primary" data-draft-confirm="1">写入记录</button>`
+      + `<button type="button" class="button subtle" data-draft-cancel="1">取消</button></div></div>`;
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // 纯函数：通用草稿、每日体检、负荷与平台期、周计划
+  // ---------------------------------------------------------------------------------------------
+
+  const DRAFT_KINDS = {training: '训练', weight: '体重', sleep: '睡眠', steps: '步数', water: '饮水', plan: '计划'};
+
+  /**
+   * One sentence -> one draft. Recognises training, weight, sleep, steps and water.
+   * Returns {kind, date, rows, missing, payload} or null. Pure: no DOM, no state.
+   */
+  function parseDraft(text, baseDate) {
+    const raw = String(text || '').trim();
+    if (!raw) return null;
+    const pad2 = n => String(n).padStart(2, '0');
+    const shift = (day, delta) => {
+      const [y, m, d] = String(day).split('-').map(Number);
+      const date = new Date(y, m - 1, d + delta);
+      return date.getFullYear() + '-' + pad2(date.getMonth() + 1) + '-' + pad2(date.getDate());
+    };
+    const today = /^\d{4}-\d{2}-\d{2}$/.test(String(baseDate || '')) ? baseDate : new Date().toISOString().slice(0, 10);
+    let date = today;
+    const explicit = raw.match(/(\d{4})[\-\/](\d{1,2})[\-\/](\d{1,2})/) || raw.match(/(\d{1,2})月(\d{1,2})[日号]?/);
+    if (explicit) {
+      const year = explicit[3] ? Number(explicit[1]) : Number(today.slice(0, 4));
+      const month = explicit[3] ? Number(explicit[2]) : Number(explicit[1]);
+      const day = explicit[3] ? Number(explicit[3]) : Number(explicit[2]);
+      if (month >= 1 && month <= 12 && day >= 1 && day <= 31) date = year + '-' + pad2(month) + '-' + pad2(day);
+    } else if (/大前天/.test(raw)) date = shift(today, -3);
+    else if (/前天/.test(raw)) date = shift(today, -2);
+    else if (/昨天|昨晚|昨日/.test(raw)) date = shift(today, -1);
+
+    const planned = /(打算|计划|准备|明天|后天|下周|要不要|该不该|想做)/.test(raw);
+
+    // --- plain measurements ---------------------------------------------------------------------
+    const weight = raw.match(/(\d{2,3}(?:\.\d)?)\s*(?:kg|公斤|千克)/);
+    if (weight && /(体重|称了|称重|重量)/.test(raw) && !/(跑了|跑步|卧推|深蹲|硬拉|引体)/.test(raw)) {
+      const value = Number(weight[1]);
+      if (value >= 20 && value <= 400) return {kind: 'weight', date, rows: [{label: '体重', value: value + ' kg'}], missing: [], payload: {weight: value}};
+    }
+    const sleep = raw.match(/(\d+(?:\.\d+)?)\s*(?:个)?(?:小时|h|H)/);
+    if (sleep && /(睡|睡眠)/.test(raw)) {
+      const value = Number(sleep[1]);
+      if (value > 0 && value <= 24) return {kind: 'sleep', date, rows: [{label: '睡眠', value: value + ' 小时'}], missing: [], payload: {sleep: value}};
+    }
+    const steps = raw.match(/(\d{3,6})\s*步/);
+    if (steps) return {kind: 'steps', date, rows: [{label: '步数', value: Number(steps[1]).toLocaleString() + ' 步'}], missing: [], payload: {steps: Number(steps[1])}};
+    const water = raw.match(/(\d+(?:\.\d+)?)\s*(?:升|L|l|毫升|ml|ML)/);
+    if (water && /(喝|饮水|水)/.test(raw)) {
+      const isMl = /毫升|ml|ML/.test(water[0]);
+      const value = isMl ? Number(water[1]) / 1000 : Number(water[1]);
+      if (value > 0 && value <= 10) return {kind: 'water', date, rows: [{label: '饮水', value: value.toFixed(1) + ' L'}], missing: [], payload: {water: Math.round(value * 1000)}};
+    }
+
+    // --- training -------------------------------------------------------------------------------
+    const runWord = /(跑步|慢跑|跑了|晨跑|夜跑|快走|跑完)/.test(raw);
+    const moveHit = DRAFT_MOVES.find(name => raw.includes(name)) || '';
+    const strengthWord = /(组|次|kg|公斤|千克|举|推|拉|蹲)/.test(raw);
+    if (!runWord && !moveHit && !/(练了|训练了|做了)/.test(raw)) {
+      if (!(strengthWord && /组|kg|公斤/.test(raw))) return null;
+    }
+    const exercises = [];
+    const rows = [];
+    const missing = [];
+    if (runWord) {
+      const distance = raw.match(/(\d+(?:\.\d+)?)\s*(?:km|KM|Km|公里|千米)/);
+      const minutes = raw.match(/(\d+)\s*(?:分钟|min)/);
+      const clock = raw.match(/(\d{1,2}):(\d{2})/);
+      const item = {name: '跑步', sets: null, reps: null, weight: null, distanceKm: distance ? Number(distance[1]) : null,
+        durationMin: minutes ? Number(minutes[1]) : clock ? Number(clock[1]) * 60 + Number(clock[2]) : null};
+      exercises.push(item);
+      if (item.distanceKm === null) missing.push('距离（km）');
+      if (item.durationMin === null) missing.push('时长（分钟）');
+      rows.push({label: '跑步', value: [item.distanceKm !== null ? item.distanceKm + ' km' : '待补距离', item.durationMin !== null ? item.durationMin + ' 分钟' : '待补时长'].join(' · ')});
+    }
+    if (moveHit) {
+      const clauses = raw.split(/[，,；;。、]/).filter(Boolean);
+      for (const clause of clauses) {
+        const name = DRAFT_MOVES.find(move => clause.includes(move));
+        if (!name) continue;
+        const sets = clause.match(/(\d+)\s*组/);
+        const reps = clause.match(/(\d+)\s*[次下个]/);
+        const weightHit = clause.match(/(\d+(?:\.\d+)?)\s*(?:kg|KG|Kg|公斤|千克)/);
+        const item = {name, sets: sets ? Number(sets[1]) : null, reps: reps ? Number(reps[1]) : null,
+          weight: weightHit ? Number(weightHit[1]) : null, distanceKm: null, durationMin: null};
+        exercises.push(item);
+        if (!sets || !reps) missing.push(name + ' 的组数/次数');
+        rows.push({label: name, value: [item.sets !== null ? item.sets + ' 组' : '待补组数', item.reps !== null ? '× ' + item.reps + ' 次' : '待补次数', item.weight !== null ? item.weight + ' kg' : ''].filter(Boolean).join(' ')});
+      }
+    }
+    if (!exercises.length) return null;
+    if (planned && !/今天|昨天|前天|\d/.test(raw)) return null;
+    const template = /(腿|深蹲|硬拉|提踵|腿举)/.test(raw) ? 'legs' : /(拉|划船|引体|下拉|弯举)/.test(raw) ? 'pull' : /(推|卧推|肩推|侧平举)/.test(raw) ? 'push' : 'other';
+    return {kind: 'training', date, rows, missing, payload: {template, exercises}};
+  }
+
+  /** The one live parser: a training-only view over parseDraft; call sites and tests rely on the {payload:{exercises}} shape. */
+  function parseTrainingDraft(text, baseDate) {
+    const draft = parseDraft(text, baseDate);
+    return draft && draft.kind === 'training' ? draft : null;
+  }
+
+  function draftSummary(draft) {
+    if (!draft) return '';
+    return (draft.rows || []).map(row => row.label + ' ' + row.value).join('；');
+  }
+
+  /**
+   * Five daily metrics -> score, worst item and exactly one local action.
+   * Inputs are passed in so the rule engine can be tested without the app.
+   */
+  function dailyCheck(input) {
+    const src = input || {};
+    const meals = src.meals || [], habit = src.habit || {}, range = src.range || null;
+    const sum = meals.reduce((acc, meal) => {
+      const totals = meal && meal.totals ? meal.totals : (meal || {});
+      for (const key of ['calories', 'protein', 'fat', 'carbs']) acc[key] += Number(totals[key] ?? 0) || 0;
+      return acc;
+    }, {calories: 0, protein: 0, fat: 0, carbs: 0});
+    const items = [];
+    const clamp01 = value => Math.max(0, Math.min(1, value));
+    if (range && Number.isFinite(range.min) && Number.isFinite(range.max)) {
+      const width = Math.max(200, range.max - range.min);
+      const distance = sum.calories < range.min ? range.min - sum.calories : sum.calories > range.max ? sum.calories - range.max : 0;
+      items.push({key: 'calories', label: '热量', value: Math.round(sum.calories), target: range.min + '~' + range.max,
+        ok: distance === 0, score: distance === 0 ? 1 : clamp01(1 - distance / width), state: sum.calories === 0 ? 'idle' : (sum.calories < range.min ? 'low' : sum.calories > range.max ? 'high' : undefined)});
+    }
+    if (Number.isFinite(src.proteinMin) && src.proteinMin > 0) {
+      items.push({key: 'protein', label: '蛋白质', value: Math.round(sum.protein), target: Math.round(src.proteinMin) + 'g 起',
+        ok: sum.protein >= src.proteinMin, score: clamp01(sum.protein / src.proteinMin), state: sum.calories === 0 ? 'idle' : (sum.protein < src.proteinMin ? 'low' : undefined)});
+    }
+    if (Number.isFinite(src.fatMin) && Number.isFinite(src.fatMax)) {
+      const distance = sum.fat < src.fatMin ? src.fatMin - sum.fat : sum.fat > src.fatMax ? sum.fat - src.fatMax : 0;
+      items.push({key: 'fat', label: '脂肪', value: Math.round(sum.fat), target: Math.round(src.fatMin) + '~' + Math.round(src.fatMax) + 'g',
+        ok: distance === 0, score: distance === 0 ? 1 : clamp01(1 - distance / Math.max(10, src.fatMax)), state: sum.calories === 0 ? 'idle' : (sum.fat > src.fatMax ? 'high' : sum.fat < src.fatMin ? 'low' : undefined)});
+    }
+    const trained = habit.training === true || habit.training === 'true' || (Array.isArray(habit.exercises) && habit.exercises.length > 0);
+    items.push({key: 'training', label: '训练', value: trained ? '已记录' : (habit.training === false || habit.training === 'false' ? '休息' : '未记录'),
+      target: '每天记一次', ok: trained || habit.training === false || habit.training === 'false',
+      score: trained || habit.training === false || habit.training === 'false' ? 1 : 0.4, state: trained || habit.training === false || habit.training === 'false' ? undefined : 'idle'});
+    const sleep = Number(habit.sleep);
+    items.push({key: 'sleep', label: '睡眠', value: Number.isFinite(sleep) && sleep > 0 ? sleep + ' 小时' : '未记录',
+      target: '7 小时起', ok: Number.isFinite(sleep) && sleep >= 7,
+      score: Number.isFinite(sleep) && sleep > 0 ? clamp01(sleep / 7) : 0.4, state: Number.isFinite(sleep) && sleep > 0 ? undefined : 'idle'});
+
+    let worst = null;
+    for (const item of items) if (!worst || item.score < worst.score) worst = item;
+    let action = '今天的记录都在区间内，保持就好。';
+    if (worst) {
+      const gap = worst.key === 'calories' ? Math.abs(sum.calories - (sum.calories > (range ? range.max : 0) ? range.max : range.min))
+        : worst.key === 'protein' ? Math.max(0, Math.round((src.proteinMin || 0) - sum.protein))
+          : 0;
+      if (worst.key === 'calories' && range && sum.calories > range.max) action = '热量超上限 ' + Math.round(sum.calories - range.max) + ' kcal：晚餐只吃蛋白 + 蔬菜，不再加主食。';
+      else if (worst.key === 'calories' && range && sum.calories < range.min) action = '还差 ' + Math.round(range.min - sum.calories) + ' kcal：加一份主食配一个蛋白来源。';
+      else if (worst.key === 'protein') action = '蛋白还差 ' + gap + ' g ≈ 鸡胸 ' + Math.round(gap / 0.31) + ' g 或蛋白粉 ' + Math.max(1, Math.round(gap / 24)) + ' 勺。';
+      else if (worst.key === 'fat' && src.fatMax) action = '脂肪超 ' + Math.round(Math.max(0, sum.fat - src.fatMax)) + ' g：之后改白灼/清蒸，少油。';
+      else if (worst.key === 'training') action = '今天还没记训练：练一次推/拉，或 20 分钟快走也算。';
+      else if (worst.key === 'sleep') action = '睡眠 ' + (worst.value === '未记录' ? '没记录' : worst.value) + '：今天训练强度降 10%，别加组。';
+    }
+    const score = items.length ? Math.round(items.reduce((acc, item) => acc + item.score, 0) / items.length * 100) : 0;
+    return {items, worst, action, score, totals: {calories: Math.round(sum.calories), protein: Math.round(sum.protein), fat: Math.round(sum.fat), carbs: Math.round(sum.carbs)}};
+  }
+
+  /**
+   * Acute:chronic workload ratio from daily loads. ratio > 1.5 = spike, < 0.8 = detraining.
+   * loads: [{date:'YYYY-MM-DD', load:number}] (load = 组×次×负重, or run minutes×6).
+   */
+  function acwrFromDailyLoads(loads, today) {
+    const rows = (loads || []).filter(row => row && Number.isFinite(Number(row.load)));
+    if (!rows.length || !/^\d{4}-\d{2}-\d{2}$/.test(String(today || ''))) return null;
+    const dayTime = day => new Date(day + 'T00:00:00').getTime();
+    const base = dayTime(today);
+    const within = days => rows.filter(row => base - dayTime(row.date) < days * 86400000 && dayTime(row.date) <= base);
+    const acute = within(7).reduce((acc, row) => acc + Number(row.load), 0);
+    const chronicTotal = within(28).reduce((acc, row) => acc + Number(row.load), 0);
+    const chronic = chronicTotal / 4;
+    if (chronic <= 0) return {acute, chronic, ratio: null, flag: 'none', days: within(7).length};
+    const ratio = acute / chronic;
+    const flag = ratio > 1.5 ? 'high' : ratio < 0.8 ? 'low' : 'ok';
+    return {acute, chronic, ratio: Math.round(ratio * 100) / 100, flag, days: within(7).length};
+  }
+
+  /**
+   * Plateau: three weekly means and the last two barely differ.
+   * weekly: [{week:'YYYY-MM-DD', mean:number}] sorted oldest first.
+   */
+  function plateauFromWeekly(weekly) {
+    const rows = (weekly || []).filter(row => row && Number.isFinite(Number(row.mean)));
+    if (rows.length < 3) return null;
+    const last3 = rows.slice(-3);
+    const span = Math.abs(last3[2].mean - last3[0].mean);
+    return {weeks: 3, span: Math.round(span * 100) / 100, plateau: span < 0.2,
+      from: last3[0].week, to: last3[2].week, mean: last3[2].mean};
+  }
+
+  /**
+   * Next week's sessions from the last two weeks per exercise, with a graded progression.
+   * lastByExercise: {name: {sets, reps, weight, date}}; acwr flag decides a deload.
+   */
+  function generateWeekPlan(input) {
+    const src = input || {};
+    const start = String(src.startDate || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) return null;
+    const pad2 = n => String(n).padStart(2, '0');
+    const sessions = Math.max(1, Math.min(6, Number(src.sessions) || 3));
+    const templates = ['push', 'pull', 'legs'];
+    const rotation = s => {
+      const plan = [];
+      for (let i = 0; i < s; i++) plan.push(templates[i % 3]);
+      return plan;
+    };
+    // Spread the sessions over the week: Mon/Tue/Thu/Fri/Sat pattern.
+    const slots = [[0], [0, 3], [0, 2, 4], [0, 1, 3, 5], [0, 1, 2, 4, 5], [0, 1, 2, 3, 4, 6]][sessions - 1];
+    const deload = src.acwrFlag === 'high';
+    const lastByExercise = src.lastByExercise || {};
+    const byTemplate = {push: [], pull: [], legs: [], other: []};
+    for (const [name, row] of Object.entries(lastByExercise)) {
+      // A run has duration/distance instead of sets: it is not a lift and must not be scheduled as one.
+      if (!row || !Number.isFinite(Number(row.sets)) || row.sets === null) continue;
+      if (Number.isFinite(Number(row.durationMin)) || Number.isFinite(Number(row.distanceKm))) continue;
+      const template = /(深蹲|硬拉|腿|提踵)/.test(name) ? 'legs' : /(划船|引体|下拉|弯举|面拉)/.test(name) ? 'pull' : /(卧推|肩推|侧平举|下压|臂屈伸)/.test(name) ? 'push' : 'other';
+      const weight = Number(row.weight);
+      const suggested = Number.isFinite(weight) && weight > 0
+        ? Math.round((deload ? weight * 0.9 : weight * 1.025) * 2) / 2
+        : null;
+      byTemplate[template].push({name, sets: Math.max(2, Number(row.sets) - (deload ? 1 : 0)), reps: Number(row.reps) || 8, weight: suggested});
+    }
+    const days = [];
+    rotation(sessions).forEach((template, index) => {
+      const date = new Date(start + 'T00:00:00');
+      date.setDate(date.getDate() + slots[index]);
+      // Only that template's own movements: borrowing 跑步 into a 推 day was a real bug.
+      let exercises = ((byTemplate[template] || []).slice(0, 5));
+      let suggested = false;
+      if (!exercises.length) {
+        // No history yet: use the community-verified day template (sets / reps / RPE from the digest image),
+        // falling back to the plain movement list if the template is missing.
+        const day = typeof libraryDayTemplate === 'function' ? libraryDayTemplate(template) : null;
+        if (day && day.exercises.length) {
+          exercises = day.exercises.map(item => ({name: item.name, sets: item.sets || 3, reps: item.reps || 8,
+            weight: null, role: item.role || '', rpe: item.rpe || null}));
+          suggested = true;
+        } else if (typeof libraryMoves === 'function') {
+          exercises = libraryMoves(template).slice(0, 5).map(item => ({name: item.name, sets: item.sets || 3,
+            reps: item.reps || 8, weight: null, role: item.role || ''}));
+          suggested = exercises.length > 0;
+        }
+      }
+      days.push({date: date.getFullYear() + '-' + pad2(date.getMonth() + 1) + '-' + pad2(date.getDate()),
+        template, deload, exercises, suggested});
+    });
+    // The analysis layer is optional: the generator still works without the library loaded.
+    const reasons = typeof planWhy === 'function' ? planWhy({deload, suggested: days.some(day => day.suggested),
+      templateId: 'push-day-template'}) : [];
+    return {startDate: start, sessions, deload, days, reasons,
+      note: deload ? '本周负荷偏高（ACWR > 1.5），按减载周安排：负重 ×0.9、组数 −1。'
+        : '按上周重量 +2.5% 安排，重量留空的动作表示上周没记到负重。'};
+  }
+
+  /** The model-free one-liner used when a request does not need an LLM at all. */
+  function localCoachLine(check) {
+    if (!check) return '';
+    return check.action || '';
+  }
+
+  /** The local library, if present. Everything degrades gracefully without it. */
+  /** Every meal: does its stated kcal match its own macros? Plus the daily averages. */
+  function dietAudit(days) {
+    const rows = [];
+    let meals = 0, mismatched = 0, worstGap = 0;
+    for (const day of days || []) {
+      const list = (state.meals || []).filter(row => row && row.date === day);
+      if (!list.length) continue;
+      let stated = 0, derived = 0;
+      for (const meal of list) {
+        meals++;
+        const p = number(meal.protein) ?? 0, c = number(meal.carbs) ?? 0, f = number(meal.fat) ?? 0;
+        const kcal = number(meal.calories) ?? 0;
+        const fromMacros = p * 4 + c * 4 + f * 9;
+        stated += kcal; derived += fromMacros;
+        const gap = Math.abs(kcal - fromMacros);
+        if (gap > Math.max(30, fromMacros * 0.12)) { mismatched++; worstGap = Math.max(worstGap, gap); }
+      }
+      const totals = totalsFor(list);
+      rows.push({date: day, meals: list.length, kcal: Math.round(totals.calories), protein: Math.round(totals.protein),
+        fat: Math.round(totals.fat), carbs: Math.round(totals.carbs), statedKcal: Math.round(stated), macroKcal: Math.round(derived)});
+    }
+    // Per-meal tolerance (12% / 30 kcal) hides a systematic bias: 25 meals each 15 kcal high is
+    // 375 kcal a week but never trips the per-meal rule. Compare the weekly totals as well.
+    const totalStated = rows.reduce((sum, row) => sum + row.statedKcal, 0);
+    const totalMacro = rows.reduce((sum, row) => sum + row.macroKcal, 0);
+    const totalGap = totalStated - totalMacro;
+    const gapPercent = totalMacro > 0 ? Math.round(totalGap / totalMacro * 1000) / 10 : 0;
+    const biased = totalMacro > 0 && Math.abs(totalGap) > Math.max(80, totalMacro * 0.05);
+    const average = key => rows.length ? Math.round(rows.reduce((sum, row) => sum + row[key], 0) / rows.length) : 0;
+    return {rows, meals, mismatched, worstGap: Math.round(worstGap), days: rows.length,
+      totalStated, totalMacro, totalGap: Math.round(totalGap), gapPercent, biased,
+      avg: {kcal: average('kcal'), protein: average('protein'), fat: average('fat'), carbs: average('carbs')}};
+  }
+  function trainingLibrary() {
+    const lib = window.TRAINING_PRINCIPLES;
+    return lib && Array.isArray(lib.rules) ? lib : null;
+  }
+  function libraryRule(id) {
+    const lib = trainingLibrary();
+    return lib ? lib.rules.find(rule => rule.id === id) || null : null;
+  }
+  function libraryDayTemplate(template) {
+    const lib = trainingLibrary();
+    const day = lib && lib.dayTemplates ? lib.dayTemplates[template] : null;
+    return day && Array.isArray(day.exercises) ? day : null;
+  }
+  function libraryMoves(template) {
+    const lib = trainingLibrary();
+    return lib && lib.moves && Array.isArray(lib.moves[template]) ? lib.moves[template] : [];
+  }
+  function librarySourceLabel(sourceId) {
+    const lib = trainingLibrary();
+    const source = lib && lib.sources ? lib.sources.find(row => row.id === sourceId) : null;
+    return source ? source.label + (source.level ? '（' + source.level + ' 级）' : '') : sourceId;
+  }
+  /** Why this week looks like this: the rules actually used, each carrying its source. */
+  function planWhy(input) {
+    const src = input || {};
+    const reasons = [];
+    const push = (id, text) => {
+      const rule = libraryRule(id);
+      reasons.push({id, text, source: rule ? librarySourceLabel(rule.source) : '', confidence: rule ? rule.confidence : ''});
+    };
+    if (src.deload) push('deload-rule', '本周按减载周排：负荷偏高时负重 ×0.9、组数 −1');
+    else if (src.templateId) push(src.templateId, '动作顺序与组次来自三分化整理图（推/拉/腿各 5 个动作）');
+    else push('split-3-rationale', '按三分化排：每部位每周约 1.5~2 次刺激，单次 6~10 组正式组');
+    push('main-lift-rpe8', '主项守 RPE 8（留约 2 次余量），不做到力竭');
+    push('isolation-failure', '单关节动作接近力竭，复合主项不追求力竭');
+    if (src.suggested) push('volume-cap', '没有历史动作时用训练库建议动作，先按 3 组建立基线');
+    return reasons;
+  }
+  /** Keyword → tag routing, so a question about 腹肌 gets the abs rules instead of the top 6 by priority. */
+  const LIBRARY_ROUTES = [
+    {match: /腹肌|核心|举腿|卷腹/, tags: ['abs']},
+    {match: /肩|侧平举|后束|飞鸟/, tags: ['shoulder']},
+    {match: /腿|深蹲|硬拉|保加利亚/, tags: ['legs']},
+    {match: /背|划船|下拉|引体/, tags: ['pull']},
+    {match: /胸|卧推|推日|上斜/, tags: ['push']},
+    {match: /热身|激活|拉伸|放松|泡沫轴/, tags: ['warmup', 'stretch']},
+    {match: /力竭|RPE|组数|次数|强度/, tags: ['intensity', 'main']},
+    {match: /减脂|减肥|缺口|平台|体重不降/, tags: ['fatloss', 'deficit']},
+    {match: /蛋白|蛋白质|吃多少/, tags: ['protein']},
+    {match: /睡眠|熬夜|累|疲劳|恢复/, tags: ['sleep', 'recovery']},
+    {match: /增肌|肌肉|围度/, tags: ['main', 'volume']}
+  ];
+  function libraryLookup(question, max = 8) {
+    const lib = trainingLibrary();
+    if (!lib) return '';
+    const text = String(question || '');
+    const wanted = new Set();
+    for (const route of LIBRARY_ROUTES) if (route.match.test(text)) route.tags.forEach(tag => wanted.add(tag));
+    if (!wanted.size) return '';
+    const order = Array.isArray(lib.priority) ? lib.priority : [];
+    const rank = source => {
+      const index = order.indexOf(source);
+      return index >= 0 ? index : 9;
+    };
+    const hits = lib.rules
+      .filter(rule => (rule.tags || []).some(tag => wanted.has(tag)))
+      .sort((a, b) => rank(a.source) - rank(b.source))
+      .slice(0, max);
+    return hits.map(rule => '[' + rule.topic + '] ' + rule.claim
+      + (rule.evidence ? '（口述 ' + rule.evidence.at + '，' + rule.evidence.bvid + '）'
+        : rule.video ? '（视频 ' + rule.video.bvid + '）' : '')).join('\n');
+  }
+  /** Two short cues for today's template, taken from the transcript-level rules. */
+  function libraryCues(template) {
+    const lib = trainingLibrary();
+    if (!lib) return [];
+    const byTemplate = {
+      push: ['lateral-raise-partial', 'rpe8-is-not-rm'],
+      pull: ['rear-delt-neutral-grip', 'compound-deload-not-failure'],
+      legs: ['leg-warmup-six-moves', 'rest-by-signal-not-calendar']
+    };
+    return (byTemplate[template] || [])
+      .map(id => lib.rules.find(rule => rule.id === id))
+      .filter(Boolean)
+      .map(rule => rule.claim.split('；')[0]);
+  }
+  /** Which library rule answers the weakest metric of the day. */
+  function libraryRuleForMetric(key) {
+    const map = {calories: 'weekly-rate', protein: 'protein-preserve', fat: 'protein-preserve',
+      training: 'split-3-rationale', sleep: 'sleep-deficit'};
+    return libraryRule(map[key] || '');
+  }
+  /** Compact digest for the question payload: priority order, one line per rule. */
+  function librarySummary(max = 6) {
+    const lib = trainingLibrary();
+    if (!lib) return '';
+    const order = Array.isArray(lib.priority) ? lib.priority : [];
+    const rank = source => {
+      const row = lib.sources.find(item => item.id === source);
+      const index = order.indexOf(source);
+      return index >= 0 ? index : (row && Number.isFinite(row.priority) ? row.priority : 9);
+    };
+    return lib.rules.slice()
+      .sort((a, b) => rank(a.source) - rank(b.source))
+      .slice(0, max)
+      .map(rule => '[' + rule.topic + '·P' + (rank(rule.source) + 1) + '] ' + rule.claim
+        + (rule.video ? '（视频 ' + rule.video.bvid + '，' + Math.round(rule.video.seconds / 60) + ' 分钟：' + rule.video.title + '）' : ''))
+      .join('\n');
+  }
+  /** Daily training load (sets × reps × weight; runs count as minutes × 6). */
+  function dailyLoads(days) {
+    const out = [];
+    for (let offset = 0; offset < days; offset++) {
+      const day = shiftDay(activeDate, -offset);
+      let load = 0;
+      for (const item of exercisesFor(day)) {
+        const volume = exerciseVolume(item);
+        if (volume !== null) load += volume;
+        const minutes = number(item.durationMin);
+        if (minutes !== null) load += minutes * 6;
+      }
+      out.push({date: day, load});
+    }
+    return out;
+  }
+  /** Weekly mean weights, oldest first, for plateau detection. */
+  function weeklyWeightMeans() {
+    const byWeek = new Map();
+    for (const row of (state.measurements || [])) {
+      if (!row || !validDate(row.date)) continue;
+      const weight = number(row.weight);
+      if (weight === null || weight <= 0) continue;
+      const date = new Date(row.date + 'T00:00:00');
+      if (Number.isNaN(date.getTime())) continue;
+      const monday = new Date(date);
+      monday.setDate(date.getDate() - ((date.getDay() + 6) % 7));
+      const week = localDate(monday);
+      if (!byWeek.has(week)) byWeek.set(week, []);
+      byWeek.get(week).push(weight);
+    }
+    return [...byWeek.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([week, values]) => ({week, mean: Math.round(values.reduce((sum, v) => sum + v, 0) / values.length * 10) / 10}));
+  }
+  /** 0 = Monday … 6 = Sunday. */
+  function weekdayIndex(day) {
+    const date = new Date(day + 'T00:00:00');
+    return Number.isNaN(date.getTime()) ? 0 : (date.getDay() + 6) % 7;
+  }
+
+  /** The plan currently on screen; the schedule button writes exactly this. */
+  let lastWeekPlan = null;
+
+  /** Five-metric check for the selected day, plus the single action to take. */
+  function renderDailyCheck() {
+    const box = $('#daily-check'), tag = $('#daily-check-tag');
+    if (!box) return;
+    const meals = (state.meals || []).filter(row => row && row.date === activeDate);
+    const habit = habitRowFor(activeDate) || {};
+    const profile = effectiveProfileForDate(activeDate);
+    const range = intakeRangeForDate(activeDate);
+    const check = dailyCheck({meals, habit, range,
+      proteinMin: number(profile.proteinMin), proteinMax: number(profile.proteinMax),
+      fatMin: number(profile.fatMin), fatMax: number(profile.fatMax)});
+    if (tag) tag.textContent = '达标 ' + check.score + '/100';
+    box.innerHTML = '<div class="check-grid">' + check.items.map(item =>
+      `<div class="check-item ${item.state || (item.ok ? 'ok' : 'bad')}"><span class="check-dot" aria-hidden="true"></span><small>${esc(item.label)}</small><strong>${esc(String(item.value))}</strong><em>${esc(item.target)}</em></div>`).join('') + '</div>'
+      + `<p class="check-action"><strong>今天优先：</strong>${esc(check.action)}</p>`
+      + (() => {const rule = libraryRuleForMetric(check.worst && check.worst.key); return rule
+        ? annotateTerms(`<p class="check-rule">依据：${esc(rule.claim.split('；')[0].slice(0, 60))} · ${esc(librarySourceLabel(rule.source))}</p>`) : '';})();
+  }
+
+  /** Two weeks of history -> next week's sessions, with a deload when the load ran hot. */
+  const PLAN_PREFS_KEY = "qingheng.planPrefs";
+  /** 用户偏好：没有设置就不生成方案。 */
+  function planPrefs() {
+    try { const raw = localStorage.getItem(PLAN_PREFS_KEY); return raw ? JSON.parse(raw) : null; } catch { return null; }
+  }
+  function savePlanPrefs(prefs) {
+    try { localStorage.setItem(PLAN_PREFS_KEY, JSON.stringify(prefs)); } catch { }
+    // 收进 state.json：换新手机导入备份后周计划偏好还在；localStorage 此时是空的。
+    if (typeof schedulePrefsSync === 'function') schedulePrefsSync({planPrefs: prefs ?? null, aiPlans: collectedAiPlans()});
+  }
+  /** 每周练几天 -> 落在周几（0=周一）。 */
+  function trainingDays(count) {
+    const map = {3: [0, 2, 4], 4: [0, 1, 3, 5], 5: [0, 1, 3, 4, 5], 6: [0, 1, 2, 3, 4, 5]};
+    return map[Math.max(3, Math.min(6, Number(count) || 3))] || map[3];
+  }
+  function splitLabels(split) {
+    if (split === "ul") return ["上肢", "下肢"];
+    if (split === "fb") return ["全身"];
+    return ["推", "拉", "腿"];
+  }
+
+  function installPlanPrefs() {
+    const box = $("#plan-prefs");
+    if (!box) return;
+    const prefs = planPrefs();
+    if (prefs) {
+      const d = $("#pref-days"), s = $("#pref-split"), g = $("#pref-gear"), m = $("#pref-minutes");
+      if (d) d.value = String(prefs.days); if (s) s.value = prefs.split; if (g) g.value = prefs.gear; if (m) m.value = String(prefs.minutes);
+    }
+    const save = $("#pref-save");
+    if (save && !save.dataset.wired) {
+      save.dataset.wired = "1";
+      save.addEventListener("click", () => {
+        savePlanPrefs({
+          days: Number($("#pref-days").value) || 3,
+          split: $("#pref-split").value,
+          gear: $("#pref-gear").value,
+          minutes: Number($("#pref-minutes").value) || 45
+        });
+        renderWeekPlan();
+        notice("已按偏好生成本周安排。");
+      });
+    }
+    const edit = $("#pref-edit");
+    if (edit && !edit.dataset.wired) {
+      edit.dataset.wired = "1";
+      edit.addEventListener("click", () => { box.hidden = !box.hidden; });
+    }
+  }
+
+  /** 今日顺序清单：从今天的训练记录/计划里排出先练什么，按顺序编号。 */
+  function renderAdviceOrder() {
+    const box = $("#training-advice-order");
+    if (!box) return;
+    const items = exercisesFor(activeDate).filter(item => item && item.name);
+    if (!items.length) { box.hidden = true; return; }
+    box.hidden = false;
+    const rows = items.map((item, index) => {
+      const dose = [item.sets && item.sets + " 组", item.reps && item.reps + " 次", item.weight && item.weight + " kg"].filter(Boolean).join(" × ");
+      return "<li><span class=\"adv-order\">" + (index + 1) + "</span><span class=\"adv-name\">" + esc(item.name) + "</span>" + (dose ? "<span class=\"adv-dose\">" + esc(dose) + "</span>" : "") + "</li>";
+    }).join("");
+    box.innerHTML = "<h3 class=\"plan-sub\">按这个顺序练</h3><ol class=\"adv-order-list\">" + rows + "</ol>";
+  }
+
+  function renderWeekPlan() {
+    const box = $('#week-plan'), tag = $('#week-plan-tag');
+    if (!box) return;
+    const loads = dailyLoads(28);
+    const stats = acwrFromDailyLoads(loads, activeDate);
+    const lastByExercise = {};
+    for (let offset = 0; offset < 14; offset++) {
+      const day = shiftDay(activeDate, -offset);
+      for (const item of exercisesFor(day)) {
+        if (!item.name || lastByExercise[item.name]) continue;
+        if (item.sets === null || item.reps === null) continue; // runs and timed work are not scheduled
+        lastByExercise[item.name] = {sets: item.sets, reps: item.reps, weight: item.weight, date: day};
+      }
+    }
+    const sessions = Math.max(1, Math.min(6, Math.round(number(effectiveProfileForDate(activeDate).training) || 3)));
+    const startDate = shiftDay(activeDate, 7 - weekdayIndex(activeDate));
+    const plan = generateWeekPlan({startDate, sessions, lastByExercise, acwrFlag: stats ? stats.flag : 'ok'});
+    lastWeekPlan = plan;
+    if (!plan) { box.innerHTML = empty('还没有足够的训练记录', '先记两周训练，计划会自动出来。', 'empty'); return; }
+    if (tag) tag.textContent = plan.deload ? '减载周' : '按上周 +2.5%';
+    // "What do I train today": today's planned day, the next one, or what was already logged.
+    const todayPlan = plan.days.find(day => day.date === activeDate);
+    const nextPlan = plan.days.find(day => day.date > activeDate);
+    const logged = exercisesFor(activeDate);
+    // 状态拆成三行：今天 / 下一训练日 / 分化，一行一件事。
+    const stateRows = [];
+    if (logged.length) stateRows.push(['今天', '已记录 ' + logged.length + ' 个动作']);
+    else if (todayPlan) stateRows.push(['今天', (TRAINING_TEMPLATES[todayPlan.template] || todayPlan.template)
+      + (todayPlan.exercises.length ? ' · ' + todayPlan.exercises.map(item => item.name).slice(0, 3).join('、') : '（动作待定）')]);
+    else stateRows.push(['今天', '休息']);
+    if (nextPlan) stateRows.push(['下一训练日', nextPlan.date.slice(5) + ' · '
+      + (TRAINING_TEMPLATES[nextPlan.template] || nextPlan.template)
+      + (nextPlan.exercises.length ? ' · ' + nextPlan.exercises[0].name : '')]);
+    else stateRows.push(['下一训练日', '本周没有安排']);
+    stateRows.push(['分化', (() => {
+      const now = planPrefs();
+      return now && now.split ? splitLabels(now.split).join(' / ') : '未选';
+    })()]);
+    // 负荷：标签 + 数值 + 判定，不写成一句话。
+    const acwrHtml = (() => {
+      if (!stats || !Number.isFinite(stats.ratio)) return '';
+      const level = stats.flag === 'high' ? 'high' : stats.flag === 'low' ? 'low' : 'ok';
+      const verdict = level === 'high' ? '偏高 · 本周减载' : level === 'low' ? '偏低 · 按记录安排' : '维持';
+      return '<div class="plan-load is-' + level + '"><span class="plan-load-label">急慢性负荷比</span>'
+        + '<span class="plan-load-value">' + stats.ratio.toFixed(2) + '</span>'
+        + '<span class="plan-load-verdict">' + verdict + '</span></div>';
+    })();
+    const reference = (() => {
+      const lib = trainingLibrary();
+      if (!lib || !lib.dayTemplates) return '';
+      const names = ['push', 'pull', 'legs'];
+      const rows = names.map(key => {
+        const day = lib.dayTemplates[key];
+        if (!day || !day.exercises) return '';
+        const list = day.exercises.map(item => esc(item.name) + ' ' + item.sets + '×' + item.reps + (item.rpe ? ' RPE' + item.rpe : '')).join(' · ');
+        const dayCues = Array.isArray(day.cues) && day.cues.length
+          ? '<br><small>' + day.cues.map(cue => esc(cue)).join('；') + '</small>' : '';
+        return '<p><strong>' + esc(day.label) + '</strong><br>' + list + dayCues + '</p>';
+      }).join('');
+      return rows ? '<details class="plan-ref"><summary>整理图参考处方</summary>' + rows
+        + '<p class="fine-print">来自评论区「课代表」按三分化视频整理的图片（C 级，与视频结构互证）。</p></details>' : '';
+    })();
+    const suggestedNote = plan.days.some(day => day.suggested) ? '<p class="fine-print">带「建议」的动作来自训练库（该模板你还没有记录），先按 3 组建立基线。</p>' : '';
+    // 依据与说明沉到默认折叠的 details 里：首屏只留数据。
+    const why = '<details class="plan-why"><summary>为什么这样排</summary>'
+      + '<p>' + esc(plan.note) + '</p>'
+      + (Array.isArray(plan.reasons) ? plan.reasons.map(reason =>
+        '<p>' + esc(reason.text) + (reason.source ? '<small> · ' + esc(reason.source) + '</small>' : '') + '</p>').join('') : '')
+      + '</details>';
+    const cues = (typeof libraryCues === 'function' && plan.days.length) ? libraryCues(plan.days[0].template) : [];
+    const cueHtml = cues.length ? annotateTerms('<p class="plan-cue">' + cues.map(cue => esc(cue)).join('；') + '</p>') : '';
+    // 本周安排：完全按用户偏好生成；没有偏好就不出方案。
+    const prefsForm = $("#plan-prefs");
+    const prefs = planPrefs();
+    if (prefsForm) prefsForm.hidden = !!prefs;
+    const weekStart = shiftDay(activeDate, -((new Date(activeDate + "T00:00:00").getDay() + 6) % 7));
+    let thisWeekHtml;
+    if (!prefs) {
+      thisWeekHtml = "<p class=\"muted\">先选一下训练偏好（频率 / 分化 / 器械 / 时长），再按它安排本周。</p>";
+    } else {
+      const days = trainingDays(prefs.days);
+      const labels = splitLabels(prefs.split);
+      let rotation = 0;
+      const rows = [];
+      for (let offset = 0; offset < 7; offset++) {
+        const day = shiftDay(weekStart, offset);
+        const items = exercisesFor(day).filter(item => item && item.name);
+        const isToday = day === activeDate;
+        const past = day < activeDate;
+        const planned = days.includes(offset);
+        const label = planned ? labels[rotation++ % labels.length] : "休息";
+        let mark, cls;
+        if (items.length) { mark = items.slice(0, 3).map(item => item.name).join("、") + (items.length > 3 ? " 等 " + items.length + " 个" : ""); cls = "done"; }
+        else if (isToday) { mark = "今天 · " + label + " · " + (prefs.minutes || 45) + " 分钟"; cls = "today"; }
+        else if (past) { mark = planned ? "未记录 · 计划 " + label : "休息"; cls = planned ? "miss" : "plan"; }
+        else { mark = planned ? label + " · " + (prefs.minutes || 45) + " 分钟" : "休息"; cls = planned ? "plan" : "plan"; }
+        rows.push("<li class=\"wk-" + cls + "\"><strong>" + esc(day.slice(5)) + "</strong><span>" + esc(mark) + "</span></li>");
+      }
+      thisWeekHtml = "<h3 class=\"plan-sub\">本周安排 · " + esc(weekStart.slice(5)) + " 起 · 每周 " + prefs.days + " 练</h3><ul class=\"plan-week\">" + rows.join("") + "</ul>";
+    }
+    const stateHtml = '<div class="plan-state">' + stateRows.map(row =>
+      '<div class="plan-state-row"><span>' + esc(row[0]) + '</span><b>' + esc(row[1]) + '</b></div>').join('') + '</div>';
+    box.innerHTML = annotateTerms(thisWeekHtml + cueHtml + stateHtml + acwrHtml + suggestedNote + why + reference);
+      + '<div class="plan-days">' + plan.days.map(day =>
+        `<div class="plan-day"><div class="plan-day-head"><strong>${esc(day.date.slice(5))}</strong><span>${esc(TRAINING_TEMPLATES[day.template] || day.template)}</span></div>`
+        + (day.exercises.length ? day.exercises.map(item =>
+          `<div class="plan-item"><span>${esc(item.name)}${day.suggested ? ' <small class="plan-suggest">建议</small>' : ''}</span><b>${item.sets} × ${item.reps}${item.rpe ? ' · RPE ' + item.rpe : ''}${item.weight !== null ? ' · ' + item.weight + ' kg' : ''}</b></div>`).join('')
+          : '<div class="plan-item"><span>还没有可安排的动作</span><b>—</b></div>') + '</div>').join('') + '</div>'
+      + `<div class="button-row"><button type="button" class="button primary" data-plan-schedule="1">一键排课</button></div>`;
+  }
+
+  /** Load and plateau warnings shown above the weight chart. */
+  function renderTrendWarnings() {
+    const box = $('#trend-warnings');
+    if (!box) return;
+    const notes = [];
+    const stats = acwrFromDailyLoads(dailyLoads(28), activeDate);
+    if (stats && stats.flag === 'high') notes.push('训练负荷急增：近 7 天是近 4 周均值的 ' + stats.ratio + ' 倍，建议本周减载或休息一天。');
+    if (stats && stats.flag === 'low' && stats.days >= 3) notes.push('训练量偏低：近 7 天只有均值的 ' + stats.ratio + ' 倍，若在减脂期注意保住肌肉量。');
+    const weekly = weeklyWeightMeans();
+    const plateau = plateauFromWeekly(weekly);
+    if (plateau && plateau.plateau) notes.push('体重平台期：最近三周周均在 ' + plateau.mean + ' kg 上下浮动不到 0.2 kg，可以重算维持热量或调整缺口。');
+    if (!notes.length) { box.hidden = true; box.innerHTML = ''; return; }
+    box.hidden = false;
+    box.innerHTML = annotateTerms(notes.map(note => `<p class="warn-line">${esc(note)}</p>`).join(''));
+  }
+
+  function renderDailyThree() {
+    const form = $('#daily-three-form');
+    if (!form) return;
+    const tag = $('#daily-three-tag');
+    const habit = (state.habits || []).find(row => row && row.date === activeDate) || {};
+    const measurement = (state.measurements || []).find(row => row && row.date === activeDate) || {};
+    const training = habit.training === true || habit.training === 'true' ? 'true' : habit.training === false || habit.training === 'false' ? 'false' : '';
+    if (document.activeElement !== form.elements.training) form.elements.training.value = training;
+    if (document.activeElement !== form.elements.sleep) form.elements.sleep.value = number(habit.sleep) ?? '';
+    if (document.activeElement !== form.elements.weight) form.elements.weight.value = number(measurement.weight) ?? '';
+    const filled = [training !== '', number(habit.sleep) !== null, number(measurement.weight) !== null].filter(Boolean).length;
+    if (tag) tag.textContent = filled === 0 ? '待记录' : filled === 3 ? '已记录三样' : `已记录 ${filled}/3`;
+  }
+  /** One-tap copies: yesterday's meals first, then the most recent ones. */
+  function copyCandidates() {
+    const rows = (state.meals || []).filter(row => row && validDate(row.date) && !row.needsDate);
+    const yesterday = shiftDay(activeDate,-1);
+    const rank = row => (row.date === yesterday ? 0 : 1);
+    const key = row => `${row.date}|${row.mealType || ''}|${row.name || ''}|${fmt(row.calories, 0)}`;
+    const seen = new Set();
+    return rows.slice().sort((a, b) => rank(a) - rank(b) || String(b.date).localeCompare(String(a.date)))
+      .filter(row => {
+        const id = key(row);
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      })
+      .slice(0, 5);
+  }
+  function renderCopyMeals() {
+    const box = $('#copy-meal-buttons');
+    if (!box) return;
+    const rows = copyCandidates();
+    const tag = $('#copy-meal-tag');
+    if (tag) tag.textContent = rows.length ? `最近 ${rows.length} 餐` : '暂无可复制记录';
+    box.innerHTML = rows.length ? rows.map(row => {
+      const label = `${row.date === shiftDay(activeDate,-1) ? '昨天' : String(row.date).slice(5)} · ${mealNames[row.mealType] || '餐食'} · ${row.name || '未命名'}`;
+      return `<button type="button" class="button subtle" data-copy-meal="${esc(row.id ?? '')}">${esc(label)}</button>`;
+    }).join('') : empty('还没有可复制的餐食记录', '记下一餐后，这里会列出来供一键复制。');
+  }
+  /** Copies one meal to the viewed date with a fresh id; totals and items are carried over as-is. */
+  async function copyMeal(id) {
+    const source = (state.meals || []).find(row => row && String(row.id ?? '') === String(id));
+    if (!source) {notice('这条记录已经不存在了。', true); renderCopyMeals(); return;}
+    const copy = {...source};
+    delete copy.id;
+    copy.date = activeDate;
+    copy.source = 'quick-copy';
+    copy.mealTime = source.mealTime && clockPattern.test(String(source.mealTime)) ? source.mealTime : nowClock();
+    copy.mealTimeSource = 'manual';
+    delete copy.estimateId;
+    delete copy.draftId;
+    if (!await askConfirm(`把「${source.name || '这一餐'}」复制到 ${activeDate}？复制后可以再改份量。`, {title: '复制这一餐', ok: '复制'})) return;
+    try {
+      await api('/api/meals', copy);
+      await loadState({quiet: true});
+      notice(`已复制到 ${activeDate}，请核对份量。`);
+    } catch (error) {notice(error.message, true);}
+  }
+  function numericForm(form, fields) {return Object.fromEntries(fields.map(key => [key, number(form.elements.namedItem(key).value)]));}
+  async function submitForm(form, path, build) {
+    const button=$('button[type=submit]',form), message=$('.form-feedback',form);
+    if (button.disabled || !form.reportValidity()) return;
+    button.disabled=true; feedback(message,'正在保存…');
+    try {
+      const payload=build(form); if (payload===null) return;
+      await api(path,payload);
+      feedback(message,'已保存。');
+      if (path === '/api/meals') {form.reset();setDefaultDates();}
+      if (path === '/api/settings') {delete providerDrafts[selectedProvider];form.elements.apiKey.value='';form.elements.clearKey.checked=false;}
+      try {await loadState({quiet:true});} catch {feedback(message,'保存成功，但刷新失败。请检查连接后重新加载；不要重复提交。',true);}
+      if (path === '/api/settings') await refreshSettings();
+    } catch (error) {feedback(message,error.message,true);} finally {button.disabled=false;}
+  }
+  async function refreshAdvice() {
+    const button=$('#refresh-advice'), container=$('#advice-content');
+    button.disabled=true; container.textContent='正在整理已记录数据…'; container.removeAttribute('data-date');
+    syncCalendarDay();
+    const date=activeDate,useAI=$('#advice-ai').checked;
+    if(useAI && !$('#advice-consent').hidden && !$('#advice-consent').checked){container.textContent='AI 建议需要先勾选本次外发同意。';button.disabled=false;return;}
+    try {const data=await api('/api/advice',{date,...(useAI?{useAI:true,allowExternal:true}:{})}); if(date!==activeDate) return; if(!Array.isArray(data?.messages)) throw new Error('建议数据格式不正确。'); renderAdvice(data.messages,date);}
+    catch(error) {container.textContent=error.message;} finally {button.disabled=false;if(useAI)acceptConsent('advice');}
+  }
+  function clearImage() {lastCaptureId='';mealPhotoMeta=photoMeta(null);imageVersion++;imageData=null;imageBusy=false;$('#meal-image').value='';$('#meal-gallery').value='';$('#image-preview').hidden=true;$('#meal-image-preview').removeAttribute('src');}
+  async function compressImage(file) {
+    if (/\.hei[cf]$/i.test(file.name) || /hei[cf]/i.test(file.type)) throw new Error('暂不支持 HEIC / HEIF。请先在相册导出为 JPEG，再上传。');
+    if (!['image/jpeg','image/png','image/webp'].includes(file.type)) throw new Error('请选择 JPEG、PNG 或 WebP 图片；暂不支持此格式。');
+    if (file.size>20*1024*1024) throw new Error('图片过大，请选择小于 20MB 的图片。');
+    const url=URL.createObjectURL(file);
+    try {
+      const image=await new Promise((resolve,reject) => {const node=new Image();node.onload=()=>resolve(node);node.onerror=()=>reject(new Error('无法解码这张图片，请换一张 JPEG / PNG 图片。'));node.src=url;});
+      if (!image.naturalWidth || !image.naturalHeight) throw new Error('图片尺寸无效。');
+      const scale=Math.min(1,1280/Math.max(image.naturalWidth,image.naturalHeight));
+      const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(image.naturalWidth*scale));canvas.height=Math.max(1,Math.round(image.naturalHeight*scale));
+      const context=canvas.getContext('2d');if(!context) throw new Error('此浏览器不支持图片压缩，请使用餐食文字描述。');
+      context.fillStyle='#ffffff';context.fillRect(0,0,canvas.width,canvas.height);context.drawImage(image,0,0,canvas.width,canvas.height);
+      return canvas.toDataURL('image/jpeg',.82);
+    } finally {URL.revokeObjectURL(url);}
+  }
+  const nutritionKeys = ['calories','protein','fat','carbs'];
+  const nutritionPrecision = value => Math.max(0, Math.round(Number(value) * 100) / 100);
+  function scaleEstimateItem(row, grams) {
+    const baseGrams = number(row.dataset.baseGrams);
+    if (!(grams > 0) || !(baseGrams > 0)) return;
+    const ratio = grams / baseGrams;
+    for (const key of nutritionKeys) {
+      const input = $(`[data-item-field="${key}"]`, row), base = number(input?.dataset.baseValue);
+      if (input && base !== null) input.value = nutritionPrecision(base * ratio);
+    }
+    updatePreviewTotals();
+  }
+  function openItemRecalc(row) {
+    if (!row) return;
+    const root = $('#item-recalc-dialog'), grams = number($('[data-item-field="grams"]', row)?.value), baseGrams = number(row.dataset.baseGrams);
+    if (!(grams > 0) || !(baseGrams > 0)) return;
+    $('#item-recalc-summary').textContent = `${$('[data-item-field="name"]', row)?.value || '这项食品'}：当前 ${fmt(grams)}g。`;
+    $('#item-recalc-grams').value = grams;
+    for (const key of nutritionKeys) {
+      const input = $(`[data-item-field="${key}"]`, row), base = number(input?.dataset.baseValue);
+      $(`#item-recalc-${key}`).value = base === null ? '' : nutritionPrecision(base / baseGrams * 100);
+    }
+    $('#item-recalc-feedback').textContent = '';
+    root.dataset.itemIndex = String($$('.estimate-item').indexOf(row));
+    root.hidden = false;
+    $('#item-recalc-grams').focus();
+    $('#item-recalc-grams').select();
+  }
+  function closeItemRecalc() {
+    const root = $('#item-recalc-dialog');
+    root.hidden = true; delete root.dataset.itemIndex;
+    $('#item-recalc-form').reset();
+    $('#item-recalc-feedback').textContent = '';
+  }
+  /** The user's own anchor table, sent along so the model reuses the same numbers (rules.md 第五节). */
+  function anchorSummary() {
+    try {return window.QinghengAnchors?.summary?.() || '';} catch {return '';}
+  }
+  /** Stores the anchor block natively once per session so push/advice prompts can reuse it too. */
+  async function syncAnchors() {
+    const summary = anchorSummary();
+    if (!summary) return;
+    try {
+      const current = await api('/api/anchors');
+      if (current?.summary === summary) return;
+      await api('/api/anchors', {summary});
+    } catch { /* Anchors are an optimisation; never block the app on them. */ }
+  }
+  function previewDraft(data, form) {
+    if (!data?.draftId || !Array.isArray(data.items) || !data.items.length || !['api','local'].includes(data.source)) throw new Error('未返回有效估算预览，请重试。');
+    if (data.items.some(item => ['grams','calories','protein','fat','carbs'].some(key => number(item[key])===null || Number(item[key])<0))) throw new Error('估算中有无效营养数值，请重新生成。');
+    const suggested = defaultMealTime(form.photo, form.text, form.elements.mealType.value);
+    const view = {id:data.draftId,date:form.elements.date.value,mealType:form.elements.mealType.value,source:data.source,
+      confidence:data.confidence,notes:Array.isArray(data.notes)?data.notes:[],items:data.items,name:'',
+      oilGrams:number(data.oilGrams) ?? 0,uncertaintyPercent:number(data.uncertaintyPercent) ?? 15,
+      ...photoMeta(form.photo), mealTime:suggested.mealTime, mealTimeSource:suggested.mealTimeSource};
+    renderPreview(view, false);
+    saveToDraftBox(view);
+  }
+  /** Renders a stored or fresh estimate preview; a restored draft is labelled as such. */
+  function renderPreview(view, restored) {
+    if (!view?.id || !Array.isArray(view.items) || !view.items.length) throw new Error('这份草稿不完整，请重新估算。');
+    const mealTime = clockPattern.test(String(view.mealTime||'')) ? view.mealTime : nowClock();
+    const source = ['photo','text','now','manual','typical'].includes(view.mealTimeSource) ? view.mealTimeSource : 'now';
+    draft={id:view.id,date:view.date,mealType:view.mealType,source:view.source,mealTime,mealTimeSource:source,...photoMeta(view)};
+    $('#estimate-date').value=draft.date; $('#estimate-meal-type').value=draft.mealType;
+    $('#estimate-meal-time').value=mealTime;
+    $('#estimate-meal-time-note').textContent=mealTimeNote(draft);
+    $('#estimate-photo-time').textContent=photoTimeLabel(draft);
+    const fields=[['grams','克重 · g'],['calories','热量 · kcal'],['protein','蛋白质 · g'],['fat','脂肪 · g'],['carbs','碳水 · g']];
+    const modelNote = item => {
+      const model = item?.model, per100 = model?.per100;
+      if (!model || !per100 || number(per100.calories) === null) return '';
+      const basis = ({raw:'生重',cooked:'熟重',as_served:'食用状态'})[model.basis] || model.basis || '口径未标注';
+      const range = Array.isArray(model.calorieRangePer100) && model.calorieRangePer100.length === 2 && number(item.grams) !== null
+        ? ` · 此配方热量约 ${fmt(model.calorieRangePer100[0]*item.grams/100,0)}–${fmt(model.calorieRangePer100[1]*item.grams/100,0)} kcal` : '';
+      return `<p class="fine-print">本地参考：${fmt(per100.calories,0)} kcal/100g · ${esc(basis)}${range}。${esc(model.note || '')}</p>`;
+    };
+    // Each row keeps its original estimate as a ratio baseline, so repeated gram edits never accumulate rounding drift.
+    $('#estimate-items').innerHTML=view.items.map(item => `<div class="estimate-item" data-base-grams="${Number(item.grams)}"><div class="estimate-item-head"><label>食物名称<input data-item-field="name" value="${esc(item.name)}" maxlength="120" required></label><div class="estimate-item-actions"><button type="button" class="recalc-item" title="按克重和每 100g 数据重算" aria-label="按克重重算${esc(item.name)}"><span class="inline-icon" aria-hidden="true"><img src="./icon-refresh.svg" alt="" width="17" height="17"></span></button><button type="button" class="remove-item" title="移除这项" aria-label="移除${esc(item.name)}">×</button></div></div>${modelNote(item)}<div class="form-grid">${fields.map(([key,label]) => `<label>${label}<input data-item-field="${key}" type="number" value="${Number(item[key])}" ${key === 'grams' ? '' : `data-base-value="${Number(item[key])}"`} min="0" max="20000" step="0.01" required></label>`).join('')}</div></div>`).join('');
+    $('#estimate-source').textContent=`${view.source==='api'?'外部模型':'本地估算'} · ${view.confidence==='medium'?'中等':'低'}置信度${restored?' · 已恢复未确认草稿':''}`;
+    const uncertainty=number(view.uncertaintyPercent) ?? 15;
+    draft.uncertaintyPercent=uncertainty; draft.oilGrams=number(view.oilGrams) ?? 0;
+    const totalCalories=totalsFor(view.items).calories;
+    const interval=`估算区间：约 ${fmt(totalCalories*(1-uncertainty/100),0)}–${fmt(totalCalories*(1+uncertainty/100),0)} kcal（±${fmt(uncertainty,0)}%）`;
+    const oilNote=draft.oilGrams>0?`已计入烹调用油 ${fmt(draft.oilGrams,0)} g（约 ${fmt(draft.oilGrams*9,0)} kcal）`:'照片无法判断用油量；如果这餐是炒菜，请补上后用油量，否则热量会偏低。';
+    const lowNote='识别结果可能有偏差，请核对份量与用油；不确定的项按常见份量取中位值即可，不必刻意往高报。';
+    $('#estimate-notes').innerHTML=[interval,oilNote,lowNote].concat(Array.isArray(view.notes)?view.notes:[]).map(note=>`<li>${esc(note)}</li>`).join('');
+    $('#estimate-name').value=view.name || view.items.map(item=>item.name).join('、').slice(0,120);
+    $('#estimate-preview').hidden=false;
+    feedback($('#preview-feedback'), restored?'已恢复未确认的估算，请核对日期与克重后确认保存。':'请检查数据后确认保存。');
+    updatePreviewTotals();
+    $('#estimate-preview').scrollIntoView({block:'nearest',behavior:'auto'});
+  }
+/* Fragment of assets/app.js -- assembled by tools/assemble-app.ps1 in filename order.
+ * Edit this file, never the generated assets/app.js; tests/app-fragments.test.mjs fails on drift. */
+  // ---- Unconfirmed draft box -------------------------------------------------------------------
+  // A photo estimate is expensive to redo, so the preview is stored on the phone until it is either
+  // confirmed or dropped. The image itself is never stored.
+  let favoriteOnlyChats = false, favoriteOnlyMeals = false;
+  // Long answers are clamped to one readable block; expanding is remembered per record id.
+  const expandedChats = new Set();
+  function bindFavoriteFilter(buttonId, apply) {
+    const button = $('#' + buttonId);
+    if (!button) return;
+    button.addEventListener('click', () => {
+      const next = button.getAttribute('aria-pressed') !== 'true';
+      button.setAttribute('aria-pressed', next ? 'true' : 'false');
+      apply(next);
+    });
+  }
+  bindFavoriteFilter('chat-favorites-only', value => {favoriteOnlyChats = value; renderChat();});
+  bindFavoriteFilter('meal-favorites-only', value => {favoriteOnlyMeals = value; render();});
+  let storedDrafts = [];
+  async function loadDrafts() {
+    try {const data = await api('/api/drafts'); storedDrafts = Array.isArray(data?.drafts) ? data.drafts : [];}
+    catch {storedDrafts = [];}
+    renderDraftBox();
+  }
+  function renderDraftBox() {
+    const box = $('#draft-box'); if (!box) return;
+    box.hidden = !storedDrafts.length;
+    if (!storedDrafts.length) {const list = $('#draft-list'); if (list) list.replaceChildren(); return;}
+    $('#draft-box-text').textContent = `有 ${storedDrafts.length} 份未确认的估算，确认前不会计入当天。`;
+    const list = $('#draft-list');
+    if (!list) return;
+    list.innerHTML = storedDrafts.map(row => {
+      const when = number(row.savedAt) !== null ? new Date(Number(row.savedAt)).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '时间未知';
+      const count = Array.isArray(row.items) ? row.items.length : 0;
+      const clock = clockPattern.test(String(row.mealTime||'')) ? row.mealTime : '时间未定';
+      return `<div class="list-row" role="listitem"><div class="list-main"><p class="list-title">${esc(row.name || '未命名估算')}</p>`
+        + `<p class="list-meta">${esc(row.date || '日期未知')} · ${esc(mealNames[row.mealType] || row.mealType || '餐食')} · ${esc(clock)} · ${count} 项食品 · ${esc(when)}</p></div>`
+        + `<div class="list-actions"><button type="button" class="button subtle" data-draft-restore="${esc(row.id)}">恢复</button>`
+        + `<button type="button" class="text-button danger-text" data-draft-drop="${esc(row.id)}" aria-label="丢弃这份估算草稿">丢弃</button></div></div>`;
+    }).join('');
+  }
+  async function saveToDraftBox(view) {
+    const stored = {id:view.id,date:view.date,mealType:view.mealType,source:view.source,confidence:view.confidence,
+      notes:view.notes,items:view.items,name:view.name,mealTime:view.mealTime,mealTimeSource:view.mealTimeSource,...photoMeta(view)};
+    try {await api('/api/drafts',{draft:stored}); await loadDrafts();} catch {/* the preview still works without the draft box */}
+  }
+  async function dropDraft(id) {
+    if (!id) return;
+    try {await api(`/api/drafts/${encodeURIComponent(id)}`,undefined,'DELETE');} catch {}
+    await loadDrafts();
+  }
+  function readItems(validate=false) {
+    const rows=$$('.estimate-item'); if(!rows.length) {if(validate) throw new Error('请至少保留一项食物。');return [];}
+    return rows.map(row => {const item={};$$('[data-item-field]',row).forEach(input=>{if(validate && !input.reportValidity()) throw new Error('请补全食物名称并填写有效的非负数值。');item[input.dataset.itemField]=input.dataset.itemField==='name'?input.value.trim():number(input.value);});if(validate && !item.name) {markFieldInvalid($('[data-item-field="name"]', row), '请填写食物名称。'); throw new Error('请填写食物名称。');}return item;});
+  }
+  /** Canonical totals for the draft: line items plus the cooking oil that was estimated separately. */
+  /** Carbs a row does not state but its calories imply; mirrors NutritionMath.inferredCarbs on the client. */
+  function carbOfItem(item) {
+    const carbs = number(item.carbs);
+    if (carbs !== null && carbs > 0) return carbs;
+    const kcal = number(item.calories), protein = number(item.protein) ?? 0, fat = number(item.fat) ?? 0;
+    if (kcal === null) return carbs ?? 0;
+    const rest = kcal - protein * 4 - fat * 9;
+    return rest > 60 ? Math.round(rest / 4 * 10) / 10 : (carbs ?? 0);
+  }
+  function estimateTotals(items) {
+    // A row can arrive with calories, protein and fat but no carbs; the preview must not show 0 carbs
+    // for a 261 kcal bowl of rice. The saved record applies the same rule server-side.
+    const patched = (items || []).map(item => ({...item, carbs: carbOfItem(item)}));
+    const totals = totalsFor(patched);
+    const oil = number(draft?.oilGrams) ?? 0;
+    if (oil > 0) {
+      totals.calories = (totals.calories ?? 0) + oil * 9;
+      totals.fat = (totals.fat ?? 0) + oil;
+    }
+    return totals;
+  }
+  function updatePreviewTotals() {const totals=estimateTotals(readItems());$('#estimate-totals').textContent=`合计：${fmt(totals.calories)} kcal · 蛋白质 ${fmt(totals.protein)}g · 脂肪 ${fmt(totals.fat)}g · 碳水 ${fmt(totals.carbs)}g`;}
+  function discardDraft() {if(savingDraft) return;const id=draft?.id;draft=null;$('#estimate-preview').hidden=true;$('#estimate-items').replaceChildren();dropDraft(id);}
+  async function confirmDraft() {
+    if(!draft || savingDraft) return;
+    const button=$('#confirm-estimate'),message=$('#preview-feedback');
+    try {
+      const items=readItems(true),name=$('#estimate-name').value.trim(); if(!name || !$('#estimate-name').reportValidity()) {if(!name) markFieldInvalid($('#estimate-name'), '请填写餐食名称。'); throw new Error('请填写餐食名称。');}
+      const totals=estimateTotals(items);if(Object.values(totals).some(value=>value===null || !Number.isFinite(value))) throw new Error('请填写全部营养数值。');
+      const date=$('#estimate-date').value, mealType=$('#estimate-meal-type').value, mealTime=$('#estimate-meal-time').value;
+      if(!validDate(date) || !$('#estimate-date').reportValidity()) {if(!validDate(date)) markFieldInvalid($('#estimate-date'), '请核对有效的饮食日期。'); throw new Error('请核对有效的饮食日期。');}
+      if(!clockPattern.test(mealTime) || !$('#estimate-meal-time').reportValidity()) {if(!clockPattern.test(mealTime)) markFieldInvalid($('#estimate-meal-time'), '请填写有效的进餐时间（HH:mm）。'); throw new Error('请填写有效的进餐时间（HH:mm）。');}
+      draft.date=date; draft.mealType=mealType;
+      // The user just confirmed it, so it is no longer a guess.
+      draft.mealTime=mealTime; draft.mealTimeSource='manual';
+      savingDraft=true;button.disabled=true;$('#cancel-estimate').disabled=true;feedback(message,'正在保存确认后的餐食…');
+      await api('/api/meals',{estimateId:draft.id,date:draft.date,mealType:draft.mealType,mealTime:draft.mealTime,name,source:draft.source,...photoMeta(draft),items,...totals,totals,
+        // The oil amount the estimate already counted stays on the record, so the numbers remain explainable.
+        ...(number(draft.oilGrams)>0?{oilGrams:number(draft.oilGrams),oilIncluded:true}:{}),
+        ...(number(draft.uncertaintyPercent)!==null?{uncertaintyPercent:number(draft.uncertaintyPercent)}:{})});
+      // Keep draftId on failures so native idempotency prevents duplicate confirmations.
+      const savedDate=draft.date; activeDate=savedDate; $('#active-date').value=savedDate;
+       draft=null;$('#estimate-preview').hidden=true;$('#estimate-form').reset();setDefaultDates();clearImage();feedback($('#estimate-feedback'),`餐食已确认保存到 ${savedDate}，已切换到该日汇总。`);
+      try {await loadState({quiet:true});} catch {feedback($('#estimate-feedback'),'已保存，但刷新失败。请重新加载检查记录，不要再次估算保存。',true);}
+      loadDrafts().catch(() => {});
+    } catch(error) {feedback(message,error.message,true);} finally {savingDraft=false;button.disabled=false;$('#cancel-estimate').disabled=false;}
+  }
+  function setActiveDate(value) {
+    if(!validDate(value)) return false;
+    activeDate=value; $('#active-date').value=value; setDefaultDates(); render();
+    const content=$('#advice-content'); content.textContent=''; content.removeAttribute('data-date');
+    return true;
+  }
+  // ---- Meals that carry no usable date ----------------------------------------------------------
+  // They belong to no day, so they are invisible in every day view, in the advice and in the chat
+  // context. Rather than guessing, the app says how many there are and asks for the date.
+  function undatedMeals() {return (state.meals || []).filter(row => row && (row.needsDate === true || !validDate(row.date)));}
+  function renderUndatedMeals() {
+    const box = $('#undated-meals'); if (!box) return;
+    const rows = undatedMeals();
+    box.hidden = !rows.length;
+    if (!rows.length) return;
+    $('#undated-meals-text').textContent = `有 ${rows.length} 条餐食记录缺少日期，不会出现在任何一天，也不会进入建议和问答。请选择它们所属的日期。`;
+    const input = $('#undated-meals-date');
+    if (input && !input.value) input.value = activeDate;
+  }
+  async function applyUndatedDate() {
+    const rows = undatedMeals(), input = $('#undated-meals-date'), value = input ? input.value : '';
+    if (!rows.length) return;
+    if (!validDate(value)) {notice('请先选择有效日期。', true); return;}
+    const button = $('#undated-meals-apply');
+    if (button) button.disabled = true;
+    try {
+      for (const row of rows) {const {needsDate, ...rest} = row; await api('/api/meals', {...rest, date:value});}
+      await loadState({quiet:true});
+      notice(`已把 ${rows.length} 条记录归入 ${value}。`);
+    } catch (error) {notice(error.message, true);}
+    finally {if (button) button.disabled = false;}
+  }
+  // ---- What would be sent, shown before anything is sent ----------------------------------------
+  async function showContextPreview(kind, node, date) {
+    if (!node) return;
+    if (!window.QinghengAdapter.hasNative()) {node.textContent = '浏览器演示不发送数据到外部模型，因此这里没有可预览的内容。'; return;}
+    if (node.dataset.loaded === date) return;
+    node.textContent = '正在整理本次将发送的数据…';
+    try {
+      const data = await api('/api/context-preview', {date, kind});
+      node.textContent = `【系统提示词】\n${data?.system || ''}\n\n【本次数据】\n${JSON.stringify(data?.user ?? null, null, 2)}`;
+      node.dataset.loaded = date;
+    } catch (error) {node.textContent = error.message;}
+  }
+  function installContextPreview(panelId, nodeId, kind) {
+    const panel = $('#' + panelId);
+    if (!panel) return;
+    panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
+  }
+  // ---- Hub entries and sub-page navigation -------------------------------------------------------
+  const APP_VERSION = '1.1.53';
+  document.addEventListener('click', event => {
+    const entry = event.target.closest('[data-subpage-open]');
+    if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
+    const back = event.target.closest('[data-subpage-back]');
+    if (back) {
+      // Prefer real history so the system back button and this button do the same thing.
+      const {sub} = parseHash();
+      if (sub) {try {history.back();} catch {switchTab('profile', false, '');}}
+    }
+  });
+  function renderHub() {
+    const version = $('#about-version');
+    if (version) version.textContent = `v${APP_VERSION}`;
+    const profile = state.profile || {};
+    const targets = $('#hub-summary-targets');
+    if (targets) {
+      const height = number(profile.height), age = number(profile.age), calorie = number(profile.calorieTarget);
+      const training = number(profile.training);
+      // Same source as the 今天 page: a lean plan must not be summarised with the recomp ranges.
+      const range = intakeRangeForDate();
+      const bits = [
+        GOAL_LABEL[profile.goal] || '未设置目标',
+        height !== null ? `${fmt(height,0)} cm` : '身高未填',
+        age !== null ? `${fmt(age,0)} 岁` : '年龄未填',
+        training !== null ? `每周 ${fmt(training,0)} 练` : '训练次数未填',
+        calorie !== null ? `训练日 ${fmt(range.trainingDay.min,0)}~${fmt(range.trainingDay.max,0)} / 休息日 ${fmt(range.restDay.min,0)}~${fmt(range.restDay.max,0)} kcal` : '目标未测算'
+      ];
+      targets.textContent = bits.join(' · ');
+    }
+    const model = $('#hub-summary-model');
+    if (model) {
+      const settings = state.settings || {};
+      const provider = settings.provider === 'bai' ? 'B.AI' : 'DeepSeek';
+      model.textContent = settings.apiConfigured === true ? `${provider} · 已配置${settings.visionEnabled === true ? '（含图片）' : ''}` : `${provider} · 未配置`;
+    }
+    const about = $('#hub-summary-about');
+    if (about) about.textContent = `v${APP_VERSION} · 本机存储`;
+  }
+  /** Shows which prompt/口径/anchors produced the records, and when the last backup was made. */
+  async function loadVersions() {
+    const box = $('#version-info');
+    if (!box) return;
+    try {
+      const info = await api('/api/versions');
+      const backup = info?.backupAt ? new Date(info.backupAt).toLocaleString('zh-CN') : '从未';
+      const anchors = info?.anchorsPresent
+        ? `锚点 ${info.anchorsUpdatedAt ? new Date(info.anchorsUpdatedAt).toLocaleDateString('zh-CN') : '已同步'}`
+        : '锚点未同步';
+      const repaired = number(info?.chatAnswersRepaired) ?? 0;
+      // Privacy-safe histogram of stored answers; shows what a broken answer actually looks like.
+      const audit = Array.isArray(info?.answerAudit) ? info.answerAudit.join(' · ') : '';
+      const coldStart = number(info?.coldStartMs) ?? 0;
+      box.innerHTML = `<span>应用 <b>v${esc(info?.appVersion || APP_VERSION)}</b></span><span>提示词 <b>v${fmt(info?.promptVersion, 0)}</b></span><span>口径 <b>v${fmt(info?.rulesVersion, 0)}</b></span><span>${esc(anchors)}</span><span>上次备份 <b>${esc(backup)}</b></span>`
+        + (repaired > 0 ? `<span>已修复 <b>${fmt(repaired, 0)}</b> 条无效回答</span>` : '')
+        + (audit ? `<span>问答体检 <b>${esc(audit)}</b></span>` : '')
+        + (coldStart > 0 ? `<span>冷启动 <b>${fmt(coldStart, 0)}</b> ms</span>` : '')
+        + (window.TRAINING_PRINCIPLES
+          ? `<span>建议库 <b>${esc(window.TRAINING_PRINCIPLES.version)}</b> · ${window.TRAINING_PRINCIPLES.rules.length} 条 · ${window.TRAINING_PRINCIPLES.sources.length} 来源</span>`
+          : '')
+        + bodyPartHints();
+    } catch (error) {
+      box.textContent = error.message;
+    }
+  }
+  /** 「按部位查解剖要点」：每个部位取 2~3 条最相关的规则，带口述时间戳。 */
+  function bodyPartHints() {
+    const lib = window.TRAINING_PRINCIPLES;
+    if (!lib || !Array.isArray(lib.rules)) return '';
+    const parts = [
+      {label: '关节活动度', tags: ['anatomy', 'warmup']},
+      {label: '胸', tags: ['push']},
+      {label: '肩', tags: ['shoulder']},
+      {label: '背', tags: ['pull']},
+      {label: '手臂', tags: ['isolation', 'arm']},
+      {label: '腹肌 / 核心', tags: ['abs']},
+      {label: '腿 / 臀', tags: ['legs']},
+      {label: '减脂与恢复', tags: ['fatloss', 'recovery', 'sleep']}
+    ];
+    const order = Array.isArray(lib.priority) ? lib.priority : [];
+    const rank = source => { const index = order.indexOf(source); return index >= 0 ? index : 9; };
+    const rows = parts.map(part => {
+      const hits = lib.rules
+        .filter(rule => (rule.tags || []).some(tag => part.tags.includes(tag)))
+        .sort((a, b) => rank(a.source) - rank(b.source))
+        .slice(0, 3);
+      if (!hits.length) return '';
+      const items = hits.map(rule => '<p>' + esc(rule.claim.split('；')[0]) + (rule.evidence ? '<small> · 口述 ' + esc(rule.evidence.at) + '</small>' : '') + '</p>').join('');
+      return '<p class="part-title">' + esc(part.label) + '</p>' + items;
+    }).join('');
+    return rows ? '<details class="body-parts"><summary>按部位查解剖要点</summary>' + rows + '</details>' : '';
+  }
+  /**
+   * 拍照与相册收进一个入口：页面只占一行，选择放进底部弹层。
+   * 弹层里的「拍照」「从相册选」是 <label for>，由浏览器原生打开文件选择器；
+   * 这里不给 label 绑 input.click()（会弹两次），只负责开合、焦点与键盘。
+   */
+  function installPhotoEntry() {
+    const open = $("#photo-add"), sheet = $("#photo-sheet");
+    if (!open || !sheet || sheet.dataset.wired) return;
+    sheet.dataset.wired = "1";
+    const hide = restoreFocus => {
+      sheet.hidden = true;
+      open.setAttribute("aria-expanded", "false");
+      if (restoreFocus) open.focus();
+    };
+    open.addEventListener("click", () => {
+      sheet.hidden = false;
+      open.setAttribute("aria-expanded", "true");
+      const first = $("#photo-take");
+      if (first) first.focus();
+    });
+    const close = $("#photo-close");
+    if (close) close.addEventListener("click", () => hide(true));
+    sheet.addEventListener("click", event => {
+      if (event.target === sheet) hide(true);
+      else if (event.target.closest(".sheet-option")) hide(false); // 选择器由 label 原生打开，这里只收起弹层
+    });
+    sheet.addEventListener("keydown", event => {
+      if (event.key === "Escape") { hide(true); return; }
+      const option = event.target.closest && event.target.closest(".sheet-option");
+      if (option && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); option.click(); }
+    });
+  }
+
+  /** 等待动画：任何需要等模型的地方都复用它。 */
+  let busyTimer = null;
+  /** 等待提示：默认全局遮罩；传 target 时显示在该元素里（行内，不挡操作）。 */
+  let busyButton = null;
+  function markBusyButton(on) {
+    const active = document.activeElement;
+    if (on) {
+      if (active && active.tagName === "BUTTON") { busyButton = active; busyButton.setAttribute("aria-busy", "true"); }
+    } else if (busyButton) {
+      busyButton.removeAttribute("aria-busy");
+      busyButton = null;
+    }
+  }
+  function showBusy(text, target) {
+    markBusyButton(true);
+    hideBusy();
+    const label = text || "正在计算…";
+    if (target) {
+      const node = document.getElementById(target);
+      if (node) { node.hidden = false; const t2 = node.querySelector(".inline-busy-text"); if (t2) t2.textContent = label; }
+    } else {
+      const layer = $("#busy-layer"), l2 = $("#busy-text");
+      if (l2) l2.textContent = label;
+      if (layer) layer.hidden = false;
+    }
+    // 兜底：任何异常都不该让等待提示常驻。
+    busyTimer = setTimeout(() => hideBusy(), 25000);
+  }
+  function hideBusy() {
+    markBusyButton(false);
+    if (busyTimer) { clearTimeout(busyTimer); busyTimer = null; }
+    const layer = $("#busy-layer"); if (layer) layer.hidden = true;
+    const inline = document.getElementById("estimate-busy"); if (inline) inline.hidden = true;
+  }
+
+  /** 用模型按顺序排今天的训练：需要勾选同意，失败就明确报错，不伪造计划。 */
+  const AI_PLAN_KEY = date => "qingheng.aiPlan." + date;
+  function aiPlanStore(date, value) {
+    try {
+      if (value === undefined) return JSON.parse(localStorage.getItem(AI_PLAN_KEY(date)) || "null");
+      localStorage.setItem(AI_PLAN_KEY(date), JSON.stringify(value));
+      // 收进 state.json：备份/迁移带着走（保存时立即同步，清除时同样落库）。
+      if (typeof schedulePrefsSync === 'function') schedulePrefsSync({aiPlans: collectedAiPlans()});
+    } catch { return null; }
+  }
+  /** 总组数：新计划直接用 sets，旧数据从 dose 里读回。 */
+  function aiPlanSets(item) {
+    const n = Number(item && item.sets);
+    if (Number.isFinite(n) && n > 0) return n;
+    const hit = /(\d+)\s*组/.exec(String((item && item.dose) || ""));
+    return hit ? Number(hit[1]) : 0;
+  }
+  /**
+   * 单组占用的时间：执行约 45 秒 + 组间休息约 90 秒 + 换动作摊销，取 2.5 分钟。
+   * 时长先由组数决定，再向上取到偏好里的档位，不留缺口。
+   */
+  const AI_PLAN_MINUTES_PER_SET = 2.5;
+  const AI_PLAN_MINUTE_STEPS = [30, 45, 60, 75, 90];
+  function aiPlanMinutes(sets) {
+    if (!sets) return 0;
+    const raw = Math.ceil(sets * AI_PLAN_MINUTES_PER_SET / 5) * 5;
+    return AI_PLAN_MINUTE_STEPS.find(step => step >= raw) || AI_PLAN_MINUTE_STEPS[AI_PLAN_MINUTE_STEPS.length - 1];
+  }
+  function renderAiPlan() {
+    const box = $("#ai-plan-list"), tag = $("#ai-plan-tag"), clear = $("#ai-plan-clear"), summary = $("#ai-plan-summary");
+    if (!box) return;
+    const plan = aiPlanStore(activeDate);
+    if (clear) clear.hidden = !plan;
+    const edit = $("#ai-plan-edit");
+    if (edit) edit.hidden = !(plan && plan.length);
+    if (!plan || !plan.length) {
+      if (tag) tag.textContent = "未生成";
+      if (summary) { summary.hidden = true; summary.textContent = ""; }
+      box.innerHTML = '<p class="muted">还没有生成顺序。勾选同意后点「用 AI 排今天」。</p>';
+      return;
+    }
+    if (tag) tag.textContent = plan.length + " 个动作";
+    if (summary) {
+      const prefs = typeof planPrefs === "function" ? planPrefs() : null;
+      const setMinutes = Number(prefs && prefs.minutes) > 0 ? Number(prefs.minutes) : 45;
+      const totalSets = plan.reduce((sum, item) => sum + aiPlanSets(item), 0);
+      const need = aiPlanMinutes(totalSets);
+      summary.hidden = false;
+      if (!need) {
+        summary.textContent = "共 " + plan.length + " 个动作";
+      } else if (Math.abs(need - setMinutes) >= 10) {
+        // 差异够大就给一个入口，点了才弹窗，不主动打断。
+        summary.innerHTML = '<span class="ai-plan-summary-text">共 ' + totalSets + " 组 · 按组数约需 " + need + ' 分钟</span>'
+          + '<button type="button" class="text-button" data-plan-minutes="' + need + '">改成 ' + need + ' 分钟</button>';
+      } else {
+        summary.innerHTML = '<span class="ai-plan-summary-text">共 ' + totalSets + " 组 · 约需 " + need + ' 分钟</span>'
+          + '<span class="ai-plan-summary-note">你设的是 ' + setMinutes + ' 分钟</span>';
+      }
+    }
+    box.innerHTML = plan.map((item, index) =>
+      "<label class=\"ai-plan-row\" role=\"listitem\"><input type=\"checkbox\" data-ai-done=\"" + index + "\"" + (item.done ? " checked" : "") + "><span class=\"ai-plan-name\">" + esc(item.name) + "</span><span class=\"ai-plan-dose\">" + esc(item.dose || "") + "</span></label>"
+    ).join("");
+  }
+  async function askAiPlan(button) {
+    const consent = $("#ai-plan-consent");
+    if (!consent || !consent.checked) { notice("先勾选同意，才会把今天的数据发给模型。"); return; }
+    const prefs = typeof planPrefs === "function" ? planPrefs() : null;
+    const profile = state.profile || {};
+    const done = exercisesFor(activeDate).filter(item => item && item.name).map(item => item.name + " " + (item.sets || "") + "x" + (item.reps || ""));
+    const prompt = [
+      "你是力量训练教练。请为今天排一个按顺序执行的训练清单。",
+      "信息：目标=" + (profile.goal || "未填") + "；体重=" + (profile.weight || "未填") + "kg；每周练=" + (prefs ? prefs.days : (profile.training || "未填")) + "；分化=" + (prefs ? prefs.split : "未填") + "；器械=" + (prefs ? prefs.gear : "未填") + "；时长=" + (prefs ? prefs.minutes : 45) + " 分钟。",
+      done.length ? ("今天已记录：" + done.join("；") + "。") : "今天还没有训练记录。",
+      "只输出 JSON 数组，不要解释。每项形如 {\"name\": \"动作名\", \"sets\": 4, \"reps\": 8, \"weight\": 40}，weight 可省略。按执行顺序排列，6 个动作以内。"
+    ].join("\n");
+    button.disabled = true;
+    const original = button.textContent;
+    button.textContent = "正在排…";
+    showBusy("正在排今天的动作顺序…");
+    try {
+      const data = await api("/api/chat", {question: prompt, date: activeDate, webSearch: false, tier: "fast", allowExternal: true, logToHistory: false});
+      const reply = String(data && data.reply ? data.reply : "");
+      const start = reply.indexOf("[");
+      const end = reply.lastIndexOf("]");
+      if (start < 0 || end <= start) throw new Error("模型没有返回 JSON 清单，请重试。");
+      const rows = JSON.parse(reply.slice(start, end + 1));
+      if (!Array.isArray(rows) || !rows.length) throw new Error("清单为空，请重试。");
+      const plan = rows.filter(row => row && row.name).map(row => ({
+        name: String(row.name).slice(0, 24),
+        sets: Number(row.sets) > 0 ? Number(row.sets) : 0,
+        dose: [row.sets ? row.sets + " 组" : "", row.reps ? row.reps + " 次" : "", row.weight ? row.weight + " kg" : ""].filter(Boolean).join(" × "),
+        done: false
+      }));
+      aiPlanStore(activeDate, plan);
+      renderAiPlan();
+      notice("已按顺序排好今天的 " + plan.length + " 个动作。");
+    } catch (error) {
+      notice("排训练顺序失败：" + (error && error.message ? error.message : "未知错误"));
+    } finally {
+      button.disabled = false;
+      button.textContent = original;
+      hideBusy();
+    }
+  }
+  function installAiPlan() {
+    const ask = $("#ai-plan-ask"), clear = $("#ai-plan-clear"), list = $("#ai-plan-list");
+    if (!ask || ask.dataset.wired) return;
+    ask.dataset.wired = "1";
+    ask.addEventListener("click", () => askAiPlan(ask));
+    if (clear) clear.addEventListener("click", () => { aiPlanStore(activeDate, []); renderAiPlan(); });
+    const edit = $("#ai-plan-edit");
+    if (list && !list.dataset.aiRemoveWired) {
+      list.dataset.aiRemoveWired = "data-ai-remove-wired";
+      list.addEventListener("click", event => {
+        if (!list.classList.contains("editing")) return;
+        const row = event.target.closest(".ai-plan-row");
+        if (!row) return;
+        event.preventDefault();
+        const rows = [...list.querySelectorAll(".ai-plan-row")];
+        const index = rows.indexOf(row);
+        const plan = aiPlanStore(activeDate) || [];
+        if (index < 0 || !plan[index]) return;
+        plan.splice(index, 1);
+        aiPlanStore(activeDate, plan);
+        renderAiPlan();
+        if (!plan.length) list.classList.remove("editing");
+        notice("已移除「" + row.querySelector(".ai-plan-name")?.textContent + "」。");
+      });
+    }
+    if (edit) edit.addEventListener("click", () => {
+      const list = $("#ai-plan-list");
+      if (list) list.classList.toggle("editing");
+    });
+    const summaryBox = $("#ai-plan-summary");
+    if (summaryBox && !summaryBox.dataset.wired) {
+      summaryBox.dataset.wired = "1";
+      summaryBox.addEventListener("click", async event => {
+        const button = event.target.closest("[data-plan-minutes]");
+        if (!button) return;
+        const minutes = Number(button.dataset.planMinutes);
+        if (!minutes) return;
+        const go = await askConfirm("按现在的组数，单次大约需要 " + minutes
+          + " 分钟。要把「单次时长」改成 " + minutes + " 分钟吗？",
+          {title: "单次时长", ok: "改成 " + minutes + " 分钟", cancel: "先不改"});
+        if (!go) return;
+        const now = (typeof planPrefs === "function" ? planPrefs() : null) || {};
+        if (typeof savePlanPrefs === "function") savePlanPrefs(Object.assign({}, now, {minutes: minutes}));
+        const picker = $("#pref-minutes"); if (picker) picker.value = String(minutes); // 偏好表单跟着改，免得回头存回旧值
+        renderAiPlan();
+        if (typeof renderWeekPlan === "function") renderWeekPlan();
+      });
+    }
+    if (list) list.addEventListener("change", event => {
+      const box = event.target.closest("[data-ai-done]");
+      if (!box) return;
+      const plan = aiPlanStore(activeDate) || [];
+      const index = Number(box.dataset.aiDone);
+      if (plan[index]) plan[index].done = box.checked;
+      aiPlanStore(activeDate, plan);
+    });
+    renderAiPlan();
+  }
+
+  /** 杠铃总重计算器：杆重 + 2 × 每侧片重。 */
+  function installWeightCalc() {
+    const open = $("#weight-calc"), sheet = $("#weight-sheet");
+    if (!open || !sheet) return;
+    const bar = $("#bar-weight"), plate = $("#plate-weight"), perSide = $("#weight-per-side"), out = $("#weight-result");
+    const savedBar = Number(localStorage.getItem("qingheng.barWeight") || 0);
+    if (savedBar > 0) bar.value = String(savedBar);
+    const total = () => {
+      const b = Number(bar.value) || 0, p = Number(plate.value) || 0;
+      return Math.round((b + (perSide.checked ? 2 * p : p)) * 10) / 10;
+    };
+    const update = () => {
+      const b = Number(bar.value) || 0, p = Number(plate.value) || 0;
+      const sum = total();
+      out.textContent = perSide.checked
+        ? "总重 " + sum + " kg（杆 " + b + " + " + p + " × 2）——这个数填进负重。"
+        : "总重 " + sum + " kg（杆 " + b + " + " + p + "）——这个数填进负重。";
+    };
+    open.addEventListener("click", () => { sheet.hidden = false; update(); });
+    $("#weight-close").addEventListener("click", () => { sheet.hidden = true; });
+    bar.addEventListener("input", () => { update(); localStorage.setItem("qingheng.barWeight", String(Number(bar.value) || 0)); });
+    plate.addEventListener("input", update);
+    perSide.addEventListener("change", update);
+    const fill = $("#weight-fill");
+    if (fill && !fill.dataset.wired) {
+      fill.dataset.wired = "1";
+      fill.addEventListener("click", () => {
+        const inputs = $$("#training-exercises input[name=\"weight\"]");
+        const target = inputs.find(input => !input.value) || inputs[inputs.length - 1];
+        if (!target) { notice("先添加一个动作，再回填负重。"); return; }
+        target.value = String(total());
+        target.dispatchEvent(new Event("input", {bubbles: true}));
+        sheet.hidden = true;
+        notice("已填入 " + total() + " kg。");
+      });
+    }
+  }
+
+  /** 皮肤：attribute + localStorage；不写进 state，避免一次换肤触发整份数据同步。 */
+  const SKINS = ['paper', 'ledger', 'auto'];
+  const DATA_PAGES = ['trends'];
+  /** 系统是否处于深色；取不到时按浅色处理。 */
+  function darkScheme() {
+    try { return window.matchMedia('(prefers-color-scheme: dark)').matches === true; } catch (error) { return false; }
+  }
+  /** 自动模式：深色系统全程用账本（纸感没有暗色变体）；浅色时趋势页用 ledger，其余用 paper。 */
+  function skinForPage(base, tab) {
+    if (base !== 'auto') return SKINS.includes(base) ? base : 'paper';
+    if (darkScheme()) return 'ledger';
+    return DATA_PAGES.includes(tab) ? 'ledger' : 'paper';
+  }
+  const SKIN_KEY = 'qingheng.skin';
+  function currentSkin() {
+    try { const saved = localStorage.getItem(SKIN_KEY); return SKINS.includes(saved) ? saved : 'paper'; }
+    catch (error) { return 'paper'; }
+  }
+  function applySkin(name, persist = true) {
+    const choice = SKINS.includes(name) ? name : 'paper';
+    const skin = skinForPage(choice, document.documentElement.dataset.tab || 'today');
+    document.documentElement.dataset.skin = skin;
+    document.documentElement.dataset.skinChoice = choice;
+    // 持久化用户的选择本身（含 auto），而不是解析结果；否则自动模式在下次启动就退化了。
+    if (persist) { try { localStorage.setItem(SKIN_KEY, choice); } catch (error) {} }
+    const tag = $('#skin-tag'); if (tag) tag.textContent = choice === 'auto' ? '自动 · ' + skin : skin;
+    // 系统状态栏颜色跟随皮肤：账本深色用暗底，其余保持浅绿。
+    const theme = document.querySelector('meta[name="theme-color"]');
+    if (theme) theme.setAttribute('content', skin === 'ledger' && darkScheme() ? '#141719' : '#eaf4ed');
+    for (const button of $$('[data-skin-pick]')) button.setAttribute('aria-pressed', String(button.dataset.skinPick === choice));
+    return skin;
+  }
+  let chatSearchTimer = 0;
+  function installSkinPicker() {
+    const chatSearch = $("#chat-search");
+    if (chatSearch && !chatSearch.dataset.wired) {
+      chatSearch.dataset.wired = "1";
+      chatSearch.addEventListener("input", () => {
+        // 每个按键都整段重建问答记录，长历史下会卡；停顿 180ms 后只渲染一次。
+        chatQuery = chatSearch.value.trim();
+        clearTimeout(chatSearchTimer);
+        chatSearchTimer = setTimeout(renderChat, 180);
+      });
+    }
+    if (typeof renderLastChat === "function") renderLastChat();
+    if (typeof installWeightCalc === "function") installWeightCalc();
+    if (typeof installPlanPrefs === "function") installPlanPrefs();
+    if (typeof installAiPlan === "function") installAiPlan();
+    if (typeof installSegmentKeys === "function") installSegmentKeys();
+    if (typeof installPhotoEntry === "function") installPhotoEntry();
+    if (typeof renderDayStream === "function") renderDayStream();
+    applySkin(currentSkin(), false);
+    // 系统深浅色翻转时按同一选择重算皮肤；旧的 addEventListener 不存在时静默跳过。
+    try {
+      const media = window.matchMedia('(prefers-color-scheme: dark)');
+      if (media && typeof media.addEventListener === 'function') media.addEventListener('change', () => applySkin(currentSkin(), false));
+    } catch (error) { }
+    for (const button of $$('[data-skin-pick]')) {
+      button.addEventListener('click', () => { applySkin(button.dataset.skinPick); notice('外观已切换为「' + ({paper: '纸感', ledger: '账本', auto: '自动'}[button.dataset.skinPick] || '纸感') + '」。'); });
+    }
+  }
+
+  /** 把今天发生的事按时间排成一条流水：餐食、训练、体重/睡眠。 */
+  function renderDayStream() {
+    const box = $("#day-stream");
+    if (!box) return;
+    const day = activeDate;
+    const events = [];
+    for (const meal of (Array.isArray(state.meals) ? state.meals : []).filter(row => row && row.date === day)) {
+      events.push({time: String(meal.mealTime || ""), sort: meal.mealTime ? 0 : 1, kind: "餐食", text: (meal.name || "一餐") + " · " + Math.round(Number(meal.calories) || 0) + " kcal"});
+    }
+    const habit = (Array.isArray(state.habits) ? state.habits : []).find(row => row && row.date === day) || {};
+    if (habit.training === true || habit.training === "true") {
+      const count = Array.isArray(habit.exercises) ? habit.exercises.length : 0;
+      events.push({time: "", sort: 2, kind: "训练", text: count ? count + " 个动作" : "已标记训练"});
+    }
+    if (Number(habit.sleep) > 0) events.push({time: "", sort: 3, kind: "睡眠", text: Number(habit.sleep) + " 小时"});
+    if (Number(habit.weight) > 0) events.push({time: "", sort: 3, kind: "体重", text: Number(habit.weight) + " kg"});
+    events.sort((a, b) => a.sort - b.sort || String(a.time).localeCompare(String(b.time)));
+    const tag = $("#day-stream-tag");
+    if (tag) tag.textContent = events.length ? events.length + " 条" : "暂无";
+    box.innerHTML = events.length
+      ? events.map(item => "<div class=\"meal-row list-row\" role=\"listitem\"><div class=\"row-body\"><div class=\"row-head\"><strong>" + esc(item.time || "未填时间") + "</strong><span class=\"row-tag\">" + esc(item.kind) + "</span></div><p class=\"muted\">" + esc(item.text) + "</p></div></div>").join("")
+      : empty("今天还没有记录", "记一餐、一次训练，流水就会长出来。");
+  }
+
+  async function loadStorageStatus(remirror = false) {
+    const node = $('#storage-status');
+    if (node) node.textContent = remirror ? '正在重新镜像…' : '正在读取存储状态…';
+    try {
+      const data = await api(remirror ? '/api/storage-remirror' : '/api/storage-status', remirror ? {} : undefined);
+      if (!node) return data;
+      const json = data?.json || {}, sqlite = data?.sqlite || {};
+      const parts = Object.keys(json).map(key => `${({meals:'餐食',measurements:'身体',habits:'习惯',chats:'问答'})[key] || key} ${json[key]}`);
+      const when = number(data?.lastMirroredAt) !== null ? new Date(Number(data.lastMirroredAt)).toLocaleString('zh-CN') : '尚未镜像';
+      // 应用内自动备份：只存在私有目录，最多 3 份；导出 SAF 文件仍是正式备份。
+      const autoAt = number(data?.autoBackup?.at) !== null ? new Date(Number(data.autoBackup.at)).toLocaleString('zh-CN') : '尚无';
+      node.textContent = `${data?.parity === true ? '一致' : '不一致'}｜JSON：${parts.join('、')}`
+        + `｜SQLite：${Object.keys(sqlite).map(key => `${({meals:'餐食',measurements:'身体',habits:'习惯',chats:'问答'})[key] || key} ${sqlite[key]}`).join('、')}`
+        + `｜最近镜像：${when}${data?.lastError ? `｜最近错误：${data.lastError}` : ''}`
+        + `｜应用内备份：${autoAt}（${number(data?.autoBackup?.files) ?? 0} 份，每 12 小时轮换）`
+        + `｜${data?.mode || ''}`;
+      return data;
+    } catch (error) {
+      if (node) node.textContent = error.message;
+      return null;
+    }
+  }
+  const storageRefresh = $('#storage-refresh');
+  if (storageRefresh) storageRefresh.addEventListener('click', () => {loadStorageStatus(false).catch(() => {});});
+  const storageRemirror = $('#storage-remirror');
+  if (storageRemirror) storageRemirror.addEventListener('click', async () => {
+    storageRemirror.disabled = true;
+    const data = await loadStorageStatus(true);
+    notice(data?.parity === true ? '已重新镜像，JSON 与 SQLite 记录一致。' : '镜像完成，但两边数量仍不一致，请查看关于页说明。', data?.parity !== true);
+    storageRemirror.disabled = false;
+  });
+
+  $('#active-date').value=activeDate;setDefaultDates();
+  window.addEventListener('focus',syncCalendarDay);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncCalendarDay();});
+  $('#active-date').addEventListener('change',event=>{setActiveDate(event.target.value);});
+  $('#chat-date').addEventListener('change',event=>{if(!setActiveDate(event.target.value)) event.target.value=activeDate;});
+  document.addEventListener('click', event => {
+    const again = event.target.closest('[data-chat-again]');
+    if (again) {event.preventDefault(); regenerateChat(again.dataset.chatAgain).catch(error => notice(error.message, true)); return;}
+    const unhelpful = event.target.closest('[data-chat-unhelpful]');
+    if (unhelpful) {event.preventDefault(); markUnhelpful(unhelpful.dataset.chatUnhelpful); return;}
+    const toggle = event.target.closest('[data-chat-toggle]');
+    if (!toggle) return;
+    const id = toggle.dataset.chatToggle;
+    if (expandedChats.has(id)) expandedChats.delete(id); else expandedChats.add(id);
+    renderChat();
+  });
+  document.addEventListener('click',async event=>{
+    const restore=event.target.closest('[data-draft-restore]');
+    if(restore){const row=storedDrafts.find(item=>item.id===restore.dataset.draftRestore);if(!row)return;try{renderPreview(row,true);}catch(error){notice(error.message,true);}return;}
+    const drop=event.target.closest('[data-draft-drop]');
+    if(drop){const row=storedDrafts.find(item=>item.id===drop.dataset.draftDrop);if(!row)return;
+      if(!await askConfirm('丢弃这份未确认的估算？丢弃后需要重新拍照或描述。',{title:'丢弃估算草稿',ok:'丢弃',danger:true}))return;
+      await dropDraft(row.id);notice('已丢弃未确认的估算草稿。');}
+  });
+  $('#undated-meals-apply').addEventListener('click',()=>{applyUndatedDate().catch(error=>notice(error.message,true));});
+  installContextPreview('chat-data-preview-panel','chat-data-preview','chat');
+  installContextPreview('advice-data-preview-panel','advice-data-preview','advice');
+  $$('[data-tab]').forEach(button=>button.addEventListener('click',()=>switchTab(button.dataset.tab,true)));
+  /**
+   * Four chips at the top of today: the actions people actually take every day, one tap away instead of
+   * a scroll hunt. Each chip routes to the right segment and focuses the field.
+   */
+  function installTodayQuickActions() {
+    const view = $('#view-today');
+    if (!view || $('#today-quick-actions')) return;
+    const heading = $('.page-heading', view);
+    if (!heading) return;
+    const row = document.createElement('div');
+    row.className = 'quick-actions';
+    row.id = 'today-quick-actions';
+    row.setAttribute('role', 'group');
+    row.setAttribute('aria-label', '今日快捷操作');
+    row.innerHTML = [
+      ['icon-meal.svg', '记一餐', 'meal-text'],
+      ['icon-training.svg', '记训练', 'training-form'],
+      ['icon-weight.svg', '记体重', 'measurement-weight'],
+      ['icon-camera-flat.svg', '拍照', 'photo']
+    ].map(([icon, label, focus]) => `<button type="button" class="quick-chip" data-quick-focus="${focus}"><span class="quick-chip-icon" aria-hidden="true">${iconMarkup(icon)}</span>${label}</button>`).join('');
+    heading.after(row);
+    row.addEventListener('click', event => {
+      const chip = event.target.closest('[data-quick-focus]');
+      if (!chip) return;
+      const focus = chip.dataset.quickFocus;
+      switchTab('records', true);
+      switchRecordPanel(recordPanelForField(focus === 'photo' ? 'meal-text' : focus));
+      setTimeout(() => {
+        if (focus === 'photo') {
+          // The camera tile is a label bound to the file input; clicking it opens the camera.
+          $('#view-records label[for="meal-image"]')?.click();
+          return;
+        }
+        if (focus === 'training-form') {
+          const form = $('#training-form');
+          if (form) { form.closest('.card')?.scrollIntoView({block: 'start', behavior: 'smooth'}); flashTarget(form.closest('.card')); }
+          return;
+        }
+        // No focus: the keyboard used to cover the very form the user wanted to see.
+        revealField(focus, {focus: false, block: 'start'});
+      }, 80);
+    });
+  }
+  /**
+   * Trends also grew into one long column. Same segmented treatment, plus a diet card that the page
+   * never had (it only showed weight, volume and body composition).
+   */
+  function installTrendPanels() {
+    const view = $('#view-trends');
+    if (!view || $('#trends-tabs')) return;
+    const cards = [...view.querySelectorAll('article.card')];
+    const cardFor = heading => cards.find(card => $('h2', card)?.textContent.trim() === heading);
+    const host = $('.record-grid', view) || view;
+    const panels = [
+      {key: 'weight', label: '体重', headings: ['体重变化', '身体成分对照', '身体记录明细']},
+      {key: 'diet', label: '饮食', headings: [], extra: true},
+      {key: 'training', label: '训练', headings: ['训练容量（渐进超负荷）']}
+    ];
+    const bar = document.createElement('div');
+    bar.className = 'segment-bar';
+    bar.id = 'trends-tabs';
+    bar.setAttribute('role', 'tablist');
+    bar.setAttribute('aria-label', '趋势分类');
+    bar.innerHTML = panels.map(panel => `<button type="button" class="segment" role="tab" data-trends-panel="${panel.key}">${panel.label}</button>`).join('');
+    // The trends view has no .record-grid wrapper, so the bar goes inside the view itself; inserting it
+    // beside the section put a stray segmented bar at the bottom of the records page.
+    const heading = $('.page-heading', view);
+    if (heading) heading.after(bar); else view.prepend(bar);
+    for (const panel of panels) {
+      const container = document.createElement('div');
+      container.className = 'record-panel';
+      container.id = 'trend-panel-' + panel.key;
+      container.dataset.panel = panel.key;
+      for (const heading of panel.headings) {
+        const card = cardFor(heading);
+        if (card) container.append(card);
+      }
+      if (panel.extra) container.append(dietTrendCard());
+      host.append(container);
+    }
+    switchTrendPanel('weight');
+    bar.addEventListener('click', event => {
+      const button = event.target.closest('[data-trends-panel]');
+      if (button) switchTrendPanel(button.dataset.trendsPanel);
+    });
+  }
+  function switchTrendPanel(key) {
+    for (const panel of ['weight', 'diet', 'training']) {
+      const node = $('#trend-panel-' + panel);
+      if (node) node.hidden = panel !== key;
+    }
+    for (const button of $$('[data-trends-panel]')) {
+      const active = button.dataset.trendsPanel === key;
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+      button.classList.toggle('active', active);
+      if (button.dataset.trendsPanel === 'training') button.hidden = !trainingEnabled();
+    }
+    if ($('#trend-panel-training')?.hidden !== false) { /* no-op, keeps the guard explicit */ }
+  }
+  /** The diet trend the page was missing: last 7 days of intake against that day's range. */
+  function dietTrendCard() {
+    const card = document.createElement('article');
+    card.className = 'card';
+    card.id = 'diet-trend-card';
+    card.innerHTML = '<div class="card-heading"><h2>饮食趋势</h2><span class="tag">近 7 天</span></div><p class="muted">每根条相对当天的目标区间；超出上限会标红。</p><div class="diet-bars"></div>';
+    return card;
+  }
+  /**
+   * Fills the card from whatever state is current. It used to be rendered once at boot, while state was
+   * still an empty skeleton, so it always claimed "0/7 days" no matter how much was recorded.
+   */
+  function renderDietTrend() {
+    const card = $('#diet-trend-card');
+    if (!card) return;
+    const days = [];
+    for (let offset = 6; offset >= 0; offset--) days.push(shiftDate(activeDate, -offset));
+    const rows = days.map(day => {
+      const meals = (state.meals || []).filter(row => row.date === day);
+      const totals = totalsFor(meals);
+      const range = intakeRangeForDate(day);
+      const kcal = Math.round(totals.calories ?? 0);
+      const recorded = meals.length > 0;
+      // Width is the share of the day's upper bound, so a day below the range still shows how far it got.
+      // Scale a little past the cap so the acceptable band sits inside the track rather than against its edge.
+      const scaleMax = Math.max(range.max * 1.08, 1);
+      const percent = recorded ? Math.max(4, Math.min(100, Math.round((kcal / scaleMax) * 100))) : 0;
+      const bandLeft = Math.max(0, Math.min(100, (range.min / scaleMax) * 100));
+      const bandWidth = Math.max(2, Math.min(100 - bandLeft, ((range.max - range.min) / scaleMax) * 100));
+      const stateKey = !recorded ? 'empty' : kcal > range.max ? 'over' : kcal < range.min ? 'low' : 'in';
+      // Inside the range stays green; below turns amber, above turns red as it passes the cap.
+      const barColor = recorded ? dietBarColor(kcal, range.min, range.max) : 'transparent';
+      const label = recorded
+        ? `${kcal} kcal，占上限 ${percent}%，目标区间 ${range.min}~${range.max} kcal（${{in: '区间内', low: '不足', over: '超上限'}[stateKey]}）`
+        : `未记录，目标 ${range.min}~${range.max} kcal`;
+      return `<div class="diet-day"><span class="diet-day-label">${day.slice(5)}</span><span class="diet-bar" role="img" aria-label="${label}"><span class="diet-band" style="left:${bandLeft.toFixed(1)}%;width:${bandWidth.toFixed(1)}%"></span><i class="${stateKey}" style="width:${percent}%;background:${barColor}"></i></span><span class="diet-day-value">${recorded ? `${kcal} kcal` : '—'}</span></div>`;
+    }).join('');
+    const logged = days.filter(day => (state.meals || []).some(row => row.date === day)).length;
+    const audit = dietAudit(days);
+    const profileForAudit = effectiveProfileForDate(activeDate);
+    const proteinTarget = number(profileForAudit.proteinMin);
+    const fatTarget = number(profileForAudit.fatMax);
+    const auditLines = [];
+    if (audit.days) {
+      auditLines.push('记录 ' + audit.days + '/7 天 · ' + audit.meals + ' 餐');
+      auditLines.push(audit.mismatched
+        ? audit.mismatched + ' 餐的热量与三大营养素对不上（最大差 ' + audit.worstGap + ' kcal），已按 4/4/9 校正'
+        : '所有餐次的热量与 4/4/9 推算一致');
+      if (audit.biased) {
+        auditLines.push('7 天合计热量 ' + audit.totalStated + ' · 宏量推算 ' + audit.totalMacro + '（差 ' + (audit.totalGap > 0 ? '+' : '') + audit.totalGap + ' kcal，' + (audit.gapPercent > 0 ? '+' : '') + audit.gapPercent + '%）→ 热量被系统性' + (audit.totalGap > 0 ? '高估' : '低估') + '，以宏量为准');
+      } else {
+        auditLines.push('7 天合计热量与宏量推算相差 ' + (audit.totalGap > 0 ? '+' : '') + audit.totalGap + ' kcal，在容差内');
+      }
+      auditLines.push('日均 蛋白 ' + audit.avg.protein + (proteinTarget ? ' / 目标 ' + proteinTarget : '') + ' g · 脂肪 ' + audit.avg.fat + (fatTarget ? ' / 上限 ' + Math.round(fatTarget) : '') + ' g · 碳水 ' + audit.avg.carbs + ' g');
+    } else {
+      auditLines.push('这 7 天还没有记录，先记一餐再看检查结果');
+    }
+    card.innerHTML = `<div class="diet-audit">${auditLines.map(line => '<p>' + esc(line) + '</p>').join('')}</div>` + `<div class="card-heading"><h2>饮食趋势</h2><span class="tag">近 7 天 · 有记录 ${logged}/7</span></div>`
+      + `<p class="muted">条形长度 = 占当天目标上限的百分比 · 浅绿带 = 当天目标区间 · <span class="diet-key in">区间内</span> <span class="diet-key low">不足</span> <span class="diet-key over">超上限</span></p>`
+      + `<div class="diet-bars">${rows}</div>`;
+  }
+  /**
+   * The records page had eight cards in one column — a very long scroll where the primary action
+   * (log a meal) competed with rarely-used utilities. It is now split into three segments, ordered so
+   * the common action comes first in each. Layout matches what fitness apps converged on: a segmented
+   * bar on top, one short screen per intent.
+   */
+  const RECORD_PANELS = [
+    {key: 'food', label: '饮食', headings: ['轻松记一餐', '复制一餐', '最近的餐食记录', '食品热量参考库', '手动记录餐食']},
+    {key: 'training', label: '训练', headings: ['训练计划', '下周计划', '训练日志'], trainingOnly: true},
+    {key: 'body', label: '身体', headings: ['身体数据', '日常习惯']}
+  ];
+  const RECORD_PANEL_STORAGE = 'qingheng.recordsPanel';
+  function installRecordPanels() {
+    const view = $('#view-records');
+    if (!view || $('#records-tabs')) return;
+    const cards = [...view.querySelectorAll('article.card')];
+    const cardFor = heading => cards.find(card => $('h2', card)?.textContent.trim() === heading);
+    const host = $('.record-grid', view) || view;
+    const bar = document.createElement('div');
+    bar.className = 'segment-bar';
+    bar.id = 'records-tabs';
+    bar.setAttribute('role', 'tablist');
+    bar.setAttribute('aria-label', '记录分类');
+    bar.innerHTML = RECORD_PANELS.map(panel =>
+      `<button type="button" class="segment" role="tab" data-records-panel="${panel.key}">${panel.label}</button>`).join('');
+    host.parentNode.insertBefore(bar, host);
+    const panels = {};
+    for (const panel of RECORD_PANELS) {
+      const container = document.createElement('div');
+      container.className = 'record-panel';
+      container.id = 'record-panel-' + panel.key;
+      container.dataset.panel = panel.key;
+      for (const heading of panel.headings) {
+        const card = cardFor(heading);
+        if (card) container.append(card);
+      }
+      host.append(container);
+      panels[panel.key] = container;
+    }
+    // Nothing left in the original grid: keep the element for its layout, it is now just a wrapper.
+    const saved = (() => {try {return localStorage.getItem(RECORD_PANEL_STORAGE);} catch {return null;}})();
+    switchRecordPanel(RECORD_PANELS.some(p => p.key === saved) ? saved : 'food');
+    bar.addEventListener('click', event => {
+      const button = event.target.closest('[data-records-panel]');
+      if (button) switchRecordPanel(button.dataset.recordsPanel);
+    });
+  }
+  /** Shows one segment; remembers the choice, and hides 训练 entirely for a no-training profile. */
+  function switchRecordPanel(key) {
+    const target = RECORD_PANELS.some(panel => panel.key === key) ? key : 'food';
+    for (const panel of RECORD_PANELS) {
+      const node = $('#record-panel-' + panel.key);
+      if (node) node.hidden = panel.key !== target || (panel.trainingOnly && !trainingEnabled());
+    }
+    for (const button of $$('[data-records-panel]')) {
+      const active = button.dataset.recordsPanel === target;
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+      button.classList.toggle('active', active);
+      if (button.dataset.recordsPanel === 'training') button.hidden = !trainingEnabled();
+    }
+    try {localStorage.setItem(RECORD_PANEL_STORAGE, target);} catch {}
+    window.scrollTo({top: 0, behavior: 'auto'});
+    return target;
+  }
+  /** Which segment owns a field, so a jump from 今天 can open the right one first. */
+  function recordPanelForField(id) {
+    if (!id) return null;
+    if (['habit-steps', 'measurement-weight', 'habit-form'].includes(id)) return 'body';
+    if (['training-form', 'training-exercises'].includes(id)) return 'training';
+    return 'food';
+  }
+  /**
+   * Jumps to a form field that may live inside a collapsed card: open the details, scroll it into view,
+   * then focus. Without the open() step the tap looks like nothing happened.
+   */
+  /** Briefly outline the card so the eye lands there even when we do not focus a field. */
+  function flashTarget(node) {
+    if (!node) return;
+    node.classList.add('quick-target');
+    setTimeout(() => node.classList.remove('quick-target'), 1600);
+  }
+  /**
+   * Scrolls to a form field. focus:false keeps the soft keyboard closed, which is what a quick-entry
+   * chip wants — the user should see the form, not be pushed into typing.
+   */
+  function revealField(id, options = {}) {
+    const field = id ? document.getElementById(id) : null;
+    if (!field) return;
+    switchRecordPanel(recordPanelForField(id));
+    const details = field.closest('details');
+    if (details && !details.open) details.open = true;
+    const block = options.block || 'center';
+    if (options.focus === false) {
+      // Show the whole card (title included) instead of landing mid-form.
+      const card = field.closest('.card') || field;
+      card.scrollIntoView({block: 'start', behavior: 'smooth'});
+      flashTarget(card);
+      return;
+    }
+    field.scrollIntoView({block, behavior: 'smooth'});
+    field.focus({preventScroll: true});
+  }
+  $$('[data-go]').forEach(button=>button.addEventListener('click',()=>{switchTab(button.dataset.go,true);if(button.dataset.focus) setTimeout(() => revealField(button.dataset.focus), 60);}));
+  window.addEventListener('hashchange',()=>{const {tab,sub}=parseHash();switchTab(tab||'today',false,sub);});
+  $('#trend-range').addEventListener('change',renderTrends);$('#refresh-advice').addEventListener('click',refreshAdvice);
+  $('#measurement-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/measurements',form=>{const values=numericForm(form,['weight','waist','bodyFat','muscle','visceralFat','bmr']);if(Object.values(values).every(value=>value===null)) throw new Error('请至少填写一项测量数据。');return {date:form.elements.date.value,...values};});});
+  $('#habit-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/habits',form=>{const values=numericForm(form,['steps','sleep','water']);const training=form.elements.training.value===''?null:form.elements.training.value==='true';if(training===null && Object.values(values).every(value=>value===null)) throw new Error('请至少填写一项日常习惯。');return {date:form.elements.date.value,training,...values};});});
+  $('#training-add')?.addEventListener('click', () => {
+    const box = $('#training-exercises');
+    const index = box.querySelectorAll('[data-exercise-row]').length;
+    if (index >= 12) {notice('一次最多记录 12 个动作。', true); return;}
+    const row = document.createElement('div');
+    row.className = 'training-row';
+    row.dataset.exerciseRow = String(index);
+    row.innerHTML = '<label>动作<input data-exercise="name" maxlength="60" placeholder="例如 深蹲"></label><div class="form-grid"><label>组数<input data-exercise="sets" type="number" min="0" max="30" step="1"></label><label>每组次数<input data-exercise="reps" type="number" min="0" max="200" step="1"></label><label>负重 · kg<input data-exercise="weight" type="number" min="0" max="500" step="0.5"></label></div><div class="row-meta"><span>容量 —</span><button type="button" class="icon-button danger" data-exercise-remove="${index}" aria-label="移除这个动作">×</button></div>';
+    box.append(row);
+  });
+  document.addEventListener('click', event => {
+    const toggle = event.target.closest('[data-meal-items]');
+    if (!toggle) return;
+    const panel = toggle.parentElement?.querySelector('.meal-items');
+    if (!panel) return;
+    const open = panel.hidden;
+    panel.hidden = !open;
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  $('#training-presets')?.addEventListener('click', event => {
+    const chip = event.target.closest('[data-training-preset]');
+    if (!chip) return;
+    const name = chip.dataset.trainingPreset;
+    const previous = latestExerciseValues(name);
+    const row = appendExerciseRow(name, previous);
+    if (!row) return;
+    notice(previous
+      ? `已添加 ${name}：沿用 ${previous.date} 的 ${previous.sets}×${previous.reps}×${previous.weight} kg，可修改。`
+      : `已添加 ${name}，填写组数、次数与负重后保存。`);
+    $('[data-exercise="sets"]', row)?.focus();
+  });
+  $('#training-template')?.addEventListener('change', () => renderTrainingPresets());
+  $('#training-exercises')?.addEventListener('click', event => {
+    const button = event.target.closest?.('[data-exercise-remove]');
+    if (!button) return;
+    button.closest('[data-exercise-row]')?.remove();
+  });
+  $('#training-form')?.addEventListener('submit', event => {event.preventDefault(); saveTrainingLog().catch(error => notice(error.message, true));});
+  $('#training-clear')?.addEventListener('click', async () => {
+    if (!await askConfirm('清空今天的训练记录？习惯行的其他数据（步数、睡眠、饮水、用油）会保留。', {title: '清空训练', ok: '清空', danger: true})) return;
+    const existing = habitRowFor(activeDate);
+    if (!existing) {renderTrainingLog(); return;}
+    const next = {...existing};
+    delete next.exercises;
+    delete next.template;
+    try {await api('/api/habits', next); await loadState({quiet: true}); renderTrainingLog(); notice('已清空今天的训练记录。');}
+    catch (error) {notice(error.message, true);}
+  });
+  $('#copy-meal-buttons')?.addEventListener('click', event => {
+    const button = event.target.closest?.('[data-copy-meal]');
+    if (button) copyMeal(button.dataset.copyMeal).catch(error => notice(error.message, true));
+  });
+  $('#daily-three-form')?.addEventListener('submit', async event => {
+    event.preventDefault();
+    const form = event.currentTarget, message = $('.form-feedback', form), button = $('button[type=submit]', form);
+    if (button.disabled) return;
+    const trainingValue = form.elements.training.value;
+    const sleep = number(form.elements.sleep.value);
+    const weight = number(form.elements.weight.value);
+    if (trainingValue === '' && sleep === null && weight === null) {feedback(message, '三样都空着，没有可保存的内容。', true); return;}
+    button.disabled = true;
+    feedback(message, '正在保存…');
+    const saved = [];
+    try {
+      if (trainingValue !== '' || sleep !== null) {
+        // Merge into the day's row so training, oil and the training log never split into duplicates.
+        await api('/api/habits', {...(habitRowFor(activeDate) || {}), date: activeDate, ...(trainingValue === '' ? {} : {training: trainingValue === 'true'}), ...(sleep === null ? {} : {sleep})});
+        saved.push(trainingValue === '' ? '睡眠' : '训练');
+      }
+      if (weight !== null) {
+        await api('/api/measurements', {date: activeDate, weight});
+        saved.push('体重');
+      }
+      await loadState({quiet: true});
+      feedback(message, `已记录：${saved.join('、')}。`);
+    } catch (error) {feedback(message, error.message, true);}
+    finally {button.disabled = false;}
+  });
+  for (const id of ['#ob-checks', '#data-checks']) {
+    const node = $(id);
+    if (node) node.addEventListener('click', event => {
+      const button = event.target.closest?.('[data-check-fix]');
+      if (button) fixPermission(button.dataset.checkFix).catch(() => {});
+    });
+  }
+  for (const id of ['#ob-check-refresh', '#data-check-refresh']) {
+    const node = $(id);
+    if (node) node.addEventListener('click', () => refreshPermissionChecklist()
+      .then(() => notice('权限状态已刷新。'))
+      .catch(error => notice(error.message, true)));
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible' || !loaded) return;
+    refreshPermissionChecklist().catch(() => {});
+    refreshBackupStatus().catch(() => {});
+  });
+  $('#backup-now').addEventListener('click', event => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    $('#export-data').click();
+    setTimeout(() => {button.disabled = false; refreshBackupStatus().catch(() => {});}, 1500);
+  });
+  $('#manual-meal-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/meals',form=>{if(!form.elements.name.value.trim()) {markFieldInvalid(form.elements.name, '请填写餐食名称。'); throw new Error('请填写餐食名称。');}const manualTime=form.elements.mealTime.value;
+      if(!clockPattern.test(manualTime)) {markFieldInvalid(form.elements.mealTime, '请填写有效的进餐时间（HH:mm）。'); throw new Error('请填写有效的进餐时间（HH:mm）。');}
+      const values=numericForm(form,['calories','protein','fat','carbs']);
+      // Cooking oil is its own line: 1 spoon = 10 g = 90 kcal and 10 g fat. It is added exactly once,
+      // at creation, and the amount is stored so the record stays explainable (and re-editable).
+      const spoons=number(form.elements.oilSpoons.value) ?? 0;
+      const oilGrams=Math.round(spoons*10);
+      const oilKcal=Math.round(oilGrams*9);
+      const extra=oilGrams>0?{oilGrams,oilSpoons:spoons,oilAddedKcal:oilKcal,oilAddedFat:oilGrams,
+        calories:(values.calories ?? 0)+oilKcal, fat:(values.fat ?? 0)+oilGrams}:{};
+      return {date:form.elements.date.value,mealType:form.elements.mealType.value,mealTime:manualTime,name:form.elements.name.value.trim(),mealTimeSource:'manual',...values,...extra,source:'manual',items:[]};});});
+  $('#profile-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/profile',form=>{
+    const values=numericForm(form,['height','age','calorieTarget','referenceCalories','proteinMin','proteinMax','fatMin','fatMax']);
+    if(values.proteinMin>values.proteinMax || values.fatMin>values.fatMax) {if(values.proteinMin>values.proteinMax) {markFieldInvalid(form.elements.proteinMin, '蛋白质下限不能高于上限。'); markFieldInvalid(form.elements.proteinMax, '蛋白质上限不能低于下限。');} if(values.fatMin>values.fatMax) {markFieldInvalid(form.elements.fatMin, '脂肪下限不能高于上限。'); markFieldInvalid(form.elements.fatMax, '脂肪上限不能低于下限。');} throw new Error('目标下限不能高于上限。');}
+    // goal / training / 口径 used to be dropped here, so a saved profile silently kept the old values.
+    const rawTraining=form.elements.training.value;
+    const training=rawTraining==='none' ? 'none' : (rawTraining==='' ? null : number(rawTraining));
+    const goal=form.elements.goal.value || 'recomp';
+    const payload={sex:form.elements.sex.value,goal,...values,...ruleOverridesFrom(form)};
+    if(training!==null) payload.training=training;
+    if(goal==='lean' && !(state.profile && state.profile.leanPhaseStartedAt)) payload.leanPhaseStartedAt=localDate();
+    return payload;
+  });});
+  $('#settings-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/settings',form=>{const provider=form.elements.provider.value,baseUrl=form.elements.baseUrl.value.trim(),model=form.elements.model.value.trim(),visionModel=form.elements.visionModel.value.trim(),visionEnabled=form.elements.visionEnabled.checked,key=form.elements.apiKey.value.trim(),clear=form.elements.clearKey.checked;if(key && clear)throw new Error('请不要同时填写新密钥并清除密钥。');if(key && !window.QinghengAdapter.hasNative()){form.elements.apiKey.value='';throw new Error('浏览器演示不保存 API Key；请在 APK 中配置。');}if(!/^https:\/\//i.test(baseUrl))throw new Error('API 地址必须使用 https://。');if(visionEnabled && !visionModel)throw new Error('启用图片需要填写已验证支持图片的视觉模型。');return {provider,baseUrl,model,visionModel,visionEnabled,allowExternal:form.elements.allowExternal.checked,...(key?{apiKey:key}:{}),...(clear?{clearKey:true}:{})};});});
+  $('#meal-image').addEventListener('change',async event=>{const file=event.target.files[0];if(!file){feedback($('#estimate-feedback'),'没有选择照片，原来的内容没动。');return;}const revision=++imageVersion;imageData=null;imageBusy=true;feedback($('#estimate-feedback'),'正在本地压缩图片…');try{const result=await compressImage(file);if(revision!==imageVersion)return;imageData=result;mealPhotoMeta=photoMeta(null);showPhotoTime('meal',mealPhotoMeta);$('#meal-image-preview').src=result;$('#image-preview').hidden=false;feedback($('#estimate-feedback'),'图片已压缩为 JPEG，原始元数据不会上传。');}catch(error){if(revision===imageVersion){clearImage();feedback($('#estimate-feedback'),error.message,true);}}finally{if(revision===imageVersion)imageBusy=false;}});
+  $('#remove-image').addEventListener('click',clearImage);
+  $('#estimate-form').addEventListener('submit',async event=>{
+    event.preventDefault();const form=event.currentTarget,button=$('button[type=submit]',form),message=$('#estimate-feedback');if(estimateBusy || savingDraft || !form.reportValidity())return;
+    if(imageBusy){feedback(message,'图片仍在压缩，请稍等。',true);return;}
+    if(!loaded || !settingsKnown){feedback(message,'尚未加载手机模型配置，请重新打开应用后再估算。',true);return;}
+    if(imageData && (!state.settings.apiConfigured || !state.settings.visionEnabled || !state.settings.visionModel)){feedback(message,'照片需要已启用的视觉模型：DeepSeek 请使用 deepseek-flash，B.AI 请填写其支持图片的模型。',true);return;}
+    if(imageData && !$('#estimate-consent').hidden && !$('#estimate-consent').checked){feedback(message,'照片外部估算前，请先勾选本次数据发送同意。',true);$('#estimate-consent').focus();return;}
+    if(imageData && !navigator.onLine){feedback(message,'当前离线，照片无法识别；请移除照片并用明确克重文字做本地估算。',true);return;}
+    const text=form.elements.text.value.trim();if(!text && !imageData){feedback(message,'请描述餐食或添加一张图片。',true);return;}
+    if(draft && !await askConfirm('新估算会替换当前未保存的预览，继续吗？', {title:'替换预览'}))return;
+    const submittedForm={elements:{date:{value:form.elements.date.value},mealType:{value:form.elements.mealType.value}},
+      text, photo:photoMeta(imageData?mealPhotoMeta:null)};
+    estimateBusy=true;button.disabled=true;feedback(message,'正在生成预览，不会自动保存…');
+if (typeof showBusy === 'function') showBusy('正在计算热量…', 'estimate-busy');
+    try {const data=await api('/api/estimate',{text,allowExternal:$('#estimate-consent').checked && navigator.onLine,anchors:anchorSummary(),...(imageData?{image:imageData}:{})});previewDraft(data,submittedForm);feedback(message,'估算完成。请在下方修改并确认，才会保存。');}
+    catch(error){feedback(message,error.message,true);}finally{estimateBusy=false;button.disabled=false;if(typeof hideBusy==='function')hideBusy();if($('#estimate-consent').checked)acceptConsent('estimate');}
+  });
+  $('#estimate-items').addEventListener('input',event=>{
+    const input=event.target.closest('[data-item-field]');if(!input)return;
+    if(input.dataset.itemField==='grams'){const grams=number(input.value);if(grams>0)scaleEstimateItem(input.closest('.estimate-item'),grams);}
+    updatePreviewTotals();
+  });
+  $('#estimate-items').addEventListener('click',event=>{
+    const recalc=event.target.closest('.recalc-item');
+    if(recalc && !savingDraft){openItemRecalc(recalc.closest('.estimate-item'));return;}
+    const button=event.target.closest('.remove-item');
+    if(button && !savingDraft){button.closest('.estimate-item').remove();updatePreviewTotals();}
+  });
+  $('#item-recalc-cancel').addEventListener('click',closeItemRecalc);
+  $('#item-recalc-dialog').addEventListener('click',event=>{if(event.target.id==='item-recalc-dialog')closeItemRecalc();});
+  $('#item-recalc-form').addEventListener('submit',event=>{
+    event.preventDefault();
+    const root=$('#item-recalc-dialog'),rows=$$('.estimate-item'),row=rows[Number(root.dataset.itemIndex)],message=$('#item-recalc-feedback');
+    if(!row){message.textContent='找不到对应食品，请关闭后重试。';return;}
+    const grams=number($('#item-recalc-grams').value);
+    if(grams===null||grams<=0){message.textContent='请输入大于 0 的克重。';return;}
+    const per100=Object.fromEntries(nutritionKeys.map(key=>[key,number($(`#item-recalc-${key}`).value)]));
+    const filled=nutritionKeys.filter(key=>per100[key]!==null);
+    if(filled.length && filled.length!==nutritionKeys.length){message.textContent='每 100g 的热量、蛋白质、脂肪和碳水要一起填写，或全部留空。';return;}
+    if(filled.some(key=>per100[key]<0)){message.textContent='每 100g 营养值不能为负数。';return;}
+    $('[data-item-field="grams"]',row).value=grams;
+    if(filled.length===nutritionKeys.length) {
+      for(const key of nutritionKeys){const value=nutritionPrecision(per100[key]*grams/100);$(`[data-item-field="${key}"]`,row).value=value;}
+    } else scaleEstimateItem(row,grams);
+    row.dataset.baseGrams=grams;
+    for(const key of nutritionKeys){const input=$(`[data-item-field="${key}"]`,row);input.dataset.baseValue=number(input.value);}
+    updatePreviewTotals();
+    feedback(message,'已按新的克重重算这项食品。');
+    setTimeout(closeItemRecalc,350);
+  });
+  $('#confirm-estimate').addEventListener('click',confirmDraft);$('#cancel-estimate').addEventListener('click',discardDraft);
+  document.addEventListener('click',async event=>{const button=event.target.closest('[data-delete-meal]');if(!button || button.disabled)return;if(!await askConfirm('确定删除这条餐食记录吗？此操作无法撤销。',{title:'删除餐食',ok:'删除',danger:true}))return;button.disabled=true;try{await api(`/api/meals/${encodeURIComponent(button.dataset.deleteMeal)}`,undefined,'DELETE');try{await loadState({quiet:true});notice('餐食已删除。');}catch{notice('删除成功，但刷新失败。请重新加载检查记录。',true);}}catch(error){notice(error.message,true);button.disabled=false;}});
+  // ---- 迁移到新手机：导出附带计数与校验和，导入时自动核对 ---------------------------------------
+  /** Key-sorted JSON，校验和不受 org.json 与 JS 之间键序差异影响。 */
+  function stableStringify(value) {
+    if (value === undefined) return 'null';
+    if (value === null || typeof value !== 'object') return JSON.stringify(value);
+    if (Array.isArray(value)) return '[' + value.map(stableStringify).join(',') + ']';
+    const keys = Object.keys(value).sort();
+    return '{' + keys.map(key => JSON.stringify(key) + ':' + stableStringify(value[key])).join(',') + '}';
+  }
+  function fnv1a(text) {
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < text.length; i++) { hash ^= text.charCodeAt(i); hash = Math.imul(hash, 0x01000193) >>> 0; }
+    return ('0000000' + hash.toString(16)).slice(-8);
+  }
+  function migrationPayload(data) {
+    return stableStringify({profile: data.profile ?? null, measurements: data.measurements ?? [],
+      meals: data.meals ?? [], habits: data.habits ?? [], chats: data.chats ?? []});
+  }
+  function buildMigrationMeta(data) {
+    return {app: 'qingheng', kind: 'migration', appVersion: APP_VERSION, exportedAt: new Date().toISOString(),
+      counts: {measurements: (data.measurements || []).length, meals: (data.meals || []).length,
+        habits: (data.habits || []).length, chats: (data.chats || []).length},
+      checksum: fnv1a(migrationPayload(data))};
+  }
+  const MIGRATION_LABELS = {measurements: '身体', meals: '餐食', habits: '习惯', chats: '问答'};
+  function migrationCounts(data) {
+    return {measurements: (data.measurements || []).length, meals: (data.meals || []).length,
+      habits: (data.habits || []).length, chats: (data.chats || []).length};
+  }
+  $('#export-data').addEventListener('click',async()=>{const button=$('#export-data'),message=$('#data-feedback');button.disabled=true;feedback(message,'正在生成备份…');let url;try{const data=await api('/api/export');data.meta=buildMigrationMeta(data);if(window.QinghengAdapter.hasNative()){if(typeof window.QinghengNative.exportJson!=='function')throw new Error('手机导出功能未连接。');window.QinghengNative.exportJson(JSON.stringify(data));await markBackedUp();feedback(message,'请选择手机文件保存位置。备份包含健康记录，请妥善保管；导入新手机时会自动核对。');return;}url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download=`qingheng-backup-${localDate()}.json`;document.body.append(link);link.click();link.remove();feedback(message,'备份下载已开始。文件含健康记录，请妥善保管。');setTimeout(()=>URL.revokeObjectURL(url),10000);await markBackedUp();}catch(error){feedback(message,error.message,true);}finally{button.disabled=false;}});
+  $('#import-data').addEventListener('change',async event=>{const input=event.currentTarget,file=input.files[0],message=$('#data-feedback');if(!file)return;input.disabled=true;try{if(file.size>10*1024*1024)throw new Error('导入文件不能大于 10MB。');let data;try{data=JSON.parse(await file.text());}catch{throw new Error('文件不是有效 JSON，请选择轻衡备份。');}if(!data || typeof data.profile!=='object' || data.profile===null || !['measurements','meals','habits'].every(key=>Array.isArray(data[key])))throw new Error('备份必须包含 profile、measurements、meals 和 habits。');const chats=Array.isArray(data.chats)?data.chats:[];const meta=(data.meta && typeof data.meta==='object')?data.meta:null;let integrity='';
+if(meta && meta.kind==='migration'){const countsOk=!meta.counts || Object.keys(MIGRATION_LABELS).every(key=>Number(meta.counts[key])===migrationCounts(data)[key]);integrity=(meta.checksum===fnv1a(migrationPayload(data)) && countsOk)?'迁移包校验一致，文件完整。':'注意：校验和不一致，文件可能被改动或不完整。';}
+if(!await askConfirm(`将向手机本地导入 ${data.measurements.length} 条测量、${data.meals.length} 条餐食、${data.habits.length} 条习惯和 ${chats.length} 条问答。导入按记录 ID 合并，不会删除现有数据；建议先导出备份。${integrity?' '+integrity:''}是否继续？`,{title:'导入备份',ok:'导入'}))return;feedback(message,'正在导入…');await api('/api/import',{profile:data.profile,measurements:data.measurements,meals:data.meals,habits:data.habits,chats});try{await loadState({quiet:true});
+let report='';
+if(meta && meta.counts){const now=migrationCounts({measurements:state.measurements,meals:state.meals,habits:state.habits,chats:state.chats});const rows=Object.keys(MIGRATION_LABELS).map(key=>{const expect=Number(meta.counts[key]);if(!Number.isFinite(expect))return null;return `${MIGRATION_LABELS[key]} ${now[key]}/${expect}${now[key]<expect?'（少于迁移包标注）':''}`;}).filter(Boolean);const matched=Object.keys(MIGRATION_LABELS).every(key=>{const expect=Number(meta.counts[key]);return !Number.isFinite(expect)||now[key]>=expect;});if(rows.length)report='核对：'+rows.join('、')+(matched?'，与迁移包一致。':'；请抽查关键记录是否都在。');}
+feedback(message,'数据已导入。'+report);
+}catch{feedback(message,'导入成功，但刷新失败。请重新加载，不要重复导入。',true);}}catch(error){feedback(message,error.message,true);}finally{input.value='';input.disabled=false;}});
+  window.addEventListener('offline',()=>{connection();notice('当前离线：手机本地记录仍可读取和保存，本地食物估算与规则建议可用；外部 AI 暂不可用。');});
+  window.addEventListener('online',()=>{connection();loadState({populate:false}).catch(()=>{});});
+  window.addEventListener('beforeunload',event=>{if(draft || savingDraft){event.preventDefault();event.returnValue='';}});
+  // Daily push advice history is written by AlarmReceiver; the UI only reads it back.
+  async function queryPushHistory(useRange = false) {
+    const box = $('#push-history'); if (!box) return;
+    const start = $('#push-history-start').value, end = $('#push-history-end').value;
+    const data = await api('/api/push-history');
+    const slotNames = {morning:'白天', evening:'晚上'};
+    const rows = (Array.isArray(data && data.records) ? data.records : [])
+      .filter(row => row && (!useRange || ((!validDate(start) || String(row.date) >= start) && (!validDate(end) || String(row.date) <= end))))
+      .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
+    box.innerHTML = rows.length
+      ? rows.map(row => `<div class="meal-row list-row" role="listitem"><div class="row-body"><div class="row-head"><strong>${esc(row.date || '')}</strong><span class="row-tag">${esc(slotNames[row.slot] || row.slot || '')}</span>${row.source === 'api' ? '<span class="row-tag">外部模型</span>' : row.source === 'skipped' ? '<span class="row-tag">已跳过</span>' : '<span class="row-tag">提醒</span>'}</div><div class="answer">${answerHtml(row.message || '')}</div></div></div>`).join('')
+      : empty(useRange ? '这个日期范围内没有保存的生活建议。' : '还没有保存的推送建议。开启每日推送后，早晚建议会保存在这里。');
+  }
+  /**
+   * Today's advice, grouped by slot. The page used to open on an empty query form, which read as
+   * "there is no advice" even when this morning's push had already written one.
+   */
+  async function loadTodayAdvice() {
+    const box = $('#push-today'); if (!box) return;
+    const tag = $('#push-today-tag');
+    const today = localDate();
+    if (tag) tag.textContent = today;
+    try {
+      const data = await api('/api/push-history');
+      const order = {morning: 0, meal: 1, evening: 2, weekly: 3};
+      const slotNames = {morning: '白天建议', meal: '餐后反馈', evening: '晚间复盘', weekly: '每周复盘'};
+      const rows = (Array.isArray(data && data.records) ? data.records : [])
+        .filter(row => row && String(row.date) === today)
+        .sort((a, b) => (order[a.slot] ?? 9) - (order[b.slot] ?? 9) || Number(a.createdAt || 0) - Number(b.createdAt || 0));
+      box.innerHTML = rows.length
+        ? rows.map(row => `<div class="meal-row list-row" role="listitem"><div class="row-body"><div class="row-head"><strong>${esc(slotNames[row.slot] || row.slot || '建议')}</strong><span class="row-tag">${row.source === 'api' ? '外部模型' : row.source === 'skipped' ? '已跳过' : '提醒'}</span><span class="row-date">${esc(String(row.date || ''))}</span></div><div class="answer">${answerHtml(row.message || '')}</div></div></div>`).join('')
+        : empty('今天还没有生成建议。开启每日推送后，07:30 与 20:30 的分析会出现在这里；也可以直接在问答页问一句。');
+    } catch (error) {
+      box.textContent = error.message;
+    }
+  }
+  /**
+   * Three things the log can answer without any model call: which lift stopped moving, what to swap it
+   * for, and whether this week's volume is a deload candidate. Reuses weeklyVolume() so the Monday
+   * boundary and the volume formula stay in one place.
+   */
+  function trainingInsights() {
+    const rows = typeof weeklyVolume === 'function' ? weeklyVolume() : [];
+    const swaps = {'深蹲': '腿举', '卧推': '上斜哑铃卧推', '硬拉': '罗马尼亚硬拉', '划船': '引体向上', '肩推': '侧平举', '腿举': '保加利亚分腿蹲', '推举': '哑铃肩推'};
+    const insights = [];
+    for (const row of rows) {
+      if (!(row.prevVolume > 0) || row.lastVolume > row.prevVolume * 1.02) continue;
+      const swap = swaps[row.name];
+      insights.push(`${row.name} 连续两周没有进步（${fmt(row.prevVolume,0)} → ${fmt(row.lastVolume,0)} kg 容量）${swap ? `，可以换成 ${swap} 练 4~6 周` : ''}`);
+    }
+    let last = 0, prev = 0;
+    for (const row of rows) {last += row.lastVolume; prev += row.prevVolume;}
+    if (prev > 0 && last > prev * 1.25) insights.push(`本周总容量比上周高 ${fmt((last / prev - 1) * 100, 0)}%；如果连着两周都这样，下周减量 40% 当 deload`);
+    if (!insights.length) {
+      const trained = (state.habits || []).some(row => row && row.date === localDate() && (row.training === true || row.training === 'true'));
+      insights.push(trained ? '今天已训练；容量连续两周上升，说明渐进超负荷在生效。' : '今天还没记录训练；练完记一条，下周就能看出哪个动作停了。');
+    }
+    return insights.slice(0, 3);
+  }
+  /** Renders those insights into the 今天-page training card. */
+  function renderTrainingInsights() {
+    const box = $('#training-advice-insights');
+    if (!box) return;
+    box.innerHTML = trainingInsights().map(text => `<p class="fine-print">· ${esc(text)}</p>`).join('');
+  }
+  /** The 今天-page window: training questions only, with its own consent gate. */
+  function installTrainingAdvice() {
+    const form = $('#training-advice-form'), input = $('#training-advice-input'), consent = $('#training-advice-consent');
+    const answerBox = $('#training-advice-answer'), feedbackBox = $('#training-advice-feedback'), chips = $('#training-advice-chips');
+    if (!form || !input) return;
+    const presets = ['今天练什么最划算？', '只有 40 分钟，怎么排？', '昨晚没睡好，今天强度怎么调？'];
+    if (chips) chips.innerHTML = presets.map((text, index) => `<button type="button" class="button subtle" data-training-preset="${index}">${esc(text)}</button>`).join('');
+    if (chips) chips.addEventListener('click', event => {
+      const button = event.target.closest('[data-training-preset]');
+      if (!button) return;
+      input.value = presets[Number(button.dataset.trainingPreset)] || '';
+      input.focus();
+    });
+    if (consent) {try {consent.checked = localStorage.getItem('qingheng.training.consent') === '1';} catch {}}
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      const question = input.value.trim();
+      if (!question) {feedback(feedbackBox, '先写一句要问的训练问题。', true); return;}
+      if (consent && !consent.checked) {feedback(feedbackBox, '请先勾选同意，训练建议需要发送给外部模型。', true); return;}
+      if (consent) {try {localStorage.setItem('qingheng.training.consent', '1');} catch {}}
+      feedback(feedbackBox, '正在生成…');
+      const button = form.querySelector('button[type="submit"]');
+      if (button) button.disabled = true;
+      try {
+        const data = await api('/api/chat', {question, focus: 'training', date: localDate(), allowExternal: true, anchors: anchorSummary(), webSearch: false, logToHistory: false});
+        const reply = String(data && data.reply || '').trim();
+        if (!reply) throw new Error('模型没有返回可读的回答，请重试。');
+        if (answerBox) {answerBox.hidden = false; answerBox.innerHTML = answerHtml(reply);}
+        feedback(feedbackBox, '');
+      } catch (error) {
+        feedback(feedbackBox, error.message, true);
+      } finally {
+        if (button) button.disabled = false;
+      }
+    });
+  }
+  /**
+   * 记录页有九张卡片，低频的几张占了半屏。把它们收进默认折叠的 details，卡片内部的渲染逻辑不动。
+   */
+  function installCardCollapse() {
+    const groups = [
+      ['#habit-form', '日常习惯（步数 · 睡眠 · 饮水，可选）'],
+      ['#food-search', '食品热量参考库（本地，不消耗 token）'],
+      ['#manual-meal-form', '手动记录餐食（已知营养数据）']
+    ];
+    for (const [selector, label] of groups) {
+      const anchor = document.querySelector(selector);
+      const card = anchor && anchor.closest('article.card');
+      if (!card || card.dataset.collapsed === '1') continue;
+      const details = document.createElement('details');
+      details.className = 'card-collapse';
+      const summary = document.createElement('summary');
+      summary.textContent = label;
+      const body = document.createElement('div');
+      body.className = 'card-collapse-body';
+      while (card.firstChild) body.appendChild(card.removeChild(card.firstChild));
+      details.appendChild(summary);
+      details.appendChild(body);
+      card.appendChild(details);
+      card.dataset.collapsed = '1';
+    }
+  }
+  /** One-tap habit values: the form asks for six fields, most days only three matter. */
+  function installHabitChips() {
+    const row = $('#habit-chips'), form = $('#habit-form');
+    if (!row || !form) return;
+    const presets = [
+      ['步数 6k', 'steps', 6000], ['步数 8k', 'steps', 8000], ['步数 10k', 'steps', 10000],
+      ['睡眠 6.5h', 'sleep', 6.5], ['睡眠 7.5h', 'sleep', 7.5], ['睡眠 8.5h', 'sleep', 8.5],
+      ['饮水 1.5L', 'water', 1500], ['饮水 2L', 'water', 2000], ['饮水 2.5L', 'water', 2500]
+    ];
+    row.innerHTML = presets.map(([label, key, value], index) => `<button type="button" class="button subtle" data-habit-preset="${index}">${esc(label)}</button>`).join('')
+      ;
+    const copyRow = $('#habit-copy-row');
+    if (copyRow) copyRow.innerHTML = '<button type="button" class="button subtle" data-habit-copy="1">复制昨天</button>';
+    row.addEventListener('click', event => {
+      const copy = event.target.closest('[data-habit-copy]');
+      if (copy) {
+        const yesterday = shiftDay(localDate(), -1);
+        const rowData = (state.habits || []).find(item => item && item.date === yesterday);
+        if (!rowData) {notice('昨天没有习惯记录可复制。', true); return;}
+        for (const key of ['steps', 'sleep', 'water']) {
+          const field = form.elements[key];
+          if (field && number(rowData[key]) !== null) field.value = rowData[key];
+        }
+        notice('已填入昨天的数值，可修改后保存。');
+        return;
+      }
+      const button = event.target.closest('[data-habit-preset]');
+      if (!button) return;
+      const [label, key, value] = presets[Number(button.dataset.habitPreset)];
+      const field = form.elements[key];
+      if (field) {field.value = value; field.focus();}
+    });
+  }
+  /** Suggested questions: an empty box is the main reason people do not ask anything. */
+  function installChatChips() {
+    const row = $('#chat-chips'), box = $('#chat-question');
+    if (!row || !box) return;
+    const presets = ['我今天蛋白够吗？', '今天训练日该怎么吃？', '本周体重趋势怎么样？'];
+    row.innerHTML = presets.map((text, index) => `<button type="button" class="button subtle" data-chat-chip="${index}">${esc(text)}</button>`).join('')
+      + `<button type="button" class="button subtle" data-chat-train="1">＋ 记一条训练</button>`;
+    row.addEventListener('click', event => {
+      const train = event.target.closest('[data-chat-train]');
+      if (train) {
+        // Fills a sentence template and immediately shows the draft card, so the flow is one tap in.
+        const sample = '昨天跑步 5 公里，用了 30 分钟';
+        box.value = sample;
+        showTrainingDraft(parseTrainingDraft(sample, activeDate));
+        box.focus();
+        return;
+      }
+      const button = event.target.closest('[data-chat-chip]');
+      if (!button) return;
+      box.value = presets[Number(button.dataset.chatChip)] || '';
+      box.focus();
+    });
+  }
+  const runPushHistory = (useRange, button) => {
+    if (button) button.disabled = true;
+    return queryPushHistory(useRange).catch(error => {const box = $('#push-history'); if (box) box.textContent = error.message;}).finally(() => {if (button) button.disabled = false;});
+  };
+  $('#refresh-push-history').addEventListener('click', event => runPushHistory(false, event.currentTarget));
+  $('#query-push-history').addEventListener('click', event => runPushHistory(true, event.currentTarget));
+  (function(){const box=$('#chat-web');if(!box)return;try{const saved=localStorage.getItem('qingheng.chat.web');if(saved!==null)box.checked=saved==='1';}catch{}box.addEventListener('change',()=>{try{localStorage.setItem('qingheng.chat.web',box.checked?'1':'0');}catch{}});})();
+  // ---- Generic draft: recognise -> confirm -> write -> undo ----------------------------------------
+  let pendingDraft = null, draftUndo = null;
+  function showTrainingDraft(draft) {
+    pendingDraft = draft;
+    renderTrainingDraft(draft);
+  }
+  /**
+   * Applies one confirmed draft. Training merges into the day's exercise list; the simple metrics
+   * merge into the same habit row; weight goes to measurements. Returns what undo has to restore.
+   */
+  async function applyDraft(draft) {
+    const habit = habitRowFor(draft.date) || {date: draft.date};
+    const existing = Array.isArray(habit.exercises) ? habit.exercises : [];
+    if (draft.kind === 'weight') {
+      const before = (state.measurements || []).find(row => row && row.date === draft.date) || null;
+      await api('/api/measurements', {date: draft.date, weight: draft.payload.weight});
+      return {kind: 'weight', date: draft.date, before};
+    }
+    if (draft.kind === 'training') {
+      await api('/api/habits', {...habit, date: draft.date, training: true,
+        exercises: [...existing, ...(draft.payload.exercises || [])]});
+      return {kind: 'habits', date: draft.date, before: {...habit, date: draft.date, exercises: existing}};
+    }
+    const key = draft.payload && Object.keys(draft.payload)[0];
+    if (!key) throw new Error('这条草稿没有可写入的字段');
+    await api('/api/habits', {...habit, date: draft.date, [key]: draft.payload[key]});
+    return {kind: 'habits', date: draft.date, before: {...habit, date: draft.date}};
+  }
+  $('#chat-training-draft')?.addEventListener('click', async event => {
+    if (event.target.closest('[data-draft-cancel]')) { pendingDraft = null; draftUndo = null; renderTrainingDraft(null); return; }
+    if (event.target.closest('[data-draft-undo]')) {
+      if (!draftUndo) return;
+      try {
+        if (draftUndo.kind === 'weight') {
+          if (draftUndo.before) await api('/api/measurements', {date: draftUndo.date, weight: draftUndo.before.weight});
+        } else {
+          await api('/api/habits', {...draftUndo.before, date: draftUndo.date});
+        }
+        draftUndo = null;
+        renderTrainingDraft(null);
+        await loadState({quiet: true});
+        notice('已撤销刚才写入的记录。');
+      } catch (error) { notice(error.message, true); }
+      return;
+    }
+    const confirm = event.target.closest('[data-draft-confirm]');
+    if (!confirm || !pendingDraft) return;
+    const draft = pendingDraft;
+    try {
+      confirm.disabled = true;
+      draftUndo = await applyDraft(draft);
+      pendingDraft = null;
+      const box = $('#chat-training-draft');
+      if (box) {
+        box.hidden = false;
+        box.innerHTML = `<div class="card training-draft"><div class="card-heading"><h2>已写入${esc(DRAFT_KINDS[draft.kind] || '记录')}</h2><span class="tag">${esc(draft.date)}</span></div>`
+          + `<p>${esc(draftSummary(draft))}</p><p class="fine-print">30 秒内可撤销。</p>`
+          + `<div class="button-row"><button type="button" class="button subtle" data-draft-undo="1">撤销</button></div></div>`;
+      }
+      await loadState({quiet: true});
+      notice('已写入 ' + draft.date + ' 的' + (DRAFT_KINDS[draft.kind] || '记录') + '。');
+      setTimeout(() => {draftUndo = null;}, 30000);
+    } catch (error) {
+      confirm.disabled = false;
+      notice(error.message, true);
+    }
+  });
+  // ---- One-tap scheduling of the generated week ------------------------------------------------
+  $('#week-plan')?.addEventListener('click', async event => {
+    const button = event.target.closest('[data-plan-schedule]');
+    if (!button) return;
+    const plan = lastWeekPlan;
+    if (!plan) return;
+    const ok = await askConfirm('将把 ' + plan.days.length + ' 次训练写入 ' + plan.startDate + ' 起的一周（每天一条训练记录），继续？', {title: '一键排课'});
+    if (!ok) return;
+    button.disabled = true;
+    try {
+      for (const day of plan.days) {
+        const habit = habitRowFor(day.date) || {date: day.date};
+        const existing = Array.isArray(habit.exercises) ? habit.exercises : [];
+        await api('/api/habits', {...habit, date: day.date, training: true,
+          exercises: [...existing, ...day.exercises.map(item => ({name: item.name, sets: item.sets, reps: item.reps, weight: item.weight}))]});
+      }
+      await loadState({quiet: true});
+      notice('已排好 ' + plan.days.length + ' 次训练，可在「记录 · 训练」逐日调整。');
+    } catch (error) {
+      notice(error.message, true);
+    } finally {
+      button.disabled = false;
+    }
+  });
+  $('#global-notice-close')?.addEventListener('click', () => hideNotice());
+  $('#render-error-retry')?.addEventListener('click', () => {
+    const bar = $('#render-error');
+    if (bar) bar.hidden = true;
+    loadState({quiet: false}).catch(() => showRenderError(new Error('重新加载失败，请确认应用仍在前台')));
+  });
+  installTodayQuickActions();
+  installRecordPanels();
+  installTrendPanels();
+  installProfileAutoRecalc();
+  applyTrainingVisibility();
+  installCardCollapse(); installTrainingAdvice(); installHabitChips(); installChatChips();
+  setupCollapsibleSections(); installQuickRecordControls(); installHealthConnectControls(); searchFoods(); restoreConsent(); installExactAlarmControl();
+/* Fragment of assets/app.js -- assembled by tools/assemble-app.ps1 in filename order.
+ * Edit this file, never the generated assets/app.js; tests/app-fragments.test.mjs fails on drift. */
+  installSkinPicker();
+switchTab(restoreTab());render();connection();syncAnchors().catch(()=>{});
+  readPermissionState().then(renderPermissionChecklist).catch(()=>{});
+  refreshBackupStatus().then(maybeRemindBackup).catch(()=>{});
+  loadState().then(()=>{renderChat();loadPush();queryPushHistory().catch(()=>{});loadDrafts().catch(()=>{});}).catch(()=>{renderChat();loadPush();loadDrafts().catch(()=>{});});
+  // A push notification opens the app with #chat (or ?tab=chat) so the user lands on today's analysis.
+  (function openFromNotification(){
+    const param=new URLSearchParams(location.search||'').get('tab');
+    const target=param==='chat'||location.hash==='#chat'?'chat':null;
+    if(!target) return;
+    const run=()=>{switchTab('chat',true);const box=$('#chat-question');if(box){activeDate=localDate();box.focus({preventScroll:true});}};
+    if(loaded) run(); else setTimeout(run,600);
+  })();
+  // Explicit settings endpoint; no key is requested, echoed, or stored in browser storage.
+  refreshSettings();
+})();

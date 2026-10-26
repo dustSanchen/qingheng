@@ -1,0 +1,10 @@
+﻿import fs from 'node:fs';
+const css = fs.readFileSync('app/src/main/assets/styles.css','utf8');
+const body = css.slice(css.indexOf('/* type hierarchy */') >= 0 ? css.indexOf('/* type hierarchy */') : 0);
+const hex = [...body.matchAll(/#[0-9a-fA-F]{3,8}/g)].map(m => m[0]);
+const counts = {};
+for (const h of hex) counts[h] = (counts[h] || 0) + 1;
+const rows = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+console.log('distinct hardcoded colors:', rows.length, '| total uses:', hex.length);
+for (const [h,n] of rows.slice(0, 18)) console.log(h + ' x' + n);
+console.log('var() uses:', (body.match(/var\(--/g) || []).length);

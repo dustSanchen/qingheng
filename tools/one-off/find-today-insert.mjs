@@ -1,0 +1,10 @@
+﻿import fs from 'node:fs';
+const html = fs.readFileSync('app/src/main/assets/index.html','utf8');
+const i = html.indexOf('daily-three');
+console.log('daily-three at', i);
+const start = html.lastIndexOf('<article', i);
+const end = html.indexOf('</article>', i) + 10;
+console.log(html.slice(start, Math.min(end, start + 260)).replace(/\s+/g,' '));
+console.log('---- chat log area ----');
+const c = html.indexOf('id="chat-log"');
+console.log(html.slice(c-260, c+80).replace(/\s+/g,' '));

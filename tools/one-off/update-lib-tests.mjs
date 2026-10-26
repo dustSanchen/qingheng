@@ -1,0 +1,12 @@
+﻿import fs from 'node:fs';
+let t = fs.readFileSync('tests/training-library.test.mjs','utf8');
+t = t.replace("check('three sources are cited', lib.sources.length === 3, String(lib.sources.length));", "check('five sources are cited', lib.sources.length === 5, String(lib.sources.length));");
+t = t.replace("check('priority order is declared', Array.isArray(lib.priority) && lib.priority.length === 3, JSON.stringify(lib.priority));", "check('priority order is declared', Array.isArray(lib.priority) && lib.priority.length === 5, JSON.stringify(lib.priority));");
+t = t.replace("check('ALEX channel is cited', lib.sources.some(s => s.label.includes('ALEX')));", `check('ALEX channel is cited', lib.sources.some(s => s.label.includes('ALEX')));
+check('好人松松 is cited', lib.sources.some(s => s.label.includes('好人松松')));
+check('谭成义 own channel is cited', lib.sources.some(s => s.id === 'tcy-channel'));
+check('new anatomy rules exist', ['joint-mobility-first','beginner-framework','diet-template-first','canteen-takeout','fatloss-playbook'].every(id => ids.has(id)));
+check('new movement rules exist', ['arm-isolation','shoulder-two-parts','abs-two-moves','breathing-recovery','solo-training'].every(id => ids.has(id)));
+check('every source is in the priority list', lib.sources.every(s => lib.priority.includes(s.id)));`);
+fs.writeFileSync('tests/training-library.test.mjs', t);
+console.log('tests updated');

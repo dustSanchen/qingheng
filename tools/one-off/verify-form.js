@@ -1,0 +1,11 @@
+﻿const fs=require('fs');
+const html=fs.readFileSync('app/src/main/assets/index.html','utf8');
+const i=html.indexOf('<form id="profile-form">');
+const j=html.indexOf('</form>', i);
+const form=html.slice(i, j);
+const names=['sex','height','age','goal','weight','training','calorieTarget','referenceCalories','proteinMin','proteinMax','fatMin','fatMax','intakeFloor','deficitCapPercent','proteinPerKgMin','proteinPerKgMax','fatFloorG','fatIdealMinG','fatIdealMaxG','trainingDayMin','trainingDayMax','restDayMin','restDayMax'];
+const missing=names.filter(n=>!(form.includes(`name="${n}"`)));
+console.log('profile-form 字段数', names.length - missing.length, '/', names.length, '缺失:', missing.join(',')||'无');
+console.log('training select 已插入:', /<select name="training">/.test(form));
+console.log('口径区块标题:', (form.match(/<summary>([^<]*)<\/summary>/)||[])[1]);
+console.log('form 长度', form.length);

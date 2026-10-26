@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "seedMigrated": 2,
+  "onboardingDone": false,
+  "profile": { "sex": "male", "height": null, "goal": null, "calorieTarget": null, "referenceCalories": null, "proteinMin": null, "proteinMax": null, "fatMin": null, "fatMax": null },
+  "measurements": [],
+  "meals": [],
+  "habits": [],
+  "chats": [],
+  "notes": []
+}

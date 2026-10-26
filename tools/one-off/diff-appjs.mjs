@@ -1,0 +1,11 @@
+﻿import fs from 'node:fs';
+const a = fs.readFileSync('build/apk112/assets/app.js','utf8');
+const b = fs.readFileSync('app/src/main/assets/app.js','utf8');
+const al = a.split(/\r?\n/), bl = b.split(/\r?\n/);
+console.log('lines apk/current:', al.length, bl.length);
+let i = 0;
+while (i < Math.min(al.length, bl.length) && al[i] === bl[i]) i++;
+console.log('first diff at line', i + 1);
+for (let k = Math.max(0, i - 2); k < Math.min(al.length, i + 6); k++) console.log('A' + (k+1) + ': ' + (al[k]||'').slice(0,120));
+console.log('---');
+for (let k = Math.max(0, i - 2); k < Math.min(bl.length, i + 6); k++) console.log('B' + (k+1) + ': ' + (bl[k]||'').slice(0,120));

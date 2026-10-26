@@ -1,0 +1,11 @@
+﻿import fs from 'node:fs';
+const css = fs.readFileSync('app/src/main/assets/styles.css','utf8');
+const sizes = new Map();
+for (const m of css.matchAll(/font-size:\s*([0-9.]+px)/g)) sizes.set(m[1], (sizes.get(m[1]) || 0) + 1);
+const rows = [...sizes.entries()].sort((a,b) => parseFloat(a[0]) - parseFloat(b[0]));
+console.log('distinct font sizes:', rows.length);
+for (const [px, n] of rows) console.log(px.padStart(7) + '  x' + n);
+console.log('--- font-family declarations ---');
+for (const m of css.matchAll(/font-family:\s*([^;]+);/g)) console.log(m[1].trim().slice(0, 90));
+console.log('--- token-based sizes ---');
+console.log((css.match(/font-size:var\(--text-[a-z]+\)/g) || []).length, 'uses of tokens');

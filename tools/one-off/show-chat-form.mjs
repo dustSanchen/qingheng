@@ -1,0 +1,11 @@
+﻿import fs from 'node:fs';
+const html = fs.readFileSync('app/src/main/assets/index.html','utf8');
+const i = html.indexOf('id="chat-form"');
+console.log('=== chat form html');
+console.log(html.slice(Math.max(0, i - 300), i + 900).replace(/></g, '>\n<'));
+const t = fs.readFileSync('app/src/fragments/10-rich-answer.fragment.js','utf8');
+const j = t.indexOf('async function sendChat');
+const seg = t.slice(j, j + 3000);
+const k = seg.indexOf('await api(');
+console.log('=== after api call ===');
+console.log(seg.slice(Math.max(0, k - 200), k + 900));

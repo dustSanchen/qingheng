@@ -1,0 +1,51 @@
+/**
+ * This round: today's advice is the default view, the training window exists with its own consent and a
+ * training-only prompt, habits gained one-tap chips, and the chat box gained suggestion chips.
+ */
+import fs from 'node:fs';
+
+let fail = 0;
+const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + label + (detail === undefined ? '' : '  -> ' + detail)); if (!ok) fail++; };
+const read = path => fs.readFileSync(path, 'utf8');
+
+const html = read('app/src/main/assets/index.html');
+const app = read('app/src/main/assets/app.js');
+const rest = read('app/src/fragments/70-rest.fragment.js');
+const head = read('app/src/fragments/00-head.fragment.js');
+const main = read('app/src/main/java/cn/qingheng/health/MainActivity.java');
+const prompts = read('app/src/main/java/cn/qingheng/health/ai/Prompts.java');
+
+// --- today's advice is the default ---------------------------------------------------------------
+check('a today-advice card exists', html.includes('id="push-today-card"') && html.includes('id="push-today"'));
+check('the history card is labelled as history', html.includes('<h2>历史建议</h2>'));
+check('opening the push subpage loads today', head.includes("if (sub === 'push') {loadTodayAdvice().catch(() => {});}"));
+check('the loader filters to today', rest.includes('String(row.date) === today'));
+check('today is grouped by slot order', rest.includes("const order = {morning: 0, meal: 1, evening: 2, weekly: 3}"));
+check('slot names are human', rest.includes("morning: '白天建议'") && rest.includes("evening: '晚间复盘'"));
+check('an empty day is explained', rest.includes('今天还没有生成建议'));
+
+// --- the training window ---------------------------------------------------------------------------
+check('the training window exists on the today page', html.includes('id="training-advice"') && html.includes('id="training-advice-form"'));
+check('it has three presets', rest.includes("'今天练什么最划算？'") && rest.includes("'只有 40 分钟，怎么排？'") && rest.includes("'昨晚没睡好，今天强度怎么调？'"));
+check('it requires its own consent', html.includes('id="training-advice-consent"') && rest.includes("请先勾选同意，训练建议需要发送给外部模型。"));
+check('the consent choice is remembered', rest.includes("localStorage.setItem('qingheng.training.consent'"));
+check('it asks the chat route for training focus', rest.includes("focus: 'training'"));
+check('the answer renders as rich text', rest.includes('answerBox.innerHTML = answerHtml(reply)'));
+check('the native side narrows the prompt for training', main.includes('"training".equals(b.optString("focus", ""))') && main.includes('本次只回答训练安排'));
+
+// --- habits lose friction ---------------------------------------------------------------------------
+check('habit presets exist', html.includes('id="habit-chips"'));
+check('presets cover steps, sleep and water', rest.includes("['步数 8k', 'steps', 8000]") && rest.includes("['睡眠 7.5h', 'sleep', 7.5]") && rest.includes("['饮水 2L', 'water', 2000]"));
+check('a copy-yesterday shortcut exists', rest.includes('data-habit-copy') && rest.includes("shiftDay(localDate(), -1)"));
+check('copying fills only recorded values', rest.includes("if (field && number(rowData[key]) !== null) field.value = rowData[key];"));
+
+// --- chat suggestions ---------------------------------------------------------------------------------
+check('chat suggestion chips exist', html.includes('id="chat-chips"') && rest.includes('function installChatChips'));
+check('the suggestions are state questions', rest.includes("'我今天蛋白够吗？'") && rest.includes("'本周体重趋势怎么样？'"));
+
+// --- advice wording is still honest about the notification limit ---------------------------------------
+check('the advice prompt still asks for a one-line push body', prompts.includes('通知栏只显示很短的一行'));
+check('the advice prompt still carries the 口径 limits', prompts.includes('摄入不得低于 intakeFloor'));
+
+console.log('\nFAIL total: ' + fail);
+process.exitCode = fail ? 1 : 0;

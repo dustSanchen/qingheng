@@ -1,0 +1,13 @@
+﻿import fs from 'node:fs';
+const html = fs.readFileSync('app/src/main/assets/index.html','utf8');
+const t = html.indexOf('id="view-trends"');
+const trends = html.slice(t, html.indexOf('id="view-profile"'));
+console.log('== trends h2:', [...trends.matchAll(/<h2[^>]*>([^<]+)<\/h2>/g)].map(m=>m[1]).join(' | '));
+console.log('== trends ids:', [...trends.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]).join(', '));
+const r = html.indexOf('id="view-records"');
+const recs = html.slice(r, html.indexOf('id="view-chat"'));
+const cam = [...recs.matchAll(/<button[^>]*id="(meal-[a-z-]+)"[^>]*>/g)].map(m=>m[0].slice(0,110));
+console.log('== record meal buttons:', cam.join('\n   '));
+const app = fs.readFileSync('app/src/main/assets/app.js','utf8');
+const i = app.indexOf('function renderMeals');
+console.log('== renderMeals exists:', i > 0, 'record-meals refs:', (app.match(/record-meals/g)||[]).length);

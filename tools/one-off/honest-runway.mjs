@@ -1,0 +1,11 @@
+﻿import fs from 'node:fs';
+const file='app/src/fragments/40-targets.fragment.js';
+let t=fs.readFileSync(file,'utf8');
+const crlf=t.includes('\r\n'); if(crlf) t=t.replace(/\r\n/g,'\n');
+const from = "        `体脂跑道：男性 12~15% 可见腹肌线条；每减 1 kg 脂肪约需 ${leanPlan.weeklyLoss > 0 ? Math.round(1 / leanPlan.weeklyLoss) : '—'} 周，按此速度 2 kg 脂肪约 ${leanPlan.weeklyLoss > 0 ? Math.round(2 / leanPlan.weeklyLoss) : '—'} 周`";
+const to = "        `体脂跑道：媒体常给男性 10~15% 可见腹肌，但缺少可靠实证阈值（受脂肪分布、腹肌厚度、光线与水合影响），只当参考；按当前速度每减 1 kg 脂肪约 ${leanPlan.weeklyLoss > 0 ? Math.round(1 / leanPlan.weeklyLoss) : '—'} 周，2 kg 约 ${leanPlan.weeklyLoss > 0 ? Math.round(2 / leanPlan.weeklyLoss) : '—'} 周`";
+if(t.split(from).length-1!==1) throw new Error('runway line anchor missing');
+t=t.replace(from,to);
+if(crlf) t=t.replace(/\n/g,'\r\n');
+fs.writeFileSync(file,t);
+console.log('runway line now states the evidence weakness');

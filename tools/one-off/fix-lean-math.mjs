@@ -1,0 +1,30 @@
+﻿import fs from 'node:fs';
+const file='app/src/fragments/40-targets.fragment.js';
+let t=fs.readFileSync(file,'utf8');
+const crlf=t.includes('\r\n'); if(crlf) t=t.replace(/\r\n/g,'\n');
+const from = `      const floorPercent = Math.max(0, Math.round((tdee - floor) / tdee * 1000) / 10);
+      const effectivePercent = Math.max(0, Math.round(Math.min(preset.deficitPercent, cap, floorPercent) * 10) / 10);
+      const centre = tdee * (1 - effectivePercent / 100);
+      trainingDay = {min: Math.max(floor, Math.round(centre * 0.98)), max: Math.max(floor, Math.round(centre * 1.04))};
+      restDay = {min: Math.max(floor, Math.round(centre * 0.92)), max: Math.max(floor, Math.round(centre * 0.97))};
+      proteinPerKgMin = Math.max(rules.proteinPerKgMin, preset.proteinPerKgMin);
+      proteinPerKgMax = Math.max(rules.proteinPerKgMax, preset.proteinPerKgMax);
+      const weeklyLoss = Math.round(effectivePercent / 100 * tdee * 7 / 7700 * 100) / 100;`;
+const to = `      const floorPercent = Math.max(0, Math.round((tdee - floor) / tdee * 1000) / 10);
+      const centre = tdee * (1 - Math.min(preset.deficitPercent, cap) / 100);
+      // A thin look is carb-cycled: train near maintenance, take the deficit on rest days. The floor then
+      // decides how much deficit is actually available, which is the number worth reporting.
+      const trainMid = Math.max(floor + 20, Math.round(centre * 1.03));
+      const restMid = Math.max(floor, Math.round(centre * 0.96));
+      trainingDay = {min: Math.max(floor, Math.round(trainMid * 0.98)), max: Math.max(floor, Math.round(trainMid * 1.05))};
+      restDay = {min: Math.max(floor, Math.round(restMid * 0.97)), max: Math.max(floor, Math.round(restMid * 1.02))};
+      proteinPerKgMin = Math.max(rules.proteinPerKgMin, preset.proteinPerKgMin);
+      proteinPerKgMax = Math.max(rules.proteinPerKgMax, preset.proteinPerKgMax);
+      const weeklyCentre = (trainMid * 4 + restMid * 3) / 7;
+      const effectivePercent = Math.max(0, Math.round((tdee - weeklyCentre) / tdee * 1000) / 10);
+      const weeklyLoss = Math.round(effectivePercent / 100 * tdee * 7 / 7700 * 100) / 100;`;
+if(t.split(from).length-1!==1) throw new Error('lean block anchor missing');
+t=t.replace(from,to);
+if(crlf) t=t.replace(/\n/g,'\r\n');
+fs.writeFileSync(file,t);
+console.log('lean math now carb-cycled with the floor as the binding constraint');

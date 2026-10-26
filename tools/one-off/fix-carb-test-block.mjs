@@ -1,0 +1,17 @@
+﻿import fs from 'node:fs';
+const f = 'tests/training-library.test.mjs';
+let t = fs.readFileSync(f,'utf8');
+const start = t.indexOf("const rich = fs.readFileSync('app/src/fragments/10-rich-answer.fragment.js'");
+const end = t.indexOf("check('the app notes inferred carbs'");
+if (start < 0 || end < 0) throw new Error('block not found');
+const replacement = `const rich = fs.readFileSync('app/src/fragments/10-rich-answer.fragment.js', 'utf8');
+const carbStart = rich.indexOf('function carbCap');
+const carbFn = rich.slice(carbStart, rich.indexOf('\\n  }', carbStart) + 4);
+check('carbCap falls back to the range max', carbFn.includes('number(range && range.max)'));
+const runCarb = new Function('number', carbFn + '\\nreturn carbCap;')(v => v === null || v === undefined || v === '' ? null : Number(v));
+check('carb limit renders without calorieTarget', runCarb({proteinMax: 155, fatMax: 70}, {max: 2314}) === 266, String(runCarb({proteinMax: 155, fatMax: 70}, {max: 2314})));
+check('carb limit uses calorieTarget when present', runCarb({calorieTarget: 2000, proteinMax: 140, fatMax: 60}, {max: 2314}) === 225, String(runCarb({calorieTarget: 2000, proteinMax: 140, fatMax: 60}, {max: 2314})));
+`;
+t = t.slice(0, start) + replacement + t.slice(end);
+fs.writeFileSync(f, t);
+console.log('block rewritten');

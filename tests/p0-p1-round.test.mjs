@@ -1,0 +1,41 @@
+/**
+ * Assertions for P0-2 / P0-3 / P1-5.
+ */
+import fs from 'node:fs';
+
+let fail = 0;
+const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + label + (detail === undefined ? '' : '  -> ' + detail)); if (!ok) fail++; };
+const read = path => fs.readFileSync(path, 'utf8');
+
+const sched = read('app/src/main/java/cn/qingheng/health/AlarmScheduler.java');
+const alarm = read('app/src/main/java/cn/qingheng/health/AlarmReceiver.java');
+const app = read('app/src/main/assets/app.js');
+const html = read('app/src/main/assets/index.html');
+
+// --- P0-2: a silent day still gets one reminder ------------------------------------------------------
+check('the scheduler remembers which day the last reminder was', sched.includes('KEY_LAST_POSTED_DAY') && sched.includes('putString(KEY_LAST_POSTED_DAY'));
+check('postedToday() answers the question', sched.includes('public static boolean postedToday(Context context)'));
+check('the gap rule only applies after a post', sched.includes('postedToday(context) && nextUpcomingTrigger(context) - now < MIN_GAP_MS'));
+check('the receiver applies the same rule', alarm.includes('tooSoonAfterLastPost(context) && AlarmScheduler.postedToday(context)'));
+check('silence is still explained when it does happen', read('app/src/main/java/cn/qingheng/health/AlarmReceiver.java').includes('本次提醒已跳过'));
+
+// --- P0-3: the energy card says what to do next ------------------------------------------------------
+check('the action line exists', html.includes('id="calorie-action"'));
+// 断言更新登记（03-global-changes.md §5.1）：白灼虾/水煮蛋的克数换算已按用户要求删除（无意义），
+// 改为断言「缺口给出下一餐指引」，意图不变。
+check('protein gap turns into a next-meal cue', app.includes('下一餐先吃蛋白质'));
+check('excess fat gets a cooking change', app.includes('改白灼或清蒸'));
+check('excess calories gets a stop rule', app.includes('不再加餐，晚餐只吃蛋白加蔬菜'));
+check('a met protein target still gives guidance', app.includes('蛋白质已达标，剩下的额度分给主食与蔬菜即可'));
+check('the action line is only filled when there is data', app.includes("const protein = number(totals.protein), proteinMin = number(p.proteinMin)"));
+
+// --- P1-5: training insights ---------------------------------------------------------------------------
+check('insights reuse weeklyVolume', app.includes("typeof weeklyVolume === 'function' ? weeklyVolume() : []"));
+check('a stalled lift is named with both weeks', app.includes('连续两周没有进步'));
+check('a swap is offered per lift', app.includes("'深蹲': '腿举'"));
+check('a deload is suggested from the volume jump', app.includes('下周减量 40% 当 deload'));
+check('insights render into the training card', html.includes('id="training-advice-insights"') && app.includes('function renderTrainingInsights()'));
+check('insights are refreshed with the rest of the page', app.includes('renderTrainingInsights();'));
+
+console.log('\nFAIL total: ' + fail);
+process.exitCode = fail ? 1 : 0;

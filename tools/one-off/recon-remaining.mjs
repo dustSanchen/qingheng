@@ -1,0 +1,15 @@
+﻿import fs from 'node:fs';
+const css = fs.readFileSync('app/src/main/assets/styles.css','utf8');
+const cnt = (re) => (css.match(re)||[]).length;
+console.log('css lines:', css.split(/\r?\n/).length);
+console.log('--dur-* declared:', cnt(/--dur-(fast|base|slow|spin|pulse):/g), '| used in rules:', cnt(/var\(--dur-/g));
+console.log('--fw-* used:', cnt(/var\(--fw-/g));
+console.log('--tracking-* used:', cnt(/var\(--tracking-/g));
+console.log('--space-* used:', cnt(/var\(--space-/g));
+console.log('literal font-weight:', cnt(/font-weight:\s*\d{3}/g));
+console.log('literal transition/animation dur:', cnt(/(transition|animation)[^;}]*?\.\d+s/g));
+const html = fs.readFileSync('app/src/main/assets/index.html','utf8');
+console.log('ai-plan-edit in html:', html.includes('ai-plan-edit'));
+const app = fs.readFileSync('app/src/main/assets/app.js','utf8');
+console.log('ai-plan remove handler:', app.includes('data-ai-remove') || app.includes('ai-plan-remove'));
+console.log('app version:', (app.match(/const APP_VERSION = '([\d.]+)'/)||[])[1]);

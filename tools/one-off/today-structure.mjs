@@ -1,0 +1,11 @@
+﻿import fs from 'node:fs';
+const html = fs.readFileSync('app/src/main/assets/index.html','utf8');
+const start = html.indexOf('id="view-today"');
+const end = html.indexOf('id="view-records"');
+const seg = html.slice(start, end);
+const cards = [...seg.matchAll(/<article class="card"[^>]*id="([^"]*)"|<article class="card"[^>]*>/g)];
+console.log('today view length:', seg.length);
+const titles = [...seg.matchAll(/<h2[^>]*>([^<]{1,20})/g)].map(m => m[1]);
+console.log('卡片顺序:', titles.join(' → '));
+const quick = seg.indexOf('quick-actions');
+console.log('quick-actions at:', quick, '| energy card before quick?', seg.indexOf('energy') < quick);

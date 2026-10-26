@@ -1,0 +1,554 @@
+/* Fragment of assets/app.js -- assembled by tools/assemble-app.ps1 in filename order.
+ * Edit this file, never the generated assets/app.js; tests/app-fragments.test.mjs fails on drift. */
+  // ---- Rich answers ---------------------------------------------------------------------------
+  // The model writes plain Chinese text. A small, explicit subset is understood so a reply can
+  // carry a heading with a coloured icon, a bullet list, an uppercase label and a real table,
+  // without ever trusting the text as markup: everything is escaped first, then re-assembled.
+  const answerIconRules = [
+    {tone:'protein', icon:'icon-nutrient-protein.svg', words:['蛋白质','蛋白']},
+    {tone:'fat', icon:'icon-nutrient-fat.svg', words:['脂肪','油']},
+    {tone:'carb', icon:'icon-nutrient-carb.svg', words:['碳水','主食','米饭','面条']},
+    {tone:'energy', icon:'icon-energy.svg', words:['热量','卡路里','kcal','千卡']},
+    {tone:'weight', icon:'icon-weight.svg', words:['体重','体脂','BMI','腰围','体重变化']},
+    {tone:'training', icon:'icon-training.svg', words:['训练','力量','运动','健身']},
+    {tone:'sleep', icon:'icon-sleep.svg', words:['睡眠','休息','入睡']},
+    {tone:'water', icon:'icon-water.svg', words:['饮水','喝水','水分']},
+    {tone:'warn', icon:'icon-warn.svg', words:['注意','警告','风险','偏高','超标','不足']},
+    {tone:'ok', icon:'icon-check.svg', words:['完成','达标','很好','不错','已经']},
+    {tone:'tip', icon:'icon-tip.svg', words:['建议','明天','调整','可以','优先']},
+  ];
+  function answerIcon(text) {
+    const value = String(text || '');
+    for (const rule of answerIconRules) if (rule.words.some(word => value.includes(word))) return rule;
+    return {tone:'neutral', icon:'icon-sparkle.svg', words:[]};
+  }
+  /** Latin runs that were written in capitals are kept as an uppercase label above the heading. */
+  function answerEyebrow(text) {
+    const latin = String(text || '').match(/[A-Za-z][A-Za-z0-9 .,%/+-]{2,}/g);
+    if (!latin) return '';
+    const upper = latin.filter(run => run === run.toUpperCase() && /[A-Z]/.test(run));
+    return upper.length ? upper.join(' · ').slice(0, 40) : '';
+  }
+  const answerInline = text => esc(text)
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/[`]{1}([^`]+)[`]{1}/g, '<code>$1</code>');
+  function answerSection(title) {
+    const clean = String(title || '').replace(/^[#\s【\[（(]+|[\s】\]）)】]+$/g, '').replace(/\*\*/g, '').trim();
+    if (!clean) return '';
+    const rule = answerIcon(clean);
+    const eyebrow = answerEyebrow(clean);
+    return `<div class="answer-section tone-${rule.tone}"><span class="inline-icon" aria-hidden="true">${iconMarkup(rule.icon)}</span>`
+      + `<div>${eyebrow ? `<p class="answer-eyebrow">${esc(eyebrow)}</p>` : ''}<p class="answer-heading">${answerInline(clean)}</p></div></div>`;
+  }
+  /** Renders a pipe table when the block looks like one; returns '' otherwise. */
+  /** Widest table that still reads on a phone: 4 columns, 8 body rows, short cells. */
+  const ANSWER_TABLE_COLUMNS = 4, ANSWER_TABLE_ROWS = 8, ANSWER_TABLE_CELL = 12;
+  /** False when a parsed block would overflow a phone screen, so it is shown as prose instead. */
+  function answerTableFits(rows) {
+    if (!Array.isArray(rows) || rows.length < 2) return false;
+    if (rows[0].length > ANSWER_TABLE_COLUMNS || rows.length - 1 > ANSWER_TABLE_ROWS) return false;
+    return rows.every(cells => cells.every(cell => String(cell).length <= ANSWER_TABLE_CELL));
+  }
+  function answerTable(rows) {
+    const cells = row => row.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|').map(cell => cell.trim());
+    const head = cells(rows[0]);
+    const body = rows.slice(1).filter(row => !/^[\s|:-]+$/.test(row)).map(cells);
+    if (!head.length || !body.length) return '';
+    // A table wider or longer than a phone screen reads worse than prose, so it is not drawn as one.
+    if (!answerTableFits([head].concat(body))) return '';
+    const numbers = new Set(body.map(row => row.length));
+    const numeric = new Set();
+    body.forEach(row => row.forEach((cell, i) => {if (cell && number(cell.replace(/[^\d.-]/g, '')) !== null && /^[\d.,%\s\-+]+$/.test(cell)) numeric.add(i);}));
+    const headHtml = head.map(cell => `<th scope="col">${answerInline(cell)}</th>`).join('');
+    const bodyHtml = body.map(row => `<tr>${head.map((_, i) => `<td${numeric.has(i) ? ' class="num"' : ''}>${answerInline(row[i] ?? '')}</td>`).join('')}</tr>`).join('');
+    return `<div class="answer-table-wrap"><table class="answer-table"><thead><tr>${headHtml}</tr></thead><tbody>${bodyHtml}</tbody></table></div>`;
+  }
+  /** Plain text (or a light subset of it) rendered as safe, readable answer HTML. */
+  const answerNumericCell = token => /^[-−+]?[\d.,%]+$/.test(String(token || '').trim());
+  /**
+   * Models often answer a "make a table" request with whitespace-separated columns instead of
+   * Markdown pipes. That shape is recognised here — a short header row plus rows whose remaining
+   * columns are all numbers — so a real table still comes out, while ordinary prose never matches.
+   */
+  function answerSpaceTable(rows) {
+    if (!Array.isArray(rows) || rows.length < 2 || rows.length > 30) return '';
+    const split = row => String(row).trim().split(/\s+/).filter(Boolean);
+    const head = split(rows[0]);
+    if (head.length < 3 || head.length > 8) return '';
+    if (head.some(answerNumericCell)) return '';
+    const body = rows.slice(1).map(split);
+    if (!body.every(cells => cells.length === head.length)) return '';
+    if (!body.every(cells => cells.slice(1).every(answerNumericCell))) return '';
+    if (!body.some(cells => cells.slice(1).some(cell => /\d/.test(cell)))) return '';
+    // The phone-width guard applies to the split cells, not to the raw lines: checking the lines
+    // rejected every whitespace table, because a whole line is longer than four "columns".
+    if (!answerTableFits([head].concat(body))) return '';
+    const headHtml = head.map(cell => `<th scope="col">${answerInline(cell)}</th>`).join('');
+    const bodyHtml = body.map(cells => `<tr><td>${answerInline(cells[0])}</td>${cells.slice(1).map(cell => `<td class="num">${answerInline(cell)}</td>`).join('')}</tr>`).join('');
+    return `<div class="answer-table-wrap"><table class="answer-table"><thead><tr>${headHtml}</tr></thead><tbody>${bodyHtml}</tbody></table></div>`;
+  }
+  /** Plain text (or a light subset of it) rendered as safe, readable answer HTML. */
+  function answerHtml(text) {
+    const blocks = String(text ?? '').replace(/\r/g, '').split(/\n\s*\n/);
+    const out = [];
+    for (const block of blocks) {
+      const lines = block.split('\n').map(line => line.trim()).filter(Boolean);
+      if (!lines.length) continue;
+      // A pipe table, a whitespace table, or plain prose/bullets — decided per block.
+      if (lines.every(line => /^\|.*\|$/.test(line))) {const html = answerTable(lines); out.push(html || lines.map(line => `<p>${answerInline(line)}</p>`).join('')); continue;}
+      const space = answerSpaceTable(lines);
+      if (space) {out.push(space); continue;}
+      let bullets = [];
+      const flushBullets = () => {if (bullets.length) {out.push(`<ul class="answer-list">${bullets.map(item => `<li>${item}</li>`).join('')}</ul>`); bullets = [];}};
+      for (const line of lines) {
+        const heading = line.match(/^#{1,6}\s*(.+)$/) || line.match(/^【(.+)】$/) || line.match(/^\*\*([^*]+)\*\*$/) || (/^(?:[一二三四五六七八九十]+[、.]|\d+[、.])/.test(line) && line.length <= 26 ? [null, line.replace(/^(?:[一二三四五六七八九十]+[、.]|\d+[、.])/, '')] : null);
+        if (heading) {flushBullets(); out.push(answerSection(heading[1])); continue;}
+        const bullet = line.match(/^[-*•·]\s*(.+)$/) || line.match(/^\d+[.)]\s*(.+)$/);
+        if (bullet) {bullets.push(answerInline(bullet[1])); continue;}
+        flushBullets();
+        out.push(`<p>${answerInline(line)}</p>`);
+      }
+      flushBullets();
+    }
+    return out.join('') || empty('暂无内容。');
+  }
+  function adviceHtml(value) {
+    return esc(value).replace(/\*\*([^*\n]{1,160})\*\*/g, '<strong>$1</strong>');
+  }
+  /** Identity of one day's records: any change makes previously generated advice stale. */
+  function mealsFingerprint(date) {
+    const rows = (state.meals || []).filter(row => row.date === date)
+      .map(row => [row.mealType || '', row.mealTime || '', number(row.calories), number(row.protein), number(row.fat), number(row.carbs)].join(','));
+    return `${date}|${rows.length}|${rows.sort().join(';')}`;
+  }
+  function renderAdvice(messages, date) {
+    const container = $('#advice-content');
+    const rows = Array.isArray(messages) ? messages.map(value => String(value || '').trim()).filter(Boolean) : [];
+    const rich = messages.some(message => /\n|^\s*\||^#{1,6}\s|^【/.test(String(message || '')));
+    container.innerHTML = rows.length
+      ? (rich
+        ? `<div class="answer">${rows.map(message => answerHtml(message)).join('')}</div>`
+        : `<div class="answer"><ul class="answer-list">${rows.map(message => `<li>${adviceHtml(message)}</li>`).join('')}</ul></div>`)
+      : empty('目前记录不足，暂不作判断', '先记两三天，建议会自己长出来。');
+    container.dataset.date = date || '';
+    container.dataset.fingerprint = validDate(date) ? mealsFingerprint(date) : '';
+  }
+  // Carbohydrate headroom left after protein and fat targets; null when targets are incomplete.
+  function carbCap(p, range) {
+    // calorieTarget can be empty on a temporary-target day; fall back to the day's range max so the
+    // carbohydrate limit still renders instead of showing a dash.
+    const kcal = number(p.calorieTarget) ?? number(range && range.max), protein = number(p.proteinMax), fat = number(p.fatMax);
+    if (kcal === null || kcal <= 0) return null;
+    const rest = kcal - (protein === null ? 0 : protein * 4) - (fat === null ? 0 : fat * 9);
+    return rest > 0 ? Math.round(rest / 4) : null;
+  }
+  /** Shows a retryable bar instead of leaving the page half-drawn. */
+  function showRenderError(error) {
+    const bar = $('#render-error'), text = $('#render-error-text');
+    if (text) { text.textContent = ''; text.innerHTML = empty('这一屏没能画出来', '点「重新加载」通常就好（记录已保存在本机）。错误：' + (error && error.message ? error.message : '未知错误'), 'error'); }
+    if (bar) bar.hidden = false;
+  }
+  function render() {
+    if (!state) return; // nothing to draw yet; loadState() calls render() again
+    try { renderBody(); } catch (error) { showRenderError(error); }
+  }
+  function renderBody() {
+    const count=state.meals.filter(row=>row.date===activeDate).length;
+    const chatDate=$('#chat-date'); if(chatDate && document.activeElement!==chatDate) chatDate.value=activeDate;
+    const hint=$('#chat-data-context'); if(hint)hint.textContent=`分析日期：${activeDate} · 已保存 ${count} 条餐食（未确认预览和问答照片不计入饮食）`;
+    const adviceHint=$('#advice-data-context'); if(adviceHint)adviceHint.textContent=`分析日期：${activeDate} · 已保存 ${count} 条餐食`;
+    const adviceNode=$('#advice-content'), stale=$('#advice-stale');
+    if (stale) {
+      const baked=adviceNode?.dataset?.fingerprint, shown=adviceNode?.dataset?.date;
+      const isStale=!!baked && shown===activeDate && baked!==mealsFingerprint(activeDate);
+      stale.hidden=!isStale;
+      if (isStale) stale.textContent='这条建议是按当时的记录生成的，之后记录有变化。请点「获取建议」重新生成。';
+    }
+    const meals = state.meals.filter(meal => meal.date === activeDate);
+    const totals = totalsFor(meals), p = effectiveProfileForDate(activeDate);
+    $('#calorie-value').textContent = fmt(totals.calories,0);
+    const range = p.intakeRange;
+    $('#calorie-target').textContent = range ? `${fmt(range.min,0)}~${fmt(range.max,0)}` : fmt(p.calorieTarget,0);
+    // 不截断：超出目标的部分要能被环和下方差额行看到。
+    const rawRatio = totals.calories !== null && number(p.calorieTarget) > 0 ? totals.calories / p.calorieTarget : 0;
+    const ratio = Math.min(1, Math.max(0, rawRatio));
+    // 绿环始终走满一圈；超出部分从起点起覆盖一段棕红，长度按超出比例。
+    const overRatio = Math.max(0, rawRatio - 1);
+    $('#energy-ring').style.setProperty('--progress',`${ratio*360}deg`);
+    $('#energy-ring').style.setProperty('--over',`${Math.min(overRatio, 1) * 360}deg`);
+    // 差值必须跟屏幕上显示的上下限同一口径：以前用 calorieTarget 算「超出区间上限」会多算。
+    const floor = number(range ? range.min : p.calorieTarget);
+    const cap = number(range ? range.max : p.calorieTarget);
+    $('#calorie-caption').textContent = !meals.length ? '还没有餐食记录，摄入量未知。' : totals.calories === null ? '部分餐食缺少热量，无法计算完整汇总。' : number(p.calorieTarget) === null ? '尚未设置每日热量目标。' : `${range ? `按${range.basis.startsWith('当天标记为训练') ? '训练日' : '休息日'}区间：` : ''}${totals.calories < floor ? `距区间下限还差 ${fmt(floor-totals.calories,0)} kcal` : totals.calories <= cap ? `在区间内，距上限 ${fmt(cap-totals.calories,0)} kcal` : `超出区间上限 ${fmt(totals.calories-cap,0)} kcal`}。`;
+    // What to do next, not just how far off the target is: a number without an action is useless.
+    const actionBox = $('#calorie-action');
+    if (actionBox) {
+      const parts = [];
+      const protein = number(totals.protein), proteinMin = number(p.proteinMin);
+      const fat = number(totals.fat), fatMax = number(p.fatMax);
+      const kcal = number(totals.calories), actionCap = range ? number(range.max) : number(p.calorieTarget);
+      if (protein !== null && proteinMin !== null && protein < proteinMin) {
+        const gap = proteinMin - protein;
+        parts.push(`优先补蛋白：还差 ${fmt(gap,0)} g，下一餐先吃蛋白质`);
+      }
+      if (fat !== null && fatMax !== null && fat > fatMax) parts.push(`脂肪超 ${fmt(fat - fatMax,0)} g：剩下的菜改白灼或清蒸，别再额外加油`);
+      if (kcal !== null && actionCap !== null && kcal > actionCap) parts.push(`热量已超上限 ${fmt(kcal - actionCap,0)} kcal：不再加餐，晚餐只吃蛋白加蔬菜`);
+      if (!parts.length && protein !== null && proteinMin !== null && protein >= proteinMin) parts.push('蛋白质已达标，剩下的额度分给主食与蔬菜即可。');
+      // 能量卡曾经一口气列出三条提示，把「＋ 记录一餐」挤到了屏幕外。
+      // 现在只留最该做的一条，其余收进 details。
+      const note = parts.length > 1
+        ? '<details class="energy-more"><summary>另外 ' + (parts.length - 1) + ' 条提示</summary>'
+          + parts.slice(1).map(text => '<p>' + esc(text) + '</p>').join('') + '</details>'
+        : '';
+      actionBox.innerHTML = parts.length ? '<p class="energy-hint">' + esc(parts[0]) + '</p>' + note : '';
+    }
+    $('#macro-summary').innerHTML = [['protein','蛋白质',p.proteinMin,p.proteinMax],['fat','脂肪',p.fatMin,p.fatMax],['carbs','碳水',null,carbCap(p, range)]].map(([key,label,min,max]) => {const value = totals[key], progress = value !== null && number(max)>0 ? Math.min(100,value/max*100) : 0; return `<div><span class="macro-label">${label}</span><div class="macro-value">${fmt(value)} <small>g</small></div><div class="progress-track"><span data-progress="${progress}"></span></div><span class="fine-print">${min !== null && number(min)!==null && number(max)!==null ? `目标 ${fmt(min)}–${fmt(max)} g` : key === 'carbs' ? (number(max)>0 ? `参考上限约 ${fmt(max,0)} g（热量目标扣除蛋白质与脂肪）` : '设置热量目标后显示进度') : '目标未设置'}</span></div>`;}).join('');
+    $$('#macro-summary [data-progress]').forEach(node => {node.style.width=`${Number(node.dataset.progress)}%`;});
+    const measurements = state.measurements.filter(item => validDate(item.date) && item.date <= activeDate).sort((a,b) => b.date.localeCompare(a.date));
+    const weight = latestField(measurements,'weight'), waist = latestField(measurements,'waist'), bodyFat = latestField(measurements,'bodyFat');
+    const bmi = weight && number(p.height)>0 ? weight.weight / ((p.height/100)**2) : null;
+    $('#latest-measurement').innerHTML = [['体重',weight?.weight,'kg',weight?.date],['BMI',bmi,'',weight?.date],['腰围',waist?.waist,'cm',waist?.date],['体脂率',bodyFat?.bodyFat,'%',bodyFat?.date]].map(([label,value,unit,date]) => `<div><span class="stat-label">${label}</span><div class="stat-number">${fmt(value)}<small>${unit}</small></div><span class="fine-print">${date ? esc(date) : '尚无测量'}</span></div>`).join('');
+    const habit = state.habits.find(item => item.date === activeDate) || {};
+    const training = habit.training === true || habit.training === 'true' ? '已训练' : habit.training === false || habit.training === 'false' ? '休息日' : habit.training ? String(habit.training) : '未记录';
+    // SVG icons instead of ↗ ♧ ☾ ◇: those characters rendered differently on every ROM.
+    const tiles = [
+      ...(trainingEnabled() ? [['icon-habit-training.svg', training, '训练']] : []),
+      ['icon-habit-steps.svg', number(habit.steps) === null ? '未记录' : `${fmt(habit.steps,0)} 步`, '日常活动'],
+      ['icon-habit-sleep.svg', number(habit.sleep) === null ? '未记录' : `${fmt(habit.sleep)} 小时`, '睡眠'],
+      ['icon-habit-water.svg', number(habit.water) === null ? '未记录' : `${fmt(habit.water,0)} ml`, '饮水']
+    ];
+    $('#habit-summary').innerHTML = tiles.map(([icon, value, label]) => `<div class="habit-tile"><span class="habit-symbol" aria-hidden="true">${iconMarkup(icon)}</span><div><strong>${esc(value)}</strong><small>${label}</small></div></div>`).join('');
+    $('#today-meal-count').textContent = meals.length ? `${meals.length} 餐已记录` : '尚无记录';
+    const recordMeals=[...state.meals].sort((a,b) => String(b.date).localeCompare(String(a.date)));
+    renderMeals($('#today-meals'),meals,false);
+    renderRecordMeals(favoriteOnlyMeals ? recordMeals.filter(row => row.favorite === true) : recordMeals);
+    $('#settings-status').textContent = state.settings.apiConfigured === true ? '已配置 · 密钥不回传' : settingsKnown ? '未配置外部 API' : '配置状态未知';
+    $('#estimate-mode').textContent = state.settings.apiConfigured === true ? '已配置外部文字模型；勾选本次同意才调用外部 API。不勾选时按明确克重离线估算；照片还需已启用视觉模型。' : settingsKnown ? '当前使用本地估算，不发送给外部模型；结果仍需手动检查确认。' : '尚未加载手机配置，请稍后重试。';
+    renderChat();
+    renderTrainingInsights();
+    renderDailyCheck();
+    renderWeekPlan();
+    renderTrendWarnings();
+    if (typeof renderDietTrend === 'function') renderDietTrend();
+    applyTrainingVisibility();
+    if (typeof renderAiPlan === "function") renderAiPlan();
+    if (typeof renderAdviceOrder === "function") renderAdviceOrder();
+    if (typeof renderSlotHint === "function") renderSlotHint();
+    if (typeof renderLastChat === "function") renderLastChat();
+    renderTargetStatus();
+    renderTrends();
+    renderUndatedMeals();
+    renderHub();
+  }
+  /** Progressive answer bubble; removed again once the saved record is rendered. */
+  function beginChatStream(question, hasImage) {
+    const log = $('#chat-log');
+    if (!log) return null;
+    const box = document.createElement('div');
+    box.className = 'meal-row list-row stream-row';
+    box.setAttribute('role', 'listitem');
+    box.innerHTML = '<div class="row-body"><div class="row-head"><strong></strong>'
+      + `${hasImage ? '<span class="row-tag">含照片</span>' : ''}<span class="row-tag">正在回答</span></div>`
+      + '<div class="answer stream-answer"><div class="stream-think" hidden></div><span class="stream-text"></span><span class="stream-caret" aria-hidden="true">▍</span></div></div>';
+    $('strong', box).textContent = question || '（照片提问）';
+    log.prepend(box);
+    const state = {box, text: '', thinking: '', body: $('.stream-text', box), caret: $('.stream-caret', box), think: $('.stream-think', box), started: false};
+    // A reasoning model can think for a while before the first fragment; say so instead of showing an
+    // empty bubble, and drop the hint as soon as real text arrives.
+    state.body.textContent = '模型正在思考…';
+    state.hint = setTimeout(() => {if (!state.started && state.body) state.body.textContent = '模型正在思考…（推理模型会先思考再作答）';}, 4000);
+    return state;
+  }
+  function pushChatStream(box, chunk) {
+    if (!box || !chunk) return;
+    if (!box.started) {
+      box.started = true;
+      box.text = '';
+      clearTimeout(box.hint);
+      // Keep the reasoning visible but small once the answer starts: a one-line summary, tappable.
+      if (box.thinking && box.think) {
+        box.think.textContent = `已思考 ${box.thinking.length} 字（点击展开）`;
+        box.think.classList.add('is-summary');
+      }
+    }
+    box.text += chunk;
+    box.body.textContent = box.text;
+    box.caret.hidden = false;
+  }
+  /** Reasoning fragments from a reasoning model: shown, never merged into the answer. */
+  function pushChatThinking(box, chunk) {
+    if (!box || !chunk || !box.think) return;
+    if (box.started) return;
+    box.thinking += chunk;
+    box.think.hidden = false;
+    box.think.textContent = box.thinking.length > 600 ? '…' + box.thinking.slice(-600) : box.thinking;
+  }
+  function endChatStream(box) {
+    if (box?.hint) clearTimeout(box.hint);
+    if (box?.box?.parentNode) box.box.parentNode.removeChild(box.box);
+  }
+  /** Streams the answer through the adapter; throws when streaming is unavailable so the caller can fall back. */
+  async function streamChat(payload) {
+    if (!window.QinghengAdapter?.hasNative?.() || !navigator.onLine) throw new Error('当前环境不支持流式输出');
+    const box = beginChatStream(payload.question, Boolean(payload.image));
+    window.QinghengStream = {onDelta: text => pushChatStream(box, text), onThink: text => pushChatThinking(box, text)};
+    try {
+      return await api('/api/chat/stream', payload);
+    } finally {
+      window.QinghengStream = null;
+      endChatStream(box);
+    }
+  }
+  /** Citations for a saved answer: real https links only, collapsed by default. */
+  function citationBlock(row) {
+    const sources = Array.isArray(row && row.sources) ? row.sources.filter(item => item && typeof item.url === 'string' && /^https:\/\//.test(item.url)) : [];
+    if (!sources.length) return '';
+    const items = sources.map((item, index) => `<li><a href="${esc(item.url)}" target="_blank" rel="noreferrer">[${index + 1}] ${esc(String(item.title || item.url).slice(0, 90))}</a></li>`).join('');
+    return `<details class="row-sources"><summary>来源 ${sources.length} 条</summary><ol>${items}</ol></details>`;
+  }
+  /** Rows the user marked as unhelpful; kept on the phone only, as a UI signal. */
+  const unhelpfulChats = (() => {
+    try {const saved = JSON.parse(localStorage.getItem('qingheng.chat.unhelpful') || '[]'); return new Set(Array.isArray(saved) ? saved.map(String) : []);} catch {return new Set();}
+  })();
+  function markUnhelpful(id) {
+    if (!id) return;
+    unhelpfulChats.add(id);
+    try {localStorage.setItem('qingheng.chat.unhelpful', JSON.stringify([...unhelpfulChats]));} catch {}
+    renderChat();
+  }
+  /** Refills the question box and, when consent is already given, asks again. */
+  async function regenerateChat(id) {
+    const row = (state.chats || []).find(item => String(item && item.id) === String(id));
+    if (!row) {notice('找不到这条记录，可能已被清除。', true); return;}
+    const box = $('#chat-question');
+    if (box) {box.value = String(row.question || ''); box.focus();}
+    window.scrollTo({top: 0, behavior: 'smooth'});
+    const consent = $('#chat-consent');
+    if (consent && !consent.hidden && consent.checked) {await sendChat();}
+    else notice('问题已填回输入框；勾选同意后点「提问」即可重新生成。');
+  }
+  let chatQuery = "";
+  /** 按日期分组，组内保持倒序（最新在前）。 */
+  function groupChatsByDate(rows) {
+    const groups = [];
+    for (const row of rows) {
+      const date = String(row.date || "未标注日期");
+      let group = groups.find(item => item.date === date);
+      if (!group) { group = {date, rows: []}; groups.push(group); }
+      group.rows.push(row);
+    }
+    return groups;
+  }
+  function chatMatches(row, query) {
+    if (!query) return true;
+    const hay = (String(row.question || "") + " " + String(row.answer || "")).toLowerCase();
+    return hay.includes(query.toLowerCase());
+  }
+  function renderChat() {
+    const chats = Array.isArray(state.chats) ? state.chats : [];
+    const log = $('#chat-log');
+    const baseRows = favoriteOnlyChats ? chats.filter(row => row.favorite === true) : chats;
+    const shown = baseRows.filter(row => chatMatches(row, chatQuery));
+    // No inline delete here: a long press opens copy / select / favourite / delete instead, so the
+    // row keeps its width for the question, its tags, the date and a readable answer preview.
+    const groups = groupChatsByDate([...shown].reverse());
+    if (log) log.innerHTML = shown.length ? groups.map(group => "<p class=\"chat-day\">" + esc(group.date) + "<span>" + group.rows.length + " 条</span></p>" + group.rows.map(row => {
+      // An answer that is nothing but JSON nulls ("nullnull…") is not an answer: say what happened
+      // instead of showing the raw text, even if the stored record was never repaired.
+      const raw = String(row.answer || '');
+      const answer = /^(?:[\s\u200b-\u200f\u2060\ufeff]*null){3,}/i.test(raw)
+        ? '这次回答没有正确返回（模型只返回了思考过程，没有输出内容）。请重新提问；如果反复出现，请在「我的 → 模型连接」换一个非推理模型。'
+        : raw;
+      const id = String(row.id ?? '');
+      const expanded = expandedChats.has(id);
+      const long = answer.length > 140;
+      const tags = []
+        .concat(String(row.question || '').includes('含照片') ? ['含照片'] : [])
+        .concat(/联网检索|参考来源|来源（联网/.test(answer) ? ['联网检索'] : [])
+        .concat(row.source === 'api' ? [] : [])
+        .join('');
+      return `<div class="meal-row list-row" role="listitem" data-long-press="chat:${esc(id)}"><div class="row-body">`
+        + `<div class="row-head"><strong>${esc(row.question || '')}</strong>`
+        + `${row.favorite === true ? `<span class="fav-badge" aria-label="已收藏"><span class="inline-icon" aria-hidden="true">${SVG_ICONS['icon-bookmark.svg']}</span></span>` : ''}`
+        + `${tags ? `<span class="row-tag">${esc(tags)}</span>` : ''}`
+        + `<span class="row-date">${esc(row.date || '')}</span></div>`
+        + `<div class="answer${long && !expanded ? ' is-clamped' : ''}">${answerHtml(answer)}</div>`
+        + `${long ? `<button type="button" class="row-toggle" data-chat-toggle="${esc(id)}" aria-expanded="${expanded ? 'true' : 'false'}">${expanded ? '收起' : '展开全文'}</button>` : ''}`
+        + citationBlock(row)
+        + `<div class="button-row row-actions"><button type="button" class="button subtle" data-chat-again="${esc(id)}">重新生成</button><button type="button" class="button subtle" data-chat-unhelpful="${esc(id)}">${unhelpfulChats.has(id) ? '已标记没用' : '这条没用'}</button></div>`
+        + `</div></div>`;
+    }).join("")).join("") : empty(chatQuery ? "没有匹配「" + chatQuery + "」的记录。" : (favoriteOnlyChats ? "还没有收藏的问答记录。长按一条记录即可收藏。" : "还没有问答记录。有疑问时，问一句。"));
+    const node = $('#chat-mode');
+    if (node) {
+      const base = state.settings.apiConfigured === true
+        ? '已配置模型：确认上方已勾选同意即可提问；问题与部分健康数据会发送给该服务商，按 token 计费。'
+        : '尚未配置 API Key：请先到「我的 → 模型连接」保存密钥；本地记录功能不受影响。';
+      node.textContent = base;
+    }
+  }
+  // ---- 上次 AI 回答（今天页的入口行）--------------------------------------------------------------
+  /** Fills the "上次 AI 回答" row with the newest chat record; the row stays hidden until one exists. */
+  function renderLastChat() {
+    const open = $('#last-chat-open');
+    if (!open) return;
+    const chats = (state && Array.isArray(state.chats) ? state.chats : []).filter(row => row && (row.question || row.answer));
+    const last = chats[chats.length - 1] || null;
+    open.hidden = !last;
+    if (!last) return;
+    const question = $('#last-chat-question'), preview = $('#last-chat-preview');
+    if (question) question.textContent = String(last.question || '（未记录问题）').slice(0, 42);
+    if (preview) {
+      const text = String(last.answer || '').replace(/\s+/g, ' ').trim();
+      preview.textContent = text ? text.slice(0, 48) : '点开看上次 AI 给的完整回答';
+    }
+  }
+  $('#last-chat-open')?.addEventListener('click', () => {
+    switchTab('chat');
+    // The newest record renders as the first row of the log; bring it into view after the switch.
+    requestAnimationFrame(() => $('#chat-log')?.scrollIntoView({block: 'start', behavior: 'auto'}));
+  });
+  function renderPush(push) {
+    const p = push || (window.QinghengAdapter.currentPush ? window.QinghengAdapter.currentPush() : (window.QinghengAdapter.pushDefaults || {}));
+    const form = $('#push-form');
+    if (form) {form.elements.enabled.checked = p.enabled === true; form.elements.analysisEnabled.checked = p.analysisEnabled === true; if (p.morningTime) form.elements.morningTime.value = p.morningTime; if (p.eveningTime) form.elements.eveningTime.value = p.eveningTime;}
+    const exactButton = $('#exact-alarm-settings');
+    if (exactButton) {exactButton.disabled = p.canScheduleExact === true; exactButton.textContent = p.canScheduleExact === true ? '精确闹钟已允许' : '允许精确闹钟';}
+    const status = $('#push-status');
+    if (status) status.textContent = p.enabled === true ? (p.analysisEnabled === true ? '已开启 · 后台自动分析' : '已开启 · 仅提醒') : '未开启';
+    const detail = $('#push-detail');
+    const weeklyEnabled = $('#weekly-enabled'), weeklyDay = $('#weekly-day'), weeklyTime = form?.elements?.weeklyTime;
+    if (weeklyEnabled) weeklyEnabled.checked = p.weeklyEnabled !== false;
+    if (weeklyDay) weeklyDay.value = String(number(p.weeklyDay) ?? 7);
+    if (weeklyTime && p.weeklyTime) weeklyTime.value = p.weeklyTime;
+    if (detail) detail.textContent = p.enabled !== true ? '开启后到点会收到本地通知；需要允许通知权限。' : `已设置 ${p.morningTime || '07:00'} 与 ${p.eveningTime || '20:30'}。每天最多 2 条（白天与晚间各一条），两次之间至少间隔 3 小时，不会在同一时段连发两条；周报${p.weeklyEnabled === false ? '已关闭' : `每周${['','一','二','三','四','五','六','日'][number(p.weeklyDay) ?? 7] || '日'} ${p.weeklyTime || '20:00'} 一条`}。精确时间${p.canScheduleExact ? '已就绪' : '可能被系统延迟，建议在系统设置允许「闹钟与提醒」'}；通知权限${p.notificationsGranted ? '已允许' : '未允许，请到系统设置开启'}。通知正文会自动精简到一行，展开可看全文；记录后还会有一次即时反馈（同样计入每日上限）。`;
+    const summary = $('#hub-summary-push');
+    if (summary) summary.textContent = p.enabled === true
+      ? `${p.morningTime || '07:00'} / ${p.eveningTime || '20:30'} · ${p.analysisEnabled === true ? '后台自动分析' : '仅提醒'}`
+      : '未开启 · 到点提醒与建议';
+    return p;
+  }
+  async function loadPush() {
+    try {renderPush(await api('/api/push'));}
+    catch (error) {const detail = $('#push-detail'); if (detail) detail.textContent = error.message;}
+  }
+  let chatImage = null, chatImageVersion = 0, chatImageBusy = false;
+  function clearChatImage() {lastCaptureId='';chatPhotoMeta=photoMeta(null);chatImageVersion++;chatImage=null;chatImageBusy=false;$('#chat-image').value='';$('#chat-gallery').value='';$('#chat-image-preview').hidden=true;$('#chat-image-view').removeAttribute('src');}
+  $('#chat-image').addEventListener('change', async event => {
+    const file = event.target.files[0], message = $('#chat-feedback');
+    if (!file) {clearChatImage(); return;}
+    const revision = ++chatImageVersion;
+    chatImage = null; chatImageBusy = true;
+    feedback(message,'正在本地压缩照片…');
+    try {
+      const result = await compressImage(file);
+      if (revision !== chatImageVersion) return;
+      chatImage = result; chatPhotoMeta=photoMeta(null); showPhotoTime('chat',chatPhotoMeta);
+      $('#chat-image-view').src = result;
+      $('#chat-image-preview').hidden = false;
+      feedback(message,'照片已压缩为 JPEG，原始元数据不会上传。');
+    } catch (error) {
+      if (revision === chatImageVersion) {clearChatImage(); feedback(message,error.message,true);}
+    } finally {if (revision === chatImageVersion) chatImageBusy = false;}
+  });
+  $('#chat-image-remove').addEventListener('click',()=>{clearChatImage();feedback($('#chat-feedback'),'已移除照片。');});
+  // Tell the native layer which field opened the camera, so a recovered capture lands in the right place.
+  const declareImageTarget = target => {try {const bridge = window.QinghengNative; if (bridge && typeof bridge.imageTarget === 'function') bridge.imageTarget(target);} catch {}};
+  ['#meal-image','#meal-gallery'].forEach(id=>$(id).addEventListener('click',()=>declareImageTarget('meal')));
+  ['#chat-image','#chat-gallery'].forEach(id=>$(id).addEventListener('click',()=>declareImageTarget('chat')));
+  // The Android layer hands a capture back here when the page had to reload while the camera was open.
+  window.__qinghengPendingImage = payload => {
+    let parsed;
+    try {parsed = typeof payload === 'string' ? JSON.parse(payload) : payload;} catch {return false;}
+    if (!parsed || !['chat','meal'].includes(parsed.target) || typeof parsed.data !== 'string' || !/^data:image\/(jpeg|png|webp);base64,/.test(parsed.data)) return false;
+    if (parsed.id && parsed.id === lastCaptureId) return true;
+    if (parsed.target === 'chat') {
+      chatImageVersion++; chatImageBusy = false; chatImage = parsed.data; chatPhotoMeta=photoMeta(parsed); showPhotoTime('chat',chatPhotoMeta);
+      $('#chat-image-view').src = parsed.data; $('#chat-image-preview').hidden = false;
+      switchTab('chat');
+      feedback($('#chat-feedback'),'照片已就绪，已压缩并移除元数据。勾选本次同意后即可提问。');
+      $('#chat-image-preview').scrollIntoView({block:'nearest',behavior:'auto'});
+    } else {
+      syncCalendarDay(); imageVersion++; imageBusy = false; imageData = parsed.data; mealPhotoMeta=photoMeta(parsed); showPhotoTime('meal',mealPhotoMeta);
+      $('#meal-image-preview').src = parsed.data; $('#image-preview').hidden = false;
+      switchTab('records');
+      feedback($('#estimate-feedback'),'照片已就绪，已压缩并移除元数据。确认同意后可生成估算预览。');
+      $('#image-preview').scrollIntoView({block:'nearest',behavior:'auto'});
+    }
+    lastCaptureId = parsed.id || '';
+    return true;
+  };
+  window.__qinghengImageError = message => notice(String(message), true);
+  async function sendChat() {
+    const button = $('#chat-send'), message = $('#chat-feedback'), question = $('#chat-question').value.trim();
+    if (button.disabled) return;
+    if (chatImageBusy) {feedback(message,'照片还在压缩，请稍等一下。',true); return;}
+    if (!question && !chatImage) {feedback(message,'请先写下你的问题，或拍一张照片。',true); $('#chat-question').focus(); return;}
+    if (!$('#chat-consent').hidden && !$('#chat-consent').checked) {feedback(message,'发送给外部模型前，请先勾选本次同意。',true); $('#chat-consent').focus(); return;}
+    if (question.length > 2000) {feedback(message,'问题请控制在 2000 字以内。',true); return;}
+    // A sentence describing finished training becomes a draft card; nothing is written until confirmed.
+    if (typeof parseTrainingDraft === 'function') {
+      const draft = parseTrainingDraft(question, activeDate);
+      if (draft) showTrainingDraft(draft); else renderTrainingDraft(null);
+    }
+    if (chatImage && (state.settings.apiConfigured !== true || state.settings.visionEnabled !== true || !state.settings.visionModel)) {feedback(message,'带照片提问需要已启用的视觉模型：DeepSeek 请使用 deepseek-flash，B.AI 请填写其支持图片的模型。',true); return;}
+    if ((chatImage || $('#chat-consent').checked) && !navigator.onLine) {feedback(message,'当前离线，带照片或外部提问不可用；可先记录数据，联网后再问。',true); return;}
+    syncCalendarDay();
+    const submittedImage = chatImage, submittedPhotoMeta = photoMeta(chatPhotoMeta), submittedDate = activeDate;
+    button.disabled = true; feedback(message, submittedImage ? '正在上传照片并思考，请稍候…' : '正在思考，请稍候…');
+    try {
+      const history = (Array.isArray(state.chats) ? state.chats : []).slice(-5).flatMap(row => [{role:'user',content:String(row.question || '').slice(0,4000)},{role:'assistant',content:String(row.answer || '').slice(0,4000)}]);
+      // Routing rule: a short question with no lookup intent is answered in the fast tier.
+      const deepIntent = /(检索|搜索|查一下|最新|研究|证据|为什么|原理|对比|论文|指南)/.test(question);
+      const tier = !submittedImage && !deepIntent && question.length <= 24 ? 'fast' : 'deep';
+      const payload = {question,history,date:submittedDate,allowExternal:true,anchors:anchorSummary(),tier,library:(libraryLookup(question, 8) || librarySummary(6)),webSearch:$('#chat-web').checked && navigator.onLine && tier === 'deep',...(submittedImage?{image:submittedImage,...submittedPhotoMeta}:{})};
+      let data = null;
+      try {
+        data = await streamChat(payload);
+      } catch (streamError) {
+        // Streaming is only a nicety: whatever went wrong (a provider without SSE support, a proxy that
+        // buffers, a mid-stream error, a timeout), the question still gets answered through the normal
+        // route. Only if that also fails does the user see an error.
+        try {
+          data = await api('/api/chat', payload);
+          feedback(message, '流式输出不可用，已改用一次性返回…');
+        } catch (bufferedError) {
+          throw new Error(`${bufferedError?.message || '回答失败'}（流式尝试：${streamError?.message || '失败'}）`);
+        }
+      }
+      const reply = typeof data?.reply === 'string' ? data.reply.trim() : '';
+      if (!reply) throw new Error('模型没有返回可读取的回答，请重试。');
+      const sourceUrls = Array.isArray(data?.sources) ? data.sources.map(row => row && row.url).filter(url => typeof url === 'string' && /^https:\/\//.test(url)) : [];
+      const withSources = reply;
+      const stored = submittedImage ? `［含照片］${question}`.slice(0,2000) : question;
+      feedback(message, data?.webSearch ? (data.webSearch.connected ? '已收到回答，已联网检索（' + data.webSearch.via + '，检索词：' + (data.webSearch.query || '') + '）。' : '已收到回答，但本次未能联网检索。') : (tier === 'fast' ? '已收到回答（快速档：不联网、只带最近三天数据）。' : '已收到回答。'));
+      $('#chat-question').value = ''; acceptConsent('chat'); clearChatImage();
+      try {await loadState({quiet:true});} catch {state.chats = [...(Array.isArray(state.chats) ? state.chats : []),{date:localDate(),question:stored,answer:withSources}]; renderChat(); notice('回答已显示，但保存到手机失败，请勿重复提问。',true);}
+    } catch (error) {feedback(message,error.message,true);} finally {button.disabled = false;}
+  }
+  async function savePush(form) {
+    const button = $('button[type=submit]',form), message = $('#push-feedback');
+    if (button.disabled || !form.reportValidity()) return;
+    button.disabled = true; feedback(message,'正在保存推送设置…');
+    const body = {enabled:form.elements.enabled.checked, morningTime:form.elements.morningTime.value, eveningTime:form.elements.eveningTime.value, weeklyEnabled:form.elements.weeklyEnabled.checked, weeklyDay:Number(form.elements.weeklyDay.value) || 7, weeklyTime:form.elements.weeklyTime.value, analysisEnabled:form.elements.analysisEnabled.checked};
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(body.morningTime) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(body.eveningTime)) {feedback(message,'请输入 24 小时制时间，例如 07:00 与 20:30。',true); button.disabled = false; return;}
+    if (body.analysisEnabled && state.settings.apiConfigured !== true) {feedback(message,'后台自动分析需要先在「我的 → 模型连接」保存 API Key。',true); button.disabled = false; return;}
+    if (body.enabled) {
+      const granted = await ensureNotificationPermission();
+      if (!granted) feedback(message,'已保存设置，但系统通知权限未允许：请到手机「设置 → 应用 → 轻衡 → 通知」开启，否则到点不会有提醒。',true);
+      try {renderPush(await api('/api/push',body)); feedback(message, granted ? '推送设置已保存。' : '推送设置已保存，但还需要在系统设置里允许通知。', !granted);}
+      catch (error) {feedback(message,error.message,true);}
+      button.disabled = false; return;
+    }
+    try {renderPush(await api('/api/push',body)); feedback(message,'推送设置已保存。');}
+    catch (error) {feedback(message,error.message,true);} finally {button.disabled = false;}
+  }
+  async function ensureNotificationPermission() {
+    try {
+      const state = await api('/api/notification-permission');
+      if (state?.granted === true) return true;
+      if (state?.requestable !== true) return false;
+      const result = await api('/api/notification-permission',{});
+      return result?.granted === true;
+    } catch {return false;}
+  }
+

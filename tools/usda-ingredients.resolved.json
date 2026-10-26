@@ -1,0 +1,1842 @@
+[
+  {
+    "name": "米饭",
+    "aliases": [
+      "熟米饭"
+    ],
+    "category": "grain",
+    "basis": "cooked",
+    "portion": 150,
+    "fdcId": "169757",
+    "description": "Rice, white, long-grain, regular, unenriched, cooked without salt",
+    "per100": [
+      130,
+      2.69,
+      0.28,
+      28.17
+    ],
+    "note": "USDA：长粒白米，煮熟不加盐；按熟重可食部，不另加油。"
+  },
+  {
+    "name": "糙米饭",
+    "aliases": [
+      "熟糙米饭"
+    ],
+    "category": "grain",
+    "basis": "cooked",
+    "portion": 150,
+    "fdcId": "169704",
+    "description": "Rice, brown, long-grain, cooked (Includes foods for USDA's Food Distribution Program)",
+    "per100": [
+      123,
+      2.74,
+      0.97,
+      25.58
+    ],
+    "note": "USDA：长粒糙米，煮熟；按熟重可食部。"
+  },
+  {
+    "name": "大米",
+    "aliases": [
+      "生大米"
+    ],
+    "category": "grain",
+    "basis": "raw",
+    "portion": 50,
+    "fdcId": "169756",
+    "description": "Rice, white, long-grain, regular, raw, unenriched",
+    "per100": [
+      365,
+      7.13,
+      0.66,
+      79.95
+    ],
+    "note": "USDA：长粒白米，生重；煮熟后重量与热量密度会变化。"
+  },
+  {
+    "name": "燕麦",
+    "aliases": [
+      "干燕麦",
+      "燕麦片"
+    ],
+    "category": "grain",
+    "basis": "raw",
+    "portion": 40,
+    "fdcId": "173904",
+    "description": "Cereals, oats, regular and quick, not fortified, dry",
+    "per100": [
+      379,
+      13.15,
+      6.52,
+      67.7
+    ],
+    "note": "USDA：普通/快熟燕麦片，干重；不要用于煮后燕麦粥的重量。"
+  },
+  {
+    "name": "面条",
+    "aliases": [
+      "水煮面条",
+      "熟面条"
+    ],
+    "category": "grain",
+    "basis": "cooked",
+    "portion": 200,
+    "fdcId": "169732",
+    "description": "Noodles, egg, enriched, cooked",
+    "per100": [
+      138,
+      4.54,
+      2.07,
+      25.16
+    ],
+    "note": "USDA：鸡蛋面，煮熟；沥水，不含汤与浇头。"
+  },
+  {
+    "name": "米粉",
+    "aliases": [
+      "熟米粉",
+      "水煮米粉"
+    ],
+    "category": "grain",
+    "basis": "cooked",
+    "portion": 200,
+    "fdcId": "168914",
+    "description": "Rice noodles, cooked",
+    "per100": [
+      108,
+      1.79,
+      0.2,
+      24.01
+    ],
+    "note": "USDA：米粉，煮熟；沥水，不含汤与浇头。"
+  },
+  {
+    "name": "玉米",
+    "aliases": [
+      "甜玉米"
+    ],
+    "category": "grain",
+    "basis": "raw",
+    "portion": 100,
+    "fdcId": "169998",
+    "description": "Corn, sweet, yellow, raw",
+    "per100": [
+      86,
+      3.27,
+      1.35,
+      18.7
+    ],
+    "note": "USDA：甜玉米，生重可食粒；不含玉米芯。"
+  },
+  {
+    "name": "全麦面包",
+    "aliases": [],
+    "category": "grain",
+    "basis": "as_served",
+    "portion": 60,
+    "fdcId": "172688",
+    "description": "Bread, whole-wheat, commercially prepared",
+    "per100": [
+      252,
+      12.45,
+      3.5,
+      42.71
+    ],
+    "note": "USDA：全麦商业面包。"
+  },
+  {
+    "name": "白面包",
+    "aliases": [],
+    "category": "grain",
+    "basis": "as_served",
+    "portion": 60,
+    "fdcId": "174924",
+    "description": "Bread, white, commercially prepared (includes soft bread crumbs)",
+    "per100": [
+      266,
+      8.85,
+      3.33,
+      49.42
+    ],
+    "note": "USDA：白面包，商业制备。"
+  },
+  {
+    "name": "馒头",
+    "aliases": [
+      "白馒头"
+    ],
+    "category": "grain",
+    "basis": "cooked",
+    "portion": 100,
+    "fdcId": "174924",
+    "description": "Bread, white, commercially prepared (includes soft bread crumbs)",
+    "per100": [
+      266,
+      8.85,
+      3.33,
+      49.42
+    ],
+    "note": "中式馒头不在 USDA 条目内；此处借用白面包的近似口径，仅作粗略参考。"
+  },
+  {
+    "name": "豆腐",
+    "aliases": [],
+    "category": "soy",
+    "basis": "as_served",
+    "portion": 150,
+    "fdcId": "172476",
+    "description": "Tofu, raw, regular, prepared with calcium sulfate",
+    "per100": [
+      76,
+      8.08,
+      4.78,
+      1.87
+    ],
+    "note": "USDA：普通豆腐（硫酸钙凝固）；品种与含水量差异大。"
+  },
+  {
+    "name": "北豆腐",
+    "aliases": [
+      "老豆腐",
+      "硬豆腐"
+    ],
+    "category": "soy",
+    "basis": "as_served",
+    "portion": 150,
+    "fdcId": "172448",
+    "description": "Tofu, firm, prepared with calcium sulfate and magnesium chloride (nigari)",
+    "per100": [
+      78,
+      9.04,
+      4.17,
+      2.85
+    ],
+    "note": "USDA：硬豆腐（卤水/硫酸钙镁凝固）。"
+  },
+  {
+    "name": "油豆腐",
+    "aliases": [
+      "豆泡",
+      "炸豆腐"
+    ],
+    "category": "soy",
+    "basis": "as_served",
+    "portion": 80,
+    "fdcId": "172451",
+    "description": "Tofu, fried",
+    "per100": [
+      270,
+      18.82,
+      20.18,
+      8.86
+    ],
+    "note": "USDA：油炸豆腐；吸油量取决于做法。"
+  },
+  {
+    "name": "豆浆",
+    "aliases": [
+      "无糖豆浆"
+    ],
+    "category": "soy",
+    "basis": "as_served",
+    "portion": 250,
+    "fdcId": "172446",
+    "description": "Soymilk, original and vanilla, unfortified",
+    "per100": [
+      54,
+      3.27,
+      1.75,
+      6.28
+    ],
+    "note": "USDA：原味豆浆；甜豆浆不可直接套用。"
+  },
+  {
+    "name": "毛豆",
+    "aliases": [
+      "熟毛豆"
+    ],
+    "category": "soy",
+    "basis": "cooked",
+    "portion": 100,
+    "fdcId": "168411",
+    "description": "Edamame, frozen, prepared",
+    "per100": [
+      121,
+      11.91,
+      5.2,
+      8.91
+    ],
+    "note": "USDA：冷冻毛豆，制备后。"
+  },
+  {
+    "name": "黄豆",
+    "aliases": [
+      "大豆"
+    ],
+    "category": "soy",
+    "basis": "raw",
+    "portion": 50,
+    "fdcId": "174270",
+    "description": "Soybeans, mature seeds, raw",
+    "per100": [
+      446,
+      36.49,
+      19.94,
+      30.16
+    ],
+    "note": "USDA：大豆，生重；需充分煮熟后食用。"
+  },
+  {
+    "name": "绿豆芽",
+    "aliases": [],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 100,
+    "fdcId": "169957",
+    "description": "Mung beans, mature seeds, sprouted, raw",
+    "per100": [
+      30,
+      3.04,
+      0.18,
+      5.94
+    ],
+    "note": "USDA：绿豆发芽种子，生重。"
+  },
+  {
+    "name": "绿豆",
+    "aliases": [
+      "熟绿豆"
+    ],
+    "category": "soy",
+    "basis": "cooked",
+    "portion": 150,
+    "fdcId": "174257",
+    "description": "Mung beans, mature seeds, cooked, boiled, without salt",
+    "per100": [
+      105,
+      7.02,
+      0.38,
+      19.15
+    ],
+    "note": "USDA：绿豆，煮熟；清水煮制未加糖。"
+  },
+  {
+    "name": "红豆",
+    "aliases": [
+      "赤小豆",
+      "熟红豆"
+    ],
+    "category": "soy",
+    "basis": "cooked",
+    "portion": 150,
+    "fdcId": "173728",
+    "description": "Beans, adzuki, mature seeds, cooked, boiled, without salt",
+    "per100": [
+      128,
+      7.52,
+      0.1,
+      24.77
+    ],
+    "note": "USDA：赤小豆，煮熟；清水煮制未加糖。"
+  },
+  {
+    "name": "黑豆",
+    "aliases": [
+      "熟黑豆"
+    ],
+    "category": "soy",
+    "basis": "cooked",
+    "portion": 150,
+    "fdcId": "173735",
+    "description": "Beans, black, mature seeds, cooked, boiled, without salt",
+    "per100": [
+      132,
+      8.86,
+      0.54,
+      23.71
+    ],
+    "note": "USDA：黑豆，煮熟；清水煮制。"
+  },
+  {
+    "name": "鹰嘴豆",
+    "aliases": [
+      "熟鹰嘴豆"
+    ],
+    "category": "soy",
+    "basis": "cooked",
+    "portion": 150,
+    "fdcId": "173757",
+    "description": "Chickpeas (garbanzo beans, bengal gram), mature seeds, cooked, boiled, without salt",
+    "per100": [
+      164,
+      8.86,
+      2.59,
+      27.42
+    ],
+    "note": "USDA：鹰嘴豆，煮熟；清水煮制。"
+  },
+  {
+    "name": "豌豆",
+    "aliases": [
+      "青豌豆"
+    ],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 100,
+    "fdcId": "170419",
+    "description": "Peas, green, raw",
+    "per100": [
+      81,
+      5.42,
+      0.4,
+      14.45
+    ],
+    "note": "USDA：青豌豆，生重。"
+  },
+  {
+    "name": "鸡胸肉",
+    "aliases": [
+      "生鸡胸肉"
+    ],
+    "category": "meat",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "171077",
+    "description": "Chicken, broiler or fryers, breast, skinless, boneless, meat only, raw",
+    "per100": [
+      120,
+      22.5,
+      2.62,
+      0
+    ],
+    "note": "USDA：去皮去骨鸡胸肉，生重。"
+  },
+  {
+    "name": "熟鸡胸肉",
+    "aliases": [
+      "水煮鸡胸肉"
+    ],
+    "category": "meat",
+    "basis": "cooked",
+    "portion": 120,
+    "fdcId": "171477",
+    "description": "Chicken, broilers or fryers, breast, meat only, cooked, roasted",
+    "per100": [
+      165,
+      31.02,
+      3.57,
+      0
+    ],
+    "note": "USDA：鸡胸肉烤制，去皮只取肉。"
+  },
+  {
+    "name": "鸡腿肉",
+    "aliases": [
+      "生鸡腿肉"
+    ],
+    "category": "meat",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "173627",
+    "description": "Chicken, broilers or fryers, dark meat, thigh, meat only, raw",
+    "per100": [
+      121,
+      19.66,
+      4.12,
+      0
+    ],
+    "note": "USDA：鸡腿肉，去皮只取肉，生重。"
+  },
+  {
+    "name": "鸡翅",
+    "aliases": [
+      "生鸡翅"
+    ],
+    "category": "meat",
+    "basis": "raw",
+    "portion": 100,
+    "fdcId": "173632",
+    "description": "Chicken, broilers or fryers, wing, meat only, raw",
+    "per100": [
+      126,
+      21.97,
+      3.54,
+      0
+    ],
+    "note": "USDA：鸡翅，只取肉，生重。"
+  },
+  {
+    "name": "瘦猪肉",
+    "aliases": [
+      "猪瘦肉"
+    ],
+    "category": "meat",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "168230",
+    "description": "Pork, fresh, loin, whole, separable lean only, raw",
+    "per100": [
+      143,
+      21.43,
+      5.66,
+      0
+    ],
+    "note": "USDA：猪里脊，去可见脂肪，生重。"
+  },
+  {
+    "name": "五花肉",
+    "aliases": [],
+    "category": "meat",
+    "basis": "raw",
+    "portion": 100,
+    "fdcId": "167812",
+    "description": "Pork, fresh, belly, raw",
+    "per100": [
+      518,
+      9.34,
+      53.01,
+      0
+    ],
+    "note": "USDA：猪五花，生重；肥瘦比例差异很大。"
+  },
+  {
+    "name": "猪排骨",
+    "aliases": [
+      "排骨"
+    ],
+    "category": "meat",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "167853",
+    "description": "Pork, fresh, spareribs, separable lean and fat, raw",
+    "per100": [
+      277,
+      15.47,
+      23.4,
+      0
+    ],
+    "note": "USDA：猪肋排，含可分离脂肪，生重。"
+  },
+  {
+    "name": "瘦牛肉",
+    "aliases": [
+      "牛瘦肉"
+    ],
+    "category": "meat",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "171757",
+    "description": "Beef, round, top round steak, boneless, separable lean only, trimmed to 0\" fat, all grades, raw",
+    "per100": [
+      121,
+      23.59,
+      2.94,
+      0
+    ],
+    "note": "USDA：牛后腿肉，去可见脂肪，生重。"
+  },
+  {
+    "name": "牛里脊",
+    "aliases": [
+      "牛柳"
+    ],
+    "category": "meat",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "171804",
+    "description": "Beef, top sirloin, steak, separable lean only, trimmed to 1/8\" fat, select, raw",
+    "per100": [
+      127,
+      22.27,
+      3.54,
+      0
+    ],
+    "note": "USDA：牛上后腰肉，去可见脂肪，生重。"
+  },
+  {
+    "name": "牛肉末",
+    "aliases": [
+      "牛肉馅"
+    ],
+    "category": "meat",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "171796",
+    "description": "Beef, ground, 85% lean meat / 15% fat, raw (Includes foods for USDA's Food Distribution Program)",
+    "per100": [
+      215,
+      18.59,
+      15,
+      0
+    ],
+    "note": "USDA：牛肉末，85% 瘦 / 15% 肥，生重。"
+  },
+  {
+    "name": "羊肉",
+    "aliases": [
+      "瘦羊肉"
+    ],
+    "category": "meat",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "172483",
+    "description": "Lamb, foreshank, separable lean only, trimmed to 1/4\" fat, choice, raw",
+    "per100": [
+      120,
+      21.08,
+      3.29,
+      0
+    ],
+    "note": "USDA：羊前腿，去可见脂肪，生重。"
+  },
+  {
+    "name": "鸭肉",
+    "aliases": [
+      "瘦鸭肉"
+    ],
+    "category": "meat",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "172410",
+    "description": "Duck, domesticated, meat only, raw",
+    "per100": [
+      135,
+      18.28,
+      5.95,
+      0.94
+    ],
+    "note": "USDA：家鸭，只取肉，生重。"
+  },
+  {
+    "name": "鸡蛋",
+    "aliases": [],
+    "category": "egg",
+    "basis": "raw",
+    "portion": 50,
+    "fdcId": "171287",
+    "description": "Egg, whole, raw, fresh",
+    "per100": [
+      143,
+      12.56,
+      9.51,
+      0.72
+    ],
+    "note": "USDA：全蛋，生重；去壳。"
+  },
+  {
+    "name": "水煮蛋",
+    "aliases": [
+      "煮鸡蛋",
+      "白煮蛋"
+    ],
+    "category": "egg",
+    "basis": "cooked",
+    "portion": 50,
+    "fdcId": "173424",
+    "description": "Egg, whole, cooked, hard-boiled",
+    "per100": [
+      155,
+      12.58,
+      10.61,
+      1.12
+    ],
+    "note": "USDA：全蛋带壳水煮后去壳；未加油。"
+  },
+  {
+    "name": "蛋清",
+    "aliases": [
+      "蛋白"
+    ],
+    "category": "egg",
+    "basis": "raw",
+    "portion": 33,
+    "fdcId": "172183",
+    "description": "Egg, white, raw, fresh",
+    "per100": [
+      52,
+      10.9,
+      0.17,
+      0.73
+    ],
+    "note": "USDA：蛋清，生重。"
+  },
+  {
+    "name": "蛋黄",
+    "aliases": [],
+    "category": "egg",
+    "basis": "raw",
+    "portion": 17,
+    "fdcId": "172184",
+    "description": "Egg, yolk, raw, fresh",
+    "per100": [
+      322,
+      15.86,
+      26.54,
+      3.59
+    ],
+    "note": "USDA：蛋黄，生重。"
+  },
+  {
+    "name": "三文鱼",
+    "aliases": [
+      "鲑鱼"
+    ],
+    "category": "seafood",
+    "basis": "raw",
+    "portion": 120,
+    "fdcId": "175167",
+    "description": "Fish, salmon, Atlantic, farmed, raw",
+    "per100": [
+      208,
+      20.42,
+      13.42,
+      0
+    ],
+    "note": "USDA：大西洋养殖三文鱼，生重。"
+  },
+  {
+    "name": "虾仁",
+    "aliases": [
+      "生虾仁"
+    ],
+    "category": "seafood",
+    "basis": "raw",
+    "portion": 120,
+    "fdcId": "174210",
+    "description": "Crustaceans, shrimp, mixed species, raw (may contain additives to retain moisture)",
+    "per100": [
+      71,
+      13.61,
+      1.01,
+      0.91
+    ],
+    "note": "USDA：虾，混合种，生重；去壳不含冰衣。"
+  },
+  {
+    "name": "草鱼",
+    "aliases": [
+      "鲤鱼"
+    ],
+    "category": "seafood",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "171952",
+    "description": "Fish, carp, raw",
+    "per100": [
+      127,
+      17.83,
+      5.6,
+      0
+    ],
+    "note": "USDA：鲤鱼，生重；可食肉不含骨与内脏。"
+  },
+  {
+    "name": "鳕鱼",
+    "aliases": [],
+    "category": "seafood",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "171955",
+    "description": "Fish, cod, Atlantic, raw",
+    "per100": [
+      82,
+      17.81,
+      0.67,
+      0
+    ],
+    "note": "USDA：大西洋鳕鱼，生重。"
+  },
+  {
+    "name": "罗非鱼",
+    "aliases": [
+      "非洲鲫鱼"
+    ],
+    "category": "seafood",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "175176",
+    "description": "Fish, tilapia, raw",
+    "per100": [
+      96,
+      20.08,
+      1.7,
+      0
+    ],
+    "note": "USDA：罗非鱼，生重。"
+  },
+  {
+    "name": "西兰花",
+    "aliases": [],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "170379",
+    "description": "Broccoli, raw",
+    "per100": [
+      34,
+      2.82,
+      0.37,
+      6.64
+    ],
+    "note": "USDA：西兰花，生重。"
+  },
+  {
+    "name": "菠菜",
+    "aliases": [],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "168462",
+    "description": "Spinach, raw",
+    "per100": [
+      23,
+      2.86,
+      0.39,
+      3.63
+    ],
+    "note": "USDA：菠菜，生重。"
+  },
+  {
+    "name": "大白菜",
+    "aliases": [
+      "白菜"
+    ],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "169979",
+    "description": "Cabbage, chinese (pe-tsai), raw",
+    "per100": [
+      16,
+      1.2,
+      0.2,
+      3.23
+    ],
+    "note": "USDA：大白菜（结球白菜），生重。"
+  },
+  {
+    "name": "小白菜",
+    "aliases": [
+      "青菜"
+    ],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "170390",
+    "description": "Cabbage, chinese (pak-choi), raw",
+    "per100": [
+      13,
+      1.5,
+      0.2,
+      2.18
+    ],
+    "note": "USDA：小白菜（白菜型），生重。"
+  },
+  {
+    "name": "番茄",
+    "aliases": [
+      "西红柿"
+    ],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "170457",
+    "description": "Tomatoes, red, ripe, raw, year round average",
+    "per100": [
+      18,
+      0.88,
+      0.2,
+      3.89
+    ],
+    "note": "USDA：红熟番茄，生重。"
+  },
+  {
+    "name": "黄瓜",
+    "aliases": [],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "168409",
+    "description": "Cucumber, with peel, raw",
+    "per100": [
+      15,
+      0.65,
+      0.11,
+      3.63
+    ],
+    "note": "USDA：带皮黄瓜，生重。"
+  },
+  {
+    "name": "胡萝卜",
+    "aliases": [],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 100,
+    "fdcId": "170393",
+    "description": "Carrots, raw",
+    "per100": [
+      41,
+      0.93,
+      0.24,
+      9.58
+    ],
+    "note": "USDA：胡萝卜，生重。"
+  },
+  {
+    "name": "茄子",
+    "aliases": [],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "169228",
+    "description": "Eggplant, raw",
+    "per100": [
+      25,
+      0.98,
+      0.18,
+      5.88
+    ],
+    "note": "USDA：茄子，生重。"
+  },
+  {
+    "name": "南瓜",
+    "aliases": [],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "168448",
+    "description": "Pumpkin, raw",
+    "per100": [
+      26,
+      1,
+      0.1,
+      6.5
+    ],
+    "note": "USDA：南瓜，生重。"
+  },
+  {
+    "name": "土豆",
+    "aliases": [
+      "马铃薯"
+    ],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "170026",
+    "description": "Potatoes, flesh and skin, raw",
+    "per100": [
+      77,
+      2.05,
+      0.09,
+      17.49
+    ],
+    "note": "USDA：土豆（果肉连皮），生重。"
+  },
+  {
+    "name": "红薯",
+    "aliases": [
+      "番薯",
+      "地瓜"
+    ],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "168482",
+    "description": "Sweet potato, raw, unprepared (Includes foods for USDA's Food Distribution Program)",
+    "per100": [
+      86,
+      1.57,
+      0.05,
+      20.12
+    ],
+    "note": "USDA：甘薯，生重。"
+  },
+  {
+    "name": "蒸红薯",
+    "aliases": [
+      "熟红薯",
+      "烤红薯"
+    ],
+    "category": "vegetable",
+    "basis": "cooked",
+    "portion": 150,
+    "fdcId": "168483",
+    "description": "Sweet potato, cooked, baked in skin, flesh, without salt",
+    "per100": [
+      90,
+      2.01,
+      0.15,
+      20.71
+    ],
+    "note": "USDA：甘薯带皮烤熟后只取薯肉。"
+  },
+  {
+    "name": "香菇",
+    "aliases": [
+      "鲜香菇"
+    ],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 100,
+    "fdcId": "169242",
+    "description": "Mushrooms, shiitake, raw",
+    "per100": [
+      34,
+      2.24,
+      0.49,
+      6.79
+    ],
+    "note": "USDA：香菇，生重；不用于干香菇重量。"
+  },
+  {
+    "name": "金针菇",
+    "aliases": [],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 100,
+    "fdcId": "169382",
+    "description": "Mushrooms, enoki, raw",
+    "per100": [
+      37,
+      2.66,
+      0.29,
+      7.81
+    ],
+    "note": "USDA：金针菇，生重。"
+  },
+  {
+    "name": "莲藕",
+    "aliases": [
+      "藕"
+    ],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "169250",
+    "description": "Lotus root, raw",
+    "per100": [
+      74,
+      2.6,
+      0.1,
+      17.23
+    ],
+    "note": "USDA：莲藕，生重。"
+  },
+  {
+    "name": "洋葱",
+    "aliases": [],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 100,
+    "fdcId": "170000",
+    "description": "Onions, raw",
+    "per100": [
+      40,
+      1.1,
+      0.1,
+      9.34
+    ],
+    "note": "USDA：洋葱，生重。"
+  },
+  {
+    "name": "大蒜",
+    "aliases": [
+      "蒜"
+    ],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 10,
+    "fdcId": "169230",
+    "description": "Garlic, raw",
+    "per100": [
+      149,
+      6.36,
+      0.5,
+      33.06
+    ],
+    "note": "USDA：大蒜，生重。"
+  },
+  {
+    "name": "生姜",
+    "aliases": [
+      "姜"
+    ],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 10,
+    "fdcId": "169231",
+    "description": "Ginger root, raw",
+    "per100": [
+      80,
+      1.82,
+      0.75,
+      17.77
+    ],
+    "note": "USDA：生姜，生重。"
+  },
+  {
+    "name": "青椒",
+    "aliases": [
+      "甜椒"
+    ],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 100,
+    "fdcId": "170427",
+    "description": "Peppers, sweet, green, raw",
+    "per100": [
+      20,
+      0.86,
+      0.17,
+      4.64
+    ],
+    "note": "USDA：甜青椒，生重。"
+  },
+  {
+    "name": "辣椒",
+    "aliases": [
+      "红辣椒"
+    ],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 20,
+    "fdcId": "170106",
+    "description": "Peppers, hot chili, red, raw",
+    "per100": [
+      40,
+      1.87,
+      0.44,
+      8.81
+    ],
+    "note": "USDA：红辣椒，生重。"
+  },
+  {
+    "name": "芹菜",
+    "aliases": [],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 100,
+    "fdcId": "169988",
+    "description": "Celery, raw",
+    "per100": [
+      14,
+      0.69,
+      0.17,
+      2.97
+    ],
+    "note": "USDA：芹菜，生重。"
+  },
+  {
+    "name": "生菜",
+    "aliases": [
+      "莴苣"
+    ],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 100,
+    "fdcId": "169247",
+    "description": "Lettuce, cos or romaine, raw",
+    "per100": [
+      17,
+      1.23,
+      0.3,
+      3.29
+    ],
+    "note": "USDA：长叶生菜，生重。"
+  },
+  {
+    "name": "菜花",
+    "aliases": [
+      "花椰菜",
+      "白花菜"
+    ],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "169986",
+    "description": "Cauliflower, raw",
+    "per100": [
+      25,
+      1.92,
+      0.28,
+      4.97
+    ],
+    "note": "USDA：花椰菜，生重。"
+  },
+  {
+    "name": "苦瓜",
+    "aliases": [],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "168393",
+    "description": "Balsam-pear (bitter gourd), pods, raw",
+    "per100": [
+      17,
+      1,
+      0.17,
+      3.7
+    ],
+    "note": "USDA：苦瓜，生重。"
+  },
+  {
+    "name": "西葫芦",
+    "aliases": [],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "169291",
+    "description": "Squash, summer, zucchini, includes skin, raw",
+    "per100": [
+      17,
+      1.21,
+      0.32,
+      3.11
+    ],
+    "note": "USDA：西葫芦（带皮），生重。"
+  },
+  {
+    "name": "小葱",
+    "aliases": [
+      "香葱",
+      "葱"
+    ],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 20,
+    "fdcId": "170005",
+    "description": "Onions, spring or scallions (includes tops and bulb), raw",
+    "per100": [
+      32,
+      1.83,
+      0.19,
+      7.34
+    ],
+    "note": "USDA：分葱（含葱白与葱叶），生重。"
+  },
+  {
+    "name": "竹笋",
+    "aliases": [],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "169210",
+    "description": "Bamboo shoots, raw",
+    "per100": [
+      27,
+      2.6,
+      0.3,
+      5.2
+    ],
+    "note": "USDA：竹笋，生重。"
+  },
+  {
+    "name": "四季豆",
+    "aliases": [
+      "豆角",
+      "菜豆"
+    ],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "169961",
+    "description": "Beans, snap, green, raw",
+    "per100": [
+      31,
+      1.83,
+      0.22,
+      6.97
+    ],
+    "note": "USDA：青荚豆，生重。"
+  },
+  {
+    "name": "海带",
+    "aliases": [
+      "昆布"
+    ],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 100,
+    "fdcId": "168457",
+    "description": "Seaweed, kelp, raw",
+    "per100": [
+      43,
+      1.68,
+      0.56,
+      9.57
+    ],
+    "note": "USDA：海带，生重。"
+  },
+  {
+    "name": "苹果",
+    "aliases": [],
+    "category": "fruit",
+    "basis": "raw",
+    "portion": 180,
+    "fdcId": "171688",
+    "description": "Apples, raw, with skin (Includes foods for USDA's Food Distribution Program)",
+    "per100": [
+      52,
+      0.26,
+      0.17,
+      13.81
+    ],
+    "note": "USDA：带皮苹果，去核可食部。"
+  },
+  {
+    "name": "香蕉",
+    "aliases": [],
+    "category": "fruit",
+    "basis": "raw",
+    "portion": 100,
+    "fdcId": "173944",
+    "description": "Bananas, raw",
+    "per100": [
+      89,
+      1.09,
+      0.33,
+      22.84
+    ],
+    "note": "USDA：香蕉，去皮可食部。"
+  },
+  {
+    "name": "橙子",
+    "aliases": [
+      "橙"
+    ],
+    "category": "fruit",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "169097",
+    "description": "Oranges, raw, all commercial varieties",
+    "per100": [
+      47,
+      0.94,
+      0.12,
+      11.75
+    ],
+    "note": "USDA：甜橙，去皮可食部。"
+  },
+  {
+    "name": "葡萄",
+    "aliases": [],
+    "category": "fruit",
+    "basis": "raw",
+    "portion": 100,
+    "fdcId": "174683",
+    "description": "Grapes, red or green (European type, such as Thompson seedless), raw",
+    "per100": [
+      69,
+      0.72,
+      0.16,
+      18.1
+    ],
+    "note": "USDA：鲜食葡萄，可食部。"
+  },
+  {
+    "name": "西瓜",
+    "aliases": [],
+    "category": "fruit",
+    "basis": "raw",
+    "portion": 200,
+    "fdcId": "167765",
+    "description": "Watermelon, raw",
+    "per100": [
+      30,
+      0.61,
+      0.15,
+      7.55
+    ],
+    "note": "USDA：西瓜，去皮果肉。"
+  },
+  {
+    "name": "草莓",
+    "aliases": [],
+    "category": "fruit",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "167762",
+    "description": "Strawberries, raw",
+    "per100": [
+      32,
+      0.67,
+      0.3,
+      7.68
+    ],
+    "note": "USDA：草莓，去蒂可食部。"
+  },
+  {
+    "name": "猕猴桃",
+    "aliases": [
+      "奇异果"
+    ],
+    "category": "fruit",
+    "basis": "raw",
+    "portion": 100,
+    "fdcId": "168153",
+    "description": "Kiwifruit, green, raw",
+    "per100": [
+      61,
+      1.14,
+      0.52,
+      14.66
+    ],
+    "note": "USDA：绿心猕猴桃，去皮可食部。"
+  },
+  {
+    "name": "芒果",
+    "aliases": [],
+    "category": "fruit",
+    "basis": "raw",
+    "portion": 100,
+    "fdcId": "169910",
+    "description": "Mangos, raw",
+    "per100": [
+      60,
+      0.82,
+      0.38,
+      14.98
+    ],
+    "note": "USDA：芒果，去皮去核可食部。"
+  },
+  {
+    "name": "桃",
+    "aliases": [
+      "桃子"
+    ],
+    "category": "fruit",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "169928",
+    "description": "Peaches, yellow, raw",
+    "per100": [
+      39,
+      0.91,
+      0.25,
+      9.54
+    ],
+    "note": "USDA：黄桃，去核可食部。"
+  },
+  {
+    "name": "梨",
+    "aliases": [
+      "雪梨"
+    ],
+    "category": "fruit",
+    "basis": "raw",
+    "portion": 180,
+    "fdcId": "169118",
+    "description": "Pears, raw",
+    "per100": [
+      57,
+      0.36,
+      0.14,
+      15.23
+    ],
+    "note": "USDA：梨，去核可食部。"
+  },
+  {
+    "name": "樱桃",
+    "aliases": [
+      "车厘子"
+    ],
+    "category": "fruit",
+    "basis": "raw",
+    "portion": 100,
+    "fdcId": "171719",
+    "description": "Cherries, sweet, raw",
+    "per100": [
+      63,
+      1.06,
+      0.2,
+      16.01
+    ],
+    "note": "USDA：甜樱桃，去核可食部。"
+  },
+  {
+    "name": "菠萝",
+    "aliases": [
+      "凤梨"
+    ],
+    "category": "fruit",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "168193",
+    "description": "Pineapple, raw, traditional varieties",
+    "per100": [
+      45,
+      0.55,
+      0.13,
+      11.82
+    ],
+    "note": "USDA：菠萝，去皮可食部。"
+  },
+  {
+    "name": "柚子",
+    "aliases": [],
+    "category": "fruit",
+    "basis": "raw",
+    "portion": 150,
+    "fdcId": "167754",
+    "description": "Pummelo, raw",
+    "per100": [
+      38,
+      0.76,
+      0.04,
+      9.62
+    ],
+    "note": "USDA：柚子，去皮可食部。"
+  },
+  {
+    "name": "荔枝",
+    "aliases": [],
+    "category": "fruit",
+    "basis": "raw",
+    "portion": 100,
+    "fdcId": "169086",
+    "description": "Litchis, raw",
+    "per100": [
+      66,
+      0.83,
+      0.44,
+      16.53
+    ],
+    "note": "USDA：荔枝，去皮去核可食部。"
+  },
+  {
+    "name": "枣",
+    "aliases": [
+      "鲜枣"
+    ],
+    "category": "fruit",
+    "basis": "raw",
+    "portion": 100,
+    "fdcId": "168151",
+    "description": "Jujube, raw",
+    "per100": [
+      79,
+      1.2,
+      0.2,
+      20.23
+    ],
+    "note": "USDA：鲜枣去核可食部；干枣热量更高，不可套用。"
+  },
+  {
+    "name": "牛奶",
+    "aliases": [
+      "全脂牛奶"
+    ],
+    "category": "dairy",
+    "basis": "as_served",
+    "portion": 250,
+    "fdcId": "172217",
+    "description": "Milk, whole, 3.25% milkfat, without added vitamin A and vitamin D",
+    "per100": [
+      61,
+      3.15,
+      3.27,
+      4.78
+    ],
+    "note": "USDA：全脂牛奶（3.25% 乳脂）。"
+  },
+  {
+    "name": "低脂牛奶",
+    "aliases": [
+      "脱脂牛奶",
+      "skim milk"
+    ],
+    "category": "dairy",
+    "basis": "as_served",
+    "portion": 250,
+    "fdcId": "173432",
+    "description": "Milk, nonfat, fluid, without added vitamin A and vitamin D (fat free or skim)",
+    "per100": [
+      35,
+      3.37,
+      0.18,
+      4.86
+    ],
+    "note": "USDA：脱脂（无脂）牛奶。"
+  },
+  {
+    "name": "酸奶",
+    "aliases": [
+      "原味酸奶"
+    ],
+    "category": "dairy",
+    "basis": "as_served",
+    "portion": 150,
+    "fdcId": "171284",
+    "description": "Yogurt, plain, whole milk",
+    "per100": [
+      61,
+      3.47,
+      3.25,
+      4.66
+    ],
+    "note": "USDA：原味全脂酸奶；含糖风味酸奶不可套用。"
+  },
+  {
+    "name": "花生",
+    "aliases": [
+      "花生仁"
+    ],
+    "category": "nut",
+    "basis": "raw",
+    "portion": 25,
+    "fdcId": "172430",
+    "description": "Peanuts, all types, raw",
+    "per100": [
+      567,
+      25.8,
+      49.24,
+      16.13
+    ],
+    "note": "USDA：花生仁，生重；未计炒制用油。"
+  },
+  {
+    "name": "核桃",
+    "aliases": [
+      "核桃仁"
+    ],
+    "category": "nut",
+    "basis": "raw",
+    "portion": 20,
+    "fdcId": "170187",
+    "description": "Nuts, walnuts, english",
+    "per100": [
+      654,
+      15.23,
+      65.21,
+      13.71
+    ],
+    "note": "USDA：核桃仁，生重。"
+  },
+  {
+    "name": "杏仁",
+    "aliases": [
+      "巴旦木"
+    ],
+    "category": "nut",
+    "basis": "as_served",
+    "portion": 25,
+    "fdcId": "170158",
+    "description": "Nuts, almonds, dry roasted, without salt added",
+    "per100": [
+      598,
+      20.96,
+      52.54,
+      21.01
+    ],
+    "note": "USDA：杏仁，干炒不加盐。"
+  },
+  {
+    "name": "腰果",
+    "aliases": [],
+    "category": "nut",
+    "basis": "as_served",
+    "portion": 25,
+    "fdcId": "170571",
+    "description": "Nuts, cashew nuts, dry roasted, without salt added",
+    "per100": [
+      574,
+      15.31,
+      46.35,
+      32.69
+    ],
+    "note": "USDA：腰果，干炒不加盐。"
+  },
+  {
+    "name": "板栗",
+    "aliases": [
+      "栗子"
+    ],
+    "category": "nut",
+    "basis": "raw",
+    "portion": 50,
+    "fdcId": "170164",
+    "description": "Nuts, chestnuts, chinese, raw",
+    "per100": [
+      224,
+      4.2,
+      1.11,
+      49.07
+    ],
+    "note": "USDA：板栗（中国种），生重。"
+  },
+  {
+    "name": "花生酱",
+    "aliases": [],
+    "category": "nut",
+    "basis": "as_served",
+    "portion": 15,
+    "fdcId": "174266",
+    "description": "Peanut butter, smooth style, with salt (Includes foods for USDA's Food Distribution Program)",
+    "per100": [
+      598,
+      22.21,
+      51.36,
+      22.31
+    ],
+    "note": "USDA：顺滑花生酱（含盐）。"
+  },
+  {
+    "name": "芝麻",
+    "aliases": [
+      "白芝麻"
+    ],
+    "category": "nut",
+    "basis": "raw",
+    "portion": 10,
+    "fdcId": "170150",
+    "description": "Seeds, sesame seeds, whole, dried",
+    "per100": [
+      573,
+      17.73,
+      49.67,
+      23.45
+    ],
+    "note": "USDA：整粒干芝麻。"
+  },
+  {
+    "name": "南瓜子",
+    "aliases": [
+      "南瓜籽"
+    ],
+    "category": "nut",
+    "basis": "raw",
+    "portion": 15,
+    "fdcId": "170556",
+    "description": "Seeds, pumpkin and squash seed kernels, dried",
+    "per100": [
+      559,
+      30.23,
+      49.05,
+      10.71
+    ],
+    "note": "USDA：南瓜子仁，干重。"
+  },
+  {
+    "name": "橄榄油",
+    "aliases": [],
+    "category": "oil",
+    "basis": "as_served",
+    "portion": 10,
+    "fdcId": "171413",
+    "description": "Oil, olive, salad or cooking",
+    "per100": [
+      884,
+      0,
+      100,
+      0
+    ],
+    "note": "USDA：橄榄油；仅油本身。"
+  },
+  {
+    "name": "食用油",
+    "aliases": [
+      "植物油"
+    ],
+    "category": "oil",
+    "basis": "as_served",
+    "portion": 10,
+    "fdcId": "171410",
+    "description": "Oil, peanut, salad or cooking",
+    "per100": [
+      884,
+      0,
+      100,
+      0
+    ],
+    "note": "USDA：花生油；仅油本身。混合菜已含示例用油，勿重复加计。"
+  },
+  {
+    "name": "芝麻油",
+    "aliases": [
+      "香油"
+    ],
+    "category": "oil",
+    "basis": "as_served",
+    "portion": 10,
+    "fdcId": "171016",
+    "description": "Oil, sesame, salad or cooking",
+    "per100": [
+      884,
+      0,
+      100,
+      0
+    ],
+    "note": "USDA：芝麻油；仅油本身。"
+  },
+  {
+    "name": "白糖",
+    "aliases": [
+      "白砂糖"
+    ],
+    "category": "seasoning",
+    "basis": "as_served",
+    "portion": 10,
+    "fdcId": "169655",
+    "description": "Sugars, granulated",
+    "per100": [
+      387,
+      0,
+      0,
+      99.98
+    ],
+    "note": "USDA：白砂糖；糖本身，不自动加入其他食物。"
+  },
+  {
+    "name": "蜂蜜",
+    "aliases": [],
+    "category": "seasoning",
+    "basis": "as_served",
+    "portion": 15,
+    "fdcId": "169640",
+    "description": "Honey",
+    "per100": [
+      304,
+      0.3,
+      0,
+      82.4
+    ],
+    "note": "USDA：蜂蜜；糖分高，按实际用量记录。"
+  },
+  {
+    "name": "酱油",
+    "aliases": [
+      "生抽"
+    ],
+    "category": "seasoning",
+    "basis": "as_served",
+    "portion": 10,
+    "fdcId": "174277",
+    "description": "Soy sauce made from soy and wheat (shoyu)",
+    "per100": [
+      53,
+      8.14,
+      0.57,
+      4.93
+    ],
+    "note": "USDA：酱油（大豆与小麦酿造）。"
+  },
+  {
+    "name": "醋",
+    "aliases": [
+      "米醋",
+      "香醋"
+    ],
+    "category": "seasoning",
+    "basis": "as_served",
+    "portion": 10,
+    "fdcId": "172237",
+    "description": "Vinegar, distilled",
+    "per100": [
+      18,
+      0,
+      0,
+      0.04
+    ],
+    "note": "USDA：蒸馏醋；几乎不含热量。"
+  }
+]

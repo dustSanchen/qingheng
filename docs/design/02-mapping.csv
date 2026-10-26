@@ -1,0 +1,177 @@
+﻿value,kind,role,target_token,deltaE00,deltaL,deltaHue,contrast_after,reason
+#44755d,color,成功态/混合,--ok,5.7,1.9,16.4,4.87,"你的决定2 归 --ok。5处按 selector 拆：L202 .tone-ok→--ok；L201 .tone-weight→--tone-weight（体重指标色，不是成功态）；L261 .check-row.ok 的 var(--accent,#44755d) 是回退值，--accent 已定义故永不生效，删回退即可；L127 .voice-bars 渐变终点→待人工；L50 --mint-dark 定义废弃"
+#5c6e5f,color,次要文字,--ink-soft,0.0,0.0,0.0,4.59,label{color}; .app-dialog-panel p{color}; .row-meta b{color}；过阈值（你的决定3）
+#71937b,color,主色填充,保留,17.0,16.5,3.3,6.05,.chart-line{stroke}; .chart-point{stroke}；未过：ΔE00=17.0>8
+#4c6353,color,次要文字,--ink-soft,4.8,4.9,4.4,4.59,.answer-table th{color}; .stats-table thead th{color}；过阈值（你的决定3）
+#3f7a5e,color,主色文字,--accent,6.1,5.4,11.1,6.05,.stats-down{color}; .stats-good{color}；过阈值
+#3f6b4a,color,token定义,--accent,,,,,第2行的 --accent 定义，不归并不改值；--accent 保持 #3f6b4a，不动（你的决定2）
+#4f7a52,color,token定义,--ok,,,,,第2行的 --ok 定义，不归并不改值
+#59725e,color,次要文字,--ink-soft,3.2,1.0,0.7,4.59,".status-chip,.tag{color}；过阈值（你的决定3）"
+#829480,color,次要文字,保留,14.7,14.8,7.3,3.18,.eyebrow{color}；未过：ΔE00=14.7>8、自身对比度3.18<4.5
+#7d9c77,color,主色文字,保留,20.1,19.9,10.4,6.05,.leaf{color}；未过：ΔE00=20.1>8
+#729780,color,主色填充,保留,18.4,17.9,6.6,6.05,.energy-ring{background}；未过：ΔE00=18.4>8
+#365e4a,color,主色填充,--accent,5.9,4.8,10.7,6.05,.primary:hover{background}；过阈值
+#2f5340,color,主色填充,保留,8.9,9.2,9.3,6.05,.primary:active{background}；未过：ΔE00=8.9>8
+#516d57,color,主色文字,--accent,5.3,2.0,0.2,6.05,.subtle{color}；过阈值
+#7d946e,color,主色文字,保留,18.2,17.3,17.5,6.05,.habit-symbol{color}；未过：ΔE00=18.2>8
+#5e715e,color,次要文字,--ink-soft,1.9,1.0,4.9,4.59,.advice-list{color}；过阈值（你的决定3）
+#6e906c,color,主色文字,保留,15.3,15.1,7.6,6.05,.upload-label>span{color}；未过：ΔE00=15.3>8
+#3f6b53,color,主色填充,--accent,3.0,0.2,8.5,6.05,.chart-value{fill}；过阈值
+#44755d22,shadow,选中环,--ring-select,,,,,.goal-card:has(input:checked){box-shadow}；你的决定：选中环单列；基色是旧主色 #44755d
+#3f5d47,color,主色文字,--accent,5.9,4.7,1.5,6.05,.target-status{color}；过阈值
+#647a67,color,次要文字,--ink-soft,4.7,4.4,1.1,4.59,.row-tag{color}；过阈值（你的决定3）
+#4f6456,color,次要文字,--ink-soft,4.1,4.3,5.8,4.59,.answer{color}；过阈值（你的决定3）
+#4d6355,color,次要文字,--ink-soft,4.6,4.8,7.0,4.59,.sheet-title{color}；过阈值（你的决定3）
+#6f8f74,color,主色填充,保留,15.4,15.1,1.5,6.05,.check-item.ok .check-dot{background}；未过：ΔE00=15.4>8
+#3f6b52,color,token定义,--ok,,,,,第549行 (账本)的 --ok 定义，不归并不改值
+#eef4ea,color,背景,--accent-soft,0.0,0.0,0.0,5.50,.fav-badge{background}; .plan-today{background}；另为 --ok-soft 定义；过阈值
+#fbfcf8,color,背景,--accent-soft,4.3,3.3,12.5,5.50,"input,textarea,select{background}; .goal-card{background}; .capture-button{background}；过阈值"
+#f4f8f2,color,背景,--accent-soft,2.3,1.6,2.3,5.50,.sheet-option:active{background}; .hub-row:active{background}; #storage-status{background}；过阈值
+#e3e7e2,color,描边-控件,保留,3.7,0.2,0.4,1.23,".training-row{border}; .answer-table th,.answer-table td{border-bottom}；另有 描边-控件×1；未过：控件边界，与底色对比度1.23<3:1"
+#eff4e9,color,背景,--accent-soft,0.6,0.0,5.1,5.50,.soft-card{background}; .bottom-nav button[aria-current=pa{background}；过阈值
+#f5f7f1,color,背景,--accent-soft,2.9,1.4,9.4,5.50,.collapse-toggle{background}; .recalc-item{background}；过阈值
+#f1f6f0,color,背景,--accent-soft,2.0,0.9,7.4,5.50,.answer-table th{background}; .stats-table thead th{background}；过阈值
+#e8f0e9,color,背景,--accent-soft,1.7,1.5,15.5,5.50,".segment[aria-selected=""true""]{background}; .quick-chip:active{background}；过阈值"
+#f1f3ee,color,token定义,--diet-track,,,,,第2行的 --diet-track 定义，不归并不改值
+#edf2e7,color,token定义,--diet-band,,,,,第2行的 --diet-band 定义，不归并不改值
+#dbe5d2,color,token定义,--diet-band-line,,,,,第2行的 --diet-band-line 定义，不归并不改值
+#cfe0cb,color,token定义,--ok-line,,,,,第2行的 --ok-line 定义，不归并不改值
+#e6f0e6,color,token定义,--mint,,,,,第50行的 --mint 定义，不归并不改值
+#e4e9df,color,token定义,--line,,,,,第50行的 --line 定义，不归并不改值
+#edf2e9,color,背景,--accent-soft,0.7,0.6,1.5,5.50,".status-chip,.tag{background}；过阈值"
+#e9f1e5,color,背景,--accent-soft,1.5,1.2,2.1,5.50,.soft-card{background}；过阈值
+#edf1e8,color,背景,--accent-soft,1.1,0.9,5.4,5.50,.energy-ring{background}；过阈值
+#f0f3eb,color,背景,--accent-soft,1.7,0.1,7.9,5.50,.subtle{background}；过阈值
+#e3e9dd,color,描边-装饰,--accent-line,1.3,0.5,10.3,1.23,.subtle{border-color}；装饰性描边，豁免对比度
+#e3eadf,color,背景,--accent-soft,2.3,3.6,1.2,5.50,.subtle:active{background}；过阈值
+#eef1e8,color,背景,--accent-soft,1.5,0.8,9.5,5.50,.progress-track{background}；过阈值
+#e8eee2,color,背景,--accent-soft,1.6,2.1,3.5,5.50,.habit-symbol{background}；过阈值
+#e0e6db,color,描边-控件,保留,1.3,0.5,8.7,1.23,"input,textarea,select{border}；未过：控件边界，与底色对比度1.23<3:1"
+#f6f8f0,color,背景,--accent-soft,2.4,1.7,12.6,5.50,.upload-area{background}；过阈值
+#e8ede3,color,描边-装饰,--accent-line,2.2,2.1,10.3,1.23,.chart-grid{stroke}；装饰性描边，豁免对比度
+#f2f6ee,color,背景,--accent-soft,1.4,0.9,3.4,5.50,.bottom-nav button:active{background}；过阈值
+#eef5ec,color,背景,--accent-soft,0.6,0.3,5.7,5.50,.goal-card:has(input:checked){background}；过阈值
+#f1f6ee,color,背景,--accent-soft,1.1,0.8,0.9,5.50,.target-status{background}；过阈值
+#cfe0d2,color,描边-装饰,--accent-line,4.0,3.5,10.1,1.23,.page-footer .page-author a{border-bottom}；装饰性描边，豁免对比度
+#eaf1e8,color,背景,--accent-soft,0.9,1.1,5.7,5.50,.collapse-toggle:hover{background}；过阈值
+#e0eadb,color,背景,--accent-soft,3.7,3.9,2.1,5.50,".collapse-toggle:active,.recalc-it{background}；过阈值"
+#f2f6f1,color,背景,--accent-soft,2.6,1.0,6.4,5.50,.data-preview-panel pre.data-previ{background}；过阈值
+#f2f7f0,color,背景,--accent-soft,1.6,1.2,3.8,5.50,.draft-box{background}；过阈值
+#cfe3d67a,shadow,焦点环,--ring-focus,,,,,input:not([type=checkbox]):not([ty{box-shadow}；⚠原为 3px 淡晕(alpha .48)，并入后变成 3px 实线 #78a992，观感明显变重，需截图
+#f2f7f1,color,背景,--accent-soft,2.0,1.2,7.4,5.50,button.food-result.list-row:hover{background}；过阈值
+#f4f7f2,color,背景,--accent-soft,2.9,1.4,0.1,5.50,.icon-button:active{background}；过阈值
+#f0f4ec,color,背景,--accent-soft,1.3,0.2,3.4,5.50,.row-tag{background}；过阈值
+#dfe8dd,color,描边-装饰,--accent-line,0.0,0.0,0.0,1.23,.stats-table thead th{border-bottom}；装饰性描边，豁免对比度
+#f6faf5,color,背景,--accent-soft,2.9,2.4,6.4,5.50,.is-selecting{background}；过阈值
+#c9dcc9,color,描边-控件,保留,6.0,5.1,4.8,1.23,.chip-toggle[aria-pressed=true]{border-color}；未过：控件边界，与底色对比度1.23<3:1
+#f7faf4,color,背景,--accent-soft,2.8,2.4,3.4,5.50,.training-draft{background}；过阈值
+#f6f8f3,color,背景,--accent-soft,3.3,1.8,6.9,5.50,.diet-audit{background}；过阈值
+#eef3f0,color,token定义,--ok-soft,,,,,第549行 (账本)的 --ok-soft 定义，不归并不改值
+#cfdfd8,color,token定义,--ok-line,,,,,第549行 (账本)的 --ok-line 定义，不归并不改值
+#f2f5f4,color,token定义,--surface-soft,,,,,第549行 (账本)的 --surface-soft 定义，不归并不改值
+#eef1f0,color,token定义,--diet-track,,,,,第549行 (账本)的 --diet-track 定义，不归并不改值
+#eaf1ec,color,token定义,--diet-band,,,,,第549行 (账本)的 --diet-band 定义，不归并不改值
+#d6e2dc,color,token定义,--diet-band-line,,,,,第549行 (账本)的 --diet-band-line 定义，不归并不改值
+#f4f6f4,color,背景,--accent-soft,4.5,1.2,12.1,5.50,"[data-skin=""ledger""] .segment-bar,{background}；过阈值"
+#9dbb9b,shadow,闪烁环,--flash-ring,,,,,0%{box-shadow}; 70%{box-shadow}；@keyframes quickFlash，非焦点环
+#9cbaa2,color,token定义,--diet-in,,,,,第2行的 --diet-in 定义，不归并不改值
+#78a992,color,焦点环,--ring-focus-color,,,,2.62,"button:focus-visible,a:focus-visib{outline}；你的决定4：唯一色源；⚠与 #fffdf7 对比度2.62，低于 3:1（WCAG 非文本对比）"
+#8ca790,color,主色填充,保留,24.5,24.6,1.3,6.05,.progress-track span{background}；未过：ΔE00=24.5>8
+#a0b397,color,主色文字,保留,28.4,29.5,14.7,6.05,.empty-state span{color}；未过：ΔE00=28.4>8
+#c9d8c5,color,描边-装饰,--accent-line,5.7,6.3,1.0,1.23,.upload-area{border}；装饰性描边，豁免对比度
+#97a08f,color,主色文字,保留,25.7,23.4,19.4,6.05,.bottom-nav button{color}；未过：ΔE00=25.7>8
+#b8cfb6,color,描边-装饰,保留,10.0,10.2,2.5,1.23,.draft-box{border}；未过：ΔE00=10.0>6
+#a9c6b3,color,焦点环,--ring-focus-color-soft,,,,1.81,input:not([type=checkbox]):not([ty{border-color}；你的决定4：input:focus 的 border-color；⚠与 #fffdf7 对比度仅1.81，须与 --ring-focus 同时出现，不能单独当焦点指示
+#7fae92,color,主色填充,保留,24.9,25.8,7.5,6.05,.voice-bars span{background}；未过：ΔE00=24.9>8
+#86988a,color,次要文字,保留,16.2,16.5,2.2,3.00,.answer-eyebrow{color}；未过：ΔE00=16.2>8、自身对比度3.00<4.5
+#c9d8c6,color,描边-装饰,--accent-line,5.5,6.3,0.3,1.23,.training-draft{border-color}；装饰性描边，豁免对比度
+#cbd8c8,color,背景,保留,7.7,10.5,6.5,5.50,.check-dot{background}；未过：ΔE00=7.7>6、|ΔL*|=10.5>4
+#95b39c,color,token定义,--diet-in,,,,,第549行 (账本)的 --diet-in 定义，不归并不改值
+#293c3280,color,遮罩,--overlay,0.0,0.0,0.0,,.voice-sheet{background}; .sheet{background}；alpha=0.50，按 ≥.30 分两档（--overlay / --overlay-weak，后者是本轮新增、tokens.md 未登记）
+#293c3226,shadow,阴影,--elev-3,0.0,0.0,0.0,,.voice-panel{box-shadow}; .sheet-panel{box-shadow}；按几何分档 → --elev-3
+#293c3230,shadow,阴影,--elev-4,0.0,0.0,0.0,,dialog{box-shadow}；按几何分档 → --elev-4
+#293c3260,color,遮罩,--overlay,0.0,0.0,0.0,,dialog::backdrop{background}；alpha=0.38，按 ≥.30 分两档（--overlay / --overlay-weak，后者是本轮新增、tokens.md 未登记）
+#293c32,color,token定义,--ink,,,,,第50行的 --ink 定义，不归并不改值
+#31463115,shadow,阴影,--elev-2,5.6,4.0,17.2,,.bottom-nav{box-shadow}；按几何分档 → --elev-2
+#293c3270,color,遮罩,--overlay,0.0,0.0,0.0,,.app-dialog{background}；alpha=0.44，按 ≥.30 分两档（--overlay / --overlay-weak，后者是本轮新增、tokens.md 未登记）
+#293c3235,shadow,阴影,--elev-4,0.0,0.0,0.0,,.app-dialog-panel{box-shadow}；按几何分档 → --elev-4
+#3146310f,shadow,阴影,--elev-3,5.6,4.0,17.2,,.onboarding-actions{box-shadow}；按几何分档 → --elev-3
+#3146310a,shadow,阴影,--elev-2,5.6,4.0,17.2,,.segment-bar{box-shadow}；按几何分档 → --elev-2
+#a8622c,color,文字,--warn,0.0,0.0,0.0,4.64,.stats-up{color}; .stats-bad{color}；另为 --warn 定义；最近 --warn，过阈值
+#dfcaa5,color,token定义,--diet-low,,,,,第2行的 --diet-low 定义，不归并不改值
+#d39273,color,token定义,--diet-over,,,,,第2行的 --diet-over 定义，不归并不改值
+#8f6a39,color,文字,保留,9.0,1.0,14.5,4.64,.status-chip.offline{color}；最近 --warn(#a8622c)，未过：ΔE00=9.0>8
+#c5b58f,color,填充,待人工,,,,,.macro-grid>div:nth-child(2) .prog{background}；.macro-grid 第 n 格进度条色；需看 index.html 确认对应哪个营养素
+#7c6a48,color,文字,保留,15.1,2.8,24.6,4.64,.target-status.empty{color}；最近 --warn(#a8622c)，未过：ΔE00=15.1>8、|Δhue|=25°>20
+#e0c79a,color,描边-装饰,保留,7.6,4.6,2.3,1.42,#undated-meals{border}；最近 --warn-line(#e4d5bf)，未过：ΔE00=7.6>6
+#8a5a2b,color,tone,--tone-protein,,,,5.77,.tone-protein{color}；你的决定2：.tone-* 有多个语义色，另开 --tone-* 组，两皮肤同值
+#b08430,color,tone,--tone-tip,,,,3.34,.tone-tip{color}；你的决定2：.tone-* 有多个语义色，另开 --tone-* 组，两皮肤同值
+#95602b,color,token定义,--warn,,,,,第549行 (账本)的 --warn 定义，不归并不改值
+#dcc9a8,color,token定义,--diet-low,,,,,第549行 (账本)的 --diet-low 定义，不归并不改值
+#cf9578,color,token定义,--diet-over,,,,,第549行 (账本)的 --diet-over 定义，不归并不改值
+#a74638,color,填充,--danger,0.0,0.0,0.0,5.77,.app-dialog-panel.danger #app-dial{background}；另为 --danger 定义；最近 --danger，过阈值
+#9c6d61,color,文字,保留,12.8,7.9,3.7,5.77,.delete-meal{color}; .remove-item{color}；最近 --danger(#a74638)，未过：ΔE00=12.8>8
+#eddcd7,color,描边-控件,保留,2.5,1.3,12.3,1.35,.icon-button.danger{border-color}；最近 --danger-line(#ecd8ce)，未过：控件边界，与底色对比度1.35<3:1
+#fdeceb,color,背景,--danger-soft,3.6,0.2,30.5,9.49,.render-error{background}；最近 --danger-soft，过阈值
+#e8b4ae,color,描边-装饰,保留,12.6,9.9,24.8,1.35,.render-error{border}；最近 --danger-line(#ecd8ce)，未过：ΔE00=12.6>6
+#7d2a22,color,文字,保留,10.9,12.8,1.4,5.77,.render-error{color}；最近 --danger(#a74638)，未过：ΔE00=10.9>8
+#7d2a2214,shadow,阴影,保留,28.8,23.5,75.6,,.render-error{box-shadow}；红色调投影，是错误态语义，基色与 --shadow-rgb 偏差大
+#c9776f,color,填充,保留,16.9,16.2,5.6,5.77,.check-item.bad .check-dot{background}；最近 --danger(#a74638)，未过：ΔE00=16.9>8
+#9c4a3e,color,token定义,--danger,,,,,第549行 (账本)的 --danger 定义，不归并不改值
+#f7eeec,color,token定义,--danger-soft,,,,,第549行 (账本)的 --danger-soft 定义，不归并不改值
+#e8d6d2,color,token定义,--danger-line,,,,,第549行 (账本)的 --danger-line 定义，不归并不改值
+#fffefa,color,背景,--paper,0.0,0.0,0.0,10.80,.chart-point{fill}；另为 --paper 定义；最近 --paper，过阈值
+#f3f2ee,color,token定义,--surface-soft,,,,,第2行的 --surface-soft 定义，不归并不改值
+#e6dfd8,color,token定义,--line,,,,,第2行的 --line 定义，不归并不改值；⚠被第50行 :root 覆盖，纸感下不生效
+#fffdf7,color,token定义,--surface,,,,,第2行的 --surface 定义，不归并不改值
+#f5f1e7,color,token定义,--paper,,,,,第2行的 --paper 定义，不归并不改值；⚠被第50行 :root 覆盖，纸感下不生效
+#f6efe3,color,token定义,--warn-soft,,,,,第2行的 --warn-soft 定义，不归并不改值
+#e4d5bf,color,token定义,--warn-line,,,,,第2行的 --warn-line 定义，不归并不改值
+#f9ede7,color,token定义,--danger-soft,,,,,第2行的 --danger-soft 定义，不归并不改值
+#ecd8ce,color,token定义,--danger-line,,,,,第2行的 --danger-line 定义，不归并不改值
+#f7f8f2,color,token定义,--cream,,,,,第50行的 --cream 定义，不归并不改值；旧调色板别名，需确认引用后可废弃
+#f5eadc,color,背景,--warn-soft,2.0,1.5,6.9,9.54,.status-chip.offline{background}；最近 --warn-soft，过阈值
+#f6f7f0,color,背景,--surface-soft,2.1,1.5,15.4,9.73,.habit-tile{background}；最近 --surface-soft，过阈值
+#f3f4e9,color,背景,--accent-soft,2.2,0.3,18.9,9.74,.advice-card{background}；最近 --accent-soft，过阈值
+#f6f7f1,color,背景,--surface-soft,1.8,1.5,16.4,9.73,th{background}；最近 --surface-soft，过阈值
+#f7f4ec,color,背景,--surface-soft,1.9,0.7,5.0,9.73,.target-status.empty{background}；最近 --surface-soft，过阈值
+#fbf6ec,color,背景,--warn-soft,1.8,2.3,3.1,9.54,#undated-meals{background}；最近 --warn-soft，过阈值
+#f4f1ea,color,token定义,--warn-soft,,,,,第549行 (账本)的 --warn-soft 定义，不归并不改值
+#e2dccf,color,token定义,--warn-line,,,,,第549行 (账本)的 --warn-line 定义，不归并不改值
+#fff,color,背景/文字,--surface,,,,,"实际3处：.primary{color}→--on-accent；.check-row/.training-row 的 var(--card,#fff) 回退值→--surface。⚠--card 全文件 0 处定义、7 处使用，回退值恒生效，这些行实际一直是纯白而非 --surface；按 selector 拆分，值级别记 --surface"
+#141413,color,token定义,--ink,,,,,第2行的 --ink 定义，不归并不改值；⚠被第50行 :root 覆盖，纸感下不生效
+#3d3d3a,color,token定义,--body-text,,,,,第2行的 --body-text 定义，不归并不改值
+#6c6a64,color,token定义,--muted,,,,,第2行的 --muted 定义，不归并不改值；⚠被第50行 :root 覆盖，纸感下不生效
+#7c897f,color,token定义,--muted,,,,,第50行的 --muted 定义，不归并不改值
+#a0aaa0,color,文字,保留,11.0,12.8,6.9,3.60,"input::placeholder,textarea::place{color}；最近 --muted(#7c897f)，未过：ΔE00=11.0>8、目标对比度3.60<4.5"
+#67766c,color,文字,--ink-soft,4.3,3.6,6.4,5.36,.chart-text{fill}；最近 --ink-soft，过阈值
+#77897b,color,文字,保留,2.7,0.5,0.6,3.60,.row-tag.subtle-tag{color}；最近 --muted(#7c897f)，未过：目标对比度3.60<4.5
+#7f9184,color,tone,--tone-neutral,,,,3.28,.tone-neutral{color}；你的决定2：.tone-* 有多个语义色，另开 --tone-* 组，两皮肤同值
+#b3bdb2,color,文字,保留,16.2,19.8,9.3,3.60,.hub-arrow{color}；最近 --muted(#7c897f)，未过：ΔE00=16.2>8、目标对比度3.60<4.5
+#00000010,color,按压态,保留,,,,,.notice-close:active{background}；黑色 6% 按压叠层，无对应 token
+#ffffff,color,token定义,--surface,,,,,第549行 (账本)的 --surface 定义，不归并不改值
+#3a3d3c,color,token定义,--body-text,,,,,第549行 (账本)的 --body-text 定义，不归并不改值
+#6a6d6b,color,token定义,--muted,,,,,第549行 (账本)的 --muted 定义，不归并不改值
+"rgba(20,20,19,.5)",shadow,阴影,--elev-3,0.0,0.0,0.0,,".term-panel{box-shadow}; .busy-card{box-shadow}；按几何分档 → --elev-3；⚠基色=账本中性灰 rgb(20,20,19)，纸感下阴影会由偏绿变中性"
+"rgba(47,73,52,.045)",shadow,token定义,--elev-1,,,,,--shadow 第50行；与 --shape-card-shadow 角色相同，建议并入 --elev-1
+"rgba(68,117,93,.26)",shadow,阴影,待人工,19.8,21.8,0.4,,.primary{box-shadow}；.primary 按钮光晕，基色取自旧主色 #44755d；要随主色需先决定是否新增 --accent-rgb
+"rgba(68,117,93,.22)",shadow,阴影,待人工,19.8,21.8,0.4,,.primary:active{box-shadow}；.primary 按钮光晕，基色取自旧主色 #44755d；要随主色需先决定是否新增 --accent-rgb
+"rgba(255,254,250,.96)",color,半透明底,待人工,,,,,.bottom-nav{background}；--paper 的半透明变体；账本皮肤 --paper 是 #f2f5f7，这里写死暖白会错色。需先定是否新增 --paper-rgb
+"rgba(255,254,250,0)",color,半透明底,待人工,,,,,.answer.is-clamped::after{background}；--paper 的半透明变体；账本皮肤 --paper 是 #f2f5f7，这里写死暖白会错色。需先定是否新增 --paper-rgb
+"rgba(30,30,26,.035)",shadow,阴影,删除(死代码),3.7,4.8,0.9,,.card{box-shadow}；.card 的 box-shadow 在 L497、L510(none)、L806(var(--shape-card-shadow)) 各写一次，同选择器同特异性，后者胜出，L497 这条不生效
+"rgba(30,30,26,.18)",shadow,阴影,删除(死代码),3.7,4.8,0.9,,.card{box-shadow}；.card 的 box-shadow 在 L497、L510(none)、L806(var(--shape-card-shadow)) 各写一次，同选择器同特异性，后者胜出，L497 这条不生效
+"rgba(255,254,251,.72)",color,半透明底,待人工,,,,,".segment-bar,.records-tabs{background}；--paper 的半透明变体；账本皮肤 --paper 是 #f2f5f7，这里写死暖白会错色。需先定是否新增 --paper-rgb"
+"rgba(20,20,19,.28)",color,遮罩,--overlay-weak,0.0,0.0,0.0,,.term-sheet{background}；alpha=0.28，按 ≥.30 分两档（--overlay / --overlay-weak，后者是本轮新增、tokens.md 未登记）；⚠基色=账本中性灰
+"rgba(20,20,19,.045)",shadow,token定义,--shape-card-shadow,,,,,第790行；该 token 在第 790、837 行各定义一次，前者被后者覆盖；⚠被第837行 :root 覆盖，纸感下不生效
+"rgba(20,20,19,.035)",shadow,token定义,--shape-card-shadow,,,,,第837行；该 token 在第 790、837 行各定义一次，前者被后者覆盖
+"rgba(20,20,19,.18)",color,遮罩,--overlay-weak,0.0,0.0,0.0,,.busy-layer{background}；alpha=0.18，按 ≥.30 分两档（--overlay / --overlay-weak，后者是本轮新增、tokens.md 未登记）；⚠基色=账本中性灰
+"rgba(255,255,255,.55)",color,高光,保留,,,,,.inline-busy::after{background}；白色高光，流光动画用，不随主题
+"rgba(20,20,19,.55)",shadow,阴影,--elev-2,0.0,0.0,0.0,,"#global-notice{box-shadow}；按几何分档 → --elev-2；⚠基色=账本中性灰 rgb(20,20,19)，纸感下阴影会由偏绿变中性"
+#a4b7bd,color,填充,待人工,,,,,.macro-grid>div:nth-child(3) .prog{background}；.macro-grid 第 n 格进度条色；需看 index.html 确认对应哪个营养素
+#6b6191,color,tone,--tone-carb,,,,5.51,.tone-carb{color}；你的决定2：.tone-* 有多个语义色，另开 --tone-* 组，两皮肤同值
+#3f6c8a,color,tone,--tone-training,,,,5.54,.tone-training{color}；你的决定2：.tone-* 有多个语义色，另开 --tone-* 组，两皮肤同值
+#5c6a9c,color,tone,--tone-sleep,,,,5.17,.tone-sleep{color}；你的决定2：.tone-* 有多个语义色，另开 --tone-* 组，两皮肤同值
+#3f7c95,color,tone,--tone-water,,,,4.56,.tone-water{color}；你的决定2：.tone-* 有多个语义色，另开 --tone-* 组，两皮肤同值
+#f2f5f7,color,token定义,--paper,,,,,第549行 (账本)的 --paper 定义，不归并不改值
+#dfe3e8,color,token定义,--line,,,,,第549行 (账本)的 --line 定义，不归并不改值
+#16181a,color,token定义,--ink,,,,,第549行 (账本)的 --ink 定义，不归并不改值

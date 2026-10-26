@@ -1,0 +1,10 @@
+﻿import fs from 'node:fs';
+const html = fs.readFileSync('app/src/main/assets/index.html','utf8');
+const start = html.indexOf('<section class="view" id="view-records"');
+const end = html.indexOf('<section class="view" id="view-chat"');
+const section = html.slice(start, end > start ? end : undefined);
+console.log('records section chars:', section.length);
+const cards = [...section.matchAll(/<article class="card"[^>]*>[\s\S]{0,220}?<h2>([^<]+)<\/h2>/g)].map(m => m[1]);
+console.log('cards:', cards.join(' | '));
+const ids = [...section.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]);
+console.log('ids:', ids.slice(0, 40).join(', '));
