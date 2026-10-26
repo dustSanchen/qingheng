@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.1.55';
+  const APP_VERSION = '1.1.56';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -528,8 +528,9 @@
   }
   const SKIN_KEY = 'qingheng.skin';
   function currentSkin() {
-    try { const saved = localStorage.getItem(SKIN_KEY); return SKINS.includes(saved) ? saved : 'paper'; }
-    catch (error) { return 'paper'; }
+    // 默认「自动」：系统深色时全程账本（夜间模式开箱即用），浅色时趋势页账本、其余纸感。
+    try { const saved = localStorage.getItem(SKIN_KEY); return SKINS.includes(saved) ? saved : 'auto'; }
+    catch (error) { return 'auto'; }
   }
   function applySkin(name, persist = true) {
     const choice = SKINS.includes(name) ? name : 'paper';
