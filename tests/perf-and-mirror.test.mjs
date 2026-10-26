@@ -10,6 +10,7 @@ const read = path => fs.readFileSync(path, 'utf8');
 const main = read('app/src/main/java/cn/qingheng/health/MainActivity.java');
 const app = read('app/src/main/assets/app.js');
 const html = read('app/src/main/assets/index.html');
+const sync = read('app/src/main/java/cn/qingheng/health/SyncDatabase.java');
 
 // --- the mirror no longer runs on the caller's thread --------------------------------------------------
 check('a single-thread mirror executor exists', main.includes('Executors.newSingleThreadExecutor(runnable -> new Thread(runnable, "qingheng-mirror"))'));
@@ -25,6 +26,10 @@ check('restore keeps an undo copy of the current state', main.includes('pre-rest
 check('restore refuses a missing or corrupt backup', main.includes('还没有应用内自动备份') && main.includes('备份文件无法解析'));
 check('the about page offers the restore entry', html.includes('id="backup-restore"'));
 check('the restore flow double-confirms', app.includes('再次确认：覆盖后当前内容只能通过底档找回'));
+check('the mirror updates by record id instead of dropping the table', !sync.includes('db.delete(MIRROR, null, null)') && sync.includes('collection=? AND record_id=?'));
+check('unchanged mirror rows are skipped', sync.includes('unchanged') && sync.includes('wantedIds'));
+check('records dispatch lives in bridge.RecordsRoutes', fs.existsSync('app/src/main/java/cn/qingheng/health/bridge/RecordsRoutes.java') && main.includes('RecordsRoutes.handle(path, get, post, del, b, this)'));
+check('the about page leads with a plain-language storage summary', html.includes('id="storage-summary"') && app.includes('记录都保存在这台手机上'));
 
 // --- cold start is visible in the app --------------------------------------------------------------------
 check('the field exists', main.includes('private long coldStartMs;'));

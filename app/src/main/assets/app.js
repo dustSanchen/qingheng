@@ -4101,7 +4101,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.1.57';
+  const APP_VERSION = '1.1.58';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -4556,8 +4556,19 @@ const values = points.length<=7 ? points.map((item,i) => {
       const data = await api(remirror ? '/api/storage-remirror' : '/api/storage-status', remirror ? {} : undefined);
       if (!node) return data;
       const json = data?.json || {}, sqlite = data?.sqlite || {};
-      const parts = Object.keys(json).map(key => `${({meals:'餐食',measurements:'身体',habits:'习惯',chats:'问答'})[key] || key} ${json[key]}`);
+      // 用户语言的主行：只说「记录在哪、有多少、备份了没」；JSON/SQLite 细节留在技术细节折叠里。
+      const summaryNode = $('#storage-summary');
+      if (summaryNode) {
+        const label = {meals:'餐食', measurements:'身体', habits:'习惯', chats:'问答'};
+        const plain = Object.keys(json).map(key => `${label[key] || key} ${json[key]}`);
+        const autoAt = number(data?.autoBackup?.at) !== null ? new Date(Number(data.autoBackup.at)).toLocaleString('zh-CN') : '';
+        const files = number(data?.autoBackup?.files);
+        summaryNode.textContent = `记录都保存在这台手机上：${plain.join('、')}`
+          + (files ? `；应用内自动备份 ${files} 份${autoAt ? `（最近 ${autoAt}）` : ''}，每 12 小时更新` : '')
+          + '。';
+      }
       const when = number(data?.lastMirroredAt) !== null ? new Date(Number(data.lastMirroredAt)).toLocaleString('zh-CN') : '尚未镜像';
+      const parts = Object.keys(json).map(key => `${({meals:'餐食',measurements:'身体',habits:'习惯',chats:'问答'})[key] || key} ${json[key]}`);
       // 应用内自动备份：只存在私有目录，最多 3 份；导出 SAF 文件仍是正式备份。
       const autoAt = number(data?.autoBackup?.at) !== null ? new Date(Number(data.autoBackup.at)).toLocaleString('zh-CN') : '尚无';
       node.textContent = `${data?.parity === true ? '一致' : '不一致'}｜JSON：${parts.join('、')}`

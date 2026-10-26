@@ -64,33 +64,48 @@ public final class SyncDatabase extends SQLiteOpenHelper {
     }
 
     /**
-     * Replaces the mirror with the current JSON snapshot inside one transaction: drop what is gone,
-     * write what exists, keep the original order. Cheap at this data size and always consistent.
+     * Brings the mirror in step with the current JSON snapshot inside one transaction. The table is
+     * keyed by (collection, record_id), so a save only touches what actually changed: new and
+     * modified records are upserted, records that disappeared are deleted, and rows whose payload
+     * is byte-identical are left alone — a save no longer rewrites the whole table.
      */
     public void mirrorAll(org.json.JSONObject state) throws Exception {
         SQLiteDatabase db = getWritableDatabase();
+        long now = System.currentTimeMillis();
         db.beginTransaction();
         try {
-            db.delete(MIRROR, null, null);
-            long now = System.currentTimeMillis();
             ContentValues values = new ContentValues();
             for (String collection : MIRRORED) {
                 JSONArray records = state == null ? null : state.optJSONArray(collection);
-                if (records == null) continue;
-                for (int i = 0; i < records.length(); i++) {
+                int count = records == null ? 0 : records.length();
+                // What this collection should hold after the pass; anything else is gone.
+                java.util.Set<String> wantedIds = new java.util.HashSet<>(count);
+                for (int i = 0; i < count; i++) {
                     JSONObject record = records.optJSONObject(i);
                     if (record == null) continue;
                     String id = record.optString("id", "");
                     if (id.isEmpty()) id = collection + "-" + i;
+                    wantedIds.add(id);
+                    String payload = record.toString();
+                    String date = record.optString("date", record.optString("day", ""));
+                    Cursor cursor = db.query(MIRROR, new String[]{"payload", "position"}, "collection=? AND record_id=?", new String[]{collection, id}, null, null, null);
+                    boolean unchanged = false;
+                    try { if (cursor.moveToFirst()) unchanged = payload.equals(cursor.getString(0)) && cursor.getInt(1) == i; } finally { cursor.close(); }
+                    if (unchanged) continue;
                     values.clear();
                     values.put("collection", collection);
                     values.put("record_id", id);
-                    values.put("record_date", record.optString("date", record.optString("day", "")));
+                    values.put("record_date", date);
                     values.put("position", i);
                     values.put("updated_at", now);
-                    values.put("payload", record.toString());
+                    values.put("payload", payload);
                     db.insertWithOnConflict(MIRROR, null, values, SQLiteDatabase.CONFLICT_REPLACE);
                 }
+                // Drop rows whose record no longer exists in the JSON.
+                java.util.List<String> gone = new java.util.ArrayList<>();
+                Cursor ids = db.query(MIRROR, new String[]{"record_id"}, "collection=?", new String[]{collection}, null, null, null);
+                try { while (ids.moveToNext()) { String id = ids.getString(0); if (!wantedIds.contains(id)) gone.add(id); } } finally { ids.close(); }
+                for (String id : gone) db.delete(MIRROR, "collection=? AND record_id=?", new String[]{collection, id});
             }
             db.setTransactionSuccessful();
         } finally {

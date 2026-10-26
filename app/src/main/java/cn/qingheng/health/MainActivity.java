@@ -54,7 +54,7 @@ import java.util.concurrent.Executors;
  * (type text/markdown, UTF-8, 4 MB cap, sanitized .md filename); it never adds settings or keys.
  * File input uses Android picker; JS can read returned image/JSON files using FileReader.
  */
-    public final class MainActivity extends Activity implements cn.qingheng.health.bridge.MetaRoutes.Host, cn.qingheng.health.bridge.PushRoutes.Host {
+    public final class MainActivity extends Activity implements cn.qingheng.health.bridge.MetaRoutes.Host, cn.qingheng.health.bridge.PushRoutes.Host, cn.qingheng.health.bridge.RecordsRoutes.Host {
     private static final String HOST = "app.qingheng.local";
     private static final int LIMIT = 8 * 1024 * 1024;
     private static final int PICK = 4101, SAVE = 4102, SAVE_TEXT = 4103, CAMERA = 4104, VOICE = 4105, REQUEST_CAMERA = 4202, REQUEST_VOICE = 4203, REQUEST_HEALTH = 4204;
@@ -1548,31 +1548,6 @@ import java.util.concurrent.Executors;
     private Object route(String path, String method, JSONObject b) throws Exception {
         boolean get = "GET".equals(method), post = "POST".equals(method), del = "DELETE".equals(method);
         if (get && (path.equals("/api/state") || path.equals("/api/export"))) return snapshot();
-        // User preferences that must survive a phone swap ride in state.json (and thus in every
-        // export); localStorage keeps its instant-read role and stays the day-to-day cache.
-        if (path.equals("/api/prefs")) {
-            if (get) {
-                ensureState();
-                JSONObject prefs = state.optJSONObject("prefs");
-                return prefs == null ? new JSONObject() : new JSONObject(prefs.toString());
-            }
-            if (post) {
-                ensureState();
-                JSONObject patch = b.optJSONObject("prefs");
-                if (!(patch instanceof JSONObject)) patch = b;
-                JSONObject prefs = state.optJSONObject("prefs") == null ? new JSONObject() : new JSONObject(state.optJSONObject("prefs").toString());
-                Iterator<String> keys = patch.keys();
-                while (keys.hasNext()) {
-                    String key = keys.next();
-                    Object value = patch.opt(key);
-                    if (value == null || value == JSONObject.NULL) prefs.remove(key); else prefs.put(key, value);
-                }
-                JSONObject next = new JSONObject(state.toString());
-                next.put("prefs", prefs);
-                commit(next);
-                return prefs;
-            }
-        }
         if (post && path.equals("/api/food-search")) {
             // Read-only lookup in an open database; no API key and no personal data are sent.
             if (!b.optBoolean("allowExternal", false)) throw fail("请确认本次查询会把搜索词发送给 Open Food Facts");
@@ -1595,90 +1570,10 @@ import java.util.concurrent.Executors;
         // Push/notification routes follow the same pattern (bridge.PushRoutes).
         JSONObject push = cn.qingheng.health.bridge.PushRoutes.handle(path, get, post, b, this);
         if (push != null) return push;
-        if (path.equals("/api/profile")) {
-            if (get) return new JSONObject(state.getJSONObject("profile").toString());
-            if (post) {
-                JSONObject next = new JSONObject(state.toString());
-                JSONObject profile = next.getJSONObject("profile"), patch = scrub(b);
-                // 口径 numbers are the basis of every target and every suggestion, so they are bounded
-                // here rather than trusted from the page.
-                boundNumber(patch, "age", 10, 100);
-                boundNumber(patch, "height", 50, 250);
-                // "none" 是一个合法答案（不健身），不是缺失值：只有数字才走范围校验。
-            Object trainingRaw = patch.opt("training");
-            if (trainingRaw != null && !"none".equals(String.valueOf(trainingRaw))) {
-                boundNumber(patch, "training", 0, 14);
-            }
-                boundNumber(patch, "intakeFloor", 800, 6000);
-                boundNumber(patch, "deficitCapPercent", 0, 40);
-                boundNumber(patch, "proteinPerKgMin", 0.8, 4);
-                boundNumber(patch, "proteinPerKgMax", 0.8, 4);
-                boundNumber(patch, "fatFloorG", 20, 200);
-                boundNumber(patch, "fatIdealMinG", 20, 200);
-                boundNumber(patch, "fatIdealMaxG", 20, 250);
-                boundNumber(patch, "trainingDayMin", 800, 8000);
-                boundNumber(patch, "trainingDayMax", 800, 8000);
-                boundNumber(patch, "restDayMin", 800, 8000);
-                boundNumber(patch, "restDayMax", 800, 8000);
-                for (String key : new String[]{"calorieTarget", "referenceCalories", "proteinMin", "proteinMax", "fatMin", "fatMax"})
-                    boundNumber(patch, key, 1, 10000);
-                Object onboarding = patch.opt("onboardingDone");
-                if (onboarding instanceof Boolean) {
-                    next.put("onboardingDone", onboarding);
-                    patch.remove("onboardingDone");
-                }
-                Iterator<String> keys = patch.keys();
-                while (keys.hasNext()) { String key = keys.next(); profile.put(key, patch.get(key)); }
-                checkProfileRanges(profile);
-                commit(next); return new JSONObject(profile.toString());
-            }
-        }
-        for (String collection : new String[]{"meals", "measurements", "habits", "chats"}) {
-            String base = "/api/" + collection;
-            if (!path.equals(base) && !path.startsWith(base + "/")) continue;
-            if (get && path.equals(base)) return new JSONArray(state.getJSONArray(collection).toString());
-            if (!post && !del) break;
-            String id = b.optString("id", "");
-            if (path.startsWith(base + "/")) id = path.substring(base.length() + 1);
-            if (id.length() > 128) throw fail("记录 id 过长");
-            String draftId = b.optString("estimateId", b.optString("draftId", ""));
-            if (post && collection.equals("meals") && !draftId.isEmpty()) {
-                if (confirmedDrafts.containsKey(draftId)) return confirmedDrafts.get(draftId);
-                JSONArray savedMeals = state.getJSONArray("meals");
-                for (int j=0;j<savedMeals.length();j++){JSONObject saved=savedMeals.optJSONObject(j);if(saved!=null && draftId.equals(saved.optString("estimateId",saved.optString("draftId",""))))return saved;}
-                if (!draftId.startsWith("local-") && !drafts.contains(draftId) && !storedDraftExists(draftId)) throw fail("估算草稿已失效，请重新估算");
-            }
-            JSONObject next = new JSONObject(state.toString());
-            JSONArray old = next.getJSONArray(collection), replacement = new JSONArray();
-            if (post && id.isEmpty()) id = UUID.randomUUID().toString();
-            if (del && id.isEmpty()) throw fail("删除需要 id");
-            for (int i = 0; i < old.length(); i++) {
-                JSONObject record = old.optJSONObject(i);
-                if (record == null || !id.equals(record.optString("id"))) replacement.put(old.get(i));
-            }
-            JSONObject record = null;
-            if (post) {
-                record = scrub(b); record.put("id", id); validateNutritionIfPresent(record);
-                if (collection.equals("meals")) requireMealFields(record);
-                if (collection.equals("habits")) requireHabitFields(record);
-                replacement.put(record);
-            }
-            next.put(collection, replacement);
-            // A confirmed or deleted meal must not stay in the draft box.
-            if (post && collection.equals("meals") && !draftId.isEmpty())
-                next.put(DRAFTS, withoutDraft(next.optJSONArray(DRAFTS), draftId));
-            commit(next);
-            // Records-triggered feedback: the first saved meal of the day arms one short follow-up.
-            if (post && collection.equals("meals") && AlarmScheduler.enabled(this)
-                    && AlarmScheduler.prefs(this).getBoolean(AlarmScheduler.KEY_ANALYSIS_ENABLED, false)
-                    && !AlarmScheduler.ran(this, AlarmScheduler.today(), AlarmScheduler.SLOT_MEAL)) {
-                AlarmScheduler.scheduleMealFeedback(this, MEAL_FEEDBACK_DELAY_MS);
-            }
-            if (post && collection.equals("meals") && !draftId.isEmpty()) {
-                drafts.remove(draftId); confirmedDrafts.put(draftId, record);
-            }
-            return post ? record : new JSONObject().put("deleted", true).put("id", id);
-        }
+        // Records (the four collections + profile + prefs) follow the same pattern
+        // (bridge.RecordsRoutes): the dispatch leaves, the handler bodies stay in the activity.
+        Object records = cn.qingheng.health.bridge.RecordsRoutes.handle(path, get, post, del, b, this);
+        if (records != null) return records;
         if (post && path.equals("/api/import")) {
             JSONObject incoming = b.optJSONObject("state");
             if (incoming == null && b.opt("data") instanceof JSONObject) incoming = b.getJSONObject("data");
@@ -1691,10 +1586,10 @@ import java.util.concurrent.Executors;
             // 迁移包/备份里带偏好时整体带入：换新手机后周计划偏好与 AI 排课不丢。
             if (imported.opt("prefs") instanceof JSONObject) next.put("prefs", imported.getJSONObject("prefs"));
             for (String c : new String[]{"meals", "measurements", "habits", "chats"}) {
-                JSONArray current = next.getJSONArray(c), records = imported.getJSONArray(c);
-                for (int i = 0; i < records.length(); i++) {
-                    if (!(records.get(i) instanceof JSONObject)) throw fail("备份记录格式不正确");
-                    JSONObject candidate = records.getJSONObject(i); validateNutritionIfPresent(candidate);
+                JSONArray current = next.getJSONArray(c), incomingRecords = imported.getJSONArray(c);
+                for (int i = 0; i < incomingRecords.length(); i++) {
+                    if (!(incomingRecords.get(i) instanceof JSONObject)) throw fail("备份记录格式不正确");
+                    JSONObject candidate = incomingRecords.getJSONObject(i); validateNutritionIfPresent(candidate);
                     String id = candidate.optString("id", ""), date = candidate.optString("date", candidate.optString("day", ""));
                     int found = -1;
                     for (int j = 0; j < current.length(); j++) { JSONObject old = current.optJSONObject(j); if (old != null && !id.isEmpty() && id.equals(old.optString("id"))) { found = j; break; } }
@@ -1745,6 +1640,118 @@ import java.util.concurrent.Executors;
         }
         if ((post || get) && path.equals("/api/export-markdown")) return markdownExport();
         throw fail("不支持的 API 路径或方法");
+    }
+    /** /api/prefs — read, or shallow-merge the portable preferences block into state. */
+    @Override public Object prefs(boolean get, JSONObject b) throws Exception {
+        ensureState();
+        if (get) {
+            JSONObject prefs = state.optJSONObject("prefs");
+            return prefs == null ? new JSONObject() : new JSONObject(prefs.toString());
+        }
+        // User preferences that must survive a phone swap ride in state.json (and thus in every
+        // export); localStorage keeps its instant-read role and stays the day-to-day cache.
+        JSONObject patch = b.optJSONObject("prefs");
+        if (!(patch instanceof JSONObject)) patch = b;
+        JSONObject prefs = state.optJSONObject("prefs") == null ? new JSONObject() : new JSONObject(state.optJSONObject("prefs").toString());
+        Iterator<String> keys = patch.keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            Object value = patch.opt(key);
+            if (value == null || value == JSONObject.NULL) prefs.remove(key); else prefs.put(key, value);
+        }
+        JSONObject next = new JSONObject(state.toString());
+        next.put("prefs", prefs);
+        commit(next);
+        return prefs;
+    }
+    /** /api/profile — read, or merge a patch whose 口径 numbers are bounded, not trusted. */
+    @Override public Object profile(boolean get, JSONObject b) throws Exception {
+        ensureState();
+        if (get) return new JSONObject(state.getJSONObject("profile").toString());
+        JSONObject next = new JSONObject(state.toString());
+        JSONObject profile = next.getJSONObject("profile"), patch = scrub(b);
+        // 口径 numbers are the basis of every target and every suggestion, so they are bounded
+        // here rather than trusted from the page.
+        boundNumber(patch, "age", 10, 100);
+        boundNumber(patch, "height", 50, 250);
+        // "none" 是一个合法答案（不健身），不是缺失值：只有数字才走范围校验。
+        Object trainingRaw = patch.opt("training");
+        if (trainingRaw != null && !"none".equals(String.valueOf(trainingRaw))) {
+            boundNumber(patch, "training", 0, 14);
+        }
+        boundNumber(patch, "intakeFloor", 800, 6000);
+        boundNumber(patch, "deficitCapPercent", 0, 40);
+        boundNumber(patch, "proteinPerKgMin", 0.8, 4);
+        boundNumber(patch, "proteinPerKgMax", 0.8, 4);
+        boundNumber(patch, "fatFloorG", 20, 200);
+        boundNumber(patch, "fatIdealMinG", 20, 200);
+        boundNumber(patch, "fatIdealMaxG", 20, 250);
+        boundNumber(patch, "trainingDayMin", 800, 8000);
+        boundNumber(patch, "trainingDayMax", 800, 8000);
+        boundNumber(patch, "restDayMin", 800, 8000);
+        boundNumber(patch, "restDayMax", 800, 8000);
+        for (String key : new String[]{"calorieTarget", "referenceCalories", "proteinMin", "proteinMax", "fatMin", "fatMax"})
+            boundNumber(patch, key, 1, 10000);
+        Object onboarding = patch.opt("onboardingDone");
+        if (onboarding instanceof Boolean) {
+            next.put("onboardingDone", onboarding);
+            patch.remove("onboardingDone");
+        }
+        Iterator<String> keys = patch.keys();
+        while (keys.hasNext()) { String key = keys.next(); profile.put(key, patch.get(key)); }
+        checkProfileRanges(profile);
+        commit(next); return new JSONObject(profile.toString());
+    }
+    /** CRUD for the four collections; the body is the former inline route loop. */
+    @Override public Object collections(String path, boolean get, boolean post, boolean del, JSONObject b) throws Exception {
+        ensureState();
+        for (String collection : new String[]{"meals", "measurements", "habits", "chats"}) {
+            String base = "/api/" + collection;
+            if (!path.equals(base) && !path.startsWith(base + "/")) continue;
+            if (get && path.equals(base)) return new JSONArray(state.getJSONArray(collection).toString());
+            if (!post && !del) return null;
+            String id = b.optString("id", "");
+            if (path.startsWith(base + "/")) id = path.substring(base.length() + 1);
+            if (id.length() > 128) throw fail("记录 id 过长");
+            String draftId = b.optString("estimateId", b.optString("draftId", ""));
+            if (post && collection.equals("meals") && !draftId.isEmpty()) {
+                if (confirmedDrafts.containsKey(draftId)) return confirmedDrafts.get(draftId);
+                JSONArray savedMeals = state.getJSONArray("meals");
+                for (int j=0;j<savedMeals.length();j++){JSONObject saved=savedMeals.optJSONObject(j);if(saved!=null && draftId.equals(saved.optString("estimateId",saved.optString("draftId",""))))return saved;}
+                if (!draftId.startsWith("local-") && !drafts.contains(draftId) && !storedDraftExists(draftId)) throw fail("估算草稿已失效，请重新估算");
+            }
+            JSONObject next = new JSONObject(state.toString());
+            JSONArray old = next.getJSONArray(collection), replacement = new JSONArray();
+            if (post && id.isEmpty()) id = UUID.randomUUID().toString();
+            if (del && id.isEmpty()) throw fail("删除需要 id");
+            for (int i = 0; i < old.length(); i++) {
+                JSONObject record = old.optJSONObject(i);
+                if (record == null || !id.equals(record.optString("id"))) replacement.put(old.get(i));
+            }
+            JSONObject record = null;
+            if (post) {
+                record = scrub(b); record.put("id", id); validateNutritionIfPresent(record);
+                if (collection.equals("meals")) requireMealFields(record);
+                if (collection.equals("habits")) requireHabitFields(record);
+                replacement.put(record);
+            }
+            next.put(collection, replacement);
+            // A confirmed or deleted meal must not stay in the draft box.
+            if (post && collection.equals("meals") && !draftId.isEmpty())
+                next.put(DRAFTS, withoutDraft(next.optJSONArray(DRAFTS), draftId));
+            commit(next);
+            // Records-triggered feedback: the first saved meal of the day arms one short follow-up.
+            if (post && collection.equals("meals") && AlarmScheduler.enabled(this)
+                    && AlarmScheduler.prefs(this).getBoolean(AlarmScheduler.KEY_ANALYSIS_ENABLED, false)
+                    && !AlarmScheduler.ran(this, AlarmScheduler.today(), AlarmScheduler.SLOT_MEAL)) {
+                AlarmScheduler.scheduleMealFeedback(this, MEAL_FEEDBACK_DELAY_MS);
+            }
+            if (post && collection.equals("meals") && !draftId.isEmpty()) {
+                drafts.remove(draftId); confirmedDrafts.put(draftId, record);
+            }
+            return post ? record : new JSONObject().put("deleted", true).put("id", id);
+        }
+        return null;
     }
     private static final int REQUEST_NOTIFICATIONS = 4201;
     private volatile String permissionRequestId;

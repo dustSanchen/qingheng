@@ -111,7 +111,7 @@ const app = fs.readFileSync('app/src/main/assets/app.js', 'utf8');
 check('the database version was raised for the mirror', sync.includes('private static final int VERSION = 2;'));
 check('an upgrade creates the mirror without dropping data', /if \(oldVersion < 1\) onCreate\(db\);\s*else if \(oldVersion < 2\) createMirror\(db\);/.test(sync));
 check('the mirror keeps one row per record', sync.includes('PRIMARY KEY(collection, record_id)'));
-check('the mirror stores the whole record as payload', sync.includes('values.put("payload", record.toString());'));
+check('the mirror stores the whole record as payload', sync.includes('String payload = record.toString();') && sync.includes('values.put("payload", payload);'));
 check('the mirror rewrites inside one transaction', /db\.beginTransaction\(\);[\s\S]{0,2500}db\.setTransactionSuccessful\(\);/.test(sync));
 check('the mirror records when it last ran', sync.includes('"lastMirroredAt"') && sync.includes('public long lastMirroredAt()'));
 check('per-collection counts come from the mirror table', sync.includes('public org.json.JSONObject mirrorCounts()'));
@@ -136,7 +136,7 @@ check('entering a sub-page pushes history for the system back button', app.inclu
 check('restoring the tab ignores the sub-page', /function restoreTab\(\) \{\s*const fromHash = parseHash\(\)\.tab;/.test(app));
 check('hub summaries are refreshed from state', app.includes('function renderHub()') && app.includes('renderHub();'));
 check('the storage panel is driven by the new route', app.includes("api(remirror ? '/api/storage-remirror' : '/api/storage-status'"));
-check('the app version is a single constant', app.includes("const APP_VERSION = '1.1.57'"));
+check('the app version is a single constant', app.includes("const APP_VERSION = '1.1.58'"));
 check('the shown version matches the build script', (() => {
   const shown = /const APP_VERSION = '([0-9.]+)'/.exec(app);
   const built = /\$Version='([0-9.]+)'/.exec(fs.readFileSync('build.ps1', 'utf8'));
