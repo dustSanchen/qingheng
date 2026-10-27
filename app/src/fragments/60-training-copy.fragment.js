@@ -548,7 +548,6 @@
           minutes: Number(read("minutes")) || 45
         });
         renderWeekPlan();
-        if (box) box.hidden = true;
         notice("已按偏好生成本周安排。");
       });
     }
@@ -647,8 +646,8 @@
     // 本周安排：完全按用户偏好生成；没有偏好就不出方案。
     const prefsForm = $("#plan-prefs");
     const prefs = planPrefs();
-    // 生成过就收起，但「修改偏好」按钮随时能把芯片重新展开。
-    if (prefsForm && !prefsForm.dataset.touched) prefsForm.hidden = !!prefs;
+    // 偏好芯片常驻：生成过也保持可见，改一个值就能重排，不用先点「修改」再找入口。
+    if (prefsForm) prefsForm.hidden = false;
     const weekStart = shiftDay(activeDate, -((new Date(activeDate + "T00:00:00").getDay() + 6) % 7));
     let thisWeekHtml;
     if (!prefs) {

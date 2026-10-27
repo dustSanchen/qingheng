@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.1.61';
+  const APP_VERSION = '1.1.62';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -415,7 +415,7 @@
       }
     }
     box.innerHTML = plan.map((item, index) =>
-      aiPlanRowHtml(item, index, list.classList.contains("editing"))
+      aiPlanRowHtml(item, index, box.classList.contains("editing"))
     ).join("");
   }
   async function askAiPlan(button) {
