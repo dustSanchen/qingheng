@@ -32,3 +32,5 @@
 | 2026-10-27 22:26 +08:00 | B8+B9+B10 与「用 AI 排今天」训练改造 | PASS：① B8 问答记录分页——renderChat 默认只渲染最新 30 条，底部「更早的记录（还有 N 条）」，搜索/收藏变化时重置；② B9 三个 localStorage 键（chat.unhelpful / chat.web / training.consent）改用常量并同步 /api/prefs，hydratePrefsFromState 一并恢复；③ B10 新增 tests/token-ratchet.test.mjs——hex 与 rgb() 数量只减不增、令牌必须登记进 02-tokens.md（该断言当场逼出 18 个未登记令牌，已补）；④ 健身偏好从下拉改成芯片按钮，器械新增「综合」（mixed），prompt 传中文器械名并要求综合时混用多器材；⑤ AI 训练计划进入编辑态可改名称/组数/次数/负重，× 按钮删除单行，dose 改为派生值。测试 56/56 全过；adapter 那条「localStorage 字面量出现次数」的脆弱断言改成「裸键只允许 qingheng.tab + 三个常量必须有字面量」。
 
 | 2026-10-27 22:31 +08:00 | 1.1.62 修复：AI 排今天崩 + 偏好不可见 | PASS：① `renderAiPlan` 里我写成了 `list.classList.contains("editing")`，该作用域只有 `box`，一点「用 AI 排今天」就抛 `list is not defined`——改回 `box`；② 偏好表单带 `hidden` 且「修改偏好」按钮在表单**内部**，等于入口自己也藏起来了；改成表单常驻显示、删掉该按钮，改一个芯片就能重排。装机后用「综合/杠铃」等芯片生成了 5 个动作，覆盖杠铃卧推、杠铃推举、哑铃侧平举、绳索下压多种器材。
+
+| 2026-10-27 22:36 +08:00 | 1.1.63 AI 计划一键加入当天训练记录 | PASS：新增 addExercisesToToday(items)——读当天 habitRow 的 exercises、同名跳过、只追加不覆盖、写回 /api/habits 后 quiet 重载；「今日顺序」每行加行尾「加入」按钮、底部加「全部加入今天的训练记录」；「今日训练建议」回答下方加「把回答里的动作加入今天的训练」，用保守正则从散文里挑「动作名 3组×8次 60kg」，**解析结果先经确认框列出再写库**——从散文猜的动作猜错比不做更糟，识别不到时提示改用训练日志手动记。

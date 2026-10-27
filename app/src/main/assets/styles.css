@@ -1014,6 +1014,13 @@ body.no-training #training-advice-order{display:none !important}
 .ai-plan-nums .ai-plan-input{width:5.5em;min-height:36px;text-align:center}
 .ai-plan-remove{width:36px;height:36px;min-height:0;border:1px solid var(--line);border-radius:var(--shape-ctrl-radius);background:var(--surface);color:var(--muted);font-size:18px;line-height:1}
 .ai-plan-remove:active{background:var(--surface-soft)}
+/* 「加入」是次要动作：贴在行尾，默认不加边框，不跟勾选框抢注意力。 */
+.ai-plan-row{align-items:center}
+.ai-plan-main{display:flex;flex-direction:row;align-items:center;gap:var(--space-2);flex:1 1 auto;min-width:0;margin:0}
+.ai-plan-add{flex:0 0 auto;min-height:32px;padding:4px 10px;border:1px solid var(--line);border-radius:var(--shape-ctrl-radius);background:var(--surface);color:var(--accent);font-size:var(--text-xs);white-space:nowrap}
+.ai-plan-add:active{background:var(--accent-soft)}
+#ai-plan-all{margin-top:var(--space-2)}
+
 
 /* 行内等待条：贴在按钮下方，胶囊 + 呼吸光带 + 细环，不遮挡页面。 */
 .inline-busy{display:flex;align-items:center;gap:10px;margin:10px 0 0;padding:10px 14px;border-radius:999px;background:var(--surface-soft);border:1px solid var(--line);position:relative;overflow:hidden}

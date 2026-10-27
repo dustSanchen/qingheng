@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.1.62';
+  const APP_VERSION = '1.1.63';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -340,6 +340,56 @@
     const raw = Math.ceil(sets * AI_PLAN_MINUTES_PER_SET / 5) * 5;
     return AI_PLAN_MINUTE_STEPS.find(step => step >= raw) || AI_PLAN_MINUTE_STEPS[AI_PLAN_MINUTE_STEPS.length - 1];
   }
+  /**
+   * 把一批动作并入当天训练记录：同名跳过，只追加不覆盖。
+   * 训练日志与 AI 计划是两份数据，这里是唯一把它们接起来的入口。
+   */
+  async function addExercisesToToday(items) {
+    const wanted = (items || []).filter(item => item && String(item.name || "").trim());
+    if (!wanted.length) { notice("没有可加入的动作。"); return; }
+    const existing = habitRowFor(activeDate) || {};
+    const current = Array.isArray(existing.exercises) ? existing.exercises.map(item => ({...item})) : [];
+    const names = new Set(current.map(item => String(item && item.name || "").trim()));
+    const added = [];
+    for (const item of wanted) {
+      const name = String(item.name).trim().slice(0, 60);
+      if (names.has(name)) continue;
+      current.push({
+        name,
+        sets: number(item.sets) === null ? null : number(item.sets),
+        reps: number(item.reps) === null ? null : number(item.reps),
+        weight: number(item.weight) === null ? null : number(item.weight)
+      });
+      names.add(name);
+      added.push(name);
+    }
+    if (!added.length) { notice("这些动作已经在今天的训练记录里了。"); return; }
+    try {
+      await api("/api/habits", {...existing, date: activeDate, exercises: current});
+      await loadState({quiet: true});
+      notice("已加入今天的训练记录：" + added.join("、") + "。");
+    } catch (error) {
+      notice("加入训练记录失败：" + (error && error.message ? error.message : "未知错误"), true);
+    }
+  }
+  /** 从 AI 回答的纯文本里挑出「动作名 3组×8次 60kg」这类片段；认不出就返回空。 */
+  function parseExercisesFromText(text) {
+    const cleaned = String(text || "").replace(/<[^>]+>/g, "\n");
+    const pattern = /([\u4e00-\u9fa5A-Za-z][\u4e00-\u9fa5A-Za-z0-9·\- ]{1,19}?)\s*[:：]?\s*(\d{1,2})\s*组?\s*[×xX*]\s*(\d{1,3})\s*次?\s*(?:[×xX*]\s*)?(\d{1,3}(?:\.\d)?)?\s*(?:kg|公斤)?/g;
+    const out = [];
+    let hit;
+    while ((hit = pattern.exec(cleaned))) {
+      const name = hit[1].trim().replace(/[：:，,。]$/, "");
+      if (!name || name.length < 2) continue;
+      out.push({
+        name: name.slice(0, 24),
+        sets: Number(hit[2]) || null,
+        reps: Number(hit[3]) || null,
+        weight: hit[4] ? Number(hit[4]) : null
+      });
+    }
+    return out;
+  }
   /** 剂量由字段派生；编辑后重算，不会与旧字符串脱节。 */
   function aiPlanDose(item) {
     if (item && item.dose) return item.dose; // 旧数据只存了 dose 字符串
@@ -371,7 +421,7 @@
   /** 一行一个动作；编辑态把名称、组、次、负重换成输入框。 */
   function aiPlanRowHtml(item, index, editing) {
     if (!editing) {
-      return "<label class=\"ai-plan-row\" role=\"listitem\"><input type=\"checkbox\" data-ai-done=\"" + index + "\"" + (item.done ? " checked" : "") + "><span class=\"ai-plan-name\">" + esc(item.name) + "</span><span class=\"ai-plan-dose\">" + esc(aiPlanDose(item)) + "</span></label>";
+      return "<div class=\"ai-plan-row\" role=\"listitem\"><label class=\"ai-plan-main\"><input type=\"checkbox\" data-ai-done=\"" + index + "\"" + (item.done ? " checked" : "") + "><span class=\"ai-plan-name\">" + esc(item.name) + "</span><span class=\"ai-plan-dose\">" + esc(aiPlanDose(item)) + "</span></label><button type=\"button\" class=\"ai-plan-add\" data-ai-add=\"" + index + "\" aria-label=\"\u52a0\u5165\u4eca\u5929\u7684\u8bad\u7ec3\u8bb0\u5f55\">\u52a0\u5165</button></div>";
     }
     const num = (name, value, attrs) => "<input class=\"ai-plan-input\" data-ai-field=\"" + name + "\" type=\"number\" " + attrs + " value=\"" + (value == null ? "" : value) + "\" aria-label=\"" + name + "\">";
     return "<div class=\"ai-plan-row is-editing\" role=\"listitem\" data-ai-row=\"" + index + "\">"
@@ -394,9 +444,11 @@
       if (tag) tag.textContent = "未生成";
       if (summary) { summary.hidden = true; summary.textContent = ""; }
       box.innerHTML = '<p class="muted">还没有生成顺序。勾选同意后点「用 AI 排今天」。</p>';
+      const allBox = $("#ai-plan-all"); if (allBox) allBox.hidden = true;
       return;
     }
     if (tag) tag.textContent = plan.length + " 个动作";
+    const allButtonEl = $("#ai-plan-all"); if (allButtonEl) allButtonEl.hidden = false;
     if (summary) {
       const prefs = typeof planPrefs === "function" ? planPrefs() : null;
       const setMinutes = Number(prefs && prefs.minutes) > 0 ? Number(prefs.minutes) : 45;
@@ -472,6 +524,14 @@
     if (list && !list.dataset.aiRemoveWired) {
       list.dataset.aiRemoveWired = "data-ai-remove-wired";
       list.addEventListener("click", event => {
+        const addButton = event.target.closest("[data-ai-add]");
+        if (addButton) {
+          event.preventDefault();
+          const plan = aiPlanStore(activeDate) || [];
+          const item = plan[Number(addButton.dataset.aiAdd)];
+          if (item) addExercisesToToday([item]).catch(() => {});
+          return;
+        }
         const removeButton = event.target.closest("[data-ai-remove]");
         if (!removeButton) return;
         const row = event.target.closest(".ai-plan-row");
@@ -504,6 +564,14 @@
           edit.textContent = "完成";
         }
         renderAiPlan();
+      });
+    }
+    const allButton = $("#ai-plan-all");
+    if (allButton && !allButton.dataset.wired) {
+      allButton.dataset.wired = "1";
+      allButton.addEventListener("click", () => {
+        const plan = aiPlanStore(activeDate) || [];
+        addExercisesToToday(plan).catch(() => {});
       });
     }
     const summaryBox = $("#ai-plan-summary");
@@ -1300,6 +1368,7 @@ feedback(message,'数据已导入。'+report);
     box.innerHTML = trainingInsights().map(text => `<p class="fine-print">· ${esc(text)}</p>`).join('');
   }
   /** The 今天-page window: training questions only, with its own consent gate. */
+  let lastTrainingReply = "";
   function installTrainingAdvice() {
     const form = $('#training-advice-form'), input = $('#training-advice-input'), consent = $('#training-advice-consent');
     const answerBox = $('#training-advice-answer'), feedbackBox = $('#training-advice-feedback'), chips = $('#training-advice-chips');
@@ -1329,7 +1398,27 @@ feedback(message,'数据已导入。'+report);
         const data = await api('/api/chat', {question, focus: 'training', date: localDate(), allowExternal: true, anchors: anchorSummary(), webSearch: false, logToHistory: false});
         const reply = String(data && data.reply || '').trim();
         if (!reply) throw new Error('模型没有返回可读的回答，请重试。');
-        if (answerBox) {answerBox.hidden = false; answerBox.innerHTML = answerHtml(reply);}
+        if (answerBox) {
+          answerBox.hidden = false;
+          answerBox.innerHTML = answerHtml(reply)
+            + '<div class="button-row" id="training-advice-addrow"><button type="button" class="button subtle" id="training-advice-add">把回答里的动作加入今天的训练</button></div>';
+          lastTrainingReply = reply;
+          const addButton = $("#training-advice-add");
+          if (addButton) addButton.addEventListener("click", async () => {
+            const parsed = parseExercisesFromText(lastTrainingReply);
+            if (!parsed.length) { notice("这段回答里没有识别到「动作 + 组×次 + 重量」的写法，可以在下面的训练日志里手动记。", true); return; }
+            // 从散文里猜出来的动作要先给人看一眼，确认后再写库——猜错比不做更糟。
+            const lines = parsed.map(item => "· " + item.name
+              + (item.sets ? " " + item.sets + "组" : "")
+              + (item.reps ? " × " + item.reps + "次" : "")
+              + (item.weight ? " " + item.weight + " kg" : "")).join("\n");
+            const go = await askConfirm("识别到 " + parsed.length + " 个动作：\n" + lines
+              + "\n\n要把它们加入今天的训练记录吗？",
+              {title: "加入训练记录", ok: "加入", cancel: "先不加"});
+            if (!go) return;
+            addExercisesToToday(parsed).catch(() => {});
+          });
+        }
         feedback(feedbackBox, '');
       } catch (error) {
         feedback(feedbackBox, error.message, true);
