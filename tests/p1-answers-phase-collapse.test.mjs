@@ -23,7 +23,7 @@ check('rows render citations', app.includes('function citationBlock(row)') && ap
 check('rows offer regenerate and unhelpful', app.includes('data-chat-again') && app.includes('data-chat-unhelpful'));
 check('regenerate refills the question', app.includes('async function regenerateChat(id)') && app.includes("box.value = String(row.question || '')"));
 check('regenerate respects consent', app.includes("if (consent && !consent.hidden && consent.checked) {await sendChat();}"));
-check('unhelpful state is remembered', app.includes("localStorage.setItem('qingheng.chat.unhelpful'"));
+check('unhelpful state is remembered', app.includes('localStorage.setItem(CHAT_UNHELPFUL_KEY'));
 
 // --- P1-6 lean phase ---------------------------------------------------------------------------------
 check('a phase counter exists', targets.includes('function leanPhase(goal, startedAt)'));

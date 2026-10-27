@@ -639,6 +639,10 @@
     } catch(error){feedback($('#preview-feedback'),error.message,true);}
   });
   function setDefaultDates() { $$('[data-default-date]').forEach(input => input.value = activeDate); }
+  // 这三个键也跟随备份走（换手机零丢失）；localStorage 只作为即时缓存。
+  const CHAT_UNHELPFUL_KEY = 'qingheng.chat.unhelpful';
+  const CHAT_WEB_KEY = 'qingheng.chat.web';
+  const TRAINING_CONSENT_KEY = 'qingheng.training.consent';
   // ---- 用户偏好收编进 state.json：localStorage 保持即时缓存，导出/换机随之携带 ----------------------
   let prefsSyncTimer = 0;
   /** Collects the per-date AI plans (newest 10) from localStorage into one portable object. */
@@ -666,6 +670,11 @@
       if (prefs.aiPlans && typeof prefs.aiPlans === 'object') {
         for (const [date, plan] of Object.entries(prefs.aiPlans)) localStorage.setItem(AI_PLAN_KEY(date), JSON.stringify(plan));
       }
+    } catch { }
+    try {
+      if (Array.isArray(prefs.unhelpfulChats)) localStorage.setItem(CHAT_UNHELPFUL_KEY, JSON.stringify(prefs.unhelpfulChats));
+      if (typeof prefs.chatWeb === 'boolean') localStorage.setItem(CHAT_WEB_KEY, prefs.chatWeb ? '1' : '0');
+      if (prefs.trainingConsent === true) localStorage.setItem(TRAINING_CONSENT_KEY, '1');
     } catch { }
   }
   async function loadState(options = {}) {

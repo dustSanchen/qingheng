@@ -491,6 +491,8 @@
 
   /** Two weeks of history -> next week's sessions, with a deload when the load ran hot. */
   const PLAN_PREFS_KEY = "qingheng.planPrefs";
+  /** 器械偏好的中文名；直接把 barbell 丢给模型它会不确定。mixed = 综合。 */
+  const GEAR_LABELS = {mixed: "综合（杠铃、哑铃、固定器械、自重都可用）", barbell: "杠铃为主", dumbbell: "哑铃为主", machine: "固定器械", body: "自重"};
   /** 用户偏好：没有设置就不生成方案。 */
   function planPrefs() {
     try { const raw = localStorage.getItem(PLAN_PREFS_KEY); return raw ? JSON.parse(raw) : null; } catch { return null; }
@@ -514,22 +516,39 @@
   function installPlanPrefs() {
     const box = $("#plan-prefs");
     if (!box) return;
+    const chipsOf = name => $$(`[data-pref="${name}"] .pref-chip`);
+    const mark = (name, value) => chipsOf(name).forEach(chip => {
+      chip.setAttribute("aria-pressed", String(chip.dataset.value) === String(value) ? "true" : "false");
+    });
+    const read = name => {
+      const on = chipsOf(name).find(chip => chip.getAttribute("aria-pressed") === "true");
+      return on ? on.dataset.value : null;
+    };
     const prefs = planPrefs();
-    if (prefs) {
-      const d = $("#pref-days"), s = $("#pref-split"), g = $("#pref-gear"), m = $("#pref-minutes");
-      if (d) d.value = String(prefs.days); if (s) s.value = prefs.split; if (g) g.value = prefs.gear; if (m) m.value = String(prefs.minutes);
+    // 器械默认「综合」：不限单一器材，交给模型混用。
+    mark("days", prefs && prefs.days ? prefs.days : 3);
+    mark("split", (prefs && prefs.split) || "ppl");
+    mark("gear", (prefs && prefs.gear) || "mixed");
+    mark("minutes", (prefs && prefs.minutes) || 45);
+    for (const name of ["days", "split", "gear", "minutes"]) {
+      chipsOf(name).forEach(chip => {
+        if (chip.dataset.wired) return;
+        chip.dataset.wired = "1";
+        chip.addEventListener("click", () => mark(name, chip.dataset.value));
+      });
     }
     const save = $("#pref-save");
     if (save && !save.dataset.wired) {
       save.dataset.wired = "1";
       save.addEventListener("click", () => {
         savePlanPrefs({
-          days: Number($("#pref-days").value) || 3,
-          split: $("#pref-split").value,
-          gear: $("#pref-gear").value,
-          minutes: Number($("#pref-minutes").value) || 45
+          days: Number(read("days")) || 3,
+          split: read("split") || "ppl",
+          gear: read("gear") || "mixed",
+          minutes: Number(read("minutes")) || 45
         });
         renderWeekPlan();
+        if (box) box.hidden = true;
         notice("已按偏好生成本周安排。");
       });
     }
@@ -628,7 +647,8 @@
     // 本周安排：完全按用户偏好生成；没有偏好就不出方案。
     const prefsForm = $("#plan-prefs");
     const prefs = planPrefs();
-    if (prefsForm) prefsForm.hidden = !!prefs;
+    // 生成过就收起，但「修改偏好」按钮随时能把芯片重新展开。
+    if (prefsForm && !prefsForm.dataset.touched) prefsForm.hidden = !!prefs;
     const weekStart = shiftDay(activeDate, -((new Date(activeDate + "T00:00:00").getDay() + 6) % 7));
     let thisWeekHtml;
     if (!prefs) {

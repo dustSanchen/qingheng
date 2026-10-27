@@ -23,6 +23,17 @@
 | `--warn`（改值，B 组） | #a8622c → **#9e5c29** | #95602b（不变） | 纸感在 `--warn-soft` 上 4.13:1 → 4.57:1 |
 | `--accent-press`（新增，B 组） | **#2f5340** | 同左 | 主按钮按下底，白字 8.63:1 |
 | `--overlay`（定值，B 组） | `rgb(var(--shadow-rgb)/.56)` | 同式 | 无描边面板对遮罩 3.23 / 4.10:1；`--overlay-weak` 仅留加载层 |
+| `--body-text`（补登记，1.1.61） | #3d3d3a（纸感） | #3a3d3c（账本） | 正文主色，对 `--surface` 10.71 / 10.98:1；暗色变体 #c2c8cd |
+| `--surface-soft`（补登记，1.1.61） | #f3f2ee | #f2f5f4（暗色 #22272b） | 次级块底色（提示条、进度轨道、弹层内的浅块） |
+| `--diet-low/over/track/band`（补登记，1.1.61） | #dfcaa5 / #d39273 / #f1f3ee / #edf2e7 | #dcc9a8 / #cf9578 / #eef1f0 / #eaf1ec | 饮食趋势环与带宽的语义色；暗色变体分别为 #d3c09b / #d49a7e / #262b2f / #242e28 |
+
+> 这 6 个令牌此前只在 CSS 里存在、未进本表。1.1.61 新增的 `tests/token-ratchet.test.mjs`
+> 会断言「每个颜色令牌都在本表出现」，补登记是由该断言逼出来的。
+
+| `--ok` / `--ok-soft` / `--ok-line`（补登记，1.1.61） | #4f7a52 / #eef4ea / #cfe0cb | #3f6b52 / #eef3f0 / #cfdfd8 | 达标态；`-soft` 做底、`-line` 做描边 |
+| `--warn-soft` / `--warn-line`（补登记，1.1.61） | #f6efe3 / #e4d5bf | #f4f1ea / #e2dccf | 警示态浅底与描边，配 `--warn` 文字用 |
+| `--danger-soft` / `--danger-line`（补登记，1.1.61） | #f9ede7 / #ecd8ce | #f7eeec / #e8d6d2 | 错误态浅底与描边，配 `--danger` 文字用 |
+| `--diet-band-line`（补登记，1.1.61） | #dbe4d2 | #d8e2dc | 饮食带宽环的描边 |
 | `--ring-green`（新增，1.1.39） | **#5f8a68** | 同左 | 能量环进度色。用户要求「绿色变淡」，从 `--accent #3f6b4a`（6.10:1）降到 3.91:1，仍高于图形元素 3:1 下限；`--warn` 超量段在浅底上更跳 |
 
 ## 1. token 表

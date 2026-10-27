@@ -15,7 +15,7 @@
       apply(next);
     });
   }
-  bindFavoriteFilter('chat-favorites-only', value => {favoriteOnlyChats = value; renderChat();});
+  bindFavoriteFilter('chat-favorites-only', value => {favoriteOnlyChats = value; resetChatPaging(); renderChat();});
   bindFavoriteFilter('meal-favorites-only', value => {favoriteOnlyMeals = value; render();});
   let storedDrafts = [];
   async function loadDrafts() {
@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.1.60';
+  const APP_VERSION = '1.1.61';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -340,6 +340,49 @@
     const raw = Math.ceil(sets * AI_PLAN_MINUTES_PER_SET / 5) * 5;
     return AI_PLAN_MINUTE_STEPS.find(step => step >= raw) || AI_PLAN_MINUTE_STEPS[AI_PLAN_MINUTE_STEPS.length - 1];
   }
+  /** 剂量由字段派生；编辑后重算，不会与旧字符串脱节。 */
+  function aiPlanDose(item) {
+    if (item && item.dose) return item.dose; // 旧数据只存了 dose 字符串
+    return [
+      item && item.sets ? item.sets + " 组" : "",
+      item && item.reps ? item.reps + " 次" : "",
+      item && item.weight ? item.weight + " kg" : ""
+    ].filter(Boolean).join(" × ");
+  }
+  /** 把编辑态的输入读回存储；名称被清空的行视为删除。 */
+  function collectAiPlanEdits() {
+    const box = $("#ai-plan-list");
+    const plan = aiPlanStore(activeDate) || [];
+    if (!box) return;
+    $$("[data-ai-row]", box).forEach(row => {
+      const item = plan[Number(row.dataset.aiRow)];
+      if (!item) return;
+      const field = name => row.querySelector(`[data-ai-field="${name}"]`);
+      const name = (field("name")?.value || "").trim();
+      item.name = name ? name.slice(0, 24) : "";
+      const sets = Number(field("sets")?.value), reps = Number(field("reps")?.value), weight = Number(field("weight")?.value);
+      item.sets = sets > 0 ? sets : 0;
+      item.reps = reps > 0 ? reps : 0;
+      item.weight = weight > 0 ? weight : null;
+      delete item.dose;
+    });
+    aiPlanStore(activeDate, plan.filter(item => item && item.name));
+  }
+  /** 一行一个动作；编辑态把名称、组、次、负重换成输入框。 */
+  function aiPlanRowHtml(item, index, editing) {
+    if (!editing) {
+      return "<label class=\"ai-plan-row\" role=\"listitem\"><input type=\"checkbox\" data-ai-done=\"" + index + "\"" + (item.done ? " checked" : "") + "><span class=\"ai-plan-name\">" + esc(item.name) + "</span><span class=\"ai-plan-dose\">" + esc(aiPlanDose(item)) + "</span></label>";
+    }
+    const num = (name, value, attrs) => "<input class=\"ai-plan-input\" data-ai-field=\"" + name + "\" type=\"number\" " + attrs + " value=\"" + (value == null ? "" : value) + "\" aria-label=\"" + name + "\">";
+    return "<div class=\"ai-plan-row is-editing\" role=\"listitem\" data-ai-row=\"" + index + "\">"
+      + "<span class=\"ai-plan-no\">" + (index + 1) + "</span>"
+      + "<input class=\"ai-plan-input is-name\" data-ai-field=\"name\" maxlength=\"24\" value=\"" + esc(item.name) + "\" aria-label=\"动作名\">"
+      + "<button type=\"button\" class=\"ai-plan-remove\" data-ai-remove=\"" + index + "\" aria-label=\"删除这个动作\">×</button>"
+      + "<div class=\"ai-plan-nums\">" + num("sets", item.sets, 'min=\"0\" max=\"30\" step=\"1\"') + "<span>组</span>"
+      + num("reps", item.reps, 'min=\"0\" max=\"200\" step=\"1\"') + "<span>次</span>"
+      + num("weight", item.weight, 'min=\"0\" max=\"500\" step=\"0.5\"') + "<span>kg</span></div>"
+      + "</div>";
+  }
   function renderAiPlan() {
     const box = $("#ai-plan-list"), tag = $("#ai-plan-tag"), clear = $("#ai-plan-clear"), summary = $("#ai-plan-summary");
     if (!box) return;
@@ -372,7 +415,7 @@
       }
     }
     box.innerHTML = plan.map((item, index) =>
-      "<label class=\"ai-plan-row\" role=\"listitem\"><input type=\"checkbox\" data-ai-done=\"" + index + "\"" + (item.done ? " checked" : "") + "><span class=\"ai-plan-name\">" + esc(item.name) + "</span><span class=\"ai-plan-dose\">" + esc(item.dose || "") + "</span></label>"
+      aiPlanRowHtml(item, index, list.classList.contains("editing"))
     ).join("");
   }
   async function askAiPlan(button) {
@@ -383,7 +426,9 @@
     const done = exercisesFor(activeDate).filter(item => item && item.name).map(item => item.name + " " + (item.sets || "") + "x" + (item.reps || ""));
     const prompt = [
       "你是力量训练教练。请为今天排一个按顺序执行的训练清单。",
-      "信息：目标=" + (profile.goal || "未填") + "；体重=" + (profile.weight || "未填") + "kg；每周练=" + (prefs ? prefs.days : (profile.training || "未填")) + "；分化=" + (prefs ? prefs.split : "未填") + "；器械=" + (prefs ? prefs.gear : "未填") + "；时长=" + (prefs ? prefs.minutes : 45) + " 分钟。",
+      "信息：目标=" + (profile.goal || "未填") + "；体重=" + (profile.weight || "未填") + "kg；每周练=" + (prefs ? prefs.days : (profile.training || "未填")) + "；分化=" + (prefs ? prefs.split : "未填") + "；器械=" + (prefs ? (typeof GEAR_LABELS === "object" && GEAR_LABELS[prefs.gear] ? GEAR_LABELS[prefs.gear] : prefs.gear) : "未填")
+        + "；时长=" + (prefs ? prefs.minutes : 45) + " 分钟。"
+        + (prefs && prefs.gear === "mixed" ? "器械不限：请在同一份清单里混用杠铃、哑铃、固定器械与自重，不要全部用同一种器械。" : ""),
       done.length ? ("今天已记录：" + done.join("；") + "。") : "今天还没有训练记录。",
       "只输出 JSON 数组，不要解释。每项形如 {\"name\": \"动作名\", \"sets\": 4, \"reps\": 8, \"weight\": 40}，weight 可省略。按执行顺序排列，6 个动作以内。"
     ].join("\n");
@@ -402,7 +447,8 @@
       const plan = rows.filter(row => row && row.name).map(row => ({
         name: String(row.name).slice(0, 24),
         sets: Number(row.sets) > 0 ? Number(row.sets) : 0,
-        dose: [row.sets ? row.sets + " 组" : "", row.reps ? row.reps + " 次" : "", row.weight ? row.weight + " kg" : ""].filter(Boolean).join(" × "),
+        reps: Number(row.reps) > 0 ? Number(row.reps) : 0,
+        weight: Number(row.weight) > 0 ? Number(row.weight) : null,
         done: false
       }));
       aiPlanStore(activeDate, plan);
@@ -426,12 +472,14 @@
     if (list && !list.dataset.aiRemoveWired) {
       list.dataset.aiRemoveWired = "data-ai-remove-wired";
       list.addEventListener("click", event => {
-        if (!list.classList.contains("editing")) return;
+        const removeButton = event.target.closest("[data-ai-remove]");
+        if (!removeButton) return;
         const row = event.target.closest(".ai-plan-row");
         if (!row) return;
         event.preventDefault();
         const rows = [...list.querySelectorAll(".ai-plan-row")];
-        const index = rows.indexOf(row);
+        const index = Number(removeButton.dataset.aiRemove);
+        if (!Number.isFinite(index)) return;
         const plan = aiPlanStore(activeDate) || [];
         if (index < 0 || !plan[index]) return;
         plan.splice(index, 1);
@@ -441,10 +489,23 @@
         notice("已移除「" + row.querySelector(".ai-plan-name")?.textContent + "」。");
       });
     }
-    if (edit) edit.addEventListener("click", () => {
-      const list = $("#ai-plan-list");
-      if (list) list.classList.toggle("editing");
-    });
+    if (edit && !edit.dataset.editWired) {
+      edit.dataset.editWired = "1";
+      edit.addEventListener("click", () => {
+        const box = $("#ai-plan-list");
+        if (!box) return;
+        if (box.classList.contains("editing")) {
+          collectAiPlanEdits();
+          box.classList.remove("editing");
+          edit.textContent = "修改";
+          notice("已保存修改。");
+        } else {
+          box.classList.add("editing");
+          edit.textContent = "完成";
+        }
+        renderAiPlan();
+      });
+    }
     const summaryBox = $("#ai-plan-summary");
     if (summaryBox && !summaryBox.dataset.wired) {
       summaryBox.dataset.wired = "1";
@@ -555,7 +616,7 @@
         // 每个按键都整段重建问答记录，长历史下会卡；停顿 180ms 后只渲染一次。
         chatQuery = chatSearch.value.trim();
         clearTimeout(chatSearchTimer);
-        chatSearchTimer = setTimeout(renderChat, 180);
+        chatSearchTimer = setTimeout(() => {resetChatPaging(); renderChat();}, 180);
       });
     }
     if (typeof renderLastChat === "function") renderLastChat();
@@ -663,6 +724,8 @@
   $('#active-date').addEventListener('change',event=>{setActiveDate(event.target.value);});
   $('#chat-date').addEventListener('change',event=>{if(!setActiveDate(event.target.value)) event.target.value=activeDate;});
   document.addEventListener('click', event => {
+    const more = event.target.closest('[data-chat-more]');
+    if (more) {event.preventDefault(); showEarlierChats(); return;}
     const again = event.target.closest('[data-chat-again]');
     if (again) {event.preventDefault(); regenerateChat(again.dataset.chatAgain).catch(error => notice(error.message, true)); return;}
     const unhelpful = event.target.closest('[data-chat-unhelpful]');
@@ -1249,13 +1312,16 @@ feedback(message,'数据已导入。'+report);
       input.value = presets[Number(button.dataset.trainingPreset)] || '';
       input.focus();
     });
-    if (consent) {try {consent.checked = localStorage.getItem('qingheng.training.consent') === '1';} catch {}}
+    if (consent) {try {consent.checked = localStorage.getItem(TRAINING_CONSENT_KEY) === '1';} catch {}}
     form.addEventListener('submit', async event => {
       event.preventDefault();
       const question = input.value.trim();
       if (!question) {feedback(feedbackBox, '先写一句要问的训练问题。', true); return;}
       if (consent && !consent.checked) {feedback(feedbackBox, '请先勾选同意，训练建议需要发送给外部模型。', true); return;}
-      if (consent) {try {localStorage.setItem('qingheng.training.consent', '1');} catch {}}
+      if (consent) {
+        try {localStorage.setItem(TRAINING_CONSENT_KEY, '1');} catch {}
+        if (typeof schedulePrefsSync === 'function') schedulePrefsSync({trainingConsent: true});
+      }
       feedback(feedbackBox, '正在生成…');
       const button = form.querySelector('button[type="submit"]');
       if (button) button.disabled = true;
@@ -1360,7 +1426,9 @@ feedback(message,'数据已导入。'+report);
   };
   $('#refresh-push-history').addEventListener('click', event => runPushHistory(false, event.currentTarget));
   $('#query-push-history').addEventListener('click', event => runPushHistory(true, event.currentTarget));
-  (function(){const box=$('#chat-web');if(!box)return;try{const saved=localStorage.getItem('qingheng.chat.web');if(saved!==null)box.checked=saved==='1';}catch{}box.addEventListener('change',()=>{try{localStorage.setItem('qingheng.chat.web',box.checked?'1':'0');}catch{}});})();
+  (function(){const box=$('#chat-web');if(!box)return;try{const saved=localStorage.getItem(CHAT_WEB_KEY);if(saved!==null)box.checked=saved==='1';}catch{}box.addEventListener('change',()=>{try{localStorage.setItem(CHAT_WEB_KEY,box.checked?'1':'0');}catch{}
+  if (typeof schedulePrefsSync === 'function') schedulePrefsSync({chatWeb: box.checked});
+});})();
   // ---- Generic draft: recognise -> confirm -> write -> undo ----------------------------------------
   let pendingDraft = null, draftUndo = null;
   function showTrainingDraft(draft) {

@@ -306,14 +306,15 @@
     const items = sources.map((item, index) => `<li><a href="${esc(item.url)}" target="_blank" rel="noreferrer">[${index + 1}] ${esc(String(item.title || item.url).slice(0, 90))}</a></li>`).join('');
     return `<details class="row-sources"><summary>来源 ${sources.length} 条</summary><ol>${items}</ol></details>`;
   }
-  /** Rows the user marked as unhelpful; kept on the phone only, as a UI signal. */
+  /** Rows the user marked as unhelpful; mirrored into /api/prefs so a new phone keeps them. */
   const unhelpfulChats = (() => {
-    try {const saved = JSON.parse(localStorage.getItem('qingheng.chat.unhelpful') || '[]'); return new Set(Array.isArray(saved) ? saved.map(String) : []);} catch {return new Set();}
+    try {const saved = JSON.parse(localStorage.getItem(CHAT_UNHELPFUL_KEY) || '[]'); return new Set(Array.isArray(saved) ? saved.map(String) : []);} catch {return new Set();}
   })();
   function markUnhelpful(id) {
     if (!id) return;
     unhelpfulChats.add(id);
-    try {localStorage.setItem('qingheng.chat.unhelpful', JSON.stringify([...unhelpfulChats]));} catch {}
+    try {localStorage.setItem(CHAT_UNHELPFUL_KEY, JSON.stringify([...unhelpfulChats]));} catch {}
+    if (typeof schedulePrefsSync === 'function') schedulePrefsSync({unhelpfulChats: [...unhelpfulChats]});
     renderChat();
   }
   /** Refills the question box and, when consent is already given, asks again. */
@@ -344,6 +345,11 @@
     const hay = (String(row.question || "") + " " + String(row.answer || "")).toLowerCase();
     return hay.includes(query.toLowerCase());
   }
+  /** 问答记录分页：默认只渲染最新 30 条，历史长了也不卡。 */
+  let chatShownCount = 30;
+  const CHAT_PAGE_SIZE = 30;
+  function resetChatPaging() { chatShownCount = CHAT_PAGE_SIZE; }
+  function showEarlierChats() { chatShownCount += CHAT_PAGE_SIZE; renderChat(); }
   function renderChat() {
     const chats = Array.isArray(state.chats) ? state.chats : [];
     const log = $('#chat-log');
@@ -351,7 +357,13 @@
     const shown = baseRows.filter(row => chatMatches(row, chatQuery));
     // No inline delete here: a long press opens copy / select / favourite / delete instead, so the
     // row keeps its width for the question, its tags, the date and a readable answer preview.
-    const groups = groupChatsByDate([...shown].reverse());
+    const ordered = [...shown].reverse();
+    const visible = ordered.slice(0, chatShownCount);
+    const earlier = ordered.length - visible.length;
+    const groups = groupChatsByDate(visible);
+    const moreButton = earlier > 0
+      ? `<button type="button" class="button subtle full-width" data-chat-more>更早的记录（还有 ${earlier} 条）</button>`
+      : '';
     if (log) log.innerHTML = shown.length ? groups.map(group => "<p class=\"chat-day\">" + esc(group.date) + "<span>" + group.rows.length + " 条</span></p>" + group.rows.map(row => {
       // An answer that is nothing but JSON nulls ("nullnull…") is not an answer: say what happened
       // instead of showing the raw text, even if the stored record was never repaired.
@@ -377,7 +389,7 @@
         + citationBlock(row)
         + `<div class="button-row row-actions"><button type="button" class="button subtle" data-chat-again="${esc(id)}">重新生成</button><button type="button" class="button subtle" data-chat-unhelpful="${esc(id)}">${unhelpfulChats.has(id) ? '已标记没用' : '这条没用'}</button></div>`
         + `</div></div>`;
-    }).join("")).join("") : empty(chatQuery ? "没有匹配「" + chatQuery + "」的记录。" : (favoriteOnlyChats ? "还没有收藏的问答记录。长按一条记录即可收藏。" : "还没有问答记录。有疑问时，问一句。"));
+    }).join("")).join("") + moreButton : empty(chatQuery ? "没有匹配「" + chatQuery + "」的记录。" : (favoriteOnlyChats ? "还没有收藏的问答记录。长按一条记录即可收藏。" : "还没有问答记录。有疑问时，问一句。"));
     const node = $('#chat-mode');
     if (node) {
       const base = state.settings.apiConfigured === true
