@@ -65,7 +65,7 @@
    * unset training frequency yields a provisional result that says which factor it assumed.
    */
   function computeTargets(input) {
-    const {sex, weight, height, age, goal} = input;
+    const {sex = '', weight, height, age, goal = ''} = input;
     const rules = targetRules(input.rules);
     const w = number(weight), h = number(height), a = number(age);
     const missing = [];
@@ -89,7 +89,8 @@
     const floor = rules.intakeFloor;
     // Goal presets: the deficit each goal plans and the protein band it needs. The 口径 stays a hard
     // constraint — a preset can never push intake below the floor or past the deficit cap.
-    const preset = GOAL_PRESETS[goal] || GOAL_PRESETS.recomp;
+    if (!GOAL_PRESETS[goal]) { return { incomplete: true, missing: [...missing, '饮食目标'], lines: ['还缺 饮食目标，补齐后才能测算目标（不猜默认值）。'] }; }
+    const preset = GOAL_PRESETS[goal];
     const cap = rules.deficitCapPercent;
     const deficitOf = value => Math.round((tdee - value) / tdee * 1000) / 10;
 
@@ -203,11 +204,11 @@
   /** Onboarding values -> computeTargets input. An unanswered training frequency stays unanswered. */
   function targetInputFrom(values) {
     return {
-      sex: values.sex || 'male',
+      sex: values.sex,
       weight: values.weight,
       height: values.height,
       age: values.age,
-      goal: values.goal || 'recomp',
+      goal: values.goal,
       training: values.training === '' || values.training === undefined ? null : values.training,
       rules: values.rules
     };
@@ -235,7 +236,7 @@
       height: form.elements.height.value,
       weight: weightField !== null ? weightField : latestWeight(),
       age: form.elements.age.value,
-      goal: form.elements.goal.value || 'recomp',
+      goal: form.elements.goal.value,
       training: options.training !== undefined ? options.training : form.elements.training.value,
       rules: ruleOverridesFrom(form)
     };
@@ -363,7 +364,7 @@
   async function persistProfile(extra) {
     const form = $('#profile-form');
     const training = number(form.elements.training.value);
-    const goal = form.elements.goal.value || 'recomp';
+    const goal = form.elements.goal.value;
     const payload = {
       sex: form.elements.sex.value,
       height: number(form.elements.height.value),

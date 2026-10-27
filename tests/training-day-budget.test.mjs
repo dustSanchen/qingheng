@@ -15,7 +15,7 @@ check('an intake range is derived per date', app.includes('function intakeRangeF
 check('a training day uses the training range', app.includes('min: useTraining ? trainingDay.min : restDay.min'));
 check('a rest day uses the rest range', app.includes('max: useTraining ? trainingDay.max : restDay.max'));
 check('an unrecorded day says so instead of guessing', app.includes("'当天未记录是否训练，按休息日区间'"));
-check('every diet goal drives the daily range', app.includes("goal: profile.goal || 'recomp'") && app.includes('goalLabel(profile.goal)'));
+check('every diet goal drives the daily range', app.includes("goal: profile.goal,") && app.includes('goalLabel(profile.goal)'));
 check('the goal plan falls back safely when incomplete', app.includes('plan && !plan.incomplete ? plan : null'));
 check('the training flag is read from the habit row', app.includes("const habit = (state?.habits || []).find(row => row && row.date === date);"));
 check('a string "true" from older data is accepted', app.includes("habit.training === 'true' ? true"));

@@ -40,7 +40,7 @@ check('the copy targets the day being viewed', app.includes('copy.date = activeD
 check('the copy is labelled as such', app.includes("copy.source = 'quick-copy';") && app.includes("'quick-copy':'复制'"));
 check('the copy never reuses the source id', app.includes('delete copy.id;'));
 check('stale draft links are dropped', app.includes('delete copy.estimateId;') && app.includes('delete copy.draftId;'));
-check('a copied meal keeps a valid clock time', app.includes("copy.mealTime = source.mealTime && clockPattern.test(String(source.mealTime)) ? source.mealTime : nowClock();"));
+check('a copied meal keeps a valid clock time', app.includes("copy.mealTime = nowClock();"));
 check('the user confirms before copying', app.includes("if (!await askConfirm(`把「${source.name || '这一餐'}」复制到 ${activeDate}？"));
 check('the app says what to do after copying', app.includes('请核对份量'));
 check('an empty list is explained instead of showing a blank box', app.includes('还没有可复制的餐食记录'));

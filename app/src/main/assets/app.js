@@ -1031,11 +1031,11 @@ function intakeRangeForDate(date = activeDate) {
     const trained = habit ? (habit.training === true || habit.training === 'true' ? true : habit.training === false || habit.training === 'false' ? false : null) : null;
     const useTraining = trained === true;
     const plan = computeTargets({
-          sex: profile.sex || 'male',
+          sex: profile.sex,
           weight: number(profile.weight) ?? latestWeight(),
           height: profile.height,
           age: profile.age,
-          goal: profile.goal || 'recomp',
+          goal: profile.goal,
           applyGoalPresets: true,
           training: profile.training,
           rules: profile
@@ -2148,7 +2148,7 @@ function intakeRangeForDate(date = activeDate) {
    * unset training frequency yields a provisional result that says which factor it assumed.
    */
   function computeTargets(input) {
-    const {sex, weight, height, age, goal} = input;
+    const {sex = '', weight, height, age, goal = ''} = input;
     const rules = targetRules(input.rules);
     const w = number(weight), h = number(height), a = number(age);
     const missing = [];
@@ -2172,7 +2172,8 @@ function intakeRangeForDate(date = activeDate) {
     const floor = rules.intakeFloor;
     // Goal presets: the deficit each goal plans and the protein band it needs. The 口径 stays a hard
     // constraint — a preset can never push intake below the floor or past the deficit cap.
-    const preset = GOAL_PRESETS[goal] || GOAL_PRESETS.recomp;
+    if (!GOAL_PRESETS[goal]) { return { incomplete: true, missing: [...missing, '饮食目标'], lines: ['还缺 饮食目标，补齐后才能测算目标（不猜默认值）。'] }; }
+    const preset = GOAL_PRESETS[goal];
     const cap = rules.deficitCapPercent;
     const deficitOf = value => Math.round((tdee - value) / tdee * 1000) / 10;
 
@@ -2286,11 +2287,11 @@ function intakeRangeForDate(date = activeDate) {
   /** Onboarding values -> computeTargets input. An unanswered training frequency stays unanswered. */
   function targetInputFrom(values) {
     return {
-      sex: values.sex || 'male',
+      sex: values.sex,
       weight: values.weight,
       height: values.height,
       age: values.age,
-      goal: values.goal || 'recomp',
+      goal: values.goal,
       training: values.training === '' || values.training === undefined ? null : values.training,
       rules: values.rules
     };
@@ -2318,7 +2319,7 @@ function intakeRangeForDate(date = activeDate) {
       height: form.elements.height.value,
       weight: weightField !== null ? weightField : latestWeight(),
       age: form.elements.age.value,
-      goal: form.elements.goal.value || 'recomp',
+      goal: form.elements.goal.value,
       training: options.training !== undefined ? options.training : form.elements.training.value,
       rules: ruleOverridesFrom(form)
     };
@@ -2446,7 +2447,7 @@ function intakeRangeForDate(date = activeDate) {
   async function persistProfile(extra) {
     const form = $('#profile-form');
     const training = number(form.elements.training.value);
-    const goal = form.elements.goal.value || 'recomp';
+    const goal = form.elements.goal.value;
     const payload = {
       sex: form.elements.sex.value,
       height: number(form.elements.height.value),
@@ -2493,7 +2494,7 @@ function intakeRangeForDate(date = activeDate) {
       height: number($('#ob-height').value),
       weight: number($('#ob-weight').value),
       age: number($('#ob-age').value),
-      goal: g('goal') || 'recomp',
+      goal: g('goal'),
       training: $('#ob-training').value === '' ? null : Number($('#ob-training').value)
     };
   }
@@ -2555,7 +2556,7 @@ function intakeRangeForDate(date = activeDate) {
     $('#ob-finish').disabled = true;
     feedback(message, '正在保存并测算…');
     try {
-      $('#profile-form').elements.sex.value = values.sex;
+      $('#profile-form').elements.sex.value = values.sex || '';
       $('#profile-form').elements.height.value = values.height;
       $('#profile-form').elements.age.value = values.age ?? '';
       $('#profile-form').elements.goal.value = values.goal;
@@ -2643,7 +2644,7 @@ function intakeRangeForDate(date = activeDate) {
     $('#ob-height').value = form.elements.height.value || '';
     $('#ob-age').value = form.elements.age.value || '';
     $('#ob-weight').value = form.elements.weight.value || latestWeight() || '';
-    const goal = form.elements.goal.value || 'recomp';
+    const goal = form.elements.goal.value || '';
     const radio = document.querySelector(`#ob-goals input[value="${goal}"]`);
     if (radio) radio.checked = true;
     showOnboarding(true);
@@ -3802,7 +3803,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     delete copy.id;
     copy.date = activeDate;
     copy.source = 'quick-copy';
-    copy.mealTime = source.mealTime && clockPattern.test(String(source.mealTime)) ? source.mealTime : nowClock();
+    copy.mealTime = nowClock();
     copy.mealTimeSource = 'manual';
     delete copy.estimateId;
     delete copy.draftId;
@@ -4101,7 +4102,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.1.59';
+  const APP_VERSION = '1.1.60';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -5020,7 +5021,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     // goal / training / 口径 used to be dropped here, so a saved profile silently kept the old values.
     const rawTraining=form.elements.training.value;
     const training=rawTraining==='none' ? 'none' : (rawTraining==='' ? null : number(rawTraining));
-    const goal=form.elements.goal.value || 'recomp';
+    const goal=form.elements.goal.value;
     const payload={sex:form.elements.sex.value,goal,...values,...ruleOverridesFrom(form)};
     if(training!==null) payload.training=training;
     if(goal==='lean' && !(state.profile && state.profile.leanPhaseStartedAt)) payload.leanPhaseStartedAt=localDate();

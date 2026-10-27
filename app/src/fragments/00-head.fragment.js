@@ -1031,11 +1031,11 @@ function intakeRangeForDate(date = activeDate) {
     const trained = habit ? (habit.training === true || habit.training === 'true' ? true : habit.training === false || habit.training === 'false' ? false : null) : null;
     const useTraining = trained === true;
     const plan = computeTargets({
-          sex: profile.sex || 'male',
+          sex: profile.sex,
           weight: number(profile.weight) ?? latestWeight(),
           height: profile.height,
           age: profile.age,
-          goal: profile.goal || 'recomp',
+          goal: profile.goal,
           applyGoalPresets: true,
           training: profile.training,
           rules: profile

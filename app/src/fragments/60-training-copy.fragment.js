@@ -729,7 +729,7 @@
     delete copy.id;
     copy.date = activeDate;
     copy.source = 'quick-copy';
-    copy.mealTime = source.mealTime && clockPattern.test(String(source.mealTime)) ? source.mealTime : nowClock();
+    copy.mealTime = nowClock();
     copy.mealTimeSource = 'manual';
     delete copy.estimateId;
     delete copy.draftId;

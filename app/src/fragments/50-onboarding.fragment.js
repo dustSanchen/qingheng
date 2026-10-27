@@ -27,7 +27,7 @@
       height: number($('#ob-height').value),
       weight: number($('#ob-weight').value),
       age: number($('#ob-age').value),
-      goal: g('goal') || 'recomp',
+      goal: g('goal'),
       training: $('#ob-training').value === '' ? null : Number($('#ob-training').value)
     };
   }
@@ -89,7 +89,7 @@
     $('#ob-finish').disabled = true;
     feedback(message, '正在保存并测算…');
     try {
-      $('#profile-form').elements.sex.value = values.sex;
+      $('#profile-form').elements.sex.value = values.sex || '';
       $('#profile-form').elements.height.value = values.height;
       $('#profile-form').elements.age.value = values.age ?? '';
       $('#profile-form').elements.goal.value = values.goal;
@@ -177,7 +177,7 @@
     $('#ob-height').value = form.elements.height.value || '';
     $('#ob-age').value = form.elements.age.value || '';
     $('#ob-weight').value = form.elements.weight.value || latestWeight() || '';
-    const goal = form.elements.goal.value || 'recomp';
+    const goal = form.elements.goal.value || '';
     const radio = document.querySelector(`#ob-goals input[value="${goal}"]`);
     if (radio) radio.checked = true;
     showOnboarding(true);

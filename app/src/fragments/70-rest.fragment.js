@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.1.59';
+  const APP_VERSION = '1.1.60';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1071,7 +1071,7 @@
     // goal / training / 口径 used to be dropped here, so a saved profile silently kept the old values.
     const rawTraining=form.elements.training.value;
     const training=rawTraining==='none' ? 'none' : (rawTraining==='' ? null : number(rawTraining));
-    const goal=form.elements.goal.value || 'recomp';
+    const goal=form.elements.goal.value;
     const payload={sex:form.elements.sex.value,goal,...values,...ruleOverridesFrom(form)};
     if(training!==null) payload.training=training;
     if(goal==='lean' && !(state.profile && state.profile.leanPhaseStartedAt)) payload.leanPhaseStartedAt=localDate();
