@@ -317,7 +317,7 @@ public class AlarmReceiver extends BroadcastReceiver {
 
     static String activeProvider(Context context) {
         String provider = SecretStore.prefs(context).getString("provider", "deepseek");
-        return "bai".equals(provider) ? "bai" : "deepseek";
+        return MainActivity.isKnownProvider(provider) ? provider : "deepseek";
     }
 
     static JSONObject providerConfig(Context context, String provider) {

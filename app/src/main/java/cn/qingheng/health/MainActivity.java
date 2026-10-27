@@ -3042,11 +3042,21 @@ import java.util.concurrent.Executors;
         return new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(calendar.getTime());
     }
 
+    /** Provider registry: base defaults per supported provider; keys are never part of it. */
+    static boolean isKnownProvider(String provider) {
+        return "deepseek".equals(provider) || "bai".equals(provider) || "siliconflow".equals(provider);
+    }
+    private static String defaultBaseUrl(String provider) {
+        if ("bai".equals(provider)) return "https://api.b.ai/v1";
+        if ("siliconflow".equals(provider)) return "https://api.siliconflow.cn/v1";
+        return "https://api.deepseek.com";
+    }
+
     private JSONObject config(String provider) throws Exception {
         String stored = prefs.getString("config." + provider, "");
         JSONObject c = stored.isEmpty() ? new JSONObject() : new JSONObject(stored);
         boolean deepseek = provider.equals("deepseek");
-        if (!c.has("baseUrl")) c.put("baseUrl", deepseek ? "https://api.deepseek.com" : "https://api.b.ai/v1");
+        if (!c.has("baseUrl")) c.put("baseUrl", defaultBaseUrl(provider));
         if (!c.has("model")) c.put("model", deepseek ? "deepseek-flash" : "");
         if (!c.has("visionModel")) c.put("visionModel", deepseek ? "deepseek-flash" : "");
         if (!c.has("visionEnabled")) c.put("visionEnabled", deepseek);
@@ -3081,12 +3091,12 @@ import java.util.concurrent.Executors;
         String p = provider();
         JSONObject current = config(p);
         current.put("provider", p);
-        current.put("providers", new JSONObject().put("deepseek", config("deepseek")).put("bai", config("bai")));
+        current.put("providers", new JSONObject().put("deepseek", config("deepseek")).put("bai", config("bai")).put("siliconflow", config("siliconflow")));
         return current;
     }
     private void saveSettings(JSONObject b) throws Exception {
         String p = b.optString("provider", provider());
-        if (!p.equals("deepseek") && !p.equals("bai")) throw fail("仅支持 deepseek 和 bai 提供方");
+        if (!isKnownProvider(p)) throw fail("仅支持 deepseek、bai 和 siliconflow 提供方");
         JSONObject c = config(p);
         JSONObject patch = b;
         if (b.optJSONObject("providers") != null && b.getJSONObject("providers").optJSONObject(p) != null) {

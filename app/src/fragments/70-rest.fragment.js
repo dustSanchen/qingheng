@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.1.64';
+  const APP_VERSION = '1.1.65';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -185,7 +185,7 @@
     const model = $('#hub-summary-model');
     if (model) {
       const settings = state.settings || {};
-      const provider = settings.provider === 'bai' ? 'B.AI' : 'DeepSeek';
+      const provider = ({deepseek: 'DeepSeek', bai: 'B.AI', siliconflow: '硅基流动'})[settings.provider] || 'DeepSeek';
       model.textContent = settings.apiConfigured === true ? `${provider} · 已配置${settings.visionEnabled === true ? '（含图片）' : ''}` : `${provider} · 未配置`;
     }
     const about = $('#hub-summary-about');
@@ -1215,7 +1215,7 @@
     event.preventDefault();const form=event.currentTarget,button=$('button[type=submit]',form),message=$('#estimate-feedback');if(estimateBusy || savingDraft || !form.reportValidity())return;
     if(imageBusy){feedback(message,'图片仍在压缩，请稍等。',true);return;}
     if(!loaded || !settingsKnown){feedback(message,'尚未加载手机模型配置，请重新打开应用后再估算。',true);return;}
-    if(imageData && (!state.settings.apiConfigured || !state.settings.visionEnabled || !state.settings.visionModel)){feedback(message,'照片需要已启用的视觉模型：DeepSeek 请使用 deepseek-flash，B.AI 请填写其支持图片的模型。',true);return;}
+    if(imageData && (!state.settings.apiConfigured || !state.settings.visionEnabled || !state.settings.visionModel)){feedback(message,'照片需要已启用的视觉模型：请到「我的 → 模型连接」为所选服务商填写并启用支持图片的模型。',true);return;}
     if(imageData && !$('#estimate-consent').hidden && !$('#estimate-consent').checked){feedback(message,'照片外部估算前，请先勾选本次数据发送同意。',true);$('#estimate-consent').focus();return;}
     if(imageData && !navigator.onLine){feedback(message,'当前离线，照片无法识别；请移除照片并用明确克重文字做本地估算。',true);return;}
     const text=form.elements.text.value.trim();if(!text && !imageData){feedback(message,'请描述餐食或添加一张图片。',true);return;}

@@ -274,7 +274,7 @@ public final class ChatCompletion {
     }
     private static void checkStatus(int code) throws PublicError {
         if (code >= 300 && code < 400) throw new PublicError("API 重定向已拒绝，密钥不会转发");
-        if (code == 401) throw new PublicError("HTTP 401：API Key 认证失败。请在所选服务商后台重新生成密钥并保存；DeepSeek 密钥不能用于 B.AI，反之亦然。不是相机权限问题。");
+        if (code == 401) throw new PublicError("HTTP 401：API Key 认证失败。请在所选服务商后台重新生成密钥并保存；密钥只属于对应服务商，不能跨服务商使用。不是相机权限问题。");
         if (code == 403) throw new PublicError("HTTP 403：服务商拒绝访问。请核对模型权限、账号限制与访问策略；不要反复拍照重试。");
         if (code == 402) throw new PublicError("HTTP 402：API 账户余额不足，请到所选服务商充值或检查额度。");
         if (code == 429) throw new PublicError("HTTP 429：API 限流或额度限制，请稍后再试并检查服务商配额。");

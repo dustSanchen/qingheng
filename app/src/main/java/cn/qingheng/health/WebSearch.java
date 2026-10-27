@@ -18,17 +18,17 @@ import javax.net.ssl.HttpsURLConnection;
  * Public web lookup for the Q&A feature. Only the search words leave the phone; no health record,
  * photo or API key is ever part of these requests.
  *
- * Fallback order:
- *   1. Bing web results (cn.bing.com). A failed request, a captcha/verification page, or a page
- *      that parses to zero results all count as "Bing failed".
- *   2. Baidu Baike (official lemma-card API) and PubMed (NCBI E-utilities).
- *   3. If PubMed is unreachable: Europe PMC.
+ * Fallback order (contracted open APIs first, HTML scraping last):
+ *   1. Baidu Baike (official lemma-card API) and PubMed (NCBI E-utilities).
+ *   2. If PubMed is unreachable: Europe PMC.
+ *   3. Only when all of the above yield nothing: Bing web results (cn.bing.com). A failed request,
+ *      a captcha/verification page, or a page that parses to zero results all count as "Bing failed".
  *   4. If everything fails the result is {connected:false}; callers must say so and must not
  *      invent sources.
  *
  * Contract status: Baike/PubMed/Europe PMC are documented open endpoints; Bing is HTML parsing
  * with NO API contract, so a page redesign can break it at any time — the failure is caught and
- * the lookup falls through to the next source, never fabricating results.
+ * reported as a tried step, never fabricated results. That is why Bing runs last.
  *
  * Every entry carries a real title, https link and snippet taken from the response, nothing else.
  */
@@ -60,17 +60,7 @@ public final class WebSearch {
         if (q.isEmpty()) return outcome(false, "", new ArrayList<JSONObject>(), tried);
         final long start = System.currentTimeMillis();
 
-        List<JSONObject> found = new ArrayList<>();
-        try {
-            found = bing(q, start);
-            tried.put(step("\u5fc5\u5e94", found.isEmpty() ? "failed" : "ok", found.isEmpty() ? "\u672a\u89e3\u6790\u5230\u7ed3\u679c" : ""));
-        } catch (Blocked e) {
-            tried.put(step("\u5fc5\u5e94", "failed", e.getMessage() == null ? "\u9047\u5230\u9a8c\u8bc1\u9875\u9762" : e.getMessage()));
-        } catch (Exception e) {
-            tried.put(step("\u5fc5\u5e94", "failed", "\u8fde\u63a5\u5931\u8d25"));
-        }
-        if (!found.isEmpty()) return outcome(true, "\u5fc5\u5e94", found, tried);
-
+        // Contracted open APIs first — they fail loudly and legally.
         List<JSONObject> baike = new ArrayList<>(), papers = new ArrayList<>();
         try {
             baike = baidu(q, start);
@@ -101,7 +91,21 @@ public final class WebSearch {
         StringBuilder via = new StringBuilder();
         if (!baike.isEmpty()) via.append("\u767e\u5ea6\u767e\u79d1");
         if (!papers.isEmpty()) via.append(via.length() > 0 ? "\u3001" : "").append(papers.get(0).optString("source"));
-        return outcome(!merged.isEmpty(), via.toString(), merged, tried);
+        if (!merged.isEmpty()) return outcome(true, via.toString(), merged, tried);
+
+        // Bing last: HTML parsing without an API contract, so a page redesign cannot break the
+        // sources above — it can only ever affect this fallback.
+        List<JSONObject> found = new ArrayList<>();
+        try {
+            found = bing(q, start);
+            tried.put(step("\u5fc5\u5e94", found.isEmpty() ? "failed" : "ok", found.isEmpty() ? "\u672a\u89e3\u6790\u5230\u7ed3\u679c" : ""));
+        } catch (Blocked e) {
+            tried.put(step("\u5fc5\u5e94", "failed", e.getMessage() == null ? "\u9047\u5230\u9a8c\u8bc1\u9875\u9762" : e.getMessage()));
+        } catch (Exception e) {
+            tried.put(step("\u5fc5\u5e94", "failed", "\u8fde\u63a5\u5931\u8d25"));
+        }
+        if (!found.isEmpty()) return outcome(true, "\u5fc5\u5e94", found, tried);
+        return outcome(false, via.toString(), merged, tried);
     }
 
     // ---- Bing -------------------------------------------------------------------------------

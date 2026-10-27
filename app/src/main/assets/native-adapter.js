@@ -5,7 +5,8 @@
   const androidPage = location.protocol === 'file:' || ['appassets.androidplatform.net','app.qingheng.local'].includes(location.hostname);
   const defaults = {
     deepseek: {baseUrl:'https://api.deepseek.com',model:'deepseek-flash',visionModel:'deepseek-flash',visionEnabled:true,apiConfigured:false},
-    bai: {baseUrl:'https://api.b.ai/v1',model:'',visionModel:'',visionEnabled:false,apiConfigured:false}
+    bai: {baseUrl:'https://api.b.ai/v1',model:'',visionModel:'',visionEnabled:false,apiConfigured:false},
+    siliconflow: {baseUrl:'https://api.siliconflow.cn/v1',model:'',visionModel:'',visionEnabled:false,apiConfigured:false}
   };
   const copy = value => JSON.parse(JSON.stringify(value));
   let settings = {provider:'deepseek',...defaults.deepseek,providers:copy(defaults)};
@@ -29,8 +30,8 @@
     });
   }
   function safeSettings(data) {
-    const provider=data?.provider==='bai'?'bai':'deepseek', providers={};
-    for (const key of ['deepseek','bai']) {
+    const provider=['deepseek','bai','siliconflow'].includes(data?.provider)?data.provider:'deepseek', providers={};
+    for (const key of ['deepseek','bai','siliconflow']) {
       const source=data?.providers?.[key] || (key===provider?data:{}), base=defaults[key];
       providers[key]={baseUrl:typeof source?.baseUrl==='string'?source.baseUrl:base.baseUrl,model:typeof source?.model==='string'?source.model:base.model,visionModel:typeof source?.visionModel==='string'?source.visionModel:'',visionEnabled:source?.visionEnabled===true,allowExternal:source?.allowExternal===true,apiConfigured:source?.apiConfigured===true};
     }
@@ -63,7 +64,7 @@
     if(path==='/api/settings') {
       if(method!=='GET') {
         if(body?.apiKey) throw new Error('API Key 只能在 APK 中保存；浏览器演示不保存密钥，也不请求外部模型。');
-        const provider=body?.provider==='bai'?'bai':'deepseek';
+        const provider=['deepseek','bai','siliconflow'].includes(body?.provider)?body.provider:'deepseek';
         settings.providers[provider]={...settings.providers[provider],...Object.fromEntries(['baseUrl','model','visionModel','visionEnabled','allowExternal'].filter(k=>body?.[k]!==undefined).map(k=>[k,body[k]])),apiConfigured:false};
         settings=safeSettings({provider,providers:settings.providers});
       }
@@ -343,7 +344,7 @@
         const config=await storageRequest('/api/settings','GET',undefined,options.signal);
         if(config.apiConfigured && body?.allowExternal===true) {
           if(!hasNative())throw new Error('外部模型仅可从 APK 调用。');
-          if(body?.image && (!config.visionEnabled || !config.visionModel))throw new Error('照片需要已启用的视觉模型：DeepSeek 请使用 deepseek-flash，B.AI 请填写其支持图片的模型。');
+          if(body?.image && (!config.visionEnabled || !config.visionModel))throw new Error('照片需要已启用的视觉模型：请到「我的 → 模型连接」为所选服务商填写并启用支持图片的模型。');
           const result = await nativeRequest(path,method,{...body,allowExternal:true},options.signal);
           return response(window.QinghengFoods ? window.QinghengFoods.calibrateDraft(result) : result);
         }
@@ -365,7 +366,7 @@
         if(!question && !image)throw new Error('请输入你的问题，或拍一张照片。');
         const config=await storageRequest('/api/settings','GET',undefined,options.signal);
         if(!config.apiConfigured)throw new Error('请先在「我的」保存所选服务商的 API Key。');
-        if(image && (!config.visionEnabled || !config.visionModel))throw new Error('带照片提问需要已启用的视觉模型：DeepSeek 请使用 deepseek-flash，B.AI 请填写其支持图片的模型。');
+        if(image && (!config.visionEnabled || !config.visionModel))throw new Error('带照片提问需要已启用的视觉模型：请到「我的 → 模型连接」为所选服务商填写并启用支持图片的模型。');
         const started=await nativeRequest('/api/chat/stream','POST',{question,date:body.date || localDate(),photoTakenAt:body.photoTakenAt,photoTimeSource:body.photoTimeSource,history:Array.isArray(body.history)?body.history.slice(-20):[],allowExternal:true,anchors:typeof body.anchors==='string'?body.anchors:'',webSearch:body.webSearch===true,...(image?{image}:{})},options.signal);
         const streamId=started?.streamId;
         if(!streamId)throw new Error('流式输出未能启动，请重试。');
@@ -415,7 +416,7 @@
         if(!question && !image)throw new Error('请输入你的问题，或拍一张照片。');
         const config=await storageRequest('/api/settings','GET',undefined,options.signal);
         if(!config.apiConfigured)throw new Error('请先在「我的」保存所选服务商的 API Key。');
-        if(image && (!config.visionEnabled || !config.visionModel))throw new Error('带照片提问需要已启用的视觉模型：DeepSeek 请使用 deepseek-flash，B.AI 请填写其支持图片的模型。');
+        if(image && (!config.visionEnabled || !config.visionModel))throw new Error('带照片提问需要已启用的视觉模型：请到「我的 → 模型连接」为所选服务商填写并启用支持图片的模型。');
         const reply=await nativeRequest(path,method,{question,date:body.date || localDate(),photoTakenAt:body.photoTakenAt,photoTimeSource:body.photoTimeSource,history:Array.isArray(body.history)?body.history.slice(-20):[],allowExternal:true,webSearch:body.webSearch===true,...(image?{image}:{})},options.signal);
         // Machine-internal calls (AI plan, training advice) pass logToHistory:false, so the Q&A
         // history keeps holding only questions the user actually asked in the chat view.

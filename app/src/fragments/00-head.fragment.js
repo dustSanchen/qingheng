@@ -536,13 +536,13 @@
     providerDrafts[selectedProvider]={baseUrl:form.elements.baseUrl.value,model:form.elements.model.value,visionModel:form.elements.visionModel.value,visionEnabled:form.elements.visionEnabled.checked,allowExternal:form.elements.allowExternal.checked};
   }
   function showProvider(provider) {
-    selectedProvider=provider==='bai'?'bai':'deepseek';
+    selectedProvider=['deepseek','bai','siliconflow'].includes(provider)?provider:'deepseek';
     const form=$('#settings-form'), config={...window.QinghengAdapter.defaults[selectedProvider],...(state.settings.providers?.[selectedProvider] || {}),...(providerDrafts[selectedProvider] || {})};
     form.elements.provider.value=selectedProvider;
     populate(form,config);form.elements.visionEnabled.checked=config.visionEnabled===true;
     form.elements.allowExternal.checked=config.allowExternal===true;
     form.elements.apiKey.value='';form.elements.clearKey.checked=false;
-    form.elements.model.placeholder=selectedProvider==='deepseek'?'deepseek-flash':'填写 B.AI 提供的文字模型';
+    form.elements.model.placeholder=selectedProvider==='deepseek'?'deepseek-flash':'填写所选服务商的文字模型';
     $('#settings-status').textContent=config.apiConfigured ? '已配置 · 密钥不回传' : '此服务商未配置密钥';
   }
   function applySettings(data) {showProvider(data.provider || selectedProvider);}
