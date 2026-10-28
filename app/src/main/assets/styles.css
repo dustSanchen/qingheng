@@ -1074,3 +1074,16 @@ html{scroll-padding-bottom:calc(var(--tabbar-safe,96px) + 16px)}
 .macro-value{font-size:18px;line-height:1.15}
 .macro-value small{font-size:var(--text-xs);color:var(--muted)}
 .macro-target{font-size:var(--text-xs);color:var(--muted);letter-spacing:0}
+
+/* ── 2026-10-29 收口轮：触控尺寸、chips 网格对齐、底部导航留白、短文案断行 ───────── */
+/* chips 改成等宽网格：原来 flex + 自适应宽度，换行后末行只剩一项且宽窄不齐。 */
+.pref-chips{display:grid;grid-auto-flow:row;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px}
+.pref-chip{min-height:44px;height:auto;padding:8px 10px;white-space:normal;line-height:1.25;text-align:center}
+/* 分段控件与皮肤选项补到 44–48px 命中区（原 36–42）。 */
+.segment{min-height:44px}
+.skin-option,.skin-choice,.skin-card,.skin-tile{min-height:48px}
+/* 每个视图底部预留导航高度：记录/问答页最后那个主按钮不再被底栏压住。 */
+.view{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+/* 短句与提示行：避免一个词掉到下一行（中文孤字成行）。 */
+.energy-hint,.muted,.empty-note,.fine-print{text-wrap:pretty}
+.tag{white-space:nowrap}
