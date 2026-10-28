@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.1.70';
+  const APP_VERSION = '1.1.71';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -354,12 +354,17 @@
     for (const item of wanted) {
       const name = String(item.name).trim().slice(0, 60);
       if (names.has(name)) continue;
-      current.push({
+      const record = {
+        id: (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : "ex-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8),
         name,
         sets: number(item.sets) === null ? null : number(item.sets),
         reps: number(item.reps) === null ? null : number(item.reps),
         weight: number(item.weight) === null ? null : number(item.weight)
-      });
+      };
+      // 有氧项没有组次重量，改记距离与时长，训练日志那边才有东西可显示。
+      if (number(item.distanceKm) !== null) record.distanceKm = number(item.distanceKm);
+      if (number(item.durationMin) !== null) record.durationMin = number(item.durationMin);
+      current.push(record);
       names.add(name);
       added.push(name);
     }
@@ -393,6 +398,10 @@
   /** 剂量由字段派生；编辑后重算，不会与旧字符串脱节。 */
   function aiPlanDose(item) {
     if (item && item.dose) return item.dose; // 旧数据只存了 dose 字符串
+    const run = [];
+    if (item && Number(item.distanceKm) > 0) run.push(item.distanceKm + " km");
+    if (item && Number(item.durationMin) > 0) run.push(item.durationMin + " 分钟");
+    if (run.length) return run.join(" · ");
     return [
       item && item.sets ? item.sets + " 组" : "",
       item && item.reps ? item.reps + " 次" : "",
@@ -493,7 +502,9 @@
       baselineText ? "上周最近记录（供渐进参考，不要盲目加量）：" + baselineText + "。" : "",
       library ? "训练规则（必须遵守）：\n" + library : "",
       done.length ? ("今天已记录：" + done.join("；") + "。") : "今天还没有训练记录。",
-      "只输出 JSON 数组，不要解释。每项形如 {\"name\": \"动作名\", \"sets\": 4, \"reps\": 8, \"weight\": 40, \"reason\": \"一句话为什么排它\"}，weight 与 reason 可省略。按执行顺序排列，6 个动作以内，总组数要装得进时长。"
+      "只输出 JSON 数组，不要解释。力量动作每项形如 {\"name\": \"动作名\", \"sets\": 4, \"reps\": 8, \"weight\": 40, \"reason\": \"一句话为什么排它\"}；"
+        + "有氧动作写成 {\"name\": \"跑步\", \"distanceKm\": 5, \"durationMin\": 30}，不要填 sets 与 reps。"
+        + "weight 与 reason 可省略。按执行顺序排列，6 个动作以内，总组数要装得进时长。"
     ].filter(Boolean).join("\n");
     button.disabled = true;
     const original = button.textContent;
@@ -512,7 +523,10 @@
         sets: Number(row.sets) > 0 ? Number(row.sets) : 0,
         reps: Number(row.reps) > 0 ? Number(row.reps) : 0,
         weight: Number(row.weight) > 0 ? Number(row.weight) : null,
+        distanceKm: Number(row.distanceKm) > 0 ? Number(row.distanceKm) : null,
+        durationMin: Number(row.durationMin) > 0 ? Number(row.durationMin) : null,
         reason: String(row.reason || "").slice(0, 60),
+        source: "ai",
         done: false
       }));
       aiPlanStore(activeDate, plan);

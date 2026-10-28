@@ -444,8 +444,10 @@ const values = points.length<=7 ? points.map((item,i) => {
     const row = habitRowFor(date);
     const list = Array.isArray(row?.exercises) ? row.exercises : [];
     return list.map(item => ({
+      id: item && item.id ? String(item.id) : '',
       name: String(item?.name ?? '').slice(0, 60),
-      sets: number(item?.sets), reps: number(item?.reps), weight: number(item?.weight)
+      sets: number(item?.sets), reps: number(item?.reps), weight: number(item?.weight),
+      distanceKm: number(item?.distanceKm), durationMin: number(item?.durationMin)
     })).filter(item => item.name || item.sets !== null || item.reps !== null || item.weight !== null);
   }
   /** Volume = sets × reps × weight; null when any factor is missing, so nothing is invented. */
@@ -508,30 +510,38 @@ const values = points.length<=7 ? points.map((item,i) => {
     if (document.activeElement !== form.elements.template) form.elements.template.value = template;
     const box = $('#training-exercises');
     const rows = exercises.length ? exercises : [{name: '', sets: null, reps: null, weight: null}];
-    box.innerHTML = rows.map((item, index) => `<div class="training-row" data-exercise-row="${index}"><label>动作<input data-exercise="name" value="${esc(item.name)}" maxlength="60" placeholder="例如 卧推"></label><div class="form-grid"><label>组数<input data-exercise="sets" type="number" min="0" max="30" step="1" value="${item.sets ?? ''}"></label><label>每组次数<input data-exercise="reps" type="number" min="0" max="200" step="1" value="${item.reps ?? ''}"></label><label>负重 · kg<input data-exercise="weight" type="number" min="0" max="500" step="0.5" value="${item.weight ?? ''}"></label></div><div class="row-meta"><span>${number(item.distanceKm) !== null ? `${fmt(item.distanceKm)} km` : `容量 ${exerciseVolume(item) === null ? '—' : `${fmt(exerciseVolume(item), 0)} kg`}`}${number(item.durationMin) !== null ? ` · ${fmt(item.durationMin, 0)} 分钟` : ''}</span><button type="button" class="icon-button danger" data-exercise-remove="${index}" aria-label="移除这个动作">×</button></div></div>`).join('');
+    box.innerHTML = rows.map((item, index) => `<div class="training-row" data-exercise-row="${index}" data-exercise-id="${esc(item.id || '')}"><label>动作<input data-exercise="name" value="${esc(item.name)}" maxlength="60" placeholder="例如 卧推"></label><div class="form-grid"><label>组数<input data-exercise="sets" type="number" min="0" max="30" step="1" value="${item.sets ?? ''}"></label><label>每组次数<input data-exercise="reps" type="number" min="0" max="200" step="1" value="${item.reps ?? ''}"></label><label>负重 · kg<input data-exercise="weight" type="number" min="0" max="500" step="0.5" value="${item.weight ?? ''}"></label></div><div class="row-meta"><span>${number(item.distanceKm) !== null ? `${fmt(item.distanceKm)} km` : `容量 ${exerciseVolume(item) === null ? '—' : `${fmt(exerciseVolume(item), 0)} kg`}`}${number(item.durationMin) !== null ? ` · ${fmt(item.durationMin, 0)} 分钟` : ''}</span><button type="button" class="icon-button danger" data-exercise-remove="${index}" aria-label="移除这个动作">×</button></div></div>`).join('');
     renderTrainingPresets();
     const tag = $('#training-tag');
     if (tag) tag.textContent = exercises.length ? `${TRAINING_TEMPLATES[template]} · ${exercises.length} 个动作` : row?.training === true ? '已标记训练' : '未记录';
   }
   function readTrainingExercises() {
     const box = $('#training-exercises');
-    // 跑步的 km/分钟没有输入框，靠与已存记录对位继承；按「动作名」对位——
-    // 旧的按行号对位在增删行后会把 km/分钟错挂到别的动作上。
+    // 跑步的 km/分钟没有输入框，靠与已存记录对位继承。
+    // 对位优先用记录 id（增删行、同名动作都不会错挂），旧数据没有 id 时退回按动作名。
+    const previousById = new Map();
     const runsByName = new Map();
     for (const item of exercisesFor(activeDate)) {
       const name = String(item && item.name || '').trim();
+      if (item.id) previousById.set(item.id, item);
       if (!name || (number(item.distanceKm) === null && number(item.durationMin) === null)) continue;
       if (!runsByName.has(name)) runsByName.set(name, []);
       runsByName.get(name).push(item);
     }
     return [...box.querySelectorAll('[data-exercise-row]')].map(row => ({
+      id: row.dataset.exerciseId || '',
       name: $('[data-exercise="name"]', row).value.trim().slice(0, 60),
       sets: number($('[data-exercise="sets"]', row).value),
       reps: number($('[data-exercise="reps"]', row).value),
       weight: number($('[data-exercise="weight"]', row).value)
     })).map(item => {
-      const queue = runsByName.get(item.name);
-      const previous = queue && queue.length ? queue.shift() : null;
+      // 没有 id 说明是新加的一行，给它一个，后续对位就靠它。
+      if (!item.id) item.id = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'ex-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+      let previous = previousById.get(item.id) || null;
+      if (!previous) {
+        const queue = runsByName.get(item.name);
+        previous = queue && queue.length ? queue.shift() : null;
+      }
       if (previous && (number(previous.distanceKm) !== null || number(previous.durationMin) !== null)) {
         item.distanceKm = number(previous.distanceKm);
         item.durationMin = number(previous.durationMin);

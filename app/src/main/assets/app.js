@@ -2932,8 +2932,10 @@ const values = points.length<=7 ? points.map((item,i) => {
     const row = habitRowFor(date);
     const list = Array.isArray(row?.exercises) ? row.exercises : [];
     return list.map(item => ({
+      id: item && item.id ? String(item.id) : '',
       name: String(item?.name ?? '').slice(0, 60),
-      sets: number(item?.sets), reps: number(item?.reps), weight: number(item?.weight)
+      sets: number(item?.sets), reps: number(item?.reps), weight: number(item?.weight),
+      distanceKm: number(item?.distanceKm), durationMin: number(item?.durationMin)
     })).filter(item => item.name || item.sets !== null || item.reps !== null || item.weight !== null);
   }
   /** Volume = sets × reps × weight; null when any factor is missing, so nothing is invented. */
@@ -2996,30 +2998,38 @@ const values = points.length<=7 ? points.map((item,i) => {
     if (document.activeElement !== form.elements.template) form.elements.template.value = template;
     const box = $('#training-exercises');
     const rows = exercises.length ? exercises : [{name: '', sets: null, reps: null, weight: null}];
-    box.innerHTML = rows.map((item, index) => `<div class="training-row" data-exercise-row="${index}"><label>动作<input data-exercise="name" value="${esc(item.name)}" maxlength="60" placeholder="例如 卧推"></label><div class="form-grid"><label>组数<input data-exercise="sets" type="number" min="0" max="30" step="1" value="${item.sets ?? ''}"></label><label>每组次数<input data-exercise="reps" type="number" min="0" max="200" step="1" value="${item.reps ?? ''}"></label><label>负重 · kg<input data-exercise="weight" type="number" min="0" max="500" step="0.5" value="${item.weight ?? ''}"></label></div><div class="row-meta"><span>${number(item.distanceKm) !== null ? `${fmt(item.distanceKm)} km` : `容量 ${exerciseVolume(item) === null ? '—' : `${fmt(exerciseVolume(item), 0)} kg`}`}${number(item.durationMin) !== null ? ` · ${fmt(item.durationMin, 0)} 分钟` : ''}</span><button type="button" class="icon-button danger" data-exercise-remove="${index}" aria-label="移除这个动作">×</button></div></div>`).join('');
+    box.innerHTML = rows.map((item, index) => `<div class="training-row" data-exercise-row="${index}" data-exercise-id="${esc(item.id || '')}"><label>动作<input data-exercise="name" value="${esc(item.name)}" maxlength="60" placeholder="例如 卧推"></label><div class="form-grid"><label>组数<input data-exercise="sets" type="number" min="0" max="30" step="1" value="${item.sets ?? ''}"></label><label>每组次数<input data-exercise="reps" type="number" min="0" max="200" step="1" value="${item.reps ?? ''}"></label><label>负重 · kg<input data-exercise="weight" type="number" min="0" max="500" step="0.5" value="${item.weight ?? ''}"></label></div><div class="row-meta"><span>${number(item.distanceKm) !== null ? `${fmt(item.distanceKm)} km` : `容量 ${exerciseVolume(item) === null ? '—' : `${fmt(exerciseVolume(item), 0)} kg`}`}${number(item.durationMin) !== null ? ` · ${fmt(item.durationMin, 0)} 分钟` : ''}</span><button type="button" class="icon-button danger" data-exercise-remove="${index}" aria-label="移除这个动作">×</button></div></div>`).join('');
     renderTrainingPresets();
     const tag = $('#training-tag');
     if (tag) tag.textContent = exercises.length ? `${TRAINING_TEMPLATES[template]} · ${exercises.length} 个动作` : row?.training === true ? '已标记训练' : '未记录';
   }
   function readTrainingExercises() {
     const box = $('#training-exercises');
-    // 跑步的 km/分钟没有输入框，靠与已存记录对位继承；按「动作名」对位——
-    // 旧的按行号对位在增删行后会把 km/分钟错挂到别的动作上。
+    // 跑步的 km/分钟没有输入框，靠与已存记录对位继承。
+    // 对位优先用记录 id（增删行、同名动作都不会错挂），旧数据没有 id 时退回按动作名。
+    const previousById = new Map();
     const runsByName = new Map();
     for (const item of exercisesFor(activeDate)) {
       const name = String(item && item.name || '').trim();
+      if (item.id) previousById.set(item.id, item);
       if (!name || (number(item.distanceKm) === null && number(item.durationMin) === null)) continue;
       if (!runsByName.has(name)) runsByName.set(name, []);
       runsByName.get(name).push(item);
     }
     return [...box.querySelectorAll('[data-exercise-row]')].map(row => ({
+      id: row.dataset.exerciseId || '',
       name: $('[data-exercise="name"]', row).value.trim().slice(0, 60),
       sets: number($('[data-exercise="sets"]', row).value),
       reps: number($('[data-exercise="reps"]', row).value),
       weight: number($('[data-exercise="weight"]', row).value)
     })).map(item => {
-      const queue = runsByName.get(item.name);
-      const previous = queue && queue.length ? queue.shift() : null;
+      // 没有 id 说明是新加的一行，给它一个，后续对位就靠它。
+      if (!item.id) item.id = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'ex-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+      let previous = previousById.get(item.id) || null;
+      if (!previous) {
+        const queue = runsByName.get(item.name);
+        previous = queue && queue.length ? queue.shift() : null;
+      }
       if (previous && (number(previous.distanceKm) !== null || number(previous.durationMin) !== null)) {
         item.distanceKm = number(previous.distanceKm);
         item.durationMin = number(previous.durationMin);
@@ -3708,15 +3718,23 @@ const values = points.length<=7 ? points.map((item,i) => {
     return plan && plan.days ? plan.days.find(day => day.date === activeDate) || null : null;
   }
   /** 把周计划今天那一节写进今日清单，两处入口（今日页 / 记录页）共用。 */
-  function adoptWeekDay() {
+  async function adoptWeekDay() {
     const day = weekTodaySession();
     if (!day || !day.exercises.length) { notice("今天的安排是空的，没有可采纳的动作。"); return; }
+    // 覆盖前先问：用户可能刚用 AI 排过一份，替换掉要他自己点头。
+    const existing = aiPlanStore(activeDate) || [];
+    if (existing.length) {
+      const go = await askConfirm("今天已有一份清单（" + existing.length + " 个动作）。要用本周安排替换它吗？",
+        {title: "替换今日清单", ok: "替换", cancel: "保留原来的"});
+      if (!go) return;
+    }
     const plan = day.exercises.map(item => ({
       name: String(item.name || "").slice(0, 24),
       sets: number(item.sets) > 0 ? number(item.sets) : 0,
       reps: number(item.reps) > 0 ? number(item.reps) : 0,
       weight: number(item.weight) > 0 ? number(item.weight) : null,
       reason: "",
+      source: "week",
       done: false
     })).filter(item => item.name);
     if (!plan.length) { notice("今天的安排是空的，没有可采纳的动作。"); return; }
@@ -4353,7 +4371,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.1.70';
+  const APP_VERSION = '1.1.71';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -4555,12 +4573,17 @@ const values = points.length<=7 ? points.map((item,i) => {
     for (const item of wanted) {
       const name = String(item.name).trim().slice(0, 60);
       if (names.has(name)) continue;
-      current.push({
+      const record = {
+        id: (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : "ex-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8),
         name,
         sets: number(item.sets) === null ? null : number(item.sets),
         reps: number(item.reps) === null ? null : number(item.reps),
         weight: number(item.weight) === null ? null : number(item.weight)
-      });
+      };
+      // 有氧项没有组次重量，改记距离与时长，训练日志那边才有东西可显示。
+      if (number(item.distanceKm) !== null) record.distanceKm = number(item.distanceKm);
+      if (number(item.durationMin) !== null) record.durationMin = number(item.durationMin);
+      current.push(record);
       names.add(name);
       added.push(name);
     }
@@ -4594,6 +4617,10 @@ const values = points.length<=7 ? points.map((item,i) => {
   /** 剂量由字段派生；编辑后重算，不会与旧字符串脱节。 */
   function aiPlanDose(item) {
     if (item && item.dose) return item.dose; // 旧数据只存了 dose 字符串
+    const run = [];
+    if (item && Number(item.distanceKm) > 0) run.push(item.distanceKm + " km");
+    if (item && Number(item.durationMin) > 0) run.push(item.durationMin + " 分钟");
+    if (run.length) return run.join(" · ");
     return [
       item && item.sets ? item.sets + " 组" : "",
       item && item.reps ? item.reps + " 次" : "",
@@ -4694,7 +4721,9 @@ const values = points.length<=7 ? points.map((item,i) => {
       baselineText ? "上周最近记录（供渐进参考，不要盲目加量）：" + baselineText + "。" : "",
       library ? "训练规则（必须遵守）：\n" + library : "",
       done.length ? ("今天已记录：" + done.join("；") + "。") : "今天还没有训练记录。",
-      "只输出 JSON 数组，不要解释。每项形如 {\"name\": \"动作名\", \"sets\": 4, \"reps\": 8, \"weight\": 40, \"reason\": \"一句话为什么排它\"}，weight 与 reason 可省略。按执行顺序排列，6 个动作以内，总组数要装得进时长。"
+      "只输出 JSON 数组，不要解释。力量动作每项形如 {\"name\": \"动作名\", \"sets\": 4, \"reps\": 8, \"weight\": 40, \"reason\": \"一句话为什么排它\"}；"
+        + "有氧动作写成 {\"name\": \"跑步\", \"distanceKm\": 5, \"durationMin\": 30}，不要填 sets 与 reps。"
+        + "weight 与 reason 可省略。按执行顺序排列，6 个动作以内，总组数要装得进时长。"
     ].filter(Boolean).join("\n");
     button.disabled = true;
     const original = button.textContent;
@@ -4713,7 +4742,10 @@ const values = points.length<=7 ? points.map((item,i) => {
         sets: Number(row.sets) > 0 ? Number(row.sets) : 0,
         reps: Number(row.reps) > 0 ? Number(row.reps) : 0,
         weight: Number(row.weight) > 0 ? Number(row.weight) : null,
+        distanceKm: Number(row.distanceKm) > 0 ? Number(row.distanceKm) : null,
+        durationMin: Number(row.durationMin) > 0 ? Number(row.durationMin) : null,
         reason: String(row.reason || "").slice(0, 60),
+        source: "ai",
         done: false
       }));
       aiPlanStore(activeDate, plan);

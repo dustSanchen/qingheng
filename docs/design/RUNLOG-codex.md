@@ -42,3 +42,5 @@
 | 2026-10-29 00:26 +08:00 | 1.1.67 三项优化（按性价比排序） | ① consent 收敛：训练建议与 AI 排课共用 TRAINING_CONSENT_KEY，在 installAiPlan 里初始化读取并回写 prefs，同意过一次两边都不再问；② ACWR 进训练建议卡：trainingInsights 直接调 acwrFromDailyLoads(dailyLoads(28))，负荷偏高/偏低各给一条，与趋势页共用同一判定，不再各算一套；③ 周计划落库：新增 WEEK_PLAN_KEY/readWeekPlanCache/writeWeekPlanCache + weekPlanFingerprint（偏好 + 各动作最近组次重量的 djb2），指纹一致就沿用上次结果（计划成为约定，回看不漂移），指纹变了才重算并在卡里显示「记录有更新，本周安排已按最新数据重算」。
 
 | 2026-10-29 00:31 +08:00 | 1.1.68–1.1.70 训练建议逻辑统一 | ① 今日页「用 AI 排今天」就地排课（已同意过直接排，没同意先弹一次确认并记住），不再跳记录页点第二次；排完同时刷新今日清单与记录页，两页读同一份数据。② 今日清单补两态：周计划今天有安排→显示「本周计划今天 · 推」+「采纳到今日清单」；本周计划存在但今天是休息日→直说「今天按本周安排是休息日」，不再用「还没有训练清单」暗示漏排。③ 周计划缓存为空时今日页现算一次（weekPlanToday），避免记录页排得满满、今日页却说没有。④ 采纳逻辑抽成 adoptWeekDay()，今日页与记录页共用。
+
+| 2026-10-29 00:40 +08:00 | 1.1.71 补齐清单里未完成与未完全完成项 | ① 采纳周计划覆盖前先确认（adoptWeekDay 改 async，已有清单时弹「要用本周安排替换它吗」）；② aiPlan 条目加 source（ai/week），为以后区分来源与优先级留钩子；③ 跑步对位改按记录 id：exercisesFor 保留 id、训练行带 data-exercise-id、readTrainingExercises 先按 id 再退回动作名，新行生成 uuid；④ 有氧排课：prompt 允许 {name,distanceKm,durationMin} 形态、解析保留该字段、aiPlanDose 显示「5 km · 30 分钟」、加入训练记录时一并写入 distanceKm/durationMin。

@@ -604,15 +604,23 @@
     return plan && plan.days ? plan.days.find(day => day.date === activeDate) || null : null;
   }
   /** 把周计划今天那一节写进今日清单，两处入口（今日页 / 记录页）共用。 */
-  function adoptWeekDay() {
+  async function adoptWeekDay() {
     const day = weekTodaySession();
     if (!day || !day.exercises.length) { notice("今天的安排是空的，没有可采纳的动作。"); return; }
+    // 覆盖前先问：用户可能刚用 AI 排过一份，替换掉要他自己点头。
+    const existing = aiPlanStore(activeDate) || [];
+    if (existing.length) {
+      const go = await askConfirm("今天已有一份清单（" + existing.length + " 个动作）。要用本周安排替换它吗？",
+        {title: "替换今日清单", ok: "替换", cancel: "保留原来的"});
+      if (!go) return;
+    }
     const plan = day.exercises.map(item => ({
       name: String(item.name || "").slice(0, 24),
       sets: number(item.sets) > 0 ? number(item.sets) : 0,
       reps: number(item.reps) > 0 ? number(item.reps) : 0,
       weight: number(item.weight) > 0 ? number(item.weight) : null,
       reason: "",
+      source: "week",
       done: false
     })).filter(item => item.name);
     if (!plan.length) { notice("今天的安排是空的，没有可采纳的动作。"); return; }
