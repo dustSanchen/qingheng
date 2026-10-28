@@ -1108,3 +1108,14 @@ html{scroll-padding-bottom:calc(var(--tabbar-safe,96px) + 16px)}
    阴影预算留给"真的浮起来"的东西：dialog / toast / bottom-nav / 下拉。 */
 .card{box-shadow:none}
 .card:hover{box-shadow:none}
+
+/* ── 图像语言（2026-10-29）：三符号共用一套几何，见 docs/design/16 ───────── */
+:root{--glyph-stroke:1.5;--glyph-size:24px}
+.glyph{display:inline-block;width:var(--glyph-size);height:var(--glyph-size);vertical-align:middle;color:currentColor}
+.glyph.sm{--glyph-size:16px}
+.glyph.md{--glyph-size:24px}
+.glyph.lg{--glyph-size:40px}
+.glyph.ok{color:var(--ok)}
+.glyph.busy{animation:glyphSpin 1.2s linear infinite}
+@keyframes glyphSpin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.glyph.busy{animation:none}}
