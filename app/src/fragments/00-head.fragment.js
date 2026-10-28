@@ -768,7 +768,10 @@
   function totalsFor(meals) {return Object.fromEntries(['calories','protein','fat','carbs'].map(key => [key,sumMeals(meals,key)]));}
   function empty(text, hint = "", kind = "empty") {
     // 三态空状态：empty=还没有数据 / denied=没有权限 / error=加载失败；图标与语气随状态变化。
-    const glyph = kind === "denied" ? "⊘" : kind === "error" ? "!" : "✧";
+    // 空态改用图像语言里的「叶」符号（24 网格 / 1.5px 圆头），与其它态共用一套几何；
+    // denied / error 仍用文字符号：它们是例外态，不该被当成常规空态被反复看到（2026-10-29）。
+    const glyph = kind === "denied" ? "⊘" : kind === "error" ? "!"
+      : '<img src="./icon-glyph-leaf.svg" alt="" width="40" height="40">';
     const role = kind === "error" ? ' role="alert"' : "";
     return `<div class="empty-state is-${esc(kind)}"${role}><span class="empty-icon" aria-hidden="true">${glyph}</span><p class="empty-title">${esc(text)}</p>${hint ? `<p class="empty-hint">${esc(hint)}</p>` : ""}</div>`;
   }

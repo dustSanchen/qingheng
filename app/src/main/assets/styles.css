@@ -1119,3 +1119,6 @@ html{scroll-padding-bottom:calc(var(--tabbar-safe,96px) + 16px)}
 .glyph.busy{animation:glyphSpin 1.2s linear infinite}
 @keyframes glyphSpin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion: reduce){.glyph.busy{animation:none}}
+
+/* 空态符号：图片按 40px 渲染，颜色跟随后代 color（SVG 用 currentColor 描边） */
+.empty-icon img{display:block;width:40px;height:40px;opacity:.9}
