@@ -1261,14 +1261,21 @@ function intakeRangeForDate(date = activeDate) {
     const totals = totalsFor(meals), p = effectiveProfileForDate(activeDate);
     $('#calorie-value').textContent = fmt(totals.calories,0);
     const range = p.intakeRange;
-    $('#calorie-target').textContent = range ? `${fmt(range.min,0)}~${fmt(range.max,0)}` : fmt(p.calorieTarget,0);
+    // C 节：目标只给一个数，误差用 ±2% 说明，依据与数字同屏同步更新。
+    const target = number(range ? range.max : p.calorieTarget);
+    $('#calorie-target').textContent = target === null ? '—' : fmt(target, 0);
+    const basisNode = $('#calorie-basis');
+    if (basisNode) {
+      const basisWord = range ? (String(range.basis).indexOf('训练') >= 0 ? '按训练日' : '按休息日') : '按默认';
+      basisNode.textContent = target === null ? '' : basisWord + ' · ±2%';
+    }
     // 不截断：超出目标的部分要能被环和下方差额行看到。
     const rawRatio = totals.calories !== null && number(p.calorieTarget) > 0 ? totals.calories / p.calorieTarget : 0;
     const ratio = Math.min(1, Math.max(0, rawRatio));
-    // 绿环始终走满一圈；超出部分从起点起覆盖一段棕红，长度按超出比例。
+    // 0–300° 是目标区间，300–360° 留给超出；达标时绿环停在刻度线处，右侧留一段底色。
     const overRatio = Math.max(0, rawRatio - 1);
-    $('#energy-ring').style.setProperty('--progress',`${ratio*360}deg`);
-    $('#energy-ring').style.setProperty('--over',`${Math.min(overRatio, 1) * 360}deg`);
+    $('#energy-ring').style.setProperty('--progress',`${(ratio*300).toFixed(1)}deg`);
+    $('#energy-ring').style.setProperty('--over',`${(Math.min(overRatio, 1) * 60).toFixed(1)}deg`);
     // 差值必须跟屏幕上显示的上下限同一口径：以前用 calorieTarget 算「超出区间上限」会多算。
     const floor = number(range ? range.min : p.calorieTarget);
     const cap = number(range ? range.max : p.calorieTarget);
@@ -1282,7 +1289,10 @@ function intakeRangeForDate(date = activeDate) {
       const kcal = number(totals.calories), actionCap = range ? number(range.max) : number(p.calorieTarget);
       if (protein !== null && proteinMin !== null && protein < proteinMin) {
         const gap = proteinMin - protein;
-        parts.push(`优先补蛋白：还差 ${fmt(gap,0)} g，下一餐先吃蛋白质`);
+        // 给了缺口还要给"吃多少"：只给一份、用生活量词（个/掌心），不做克数等价换算——
+        // 1.1.37 已按用户要求删过一轮「多少克等于几个蛋」，别再把它加回来。
+        const pick = gap <= 12 ? '两个鸡蛋' : gap <= 25 ? '一掌心鸡胸' : gap <= 45 ? '两掌心鸡胸' : '两掌心鸡胸，分两餐吃';
+        parts.push(`优先补蛋白：还差 ${fmt(gap,0)} g，下一餐吃 ${pick}`);
       }
       if (fat !== null && fatMax !== null && fat > fatMax) parts.push(`脂肪超 ${fmt(fat - fatMax,0)} g：剩下的菜改白灼或清蒸，别再额外加油`);
       if (kcal !== null && actionCap !== null && kcal > actionCap) parts.push(`热量已超上限 ${fmt(kcal - actionCap,0)} kcal：不再加餐，晚餐只吃蛋白加蔬菜`);
@@ -1295,7 +1305,7 @@ function intakeRangeForDate(date = activeDate) {
         : '';
       actionBox.innerHTML = parts.length ? '<p class="energy-hint">' + esc(parts[0]) + '</p>' + note : '';
     }
-    $('#macro-summary').innerHTML = [['protein','蛋白质',p.proteinMin,p.proteinMax],['fat','脂肪',p.fatMin,p.fatMax],['carbs','碳水',null,carbCap(p, range)]].map(([key,label,min,max]) => {const value = totals[key], progress = value !== null && number(max)>0 ? Math.min(100,value/max*100) : 0; return `<div><span class="macro-label">${label}</span><div class="macro-value">${fmt(value)} <small>g</small></div><div class="progress-track"><span data-progress="${progress}"></span></div><span class="fine-print">${min !== null && number(min)!==null && number(max)!==null ? `目标 ${fmt(min)}–${fmt(max)} g` : key === 'carbs' ? (number(max)>0 ? `参考上限约 ${fmt(max,0)} g（热量目标扣除蛋白质与脂肪）` : '设置热量目标后显示进度') : '目标未设置'}</span></div>`;}).join('');
+    $('#macro-summary').innerHTML = [['protein','蛋白质',p.proteinMin,p.proteinMax],['fat','脂肪',p.fatMin,p.fatMax],['carbs','碳水',null,carbCap(p, range)]].map(([key,label,min,max]) => {const value = totals[key], progress = value !== null && number(max)>0 ? Math.min(100,value/max*100) : 0; return `<div><span class="macro-label">${label}</span><div class="macro-value">${fmt(value)} <small>g</small></div><div class="progress-track"><span data-progress="${progress}"></span></div><span class="macro-target">${min !== null && number(min)!==null && number(max)!==null ? `目标 ${fmt(min)}–${fmt(max)} g` : key === 'carbs' ? (number(max)>0 ? `参考上限约 ${fmt(max,0)} g（热量目标扣除蛋白质与脂肪）` : '设置热量目标后显示进度') : '目标未设置'}</span></div>`;}).join('');
     $$('#macro-summary [data-progress]').forEach(node => {node.style.width=`${Number(node.dataset.progress)}%`;});
     const measurements = state.measurements.filter(item => validDate(item.date) && item.date <= activeDate).sort((a,b) => b.date.localeCompare(a.date));
     const weight = latestField(measurements,'weight'), waist = latestField(measurements,'waist'), bodyFat = latestField(measurements,'bodyFat');

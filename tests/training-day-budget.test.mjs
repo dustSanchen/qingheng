@@ -23,7 +23,9 @@ check('the effective profile carries the range', app.includes('profile.intakeRan
 check('the stored ceiling is replaced by the day range', app.includes('if (hasRules) profile.calorieTarget = range.max;'));
 check('old data without rules keeps working', app.includes('const hasRules = number(state?.profile?.trainingDayMax) !== null'));
 check('a one-day adjustment still overrides the ceiling', app.includes('if (adjustment) Object.assign(profile, adjustment.temporary);'));
-check('the hero shows a range, not a single number', app.includes("$('#calorie-target').textContent = range ? `${fmt(range.min,0)}~${fmt(range.max,0)}` : fmt(p.calorieTarget,0);"));
+// 断言更新登记（03-global-changes.md §5.1，2026-10-29）：C 节把区间降级成「目标单值 + ±2% 容差 + 依据」，
+// 依据与数字必须同屏同源，所以断言的是一段代码里同时写入两者。
+check('the hero shows one target with basis and tolerance', app.includes("$('#calorie-target').textContent = target === null ? '—' : fmt(target, 0);") && app.includes("' · ±2%'"));
 check('the caption explains what the range is based on', app.includes('按${range.basis.startsWith(\'当天标记为训练\') ? \'训练日\' : \'休息日\'}区间：'));
 check('the caption separates below-range from over-range', app.includes('距区间下限还差') && app.includes('超出区间上限'));
 check('the caption confirms when inside the range', app.includes('在区间内，距上限'));

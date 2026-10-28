@@ -23,7 +23,9 @@ check('silence is still explained when it does happen', read('app/src/main/java/
 check('the action line exists', html.includes('id="calorie-action"'));
 // 断言更新登记（03-global-changes.md §5.1）：白灼虾/水煮蛋的克数换算已按用户要求删除（无意义），
 // 改为断言「缺口给出下一餐指引」，意图不变。
-check('protein gap turns into a next-meal cue', app.includes('下一餐先吃蛋白质'));
+// 断言更新登记（03-global-changes.md §5.1，2026-10-29）：B 节要求给出具体一份食材与克数（≤300 g、≤2 种），
+// 不再只说「先吃蛋白质」。意图不变：缺口 → 下一餐可执行动作。
+check('protein gap turns into a next-meal cue', app.includes('下一餐吃 ') && app.includes('一掌心鸡胸') && app.includes('两个鸡蛋'));
 check('excess fat gets a cooking change', app.includes('改白灼或清蒸'));
 check('excess calories gets a stop rule', app.includes('不再加餐，晚餐只吃蛋白加蔬菜'));
 check('a met protein target still gives guidance', app.includes('蛋白质已达标，剩下的额度分给主食与蔬菜即可'));
