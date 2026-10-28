@@ -515,14 +515,23 @@ const values = points.length<=7 ? points.map((item,i) => {
   }
   function readTrainingExercises() {
     const box = $('#training-exercises');
+    // 跑步的 km/分钟没有输入框，靠与已存记录对位继承；按「动作名」对位——
+    // 旧的按行号对位在增删行后会把 km/分钟错挂到别的动作上。
+    const runsByName = new Map();
+    for (const item of exercisesFor(activeDate)) {
+      const name = String(item && item.name || '').trim();
+      if (!name || (number(item.distanceKm) === null && number(item.durationMin) === null)) continue;
+      if (!runsByName.has(name)) runsByName.set(name, []);
+      runsByName.get(name).push(item);
+    }
     return [...box.querySelectorAll('[data-exercise-row]')].map(row => ({
       name: $('[data-exercise="name"]', row).value.trim().slice(0, 60),
       sets: number($('[data-exercise="sets"]', row).value),
       reps: number($('[data-exercise="reps"]', row).value),
       weight: number($('[data-exercise="weight"]', row).value)
-    })).map((item, index) => {
-      // Runs carry distance/duration instead of sets/reps/weight; keep them across edits.
-      const previous = exercisesFor(activeDate)[index];
+    })).map(item => {
+      const queue = runsByName.get(item.name);
+      const previous = queue && queue.length ? queue.shift() : null;
       if (previous && (number(previous.distanceKm) !== null || number(previous.durationMin) !== null)) {
         item.distanceKm = number(previous.distanceKm);
         item.durationMin = number(previous.durationMin);

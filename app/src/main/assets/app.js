@@ -3003,14 +3003,23 @@ const values = points.length<=7 ? points.map((item,i) => {
   }
   function readTrainingExercises() {
     const box = $('#training-exercises');
+    // 跑步的 km/分钟没有输入框，靠与已存记录对位继承；按「动作名」对位——
+    // 旧的按行号对位在增删行后会把 km/分钟错挂到别的动作上。
+    const runsByName = new Map();
+    for (const item of exercisesFor(activeDate)) {
+      const name = String(item && item.name || '').trim();
+      if (!name || (number(item.distanceKm) === null && number(item.durationMin) === null)) continue;
+      if (!runsByName.has(name)) runsByName.set(name, []);
+      runsByName.get(name).push(item);
+    }
     return [...box.querySelectorAll('[data-exercise-row]')].map(row => ({
       name: $('[data-exercise="name"]', row).value.trim().slice(0, 60),
       sets: number($('[data-exercise="sets"]', row).value),
       reps: number($('[data-exercise="reps"]', row).value),
       weight: number($('[data-exercise="weight"]', row).value)
-    })).map((item, index) => {
-      // Runs carry distance/duration instead of sets/reps/weight; keep them across edits.
-      const previous = exercisesFor(activeDate)[index];
+    })).map(item => {
+      const queue = runsByName.get(item.name);
+      const previous = queue && queue.length ? queue.shift() : null;
       if (previous && (number(previous.distanceKm) !== null || number(previous.durationMin) !== null)) {
         item.distanceKm = number(previous.distanceKm);
         item.durationMin = number(previous.durationMin);
@@ -3653,27 +3662,79 @@ const values = points.length<=7 ? points.map((item,i) => {
     }
   }
 
-  /** 今日顺序清单：从今天的训练记录/计划里排出先练什么，按顺序编号。 */
+  /**
+   * 今天页的「今日训练清单」：计划语义的唯一入口。三态——
+   * 有 AI 清单：可勾选的镜像 + 完成度 + 一键加入训练记录；
+   * 无清单但有记录：列出已记录动作（只报记录，不伪装成排好的顺序）；
+   * 都没有：给「用 AI 排今天 / 看本周安排」两个入口。
+   */
   function renderAdviceOrder() {
     const box = $("#training-advice-order");
     if (!box) return;
+    if (!box.dataset.todayWired) {
+      box.dataset.todayWired = "1";
+      box.addEventListener("click", event => {
+        const done = event.target.closest("[data-today-done]");
+        if (done) {
+          const plan = typeof aiPlanStore === "function" ? (aiPlanStore(activeDate) || []) : [];
+          const index = Number(done.dataset.todayDone);
+          if (plan[index]) { plan[index].done = done.checked; aiPlanStore(activeDate, plan); }
+          renderAdviceOrder();
+          if (typeof renderAiPlan === "function") renderAiPlan();
+          return;
+        }
+        const addAll = event.target.closest("[data-today-add-all]");
+        if (addAll) {
+          const pending = (typeof aiPlanStore === "function" ? (aiPlanStore(activeDate) || []) : []).filter(item => !item.done);
+          if (typeof addExercisesToToday === "function") addExercisesToToday(pending).catch(() => {});
+          return;
+        }
+        const jump = event.target.closest("[data-today-plan]");
+        if (jump) {
+          switchTab("records", true);
+          setTimeout(() => {
+            const target = jump.dataset.todayPlan === "ai" ? $("#ai-plan") : $("#week-plan-card");
+            if (target) { target.scrollIntoView({block: "start", behavior: "smooth"}); if (typeof flashTarget === "function") flashTarget(target); }
+          }, 80);
+        }
+      });
+    }
+    const plan = typeof aiPlanStore === "function" ? aiPlanStore(activeDate) : null;
     const items = exercisesFor(activeDate).filter(item => item && item.name);
-    if (!items.length) { box.hidden = true; return; }
-    box.hidden = false;
+    if (plan && plan.length) {
+      const doneCount = plan.filter(item => item.done).length;
+      const pending = plan.length - doneCount;
+      const rows = plan.map((item, index) => {
+        const dose = [item.sets ? item.sets + " 组" : "", item.reps ? item.reps + " 次" : "", item.weight ? item.weight + " kg" : ""].filter(Boolean).join(" × ");
+        return "<li><label class=\"adv-plan-item\"><input type=\"checkbox\" data-today-done=\"" + index + "\"" + (item.done ? " checked" : "") + ">"
+          + "<span class=\"adv-name\">" + esc(item.name) + "</span>" + (dose ? "<span class=\"adv-dose\">" + esc(dose) + "</span>" : "") + "</label></li>";
+      }).join("");
+      box.hidden = false;
+      box.innerHTML = "<h3 class=\"plan-sub\">今日清单 · " + doneCount + "/" + plan.length + " 完成</h3><ol class=\"adv-order-list\">" + rows + "</ol>"
+        + (pending ? "<div class=\"button-row\"><button type=\"button\" class=\"button subtle\" data-today-add-all>把未完成的加入训练记录</button></div>" : "<p class=\"fine-print\">清单已全部完成。</p>")
+        + "<p class=\"fine-print\">编辑清单请到「记录 → 训练计划」。</p>";
+      return;
+    }
+    if (!items.length) {
+      box.hidden = false;
+      box.innerHTML = "<p class=\"muted\">今天还没有训练清单；想练的时候再排也来得及。</p>"
+        + "<div class=\"button-row\"><button type=\"button\" class=\"button subtle\" data-today-plan=\"ai\">用 AI 排今天</button>"
+        + "<button type=\"button\" class=\"button subtle\" data-today-plan=\"week\">看本周安排</button></div>";
+      return;
+    }
     const rows = items.map((item, index) => {
       const dose = [item.sets && item.sets + " 组", item.reps && item.reps + " 次", item.weight && item.weight + " kg"].filter(Boolean).join(" × ");
       return "<li><span class=\"adv-order\">" + (index + 1) + "</span><span class=\"adv-name\">" + esc(item.name) + "</span>" + (dose ? "<span class=\"adv-dose\">" + esc(dose) + "</span>" : "") + "</li>";
     }).join("");
-    box.innerHTML = "<h3 class=\"plan-sub\">按这个顺序练</h3><ol class=\"adv-order-list\">" + rows + "</ol>";
+    box.hidden = false;
+    box.innerHTML = "<h3 class=\"plan-sub\">已记录 " + items.length + " 个动作</h3><ol class=\"adv-order-list\">" + rows + "</ol>"
+      + "<p class=\"fine-print\">想要一份按顺序的清单？用 AI 排今天，或按本周安排练。</p>";
   }
 
-  function renderWeekPlan() {
-    const box = $('#week-plan'), tag = $('#week-plan-tag');
-    if (!box) return;
-    const loads = dailyLoads(28);
-    const stats = acwrFromDailyLoads(loads, activeDate);
+  /** 14 天内每个动作最近一次的组/次/负重，供渐进参考；跑步与计时类不参与排课。 */
+  function recentExerciseBaselines(days = 14) {
     const lastByExercise = {};
-    for (let offset = 0; offset < 14; offset++) {
+    for (let offset = 0; offset < days; offset++) {
       const day = shiftDay(activeDate, -offset);
       for (const item of exercisesFor(day)) {
         if (!item.name || lastByExercise[item.name]) continue;
@@ -3681,6 +3742,15 @@ const values = points.length<=7 ? points.map((item,i) => {
         lastByExercise[item.name] = {sets: item.sets, reps: item.reps, weight: item.weight, date: day};
       }
     }
+    return lastByExercise;
+  }
+
+  function renderWeekPlan() {
+    const box = $('#week-plan'), tag = $('#week-plan-tag');
+    if (!box) return;
+    const loads = dailyLoads(28);
+    const stats = acwrFromDailyLoads(loads, activeDate);
+    const lastByExercise = recentExerciseBaselines(14);
     const sessions = Math.max(1, Math.min(6, Math.round(number(effectiveProfileForDate(activeDate).training) || 3)));
     const startDate = shiftDay(activeDate, 7 - weekdayIndex(activeDate));
     const plan = generateWeekPlan({startDate, sessions, lastByExercise, acwrFlag: stats ? stats.flag : 'ok'});
@@ -4142,7 +4212,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.1.65';
+  const APP_VERSION = '1.1.66';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -4411,7 +4481,9 @@ const values = points.length<=7 ? points.map((item,i) => {
   /** 一行一个动作；编辑态把名称、组、次、负重换成输入框。 */
   function aiPlanRowHtml(item, index, editing) {
     if (!editing) {
-      return "<div class=\"ai-plan-row\" role=\"listitem\"><label class=\"ai-plan-main\"><input type=\"checkbox\" data-ai-done=\"" + index + "\"" + (item.done ? " checked" : "") + "><span class=\"ai-plan-name\">" + esc(item.name) + "</span><span class=\"ai-plan-dose\">" + esc(aiPlanDose(item)) + "</span></label><button type=\"button\" class=\"ai-plan-add\" data-ai-add=\"" + index + "\" aria-label=\"\u52a0\u5165\u4eca\u5929\u7684\u8bad\u7ec3\u8bb0\u5f55\">\u52a0\u5165</button></div>";
+      return "<div class=\"ai-plan-row\" role=\"listitem\"><label class=\"ai-plan-main\"><input type=\"checkbox\" data-ai-done=\"" + index + "\"" + (item.done ? " checked" : "") + "><span class=\"ai-plan-name\">" + esc(item.name) + "</span><span class=\"ai-plan-dose\">" + esc(aiPlanDose(item)) + "</span></label>"
+        + (item.reason ? "<span class=\"ai-plan-reason\">" + esc(item.reason) + "</span>" : "")
+        + "<button type=\"button\" class=\"ai-plan-add\" data-ai-add=\"" + index + "\" aria-label=\"\u52a0\u5165\u4eca\u5929\u7684\u8bad\u7ec3\u8bb0\u5f55\">\u52a0\u5165</button></div>";
     }
     const num = (name, value, attrs) => "<input class=\"ai-plan-input\" data-ai-field=\"" + name + "\" type=\"number\" " + attrs + " value=\"" + (value == null ? "" : value) + "\" aria-label=\"" + name + "\">";
     return "<div class=\"ai-plan-row is-editing\" role=\"listitem\" data-ai-row=\"" + index + "\">"
@@ -4466,14 +4538,21 @@ const values = points.length<=7 ? points.map((item,i) => {
     const prefs = typeof planPrefs === "function" ? planPrefs() : null;
     const profile = state.profile || {};
     const done = exercisesFor(activeDate).filter(item => item && item.name).map(item => item.name + " " + (item.sets || "") + "x" + (item.reps || ""));
+    // 喂给模型与本地规则引擎同一份素材：上周基线 + 训练库规则，输出质量才对得起「渐进」。
+    const baselines = typeof recentExerciseBaselines === "function" ? recentExerciseBaselines(14) : {};
+    const baselineText = Object.entries(baselines).slice(0, 8).map(([name, row]) =>
+      name + " " + row.sets + "x" + row.reps + (row.weight ? " " + row.weight + "kg" : "")).join("；");
+    const library = typeof librarySummary === "function" ? librarySummary(6) : "";
     const prompt = [
       "你是力量训练教练。请为今天排一个按顺序执行的训练清单。",
       "信息：目标=" + (profile.goal || "未填") + "；体重=" + (profile.weight || "未填") + "kg；每周练=" + (prefs ? prefs.days : (profile.training || "未填")) + "；分化=" + (prefs ? prefs.split : "未填") + "；器械=" + (prefs ? (typeof GEAR_LABELS === "object" && GEAR_LABELS[prefs.gear] ? GEAR_LABELS[prefs.gear] : prefs.gear) : "未填")
         + "；时长=" + (prefs ? prefs.minutes : 45) + " 分钟。"
         + (prefs && prefs.gear === "mixed" ? "器械不限：请在同一份清单里混用杠铃、哑铃、固定器械与自重，不要全部用同一种器械。" : ""),
+      baselineText ? "上周最近记录（供渐进参考，不要盲目加量）：" + baselineText + "。" : "",
+      library ? "训练规则（必须遵守）：\n" + library : "",
       done.length ? ("今天已记录：" + done.join("；") + "。") : "今天还没有训练记录。",
-      "只输出 JSON 数组，不要解释。每项形如 {\"name\": \"动作名\", \"sets\": 4, \"reps\": 8, \"weight\": 40}，weight 可省略。按执行顺序排列，6 个动作以内。"
-    ].join("\n");
+      "只输出 JSON 数组，不要解释。每项形如 {\"name\": \"动作名\", \"sets\": 4, \"reps\": 8, \"weight\": 40, \"reason\": \"一句话为什么排它\"}，weight 与 reason 可省略。按执行顺序排列，6 个动作以内，总组数要装得进时长。"
+    ].filter(Boolean).join("\n");
     button.disabled = true;
     const original = button.textContent;
     button.textContent = "正在排…";
@@ -4491,6 +4570,7 @@ const values = points.length<=7 ? points.map((item,i) => {
         sets: Number(row.sets) > 0 ? Number(row.sets) : 0,
         reps: Number(row.reps) > 0 ? Number(row.reps) : 0,
         weight: Number(row.weight) > 0 ? Number(row.weight) : null,
+        reason: String(row.reason || "").slice(0, 60),
         done: false
       }));
       aiPlanStore(activeDate, plan);

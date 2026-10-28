@@ -1064,3 +1064,7 @@ html{scroll-padding-bottom:calc(var(--tabbar-safe,96px) + 16px)}
 .empty-state.is-error .empty-icon{color:var(--danger)}
 .empty-title{margin:0;color:var(--ink-soft);font-weight:var(--fw-medium)}
 .empty-hint{margin:var(--space-1) 0 0;color:var(--muted);font-size:var(--text-sm);line-height:1.55}
+/* 今天页今日清单 + AI 计划理由行：只用既有令牌。 */
+.ai-plan-reason{display:block;font-size:var(--text-xs);color:var(--muted);margin-top:2px;overflow-wrap:anywhere}
+.adv-plan-item{display:flex;align-items:center;gap:8px;min-height:28px;cursor:pointer}
+.adv-plan-item input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);flex-shrink:0}

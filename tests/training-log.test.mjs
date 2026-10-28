@@ -50,5 +50,16 @@ check('an exercise name is required', main.includes('动作名称不能为空，
 check('sets, reps and weight are bounded natively', main.includes('key.equals("sets") ? 30 : key.equals("reps") ? 200 : 500'));
 check('habit validation runs for every habit save', main.includes('if (collection.equals("habits")) requireHabitFields(record);'));
 
+
+// --- today plan list: one place owns the plan semantics -----------------------------------------------
+check('the today list speaks plan semantics, not log semantics', app.includes('今日清单 · ') && !app.includes('按这个顺序练'));
+check('the today list mirrors the AI plan with done checkboxes', app.includes('data-today-done=') && app.includes('data-today-add-all'));
+// 源码里的属性引号是转义的（\"ai\"），断言不能按字面量比对。
+check('an empty day offers two generators', /data-today-plan=\\?"ai\\?"/.test(app) && /data-today-plan=\\?"week\\?"/.test(app));
+check('AI plan rows carry the model reason', app.includes('ai-plan-reason') && app.includes('一句话为什么排它'));
+check('askAiPlan sees the same baselines as the rule engine', app.includes('function recentExerciseBaselines') && app.includes('上周最近记录（供渐进参考'));
+check('askAiPlan follows the training library', /askAiPlan[\s\S]{0,3400}librarySummary\(6\)/.test(app));
+check('run km/minutes inherit by name, not by row index', app.includes('runsByName') && !app.includes('exercisesFor(activeDate)[index]'));
+
 console.log('\nFAIL total: ' + fail);
 process.exitCode = fail ? 1 : 0;

@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.1.65';
+  const APP_VERSION = '1.1.66';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -421,7 +421,9 @@
   /** 一行一个动作；编辑态把名称、组、次、负重换成输入框。 */
   function aiPlanRowHtml(item, index, editing) {
     if (!editing) {
-      return "<div class=\"ai-plan-row\" role=\"listitem\"><label class=\"ai-plan-main\"><input type=\"checkbox\" data-ai-done=\"" + index + "\"" + (item.done ? " checked" : "") + "><span class=\"ai-plan-name\">" + esc(item.name) + "</span><span class=\"ai-plan-dose\">" + esc(aiPlanDose(item)) + "</span></label><button type=\"button\" class=\"ai-plan-add\" data-ai-add=\"" + index + "\" aria-label=\"\u52a0\u5165\u4eca\u5929\u7684\u8bad\u7ec3\u8bb0\u5f55\">\u52a0\u5165</button></div>";
+      return "<div class=\"ai-plan-row\" role=\"listitem\"><label class=\"ai-plan-main\"><input type=\"checkbox\" data-ai-done=\"" + index + "\"" + (item.done ? " checked" : "") + "><span class=\"ai-plan-name\">" + esc(item.name) + "</span><span class=\"ai-plan-dose\">" + esc(aiPlanDose(item)) + "</span></label>"
+        + (item.reason ? "<span class=\"ai-plan-reason\">" + esc(item.reason) + "</span>" : "")
+        + "<button type=\"button\" class=\"ai-plan-add\" data-ai-add=\"" + index + "\" aria-label=\"\u52a0\u5165\u4eca\u5929\u7684\u8bad\u7ec3\u8bb0\u5f55\">\u52a0\u5165</button></div>";
     }
     const num = (name, value, attrs) => "<input class=\"ai-plan-input\" data-ai-field=\"" + name + "\" type=\"number\" " + attrs + " value=\"" + (value == null ? "" : value) + "\" aria-label=\"" + name + "\">";
     return "<div class=\"ai-plan-row is-editing\" role=\"listitem\" data-ai-row=\"" + index + "\">"
@@ -476,14 +478,21 @@
     const prefs = typeof planPrefs === "function" ? planPrefs() : null;
     const profile = state.profile || {};
     const done = exercisesFor(activeDate).filter(item => item && item.name).map(item => item.name + " " + (item.sets || "") + "x" + (item.reps || ""));
+    // 喂给模型与本地规则引擎同一份素材：上周基线 + 训练库规则，输出质量才对得起「渐进」。
+    const baselines = typeof recentExerciseBaselines === "function" ? recentExerciseBaselines(14) : {};
+    const baselineText = Object.entries(baselines).slice(0, 8).map(([name, row]) =>
+      name + " " + row.sets + "x" + row.reps + (row.weight ? " " + row.weight + "kg" : "")).join("；");
+    const library = typeof librarySummary === "function" ? librarySummary(6) : "";
     const prompt = [
       "你是力量训练教练。请为今天排一个按顺序执行的训练清单。",
       "信息：目标=" + (profile.goal || "未填") + "；体重=" + (profile.weight || "未填") + "kg；每周练=" + (prefs ? prefs.days : (profile.training || "未填")) + "；分化=" + (prefs ? prefs.split : "未填") + "；器械=" + (prefs ? (typeof GEAR_LABELS === "object" && GEAR_LABELS[prefs.gear] ? GEAR_LABELS[prefs.gear] : prefs.gear) : "未填")
         + "；时长=" + (prefs ? prefs.minutes : 45) + " 分钟。"
         + (prefs && prefs.gear === "mixed" ? "器械不限：请在同一份清单里混用杠铃、哑铃、固定器械与自重，不要全部用同一种器械。" : ""),
+      baselineText ? "上周最近记录（供渐进参考，不要盲目加量）：" + baselineText + "。" : "",
+      library ? "训练规则（必须遵守）：\n" + library : "",
       done.length ? ("今天已记录：" + done.join("；") + "。") : "今天还没有训练记录。",
-      "只输出 JSON 数组，不要解释。每项形如 {\"name\": \"动作名\", \"sets\": 4, \"reps\": 8, \"weight\": 40}，weight 可省略。按执行顺序排列，6 个动作以内。"
-    ].join("\n");
+      "只输出 JSON 数组，不要解释。每项形如 {\"name\": \"动作名\", \"sets\": 4, \"reps\": 8, \"weight\": 40, \"reason\": \"一句话为什么排它\"}，weight 与 reason 可省略。按执行顺序排列，6 个动作以内，总组数要装得进时长。"
+    ].filter(Boolean).join("\n");
     button.disabled = true;
     const original = button.textContent;
     button.textContent = "正在排…";
@@ -501,6 +510,7 @@
         sets: Number(row.sets) > 0 ? Number(row.sets) : 0,
         reps: Number(row.reps) > 0 ? Number(row.reps) : 0,
         weight: Number(row.weight) > 0 ? Number(row.weight) : null,
+        reason: String(row.reason || "").slice(0, 60),
         done: false
       }));
       aiPlanStore(activeDate, plan);

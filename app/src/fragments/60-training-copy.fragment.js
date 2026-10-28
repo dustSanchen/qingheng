@@ -558,27 +558,79 @@
     }
   }
 
-  /** 今日顺序清单：从今天的训练记录/计划里排出先练什么，按顺序编号。 */
+  /**
+   * 今天页的「今日训练清单」：计划语义的唯一入口。三态——
+   * 有 AI 清单：可勾选的镜像 + 完成度 + 一键加入训练记录；
+   * 无清单但有记录：列出已记录动作（只报记录，不伪装成排好的顺序）；
+   * 都没有：给「用 AI 排今天 / 看本周安排」两个入口。
+   */
   function renderAdviceOrder() {
     const box = $("#training-advice-order");
     if (!box) return;
+    if (!box.dataset.todayWired) {
+      box.dataset.todayWired = "1";
+      box.addEventListener("click", event => {
+        const done = event.target.closest("[data-today-done]");
+        if (done) {
+          const plan = typeof aiPlanStore === "function" ? (aiPlanStore(activeDate) || []) : [];
+          const index = Number(done.dataset.todayDone);
+          if (plan[index]) { plan[index].done = done.checked; aiPlanStore(activeDate, plan); }
+          renderAdviceOrder();
+          if (typeof renderAiPlan === "function") renderAiPlan();
+          return;
+        }
+        const addAll = event.target.closest("[data-today-add-all]");
+        if (addAll) {
+          const pending = (typeof aiPlanStore === "function" ? (aiPlanStore(activeDate) || []) : []).filter(item => !item.done);
+          if (typeof addExercisesToToday === "function") addExercisesToToday(pending).catch(() => {});
+          return;
+        }
+        const jump = event.target.closest("[data-today-plan]");
+        if (jump) {
+          switchTab("records", true);
+          setTimeout(() => {
+            const target = jump.dataset.todayPlan === "ai" ? $("#ai-plan") : $("#week-plan-card");
+            if (target) { target.scrollIntoView({block: "start", behavior: "smooth"}); if (typeof flashTarget === "function") flashTarget(target); }
+          }, 80);
+        }
+      });
+    }
+    const plan = typeof aiPlanStore === "function" ? aiPlanStore(activeDate) : null;
     const items = exercisesFor(activeDate).filter(item => item && item.name);
-    if (!items.length) { box.hidden = true; return; }
-    box.hidden = false;
+    if (plan && plan.length) {
+      const doneCount = plan.filter(item => item.done).length;
+      const pending = plan.length - doneCount;
+      const rows = plan.map((item, index) => {
+        const dose = [item.sets ? item.sets + " 组" : "", item.reps ? item.reps + " 次" : "", item.weight ? item.weight + " kg" : ""].filter(Boolean).join(" × ");
+        return "<li><label class=\"adv-plan-item\"><input type=\"checkbox\" data-today-done=\"" + index + "\"" + (item.done ? " checked" : "") + ">"
+          + "<span class=\"adv-name\">" + esc(item.name) + "</span>" + (dose ? "<span class=\"adv-dose\">" + esc(dose) + "</span>" : "") + "</label></li>";
+      }).join("");
+      box.hidden = false;
+      box.innerHTML = "<h3 class=\"plan-sub\">今日清单 · " + doneCount + "/" + plan.length + " 完成</h3><ol class=\"adv-order-list\">" + rows + "</ol>"
+        + (pending ? "<div class=\"button-row\"><button type=\"button\" class=\"button subtle\" data-today-add-all>把未完成的加入训练记录</button></div>" : "<p class=\"fine-print\">清单已全部完成。</p>")
+        + "<p class=\"fine-print\">编辑清单请到「记录 → 训练计划」。</p>";
+      return;
+    }
+    if (!items.length) {
+      box.hidden = false;
+      box.innerHTML = "<p class=\"muted\">今天还没有训练清单；想练的时候再排也来得及。</p>"
+        + "<div class=\"button-row\"><button type=\"button\" class=\"button subtle\" data-today-plan=\"ai\">用 AI 排今天</button>"
+        + "<button type=\"button\" class=\"button subtle\" data-today-plan=\"week\">看本周安排</button></div>";
+      return;
+    }
     const rows = items.map((item, index) => {
       const dose = [item.sets && item.sets + " 组", item.reps && item.reps + " 次", item.weight && item.weight + " kg"].filter(Boolean).join(" × ");
       return "<li><span class=\"adv-order\">" + (index + 1) + "</span><span class=\"adv-name\">" + esc(item.name) + "</span>" + (dose ? "<span class=\"adv-dose\">" + esc(dose) + "</span>" : "") + "</li>";
     }).join("");
-    box.innerHTML = "<h3 class=\"plan-sub\">按这个顺序练</h3><ol class=\"adv-order-list\">" + rows + "</ol>";
+    box.hidden = false;
+    box.innerHTML = "<h3 class=\"plan-sub\">已记录 " + items.length + " 个动作</h3><ol class=\"adv-order-list\">" + rows + "</ol>"
+      + "<p class=\"fine-print\">想要一份按顺序的清单？用 AI 排今天，或按本周安排练。</p>";
   }
 
-  function renderWeekPlan() {
-    const box = $('#week-plan'), tag = $('#week-plan-tag');
-    if (!box) return;
-    const loads = dailyLoads(28);
-    const stats = acwrFromDailyLoads(loads, activeDate);
+  /** 14 天内每个动作最近一次的组/次/负重，供渐进参考；跑步与计时类不参与排课。 */
+  function recentExerciseBaselines(days = 14) {
     const lastByExercise = {};
-    for (let offset = 0; offset < 14; offset++) {
+    for (let offset = 0; offset < days; offset++) {
       const day = shiftDay(activeDate, -offset);
       for (const item of exercisesFor(day)) {
         if (!item.name || lastByExercise[item.name]) continue;
@@ -586,6 +638,15 @@
         lastByExercise[item.name] = {sets: item.sets, reps: item.reps, weight: item.weight, date: day};
       }
     }
+    return lastByExercise;
+  }
+
+  function renderWeekPlan() {
+    const box = $('#week-plan'), tag = $('#week-plan-tag');
+    if (!box) return;
+    const loads = dailyLoads(28);
+    const stats = acwrFromDailyLoads(loads, activeDate);
+    const lastByExercise = recentExerciseBaselines(14);
     const sessions = Math.max(1, Math.min(6, Math.round(number(effectiveProfileForDate(activeDate).training) || 3)));
     const startDate = shiftDay(activeDate, 7 - weekdayIndex(activeDate));
     const plan = generateWeekPlan({startDate, sessions, lastByExercise, acwrFlag: stats ? stats.flag : 'ok'});
