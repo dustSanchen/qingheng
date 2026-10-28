@@ -564,6 +564,64 @@
    * 无清单但有记录：列出已记录动作（只报记录，不伪装成排好的顺序）；
    * 都没有：给「用 AI 排今天 / 看本周安排」两个入口。
    */
+  /** 本周计划整体是否存在、今天那一节是什么——休息日与「还没排」是两件事，不能混成一句话。 */
+  function weekPlanToday() {
+    const weekStart = shiftDay(activeDate, 7 - weekdayIndex(activeDate));
+    let plan = (lastWeekPlan && lastWeekPlan.days) ? lastWeekPlan : null;
+    if (!plan) {
+      const cached = readWeekPlanCache(weekStart);
+      plan = cached && cached.plan ? cached.plan : null;
+    }
+    if (!plan) {
+      try {
+        const baselines = recentExerciseBaselines(14);
+        const sessions = Math.max(1, Math.min(6, Math.round(number(effectiveProfileForDate(activeDate).training) || 3)));
+        const flag = (acwrFromDailyLoads(dailyLoads(28), activeDate) || {}).flag || "ok";
+        plan = generateWeekPlan({startDate: weekStart, sessions, lastByExercise: baselines, acwrFlag: flag});
+        if (plan) writeWeekPlanCache(weekStart, {plan, fingerprint: weekPlanFingerprint(prefsForPlan(), baselines, sessions), savedAt: Date.now()});
+      } catch { plan = null; }
+    }
+    return {hasPlan: !!(plan && plan.days), day: plan && plan.days ? plan.days.find(item => item.date === activeDate) || null : null};
+  }
+  /** 本周计划里「今天」那一节；没有打开过记录页时从缓存读，两处都能用。 */
+  function weekTodaySession() {
+    const weekStart = shiftDay(activeDate, 7 - weekdayIndex(activeDate));
+    let plan = (lastWeekPlan && lastWeekPlan.days) ? lastWeekPlan : null;
+    if (!plan) {
+      const cached = readWeekPlanCache(weekStart);
+      plan = cached && cached.plan ? cached.plan : null;
+    }
+    if (!plan) {
+      // 缓存为空时现算一次：否则今日页会说「还没有训练清单」，而记录页其实排得满满的。
+      try {
+        const baselines = recentExerciseBaselines(14);
+        const sessions = Math.max(1, Math.min(6, Math.round(number(effectiveProfileForDate(activeDate).training) || 3)));
+        const flag = (acwrFromDailyLoads(dailyLoads(28), activeDate) || {}).flag || "ok";
+        plan = generateWeekPlan({startDate: weekStart, sessions, lastByExercise: baselines, acwrFlag: flag});
+        if (plan) writeWeekPlanCache(weekStart, {plan, fingerprint: weekPlanFingerprint(prefsForPlan(), baselines, sessions), savedAt: Date.now()});
+      } catch { plan = null; }
+    }
+    return plan && plan.days ? plan.days.find(day => day.date === activeDate) || null : null;
+  }
+  /** 把周计划今天那一节写进今日清单，两处入口（今日页 / 记录页）共用。 */
+  function adoptWeekDay() {
+    const day = weekTodaySession();
+    if (!day || !day.exercises.length) { notice("今天的安排是空的，没有可采纳的动作。"); return; }
+    const plan = day.exercises.map(item => ({
+      name: String(item.name || "").slice(0, 24),
+      sets: number(item.sets) > 0 ? number(item.sets) : 0,
+      reps: number(item.reps) > 0 ? number(item.reps) : 0,
+      weight: number(item.weight) > 0 ? number(item.weight) : null,
+      reason: "",
+      done: false
+    })).filter(item => item.name);
+    if (!plan.length) { notice("今天的安排是空的，没有可采纳的动作。"); return; }
+    aiPlanStore(activeDate, plan);
+    if (typeof renderAiPlan === "function") renderAiPlan();
+    renderAdviceOrder();
+    renderWeekPlan();
+    notice("已把今天这节采纳到今日清单，可以逐项勾选执行。");
+  }
   function renderAdviceOrder() {
     const box = $("#training-advice-order");
     if (!box) return;
@@ -579,6 +637,8 @@
           if (typeof renderAiPlan === "function") renderAiPlan();
           return;
         }
+        const adopt = event.target.closest("[data-today-adopt]");
+        if (adopt) { event.preventDefault(); adoptWeekDay(); return; }
         const addAll = event.target.closest("[data-today-add-all]");
         if (addAll) {
           const pending = (typeof aiPlanStore === "function" ? (aiPlanStore(activeDate) || []) : []).filter(item => !item.done);
@@ -587,6 +647,19 @@
         }
         const jump = event.target.closest("[data-today-plan]");
         if (jump) {
+          // 「用 AI 排今天」就地排：跳页再让用户点第二次，是最伤直觉的一步。
+          if (jump.dataset.todayPlan === "ai" && typeof askAiPlan === "function") {
+            const agreed = (() => { try { return localStorage.getItem(TRAINING_CONSENT_KEY) === "1"; } catch { return false; } })();
+            if (agreed) { askAiPlan(jump); return; }
+            askConfirm("会把你今天的训练记录、目标与偏好发送给已配置的模型来排顺序，同意吗？",
+              {title: "用 AI 排今天", ok: "同意并排", cancel: "先不排"}).then(go => {
+              if (!go) return;
+              try { localStorage.setItem(TRAINING_CONSENT_KEY, "1"); } catch {}
+              if (typeof schedulePrefsSync === "function") schedulePrefsSync({trainingConsent: true});
+              askAiPlan(jump);
+            });
+            return;
+          }
           switchTab("records", true);
           setTimeout(() => {
             const target = jump.dataset.todayPlan === "ai" ? $("#ai-plan") : $("#week-plan-card");
@@ -612,6 +685,26 @@
       return;
     }
     if (!items.length) {
+      const weekInfo = weekPlanToday();
+      const weekDay = weekInfo.day;
+      if (weekInfo.hasPlan && (!weekDay || !weekDay.exercises.length)) {
+        // 排过周计划、今天就是休息日——直说休息，别用「还没有训练清单」这种暗示漏排的说法。
+        box.hidden = false;
+        box.innerHTML = "<h3 class=\"plan-sub\">今天按本周安排是休息日</h3>"
+          + "<p class=\"fine-print\">想练也可以临时排一份，不会改动本周安排。</p>"
+          + "<div class=\"button-row\"><button type=\"button\" class=\"button subtle\" data-today-plan=\"ai\">临时用 AI 排今天</button>"
+          + "<button type=\"button\" class=\"button subtle\" data-today-plan=\"week\">看本周安排</button></div>";
+        return;
+      }
+      if (weekDay && weekDay.exercises.length) {
+        const names = weekDay.exercises.map(item => item.name).slice(0, 4).join("、");
+        box.hidden = false;
+        box.innerHTML = "<h3 class=\"plan-sub\">本周计划今天 · " + esc(TRAINING_TEMPLATES[weekDay.template] || weekDay.template) + "</h3>"
+          + "<p class=\"fine-print\">" + esc(names) + (weekDay.exercises.length > 4 ? " 等 " + weekDay.exercises.length + " 个动作" : "") + "</p>"
+          + "<div class=\"button-row\"><button type=\"button\" class=\"button primary\" data-today-adopt>采纳到今日清单</button>"
+          + "<button type=\"button\" class=\"button subtle\" data-today-plan=\"ai\">改用 AI 排今天</button></div>";
+        return;
+      }
       box.hidden = false;
       box.innerHTML = "<p class=\"muted\">今天还没有训练清单；想练的时候再排也来得及。</p>"
         + "<div class=\"button-row\"><button type=\"button\" class=\"button subtle\" data-today-plan=\"ai\">用 AI 排今天</button>"
@@ -737,6 +830,15 @@
     const cues = (typeof libraryCues === 'function' && plan.days.length) ? libraryCues(plan.days[0].template) : [];
     const cueHtml = cues.length ? annotateTerms('<p class="plan-cue">' + cues.map(cue => esc(cue)).join('；') + '</p>') : '';
     // 本周安排：完全按用户偏好生成；没有偏好就不出方案。
+    const planBox = $("#week-plan");
+    if (planBox && !planBox.dataset.adoptWired) {
+      planBox.dataset.adoptWired = "1";
+      planBox.addEventListener("click", event => {
+        const button = event.target.closest("[data-adopt-today]");
+        if (!button) return;
+        adoptWeekDay();
+      });
+    }
     const prefsForm = $("#plan-prefs");
     const prefs = planPrefs();
     // 偏好芯片常驻：生成过也保持可见，改一个值就能重排，不用先点「修改」再找入口。
@@ -769,7 +871,13 @@
     const stateHtml = '<div class="plan-state">' + stateRows.map(row =>
       '<div class="plan-state-row"><span>' + esc(row[0]) + '</span><b>' + esc(row[1]) + '</b></div>').join('') + '</div>';
     const driftHtml = drifted ? '<p class="fine-print">记录有更新，本周安排已按最新数据重算。</p>' : '';
-    box.innerHTML = annotateTerms(thisWeekHtml + cueHtml + stateHtml + acwrHtml + driftHtml + suggestedNote + why + reference);
+    // 采纳入口：今天有安排且今日清单还空着时，一键把它变成今日清单——否则用户要自己把
+    // 数据层里的安排重录一遍。已有 AI 清单时不出现：AI 排的优先级高于周计划。
+    const hasTodayList = (() => { try { const raw = localStorage.getItem(AI_PLAN_KEY(activeDate)); const list = raw ? JSON.parse(raw) : null; return Array.isArray(list) && list.length > 0; } catch { return false; } })();
+    const adoptHtml = (!hasTodayList && todayPlan && todayPlan.exercises.length)
+      ? '<button type="button" class="button subtle full-width" data-adopt-today>把今天这节采纳到今日清单</button>'
+      : '';
+    box.innerHTML = annotateTerms(thisWeekHtml + cueHtml + stateHtml + acwrHtml + driftHtml + adoptHtml + suggestedNote + why + reference);
       + '<div class="plan-days">' + plan.days.map(day =>
         `<div class="plan-day"><div class="plan-day-head"><strong>${esc(day.date.slice(5))}</strong><span>${esc(TRAINING_TEMPLATES[day.template] || day.template)}</span></div>`
         + (day.exercises.length ? day.exercises.map(item =>

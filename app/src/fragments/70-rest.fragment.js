@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.1.67';
+  const APP_VERSION = '1.1.70';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -474,7 +474,9 @@
   }
   async function askAiPlan(button) {
     const consent = $("#ai-plan-consent");
-    if (!consent || !consent.checked) { notice("先勾选同意，才会把今天的数据发给模型。"); return; }
+    // 训练域同意只问一次：今日页一点就排，不必先跑去记录页勾选。
+    const agreedOnce = (() => { try { return localStorage.getItem(TRAINING_CONSENT_KEY) === "1"; } catch { return false; } })();
+    if (!(consent && consent.checked) && !agreedOnce) { notice("先勾选同意，才会把今天的数据发给模型。"); return; }
     const prefs = typeof planPrefs === "function" ? planPrefs() : null;
     const profile = state.profile || {};
     const done = exercisesFor(activeDate).filter(item => item && item.name).map(item => item.name + " " + (item.sets || "") + "x" + (item.reps || ""));
@@ -515,6 +517,8 @@
       }));
       aiPlanStore(activeDate, plan);
       renderAiPlan();
+      // 今日页的「今日清单」读的是同一份数据，排完必须一起刷，否则两个页面各说各话。
+      if (typeof renderAdviceOrder === "function") renderAdviceOrder();
       notice("已按顺序排好今天的 " + plan.length + " 个动作。");
     } catch (error) {
       notice("排训练顺序失败：" + (error && error.message ? error.message : "未知错误"));
