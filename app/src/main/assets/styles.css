@@ -77,7 +77,7 @@
   --font-num:var(--font-ui);
   --font-display:"Iowan Old Style","Palatino Linotype","Songti SC","Noto Serif SC",Georgia,serif;
   --font-ui:-apple-system,"PingFang SC","Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;
-}
+;--warn-ink:#8f6a39;--danger-ink:#7d2a22}
 
 dialog{border:1px solid var(--line);border-radius:22px;background:var(--paper);color:var(--ink);padding:26px;width:min(440px,calc(100% - 36px));box-shadow:0 20px 70px var(--elev-4)}dialog::backdrop{background:var(--overlay);backdrop-filter:blur(4px)}
 :root{--btn-h:48px;--gap:12px;--gap-sm:8px;font-family:var(--font-ui);color:var(--ink);background:var(--paper);font-synthesis:none}
@@ -641,7 +641,7 @@ button,input,select,textarea{font-family:var(--font-ui);font-size:var(--text-md)
   --shadow-rgb:20 20 19;
   --elev-2:none;
   --elev-3:none;
-}
+;--warn-ink:#8a6435;--danger-ink:#7a2b23}
 
 /* 账本暗色：只覆盖账本作用域的令牌，纸感保持暖纸不动（AGENTS.md 双皮肤约束）。
    规则仍是 token-only：切换系统深浅色不需要任何新规则。 */

@@ -110,3 +110,8 @@
 - 硬编码计数 93 → 85（aesthetic-audit）。
 - Δ≤12 的自动匹配被否：它把 .eyebrow 墨色接到 --line-strong、图表线接到 --macro-protein，语义错位；改用人工对表。
 - 断言跟随：meal-date-context 的 .stats-good 字面量改为 var(--tone-weight)，已登记 §5.1。
+
+## r35 · 2026-10-29 · 1.1.85
+- 扩表（只加令牌、不做替换）：`--warn-ink:#8f6a39`、`--danger-ink:#7d2a22` 进 base :root；ledger 作用域同名定义（#8a6435 / #7a2b23）。
+- 02-tokens.md 登记两行，token-ratchet 与 training-library 的「两套皮肤同集」均通过。
+- 用花括号配对定位 :root / ledger 块尾插入，避免上次插进内层规则导致的块损坏。
