@@ -1097,3 +1097,8 @@ html{scroll-padding-bottom:calc(var(--tabbar-safe,96px) + 16px)}
 .check-item{padding:10px 8px}
 .check-item .stat-value,.check-item b,.check-item strong{white-space:nowrap}
 .check-item{text-wrap:balance}
+
+/* 今日体检：去掉每格描边与底色，只留分隔与数字，减少"表格感"（2026-10-29）。 */
+.check-item{border:0;background:transparent;border-radius:0}
+.check-grid{gap:4px}
+.check-item+.check-item{box-shadow:inset 1px 0 0 var(--line)}

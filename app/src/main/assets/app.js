@@ -3625,7 +3625,7 @@ const values = points.length<=7 ? points.map((item,i) => {
       `<div class="check-item ${item.state || (item.ok ? 'ok' : 'bad')}"><span class="check-dot" aria-hidden="true"></span><small>${esc(item.label)}</small><strong>${esc(String(item.value))}</strong><em>${esc(item.target)}</em></div>`).join('') + '</div>'
       + `<p class="check-action"><strong>今天优先：</strong>${esc(check.action)}</p>`
       + (() => {const rule = libraryRuleForMetric(check.worst && check.worst.key); return rule
-        ? annotateTerms(`<p class="check-rule">依据：${esc(rule.claim.split('；')[0].slice(0, 60))} · ${esc(librarySourceLabel(rule.source))}</p>`) : '';})();
+        ? '' : '';})();
   }
 
   /** Two weeks of history -> next week's sessions, with a deload when the load ran hot. */
