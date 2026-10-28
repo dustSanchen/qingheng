@@ -2890,7 +2890,13 @@ function intakeRangeForDate(date = activeDate) {
     const weeklyNote = lastTwo.length === 2
       ? `本周均值 ${fmt(lastTwo[1].mean)} kg（${lastTwo[1].week} 起）· 上周均值 ${fmt(lastTwo[0].mean)} kg · 变化 ${lastTwo[1].mean - lastTwo[0].mean >= 0 ? '+' : ''}${fmt(lastTwo[1].mean - lastTwo[0].mean)} kg`
       : lastTwo.length === 1 ? `本周均值 ${fmt(lastTwo[0].mean)} kg · 还缺上一周的数据，暂时无法对比` : '';
-    const minWeight=Math.min(...weights),maxWeight=Math.max(...weights), pad=Math.max(.6,(maxWeight-minWeight)*.22), low=Math.max(0,minWeight-pad), high=maxWeight+pad;
+    const minWeight=Math.min(...weights),maxWeight=Math.max(...weights), pad=Math.max(.6,(maxWeight-minWeight)*.22);
+    // nice ticks：把 4 条网格线对齐到 0.1/0.2/0.25/0.5/1 这类整步长，
+    // 否则刻度会读出 63.3 / 63.9 / 64.4 这种由数据极值插值出来的假精度（2026-10-29）。
+    const rawStep = (maxWeight + pad - Math.max(0, minWeight - pad)) / 4;
+    const tickStep = [0.1,0.2,0.25,0.5,1,2,5].find(step => step >= rawStep) || 5;
+    const low = Math.max(0, Math.floor(Math.max(0, minWeight - pad) / tickStep) * tickStep);
+    const high = Math.ceil((maxWeight + pad) / tickStep) * tickStep;
     const start = dayTime(first.date), end=dayTime(last.date);
     const x = date => end===start ? L+plotW/2 : L+(dayTime(date)-start)/(end-start)*plotW;
     const y = value => T+(high-value)/(high-low)*plotH;
