@@ -989,7 +989,9 @@
     button.disabled=true; container.textContent='正在整理已记录数据…'; container.removeAttribute('data-date');
     syncCalendarDay();
     const date=activeDate,useAI=$('#advice-ai').checked;
-    if(useAI && !$('#advice-consent').hidden && !$('#advice-consent').checked){container.textContent='AI 建议需要先勾选本次外发同意。';button.disabled=false;return;}
+    // 授权合并后只有一个可见开关：勾了它就是同意发送，这里把状态位同步过去。
+    {const consentBox=$('#advice-consent'); if(consentBox) consentBox.checked=useAI;}
+    if(useAI && !$('#advice-consent').checked){container.textContent='AI 建议需要先勾选本次外发同意。';button.disabled=false;return;}
     try {const data=await api('/api/advice',{date,...(useAI?{useAI:true,allowExternal:true}:{})}); if(date!==activeDate) return; if(!Array.isArray(data?.messages)) throw new Error('建议数据格式不正确。'); renderAdvice(data.messages,date);}
     catch(error) {container.textContent=error.message;} finally {button.disabled=false;if(useAI)acceptConsent('advice');}
   }
