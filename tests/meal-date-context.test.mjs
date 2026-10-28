@@ -224,7 +224,7 @@ assert.match(app, /function median\(values\)/, 'medians are used so one odd read
 assert.match(app, /按中位数比较「30~60 天前」与「最近 30 天」/, 'the table states its own basis and limits');
 assert.match(app, /不是健康或医疗结论/, 'the table explicitly refuses a medical reading');
 assert.match(css, /\.stats-table tbody tr:last-child td\{border-bottom:none\}/, 'the comparison table is styled');
-assert.match(css, /\.stats-good\{color:var\(--tone-weight\)\}\.stats-bad\{color:#a8622c\}/, 'direction colours are defined');
+assert.match(css, /\.stats-good\{color:var\(--tone-weight\)\}\.stats-bad\{color:var\(--warn-ink\)\}/, 'direction colours are defined');
 
 assert.match(css, /\.app-dialog-panel\{width:min\(560px,100%\)/, 'dialogs are wider than before');
 assert.match(css, /\.voice-panel\{width:min\(560px,100%\)/, 'the listening sheet matches the dialog width');
