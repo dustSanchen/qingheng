@@ -483,7 +483,7 @@
       fatMin: number(profile.fatMin), fatMax: number(profile.fatMax)});
     if (tag) tag.textContent = '达标 ' + check.score + '/100';
     box.innerHTML = '<div class="check-grid">' + check.items.map(item =>
-      `<div class="check-item ${item.state || (item.ok ? 'ok' : 'bad')}"><span class="check-dot" aria-hidden="true"></span><small>${esc(item.label)}</small><strong>${esc(String(item.value))}</strong><em>${esc(item.target)}</em></div>`).join('') + '</div>'
+      `<div class="check-item ${item.state || (item.ok ? 'ok' : 'bad')}"><span class="check-icon" aria-hidden="true">${metricIcon(item.label)}</span><small>${esc(item.label)}</small><strong>${esc(String(item.value))}</strong><em>${esc(item.target)}</em></div>`).join('') + '</div>'
       + `<p class="check-action"><strong>今天优先：</strong>${esc(check.action)}</p>`
       + (() => {const rule = libraryRuleForMetric(check.worst && check.worst.key); return rule
         ? '' : '';})();
@@ -1105,3 +1105,13 @@
     updatePreviewTotals();
     $('#estimate-preview').scrollIntoView({block:'nearest',behavior:'auto'});
   }
+
+/**
+ * 体检格图标：文字已经够多，用图标替代那个无意义的灰点（2026-10-29）。
+ * 只映射已有资源，不新增文件；未知指标回退成空，保持排版不塌。
+ */
+function metricIcon(label) {
+  const map = {'热量':'icon-energy','蛋白质':'icon-nutrient-protein','脂肪':'icon-nutrient-fat','碳水':'icon-nutrient-carb','训练':'icon-training','睡眠':'icon-sleep','饮水':'icon-water'};
+  const file = map[label];
+  return file ? '<img src="./' + file + '.svg" alt="" width="16" height="16">' : '';
+}

@@ -1122,3 +1122,7 @@ html{scroll-padding-bottom:calc(var(--tabbar-safe,96px) + 16px)}
 
 /* 空态符号：图片按 40px 渲染，颜色跟随后代 color（SVG 用 currentColor 描边） */
 .empty-icon img{display:block;width:40px;height:40px;opacity:.9}
+
+/* 体检格：灰点换成功能图标；图标 16px、跟随文字色、与数字上下对齐 */
+.check-icon{display:inline-flex;align-items:center;justify-content:center;height:16px;margin:2px 0 4px;color:var(--muted)}
+.check-icon img{display:block;width:16px;height:16px;opacity:.85}
