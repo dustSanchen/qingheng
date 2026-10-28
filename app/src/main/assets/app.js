@@ -3745,6 +3745,29 @@ const values = points.length<=7 ? points.map((item,i) => {
     return lastByExercise;
   }
 
+  const WEEK_PLAN_KEY = week => "qingheng.weekPlan." + week;
+  /** 指纹 = 偏好 + 每个动作最近一次的组/次/重量；任一项变才重算，避免回看时清单悄悄变。 */
+  /** 指纹只关心影响排课的那几个输入；没有偏好时留空，仍能稳定比较。 */
+  function prefsForPlan() {
+    return typeof planPrefs === "function" ? planPrefs() : null;
+  }
+  function weekPlanFingerprint(prefs, lastByExercise, sessions) {
+    const parts = [sessions, prefs ? prefs.days : "", prefs ? prefs.split : "", prefs ? prefs.gear : "", prefs ? prefs.minutes : ""];
+    for (const name of Object.keys(lastByExercise || {}).sort()) {
+      const row = lastByExercise[name];
+      parts.push(name + ":" + row.sets + "x" + row.reps + "x" + row.weight);
+    }
+    const text = parts.join("|");
+    let hash = 5381;
+    for (let i = 0; i < text.length; i++) hash = ((hash << 5) + hash + text.charCodeAt(i)) | 0;
+    return String(hash >>> 0);
+  }
+  function readWeekPlanCache(week) {
+    try { const raw = localStorage.getItem(WEEK_PLAN_KEY(week)); return raw ? JSON.parse(raw) : null; } catch { return null; }
+  }
+  function writeWeekPlanCache(week, value) {
+    try { localStorage.setItem(WEEK_PLAN_KEY(week), JSON.stringify(value)); } catch {}
+  }
   function renderWeekPlan() {
     const box = $('#week-plan'), tag = $('#week-plan-tag');
     if (!box) return;
@@ -3753,7 +3776,16 @@ const values = points.length<=7 ? points.map((item,i) => {
     const lastByExercise = recentExerciseBaselines(14);
     const sessions = Math.max(1, Math.min(6, Math.round(number(effectiveProfileForDate(activeDate).training) || 3)));
     const startDate = shiftDay(activeDate, 7 - weekdayIndex(activeDate));
-    const plan = generateWeekPlan({startDate, sessions, lastByExercise, acwrFlag: stats ? stats.flag : 'ok'});
+    const fingerprint = weekPlanFingerprint(prefsForPlan(), lastByExercise, sessions);
+    const cached = readWeekPlanCache(startDate);
+    let plan, drifted = false;
+    if (cached && cached.plan && cached.fingerprint === fingerprint) {
+      plan = cached.plan; // 指纹没变：照用上次的结果，计划是被「约定」过的
+    } else {
+      plan = generateWeekPlan({startDate, sessions, lastByExercise, acwrFlag: stats ? stats.flag : 'ok'});
+      drifted = !!(cached && cached.plan);
+      if (plan) writeWeekPlanCache(startDate, {plan, fingerprint, savedAt: Date.now()});
+    }
     lastWeekPlan = plan;
     if (!plan) { box.innerHTML = empty('还没有足够的训练记录', '先记两周训练，计划会自动出来。', 'empty'); return; }
     if (tag) tag.textContent = plan.deload ? '减载周' : '按上周 +2.5%';
@@ -3840,7 +3872,8 @@ const values = points.length<=7 ? points.map((item,i) => {
     }
     const stateHtml = '<div class="plan-state">' + stateRows.map(row =>
       '<div class="plan-state-row"><span>' + esc(row[0]) + '</span><b>' + esc(row[1]) + '</b></div>').join('') + '</div>';
-    box.innerHTML = annotateTerms(thisWeekHtml + cueHtml + stateHtml + acwrHtml + suggestedNote + why + reference);
+    const driftHtml = drifted ? '<p class="fine-print">记录有更新，本周安排已按最新数据重算。</p>' : '';
+    box.innerHTML = annotateTerms(thisWeekHtml + cueHtml + stateHtml + acwrHtml + driftHtml + suggestedNote + why + reference);
       + '<div class="plan-days">' + plan.days.map(day =>
         `<div class="plan-day"><div class="plan-day-head"><strong>${esc(day.date.slice(5))}</strong><span>${esc(TRAINING_TEMPLATES[day.template] || day.template)}</span></div>`
         + (day.exercises.length ? day.exercises.map(item =>
@@ -4212,7 +4245,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.1.66';
+  const APP_VERSION = '1.1.67';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -4589,6 +4622,18 @@ const values = points.length<=7 ? points.map((item,i) => {
     if (!ask || ask.dataset.wired) return;
     ask.dataset.wired = "1";
     ask.addEventListener("click", () => askAiPlan(ask));
+    // 训练域的外发同意只记一次：训练建议与 AI 排课共用同一个开关（TRAINING_CONSENT_KEY），
+    // 在这里同意过，训练建议那边不用再勾；反之亦然。
+    const planConsent = $("#ai-plan-consent");
+    if (planConsent && !planConsent.dataset.consentWired) {
+      planConsent.dataset.consentWired = "1";
+      try { if (localStorage.getItem(TRAINING_CONSENT_KEY) === "1") planConsent.checked = true; } catch {}
+      planConsent.addEventListener("change", () => {
+        if (!planConsent.checked) return;
+        try { localStorage.setItem(TRAINING_CONSENT_KEY, "1"); } catch {}
+        if (typeof schedulePrefsSync === "function") schedulePrefsSync({trainingConsent: true});
+      });
+    }
     if (clear) clear.addEventListener("click", () => { aiPlanStore(activeDate, []); renderAiPlan(); });
     const edit = $("#ai-plan-edit");
     if (list && !list.dataset.aiRemoveWired) {
@@ -5417,6 +5462,13 @@ feedback(message,'数据已导入。'+report);
     const rows = typeof weeklyVolume === 'function' ? weeklyVolume() : [];
     const swaps = {'深蹲': '腿举', '卧推': '上斜哑铃卧推', '硬拉': '罗马尼亚硬拉', '划船': '引体向上', '肩推': '侧平举', '腿举': '保加利亚分腿蹲', '推举': '哑铃肩推'};
     const insights = [];
+    // 负荷判定与趋势页共用 acwrFromDailyLoads，不再各算一套：卡片说「偏高」而趋势页说「正常」是最伤信任的那种不一致。
+    const load = typeof acwrFromDailyLoads === 'function' && typeof dailyLoads === 'function'
+      ? acwrFromDailyLoads(dailyLoads(28), activeDate) : null;
+    if (load && Number.isFinite(load.ratio)) {
+      if (load.flag === 'high') insights.push(`近 7 天训练负荷是近 4 周周均的 ${load.ratio} 倍，偏高；本周减载或安排一天完全休息`);
+      else if (load.flag === 'low' && load.ratio > 0) insights.push(`近 7 天负荷只有平时的 ${load.ratio} 倍，偏低；停练或减量时优先保住蛋白摄入与睡眠`);
+    }
     for (const row of rows) {
       if (!(row.prevVolume > 0) || row.lastVolume > row.prevVolume * 1.02) continue;
       const swap = swaps[row.name];

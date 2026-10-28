@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.1.66';
+  const APP_VERSION = '1.1.67';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -529,6 +529,18 @@
     if (!ask || ask.dataset.wired) return;
     ask.dataset.wired = "1";
     ask.addEventListener("click", () => askAiPlan(ask));
+    // 训练域的外发同意只记一次：训练建议与 AI 排课共用同一个开关（TRAINING_CONSENT_KEY），
+    // 在这里同意过，训练建议那边不用再勾；反之亦然。
+    const planConsent = $("#ai-plan-consent");
+    if (planConsent && !planConsent.dataset.consentWired) {
+      planConsent.dataset.consentWired = "1";
+      try { if (localStorage.getItem(TRAINING_CONSENT_KEY) === "1") planConsent.checked = true; } catch {}
+      planConsent.addEventListener("change", () => {
+        if (!planConsent.checked) return;
+        try { localStorage.setItem(TRAINING_CONSENT_KEY, "1"); } catch {}
+        if (typeof schedulePrefsSync === "function") schedulePrefsSync({trainingConsent: true});
+      });
+    }
     if (clear) clear.addEventListener("click", () => { aiPlanStore(activeDate, []); renderAiPlan(); });
     const edit = $("#ai-plan-edit");
     if (list && !list.dataset.aiRemoveWired) {
@@ -1357,6 +1369,13 @@ feedback(message,'数据已导入。'+report);
     const rows = typeof weeklyVolume === 'function' ? weeklyVolume() : [];
     const swaps = {'深蹲': '腿举', '卧推': '上斜哑铃卧推', '硬拉': '罗马尼亚硬拉', '划船': '引体向上', '肩推': '侧平举', '腿举': '保加利亚分腿蹲', '推举': '哑铃肩推'};
     const insights = [];
+    // 负荷判定与趋势页共用 acwrFromDailyLoads，不再各算一套：卡片说「偏高」而趋势页说「正常」是最伤信任的那种不一致。
+    const load = typeof acwrFromDailyLoads === 'function' && typeof dailyLoads === 'function'
+      ? acwrFromDailyLoads(dailyLoads(28), activeDate) : null;
+    if (load && Number.isFinite(load.ratio)) {
+      if (load.flag === 'high') insights.push(`近 7 天训练负荷是近 4 周周均的 ${load.ratio} 倍，偏高；本周减载或安排一天完全休息`);
+      else if (load.flag === 'low' && load.ratio > 0) insights.push(`近 7 天负荷只有平时的 ${load.ratio} 倍，偏低；停练或减量时优先保住蛋白摄入与睡眠`);
+    }
     for (const row of rows) {
       if (!(row.prevVolume > 0) || row.lastVolume > row.prevVolume * 1.02) continue;
       const swap = swaps[row.name];

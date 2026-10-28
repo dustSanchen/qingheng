@@ -641,6 +641,29 @@
     return lastByExercise;
   }
 
+  const WEEK_PLAN_KEY = week => "qingheng.weekPlan." + week;
+  /** 指纹 = 偏好 + 每个动作最近一次的组/次/重量；任一项变才重算，避免回看时清单悄悄变。 */
+  /** 指纹只关心影响排课的那几个输入；没有偏好时留空，仍能稳定比较。 */
+  function prefsForPlan() {
+    return typeof planPrefs === "function" ? planPrefs() : null;
+  }
+  function weekPlanFingerprint(prefs, lastByExercise, sessions) {
+    const parts = [sessions, prefs ? prefs.days : "", prefs ? prefs.split : "", prefs ? prefs.gear : "", prefs ? prefs.minutes : ""];
+    for (const name of Object.keys(lastByExercise || {}).sort()) {
+      const row = lastByExercise[name];
+      parts.push(name + ":" + row.sets + "x" + row.reps + "x" + row.weight);
+    }
+    const text = parts.join("|");
+    let hash = 5381;
+    for (let i = 0; i < text.length; i++) hash = ((hash << 5) + hash + text.charCodeAt(i)) | 0;
+    return String(hash >>> 0);
+  }
+  function readWeekPlanCache(week) {
+    try { const raw = localStorage.getItem(WEEK_PLAN_KEY(week)); return raw ? JSON.parse(raw) : null; } catch { return null; }
+  }
+  function writeWeekPlanCache(week, value) {
+    try { localStorage.setItem(WEEK_PLAN_KEY(week), JSON.stringify(value)); } catch {}
+  }
   function renderWeekPlan() {
     const box = $('#week-plan'), tag = $('#week-plan-tag');
     if (!box) return;
@@ -649,7 +672,16 @@
     const lastByExercise = recentExerciseBaselines(14);
     const sessions = Math.max(1, Math.min(6, Math.round(number(effectiveProfileForDate(activeDate).training) || 3)));
     const startDate = shiftDay(activeDate, 7 - weekdayIndex(activeDate));
-    const plan = generateWeekPlan({startDate, sessions, lastByExercise, acwrFlag: stats ? stats.flag : 'ok'});
+    const fingerprint = weekPlanFingerprint(prefsForPlan(), lastByExercise, sessions);
+    const cached = readWeekPlanCache(startDate);
+    let plan, drifted = false;
+    if (cached && cached.plan && cached.fingerprint === fingerprint) {
+      plan = cached.plan; // 指纹没变：照用上次的结果，计划是被「约定」过的
+    } else {
+      plan = generateWeekPlan({startDate, sessions, lastByExercise, acwrFlag: stats ? stats.flag : 'ok'});
+      drifted = !!(cached && cached.plan);
+      if (plan) writeWeekPlanCache(startDate, {plan, fingerprint, savedAt: Date.now()});
+    }
     lastWeekPlan = plan;
     if (!plan) { box.innerHTML = empty('还没有足够的训练记录', '先记两周训练，计划会自动出来。', 'empty'); return; }
     if (tag) tag.textContent = plan.deload ? '减载周' : '按上周 +2.5%';
@@ -736,7 +768,8 @@
     }
     const stateHtml = '<div class="plan-state">' + stateRows.map(row =>
       '<div class="plan-state-row"><span>' + esc(row[0]) + '</span><b>' + esc(row[1]) + '</b></div>').join('') + '</div>';
-    box.innerHTML = annotateTerms(thisWeekHtml + cueHtml + stateHtml + acwrHtml + suggestedNote + why + reference);
+    const driftHtml = drifted ? '<p class="fine-print">记录有更新，本周安排已按最新数据重算。</p>' : '';
+    box.innerHTML = annotateTerms(thisWeekHtml + cueHtml + stateHtml + acwrHtml + driftHtml + suggestedNote + why + reference);
       + '<div class="plan-days">' + plan.days.map(day =>
         `<div class="plan-day"><div class="plan-day-head"><strong>${esc(day.date.slice(5))}</strong><span>${esc(TRAINING_TEMPLATES[day.template] || day.template)}</span></div>`
         + (day.exercises.length ? day.exercises.map(item =>
