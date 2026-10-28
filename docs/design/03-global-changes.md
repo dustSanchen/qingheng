@@ -99,6 +99,7 @@
 | 2026-10-26 | `tests/trends-ui.test.mjs` ×2 | 「作者署名与邮箱存在」→「页面里不再有 mailto」+「免责声明保留」；`.page-author` 样式断言改为「样式随元素一起删除」 | 用户要求删除个人邮箱；隐私处理，footer 只保留免责声明 |
 | 2026-10-26 | 无断言变更 | 新增 token `--ring-green` 已登记到 `02-tokens.md` | 按本节第 4 条，新增 token 必须入表，否则 `tokens-snapshot` 漏锁 |
 | 2026-10-29 | `tests/p0-p1-round.test.mjs` | 「下一餐先吃蛋白质」→「下一餐吃 一掌心鸡胸 / 两个鸡蛋」 | B 节要求缺口落到一份可执行食材；同时守住 1.1.37 的决定——只用生活量词（掌心/个），不做克数等价换算 |
+| 2026-10-29 | `tests/meal-date-context.test.mjs` | `.stats-good{color:#3f7a5e}` → `color:var(--tone-weight)` | 1.1.84 把该字面量归入令牌；颜色值不变，改断言跟随令牌 |
 | 2026-10-29 | `tests/training-day-budget.test.mjs` | 「hero 显示区间」→「显示目标单值 + 依据 + ±2%」 | C 节把区间降级成单值 + 容差 + 依据，依据与数字必须同源同步 |
 
 

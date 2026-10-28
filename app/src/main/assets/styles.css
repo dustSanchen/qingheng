@@ -114,9 +114,9 @@ details.advanced summary{display:flex;align-items:center;justify-content:space-b
 .recalc-panel{width:min(520px,100%)}.recalc-panel fieldset{border:1px solid var(--line);border-radius:12px;padding:12px;margin:0 0 14px}.recalc-panel legend{font-size:var(--text-xs);color:var(--muted);padding:0 6px}.recalc-panel fieldset .fine-print{margin-top:0}.recalc-panel .form-grid{gap:0 12px}
 @media(max-width:370px){.estimate-item-head{align-items:flex-start}.estimate-item-actions{flex-direction:column}.collapse-toggle,.recalc-item{width:38px;height:38px;min-height:38px}}
 .data-preview-panel pre.data-preview{max-height:340px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--accent-soft);border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0 0;font-size:var(--text-xs);line-height:1.6}
-.draft-box{border:1px solid #b8cfb6;background:var(--accent-soft);border-radius:14px;padding:12px 14px;margin:0 0 14px}
+.draft-box{border:1px solid var(--line-strong);background:var(--accent-soft);border-radius:14px;padding:12px 14px;margin:0 0 14px}
 .draft-box p{margin:0 0 8px}
-#undated-meals{border:1px solid #e0c79a;background:var(--warn-soft);border-radius:14px;padding:12px 14px;margin:0 0 14px}
+#undated-meals{border:1px solid var(--diet-low);background:var(--warn-soft);border-radius:14px;padding:12px 14px;margin:0 0 14px}
 #undated-meals p{margin:0 0 8px}
 
 /* ---- One visual language for every list, dropdown and picker ---------------------------------- */
@@ -157,7 +157,7 @@ button.food-result.list-row:hover,button.food-result.list-row:active{background:
 .voice-panel{animation:voice-rise var(--dur-base) var(--ease-out)}
 @keyframes voice-rise{from{transform:translateY(18px);opacity:.6}to{transform:translateY(0);opacity:1}}
 .voice-bars{display:flex;align-items:flex-end;justify-content:center;gap:6px;height:54px;margin:14px 0 4px}
-.voice-bars span{display:block;width:7px;border-radius:6px;background:linear-gradient(180deg,#7fae92,#44755d);height:12px;animation:voice-level var(--dur-pulse) ease-in-out infinite}
+.voice-bars span{display:block;width:7px;border-radius:6px;background:linear-gradient(180deg,#7fae92,var(--tone-weight));height:12px;animation:voice-level var(--dur-pulse) ease-in-out infinite}
 .voice-bars span:nth-child(2){animation-delay:.15s}.voice-bars span:nth-child(3){animation-delay:.3s}.voice-bars span:nth-child(4){animation-delay:.45s}.voice-bars span:nth-child(5){animation-delay:.6s}
 @keyframes voice-level{0%,100%{height:12px;opacity:.55}50%{height:46px;opacity:1}}
 .voice-status{margin:8px 0 0;text-align:center;font-size:14px;font-weight:var(--fw-semibold);color:var(--ink)}
@@ -228,7 +228,7 @@ button.food-result.list-row:hover,button.food-result.list-row:active{background:
 .stats-table tbody tr:last-child td{border-bottom:none}
 .stats-trend{display:inline-flex;align-items:center;gap:5px;font-weight:var(--fw-semibold);white-space:nowrap}
 .stats-up{color:var(--warn)}.stats-down{color:var(--accent)}.stats-flat{color:var(--muted)}
-.stats-good{color:#3f7a5e}.stats-bad{color:#a8622c}
+.stats-good{color:var(--tone-weight)}.stats-bad{color:#a8622c}
 /* One semantic colour per topic, shared by every section icon. */
 .tone-protein{color:var(--tone-protein)}.tone-fat{color:var(--warn)}.tone-carb{color:var(--tone-carb)}.tone-energy{color:var(--danger)}
 .tone-weight{color:var(--tone-weight)}.tone-training{color:var(--tone-training)}.tone-sleep{color:var(--tone-sleep)}.tone-water{color:var(--tone-water)}
@@ -244,7 +244,7 @@ button.food-result.list-row:hover,button.food-result.list-row:active{background:
 .fav-badge img{width:14px;height:14px}
 .heading-actions{display:flex;align-items:center;gap:10px;flex:0 0 auto}
 .chip-toggle{border:1px solid var(--line);background:var(--paper);color:var(--muted);font-size:var(--text-xs);border-radius:20px;padding:5px 12px;min-height:32px;white-space:nowrap}
-.chip-toggle[aria-pressed=true]{background:var(--accent-soft);border-color:#c9dcc9;color:var(--accent);font-weight:var(--fw-semibold)}
+.chip-toggle[aria-pressed=true]{background:var(--accent-soft);border-color:var(--ok-line);color:var(--accent);font-weight:var(--fw-semibold)}
 
 .sheet{position:fixed;inset:0;z-index:var(--z-overlay);background:var(--overlay);display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(3px)}
 .sheet-panel,.voice-panel,.term-panel{width:min(560px,100%);max-height:85vh;max-height:85dvh;overflow-y:auto;overscroll-behavior:contain;background:var(--paper);border:0;border-radius:var(--shape-card-radius) var(--shape-card-radius) 0 0;padding:var(--space-4) var(--space-4) calc(var(--space-4) + env(safe-area-inset-bottom));box-shadow:var(--elev-3)}
@@ -326,7 +326,7 @@ label.sheet-option{flex-direction:row;margin:0;cursor:pointer}
 /* A wide table scrolls inside its own box instead of pushing the page sideways; long cells wrap. */
 .answer-table-wrap{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
 .answer-table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:13px}
-.answer-table th,.answer-table td{padding:5px 6px;border-bottom:1px solid var(--line,#e3e7e2);text-align:left;overflow-wrap:anywhere;vertical-align:top}
+.answer-table th,.answer-table td{padding:5px 6px;border-bottom:1px solid var(--line,var(--line));text-align:left;overflow-wrap:anywhere;vertical-align:top}
 .answer-table th{font-weight:var(--fw-semibold);opacity:.85}
 
 /* Quick pickers: dense chips instead of full-width buttons, so a six-field form does not grow taller. */
@@ -455,7 +455,7 @@ label.sheet-option{flex-direction:row;margin:0;cursor:pointer}
 .check-item{display:flex;flex-direction:column;gap:2px;padding:8px 6px;border:1px solid var(--line);border-radius:12px;background:var(--paper);text-align:center}
 .check-item.ok{border-color:var(--ok-line)}
 .check-item.bad{border-color:var(--danger-line);background:var(--danger-soft)}
-.check-dot{width:7px;height:7px;border-radius:50%;background:#cbd8c8;margin:0 auto}
+.check-dot{width:7px;height:7px;border-radius:50%;background:var(--ok-line);margin:0 auto}
 .check-item.ok .check-dot{background:#6f8f74}
 .check-item.bad .check-dot{background:#c9776f}
 .check-item small{color:var(--muted);font-size:var(--text-xs)}
@@ -1036,7 +1036,7 @@ body.no-training #training-advice-order{display:none !important}
 #global-notice[hidden]{display:none}
 
 /* 阶段 2 令牌补齐（图标/动效/字重字距/间距/焦点环/强调线） */
-:root{--space-0:2px;--icon-xl:28px;--dur-slow:.28s;--dur-pulse:1.6s;--ease-inout:ease-in-out;--fw-regular:400;--fw-bold:700;--fw-display:600;--tracking-display:-.01em;--tracking-caps:.12em;--ring-focus-color-soft:#a9c6b3;--ring-select:0 0 0 2px #44755d22;--flash-ring:0 0 0 3px #9dbb9b;--accent-line:#cfded2;--accent-deep:#2f5340;}
+:root{--space-0:2px;--icon-xl:28px;--dur-slow:.28s;--dur-pulse:1.6s;--ease-inout:ease-in-out;--fw-regular:400;--fw-bold:700;--fw-display:600;--tracking-display:-.01em;--tracking-caps:.12em;--ring-focus-color-soft:#a9c6b3;--ring-select:0 0 0 2px #44755d22;--flash-ring:0 0 0 3px var(--diet-in);--accent-line:#cfded2;--accent-deep:#2f5340;}
 
 /* 底部安全区：固定 tab bar 上方留出可点击空间，最后一屏的同意勾选不再被压住。 */
 :root{--tabbar-safe:96px}
