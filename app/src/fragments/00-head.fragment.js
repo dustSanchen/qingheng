@@ -977,7 +977,16 @@
     for (const node of document.querySelectorAll(selector)) node.hidden = !on;
     for (const id of ['record-panel-training', 'trend-panel-training']) {
       const node = document.getElementById(id);
-      if (node) node.hidden = !on;
+      if (!node) continue;
+      if (!on) { node.hidden = true; continue; }
+      // 开启训练时不要强制显示：可见性归 switchRecordPanel / switchTrendPanel。
+      // 旧写法 node.hidden = false 会在每次 applyTrainingVisibility 时把训练面板揭开，
+      // 导致「身体」分段下也能看到训练计划（2026-10-29 修）。
+      const isRecord = id === 'record-panel-training';
+      const switcher = isRecord ? (typeof switchRecordPanel === 'function' ? switchRecordPanel : null)
+                               : (typeof switchTrendPanel === 'function' ? switchTrendPanel : null);
+      const active = document.querySelector((isRecord ? '[data-records-panel]' : '[data-trends-panel]') + '.active');
+      if (switcher && active) switcher(active.dataset[isRecord ? 'recordsPanel' : 'trendsPanel']);
     }
   }
 function applyTrainingVisibility() {
