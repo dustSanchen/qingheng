@@ -924,7 +924,7 @@ details[open] .preview-panel, .data-preview-panel{border:1px solid var(--line);b
 
 /* 卡片 */
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--shape-card-radius);padding:var(--card-pad);margin-bottom:var(--card-gap);box-shadow:var(--elev-1)}
-.day-more,.plan-prefs,.card-notes{border-radius:var(--shape-card-radius)}
+.day-more,.card-notes{border-radius:var(--shape-card-radius)}
 
 /* 列表行与磁贴 */
 .hub-row,.list-row,.meal-row,.capture-card,.check-item,.slot-hint,.photo-add,.segment-bar,.segment{border-radius:var(--shape-row-radius)}
@@ -1087,3 +1087,7 @@ html{scroll-padding-bottom:calc(var(--tabbar-safe,96px) + 16px)}
 /* 短句与提示行：避免一个词掉到下一行（中文孤字成行）。 */
 .energy-hint,.muted,.empty-note,.fine-print{text-wrap:pretty}
 .tag{white-space:nowrap}
+
+/* 卡中卡：.plan-prefs 只有一条 border-top，却继承了卡片圆角，于是顶边两端上翘成"浮空圆角框"。
+   它不是卡片，圆角必须去掉（2026-10-29）。 */
+.plan-prefs{border-radius:0}
