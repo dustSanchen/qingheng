@@ -451,7 +451,7 @@ label.sheet-option{flex-direction:row;margin:0;cursor:pointer}
 .training-draft p{margin:6px 0;font-size:13.5px}
 
 /* Daily check: five compact metrics, the weakest one highlighted by colour. */
-.check-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:10px}
+.check-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
 .check-item{display:flex;flex-direction:column;gap:2px;padding:8px 6px;border:1px solid var(--line);border-radius:12px;background:var(--paper);text-align:center}
 .check-item.ok{border-color:var(--ok-line)}
 .check-item.bad{border-color:var(--danger-line);background:var(--danger-soft)}
@@ -1091,3 +1091,9 @@ html{scroll-padding-bottom:calc(var(--tabbar-safe,96px) + 16px)}
 /* 卡中卡：.plan-prefs 只有一条 border-top，却继承了卡片圆角，于是顶边两端上翘成"浮空圆角框"。
    它不是卡片，圆角必须去掉（2026-10-29）。 */
 .plan-prefs{border-radius:0}
+
+/* 今日体检 5 格改 3+2：420dp 宽度下 5 等分只有 78dp，'未记录' 会被挤成竖排两行。
+   3 列 × 2 行，末行两格左对齐，字号不用降、命中区反而变大（2026-10-29）。 */
+.check-item{padding:10px 8px}
+.check-item .stat-value,.check-item b,.check-item strong{white-space:nowrap}
+.check-item{text-wrap:balance}
