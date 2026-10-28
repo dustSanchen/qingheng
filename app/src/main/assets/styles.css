@@ -1102,3 +1102,9 @@ html{scroll-padding-bottom:calc(var(--tabbar-safe,96px) + 16px)}
 .check-item{border:0;background:transparent;border-radius:0}
 .check-grid{gap:4px}
 .check-item+.check-item{box-shadow:inset 1px 0 0 var(--line)}
+
+/* ── 美术收敛（2026-10-29）────────────────────────────────────────────
+   静态卡片一律不加投影：层级只靠底色差与 1px 发丝线。
+   阴影预算留给"真的浮起来"的东西：dialog / toast / bottom-nav / 下拉。 */
+.card{box-shadow:none}
+.card:hover{box-shadow:none}

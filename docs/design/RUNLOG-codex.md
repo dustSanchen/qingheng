@@ -92,3 +92,7 @@
 - 删除体检卡的「依据：…」行（60-training-copy 里 check-rule 模板置空），页面不再出现来源标注。
 - 问答页两个授权勾选收进 `<details id="chat-consent-panel">授权设置</details>`，默认收起。
 - 今日体检去描边：`.check-item` 改无边框无底色，相邻格用 1px 内阴影分隔，减少表格感。
+
+## r32 · 2026-10-29 · 1.1.81
+- 美术收敛第一步：静态卡片阴影全部置 0（`.card{box-shadow:none}`），阴影预算只留给 dialog / toast / bottom-nav / 下拉。
+- 依据：aesthetic-audit 报 4 处 .card 带 box-shadow，与「静态卡片不加阴影」的既有规则冲突；纸感皮肤靠底色与发丝线分层即可。
