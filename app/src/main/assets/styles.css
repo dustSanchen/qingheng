@@ -1130,3 +1130,12 @@ html{scroll-padding-bottom:calc(var(--tabbar-safe,96px) + 16px)}
 /* 体检格：恢复无边框（1.1.79 做过、被文件恢复回滚），分隔改内阴影 */
 .check-item{border:0;background:transparent;border-radius:0}
 .check-item+.check-item{box-shadow:inset 1px 0 0 var(--line)}
+
+/* 趋势图点按取数：44dp 热区（r=22），浮层 3s 自动收起（2026-10-29，T1）。 */
+.chart-hit{fill:transparent;cursor:pointer}
+.chart-tip{display:none;pointer-events:none}
+.chart-tip[data-open="1"]{display:block}
+.chart-tip rect{fill:var(--paper);stroke:var(--line)}
+/* 一段只留一个主数字：1,527 是主，目标行降为次级读数（2026-10-29，D2）。 */
+.energy-detail .target-line{font-size:var(--text-sm);color:var(--muted);margin:0 0 6px}
+.energy-detail .target-line strong{font-weight:var(--fw-medium);color:var(--body-text)}
