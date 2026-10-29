@@ -53,6 +53,20 @@ adb shell dumpsys package cn.qingheng.health | Select-String 'versionName'
    这是**正确行为**，不是 bug。
 4. **仓库已有 git（2026-10-27 起）**：`.gitignore` 排除 toolchain/dist/build/backups/artifacts/downloads/.signing；签名密钥绝不入库。每轮改动在 assemble + `node tools/test-all.mjs` 全绿后提交一次，消息格式 `轻衡 <版本>：<摘要>`（中文，用 `git commit -F <文件>` 避免 cmd 转码），提交后 `git push localmirror master`（C 盘 bare）与 `git push origin master`（GitHub 私仓 dustSanchen/qingheng，凭据已由 GCM 缓存）双推送；OneDrive `qingheng-backup/` 的 bundle 与密钥副本为云冷备。回滚优先 `git checkout -- <文件>` / `git revert`；`backups/auto-*` 快照与文件旁 `.bak-rNN` 降级为补充手段，不再需要每个新会话重建基线。
 
+## 已装护栏（2026-10-29，防复发）
+
+这几类问题已经发生过不止一次，现在由工具兜底，别再靠记忆：
+
+1. **版本号漂移**（关于页写 1.1.71、装机是 1.1.91）。现在 `dev-loop.ps1` 第一步就是
+   `node tools/sync-version.mjs <版本> <versionCode>`，一次对齐三处：`70-rest.fragment.js` 的
+   `APP_VERSION`、`build.ps1` 的默认 `$Version/$VersionCode`、`tests/meal-date-java.test.mjs` 的字面量。
+   **不要手改版本号**，只跑 `dev-loop -Version X -VersionCode N`。
+2. **`.bak` 备份被打进 APK**（体积 467 KB → 668 KB）。`build.ps1` 现在先把 assets 复制到
+   `build/assets-stage` 并排除 `*.bak/.tmp`（含 `-rNN` 这类后缀）再交给 aapt2；打包 guard 的正则也覆盖了后缀。
+   备份请放 `backups/`，不要留在 `app/src/main/assets`。
+3. **报告里写「已完成」但其实没做**。规矩：总结里每条「已完成」都必须能指向一次具体的工具调用或一个文件证据；
+   写总结前对着待办逐项核对，不拿「我打算做」的记忆冒充「我已经做」。
+
 ## 双皮肤约束
 
 - 两套皮肤：`paper`（暖纸感、衬线标题）与 `ledger`（数据优先、无衬线标题）。

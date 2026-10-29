@@ -109,6 +109,16 @@ if (-not $SkipBackup) {
   }
 }
 
+Step 'version sync' {
+  # One place owns the version: keep the fragment constant, build.ps1 defaults and the test
+  # literal in step with -Version, otherwise the About page drifts (1.1.71 vs 1.1.91).
+  if ($Version -match '^\d+\.\d+\.\d+$' -and $VersionCode -ge 1) {
+    $code = Run 'sync-version' ("& '" + $node + "' tools/sync-version.mjs " + $Version + " " + $VersionCode) 60
+    if ($code -ne 0) { $global:LASTEXITCODE = $code; return }
+  }
+  $global:LASTEXITCODE = 0
+}
+
 Step 'assemble + syntax' {
   $code = Run 'assemble-app' "& powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\assemble-app.ps1 -Quiet" 180
   if ($code -ne 0) { $global:LASTEXITCODE = $code; return }

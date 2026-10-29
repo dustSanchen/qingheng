@@ -52,30 +52,29 @@ function tryRun(cmd, args) {
 }
 
 // aapt links the whole assets directory (`-A app/src/main/assets`), so any *.bak-* left
-// next to the shipped files is packaged into the APK. Keep that from silently growing back.
+// aapt2 links the whole assets directory (`-A`), so any *.bak-* left next to the shipped files
+// would be packaged. build.ps1 now stages a filtered copy and the packaging guard rejects such
+// entries, but keeping the assets tree clean is still the cheapest way to stay out of trouble.
 function checkBaks() {
-  const dir = join(ROOT, "app", "src");
-  const found = [];
-  const walk = (path) => {
-    let entries;
-    try {
-      entries = readdirSync(path, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const entry of entries) {
-      const full = join(path, entry.name);
-      if (entry.isDirectory()) walk(full);
-      else if (entry.name.includes(".bak-")) found.push({ full, size: statSync(full).size });
-    }
-  };
-  walk(dir);
-  if (!found.length) {
-    record("快照", "PASS", "app/src 下无 .bak- 文件（不会打进 APK）");
+  const dir = join(ROOT, "app", "src", "main", "assets");
+  let names = [];
+  try {
+    names = readdirSync(dir).filter((name) => /\.(bak|tmp)([-_.].*)?$/i.test(name));
+  } catch {
+    names = [];
+  }
+  if (!names.length) {
+    record("快照", "PASS", "assets 下无 .bak/.tmp（打包目录干净）");
     return;
   }
-  const kb = Math.round(found.reduce((sum, f) => sum + f.size, 0) / 1024);
-  record("快照", "WARN", found.length + " 个 .bak- 文件约 " + kb + " KB 会打进 APK，移到 backups/");
+  const kb = Math.round(
+    names.reduce((sum, name) => sum + statSync(join(dir, name)).size, 0) / 1024,
+  );
+  record(
+    "快照",
+    "WARN",
+    names.length + " 个备份约 " + kb + " KB 在 assets 里；build.ps1 打包时会排除，仍建议移到 backups/",
+  );
 }
 
 function checkAdb() {

@@ -1,4 +1,4 @@
-param([switch]$Clean,[string]$Version='1.1.71',[int]$VersionCode=171)
+param([switch]$Clean,[string]$Version='1.1.92',[int]$VersionCode=192)
 $ErrorActionPreference='Stop'
 $root=$PSScriptRoot
 $jdk=Get-ChildItem "$root\toolchain\jdk" -Directory | Select-Object -First 1
@@ -22,14 +22,26 @@ function Run($exe,$arglist){ $ErrorActionPreference="Continue"; & $exe @arglist;
 & powershell -NoProfile -ExecutionPolicy Bypass -File "$root\tools\assemble-app.ps1" -Quiet
 if($LASTEXITCODE -ne 0){throw "Build step failed: assemble-app.ps1"}
 Run $aapt @('compile','--dir',"$root\app\src\main\res",'-o',"$build\resources.zip")
-Run $aapt @('link','-o',"$build\unsigned.apk",'-I',$android,'--manifest',"$root\app\src\main\AndroidManifest.xml",'--min-sdk-version','26','--target-sdk-version','35','--version-code',"$VersionCode",'--version-name',$Version,'--java',"$build\rjava",'-A',"$root\app\src\main\assets","$build\resources.zip")
+# Stage the assets without editor leftovers: aapt2 packs the whole -A directory, so a *.bak-*
+# file next to the shipped assets lands in the APK (668 KB instead of 467 KB once already).
+$stage = "$build\assets-stage"
+if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
+New-Item -ItemType Directory -Force $stage | Out-Null
+$assetsRoot = "$root\app\src\main\assets"
+Get-ChildItem $assetsRoot -Recurse -File | Where-Object { $_.Name -notmatch '(?i)\.(bak|tmp)([-_.].*)?$' } | ForEach-Object {
+  $rel = $_.FullName.Substring($assetsRoot.Length + 1)
+  $dest = Join-Path $stage $rel
+  New-Item -ItemType Directory -Force (Split-Path -Parent $dest) | Out-Null
+  Copy-Item $_.FullName $dest -Force
+}
+Run $aapt @('link','-o',"$build\unsigned.apk",'-I',$android,'--manifest',"$root\app\src\main\AndroidManifest.xml",'--min-sdk-version','26','--target-sdk-version','35','--version-code',"$VersionCode",'--version-name',$Version,'--java',"$build\rjava",'-A',$stage,"$build\resources.zip")
 # Packaging guard (whitelist spirit): aapt2 on Windows turns an assets subdirectory into a
 # backslash entry that Android silently 404s, and editor leftovers (.bak/.tmp) have shipped before.
 # Failing the build here beats shipping a broken or bloated package.
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $forbidden=@()
 $apkZip=[System.IO.Compression.ZipFile]::OpenRead("$build\unsigned.apk")
-try { foreach($entry in $apkZip.Entries){ if($entry.FullName -like '*\*' -or $entry.FullName -match '(?i)\.(bak|tmp)$' -or $entry.FullName -match '(?i)(thumbs\.db|\.ds_store)$'){ $forbidden+=$entry.FullName } } } finally { $apkZip.Dispose() }
+try { foreach($entry in $apkZip.Entries){ if($entry.FullName -like '*\*' -or $entry.FullName -match '(?i)\.(bak|tmp)([-_.].*)?$' -or $entry.FullName -match '(?i)(thumbs\.db|\.ds_store)$'){ $forbidden+=$entry.FullName } } } finally { $apkZip.Dispose() }
 if($forbidden.Count){ throw ("packaging guard: forbidden entries in APK: " + ($forbidden -join ', ')) }
 Write-Host "packaging guard ok: no backslash entries, no .bak/.tmp leftovers."
 $sources=Get-ChildItem "$root\app\src\main\java" -Recurse -Filter *.java | ForEach-Object FullName
