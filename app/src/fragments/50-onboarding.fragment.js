@@ -415,7 +415,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     // The weekly mean is the line the written rules judge by, drawn dashed over the raw points.
     const meanCoords = weeklyMeans
       .filter(entry => entry.mean > 0 && (end === start || (dayTime(entry.week) >= start - 6 * 86400000 && dayTime(entry.week) <= end)))
-      .map(entry => [x(entry.week), y(entry.mean)]);
+      .map(entry => [Math.max(L, x(entry.week)), y(entry.mean)]);
     const meanPath = meanCoords.length > 1 ? `<path class="chart-line chart-mean" d="${meanCoords.map(([px,py],index) => `${index?'L':'M'}${px.toFixed(2)},${py.toFixed(2)}`).join(' ')}"/>` : '';
     const hitAreas = points.map((item, index) => {
       const previous = index ? Number(points[index - 1].weight) : null;

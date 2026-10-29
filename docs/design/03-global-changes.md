@@ -104,5 +104,8 @@
 | 2026-10-29 | `tests/meal-date-context.test.mjs` | `.stats-bad{color:#a8622c}` → `var(--warn-ink)` | 令牌化替换，颜色值不变（1.1.86） |
 | 2026-10-29 | `tests/meal-date-context.test.mjs` | `.stats-good{color:#3f7a5e}` → `color:var(--tone-weight)` | 1.1.84 把该字面量归入令牌；颜色值不变，改断言跟随令牌 |
 | 2026-10-29 | `tests/training-day-budget.test.mjs` | 「hero 显示区间」→「显示目标单值 + 依据 + ±2%」 | C 节把区间降级成单值 + 容差 + 依据，依据与数字必须同源同步 |
+| 2026-10-29 | `tests/icon-style.test.mjs` | `REQUIRED` 扩充 `BRAND_GLYPHS`（7 个品牌 glyph，共 28 个，共享 `stroke="#44755d"` 校验） | 1.1.99–1.1.100 把底部导航、今日四宫格与拍照/相册入口全部收进 24×24、1.8px 圆头单色几何语言 |
+| 2026-10-29 | `tests/icons-motion.test.mjs`、`tests/meal-date-context.test.mjs` | 底部导航图标断言由 `icon-nav-*.svg` 改为 `icon-glyph-*.svg`，餐食行营养数值断言改为 `.meal-numbers` 命名数值列 | 1.1.99 底部导航复用品牌 glyph 家族；餐食行抽出 `.meal-numbers` 供纸感与账本皮肤分别应用阅读流与三列网格 |
+| 2026-10-29 | `tests/meal-date-java.test.mjs` | `APP_VERSION` 随版本同步（`1.1.98` → `1.1.99` → `1.1.100`） | dev-loop 同步片段常量、build.ps1 默认值与测试字面量 |
 
 

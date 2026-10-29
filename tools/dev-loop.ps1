@@ -28,6 +28,7 @@ param(
 
 # -Fast: skip the full suite and the device smoke; keep assemble + build + install (~15 s).
 if ($Fast) { $SkipTests = $true; $SkipSmoke = $true }
+if ($Version -match "^1\.1\.(\d+)$" -and $VersionCode -gt 0 -and $VersionCode -le [int]$Matches[1]) { $VersionCode = 100 + [int]$Matches[1] }
 $ErrorActionPreference = 'Continue'
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root

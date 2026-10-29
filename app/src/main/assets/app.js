@@ -2974,7 +2974,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     // The weekly mean is the line the written rules judge by, drawn dashed over the raw points.
     const meanCoords = weeklyMeans
       .filter(entry => entry.mean > 0 && (end === start || (dayTime(entry.week) >= start - 6 * 86400000 && dayTime(entry.week) <= end)))
-      .map(entry => [x(entry.week), y(entry.mean)]);
+      .map(entry => [Math.max(L, x(entry.week)), y(entry.mean)]);
     const meanPath = meanCoords.length > 1 ? `<path class="chart-line chart-mean" d="${meanCoords.map(([px,py],index) => `${index?'L':'M'}${px.toFixed(2)},${py.toFixed(2)}`).join(' ')}"/>` : '';
     const hitAreas = points.map((item, index) => {
       const previous = index ? Number(points[index - 1].weight) : null;
@@ -4492,7 +4492,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.1.99';
+  const APP_VERSION = '1.1.100';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -4593,6 +4593,10 @@ function metricIcon(label) {
     const open = $("#photo-add"), sheet = $("#photo-sheet");
     if (!open || !sheet || sheet.dataset.wired) return;
     sheet.dataset.wired = "1";
+    const addIcon = open.querySelector(".photo-add-icon");
+    if (addIcon) addIcon.setAttribute("src", "./icon-glyph-camera.svg");
+    const takeIcon = $("#photo-take img", sheet);
+    if (takeIcon) takeIcon.setAttribute("src", "./icon-glyph-camera.svg");
     const hide = restoreFocus => {
       sheet.hidden = true;
       open.setAttribute("aria-expanded", "false");
@@ -5196,12 +5200,21 @@ function metricIcon(label) {
   installContextPreview('chat-data-preview-panel','chat-data-preview','chat');
   installContextPreview('advice-data-preview-panel','advice-data-preview','advice');
   $$('[data-tab]').forEach(button=>button.addEventListener('click',()=>switchTab(button.dataset.tab,true)));
+  function prependHeadingKicker(heading, text) {
+    const titleBox = heading?.querySelector('div');
+    if (!titleBox || titleBox.querySelector('.heading-kicker')) return;
+    const kicker = document.createElement('p');
+    kicker.className = 'eyebrow heading-kicker';
+    kicker.textContent = text;
+    titleBox.prepend(kicker);
+  }
   function installPageHeadingStructures() {
     const todayHeading = $('.page-heading', $('#view-today'));
     const datePicker = todayHeading?.querySelector('.date-picker');
     const dateInput = $('#active-date');
     if (todayHeading && datePicker && dateInput) {
       todayHeading.classList.add('page-heading--today');
+      prependHeadingKicker(todayHeading, '今日手札');
       const currentDate = document.createElement('time');
       currentDate.id = 'active-date-label';
       currentDate.className = 'date-picker-value';
@@ -5210,12 +5223,16 @@ function metricIcon(label) {
       datePicker.replaceChildren(currentDate, dateInput);
     }
     const recordHeading = $('.page-heading', $('#view-records'));
-    recordHeading?.classList.add('page-heading--records');
+    if (recordHeading) {
+      recordHeading.classList.add('page-heading--records');
+      prependHeadingKicker(recordHeading, '日常记录 · 三栏台账');
+    }
     const trendsHeading = $('.page-heading', $('#view-trends'));
     const rangeLabel = trendsHeading?.querySelector('label');
     const rangeSelect = $('#trend-range');
     if (trendsHeading && rangeLabel && rangeSelect) {
       trendsHeading.classList.add('page-heading--trends');
+      prependHeadingKicker(trendsHeading, '周期观察');
       rangeLabel.className = 'range-picker';
       rangeSelect.setAttribute('aria-label', '观察范围');
       const accessibleLabel = document.createElement('span');

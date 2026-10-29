@@ -1229,3 +1229,36 @@ html{scroll-padding-bottom:calc(var(--tabbar-safe,96px) + 16px)}
 .chart-hit-area:focus-visible{stroke:var(--ring-focus-color);stroke-width:2}
 .trend-point-tip{position:absolute;top:var(--space-2);left:var(--space-2);right:var(--space-2);z-index:1;margin:0;padding:var(--space-2) var(--space-3);border-left:2px solid var(--accent);background:var(--surface-soft);color:var(--body-text);font-size:var(--text-sm);line-height:1.5;overflow-wrap:anywhere;pointer-events:none}
 .trend-empty-action{display:flex;min-width:min(220px,100%);margin:0 auto}
+
+/* ---- 2026-10-29 editorial rhythm & skin divergence ----------------------------------------- */
+html[data-tab]:not([data-tab="today"]) .app-header{padding:14px 0 12px;margin-bottom:4px;border-bottom:1px solid var(--line)}
+html[data-tab]:not([data-tab="today"]) .brand small{display:none}
+html[data-tab]:not([data-tab="today"]) .brand img{width:28px;height:28px}
+html[data-tab]:not([data-tab="today"]) .brand>span{font-size:var(--text-lg)}
+.heading-kicker{margin:0 0 4px;font-size:var(--text-xs);color:var(--muted);letter-spacing:var(--tracking-label)}
+.page-heading--today{padding-bottom:var(--space-3);margin-bottom:var(--space-3);border-bottom:1px solid var(--line)}
+.page-heading--records{padding-bottom:var(--space-2);margin-bottom:var(--space-2)}
+.page-heading--records h1{font-size:22px;margin:0}
+.page-heading--trends{padding-bottom:var(--space-2);margin-bottom:var(--space-2)}
+#view-records .segment-bar,#view-trends .segment-bar{border:0;border-bottom:1px solid var(--line);border-radius:0;padding:0 0 var(--space-2);margin:0 0 var(--space-4);background:var(--paper);box-shadow:none}
+#view-records .segment,#view-trends .segment{border-radius:var(--radius-sm)}
+.quick-chip{border-color:transparent;background:var(--surface-soft)}
+textarea{resize:none}
+#view-records input:not([type=checkbox]):not([type=radio]),#view-records select,#view-records textarea{border-color:transparent;border-bottom-color:var(--line-strong);background:var(--surface-soft)}
+#view-records .mic-button,#view-records .photo-add{border-color:transparent;background:var(--surface-soft)}
+.photo-add-icon,.capture-card img{opacity:1}
+.capture-card img{background:transparent;padding:0}
+[data-skin="ledger"] .page-heading--today,[data-skin="ledger"] .page-heading--records,[data-skin="ledger"] .page-heading--trends{padding-bottom:var(--space-2);margin-bottom:var(--space-3);border-bottom:1px solid var(--line-strong)}
+[data-skin="ledger"] #view-records .segment-bar,[data-skin="ledger"] #view-trends .segment-bar{gap:0;padding:0;border:1px solid var(--line-strong);border-radius:var(--shape-row-radius);background:var(--surface);overflow:hidden}
+[data-skin="ledger"] #view-records .segment,[data-skin="ledger"] #view-trends .segment{border-radius:0}
+[data-skin="ledger"] #view-records .segment+.segment,[data-skin="ledger"] #view-trends .segment+.segment{border-left:1px solid var(--line)}
+[data-skin="ledger"] .quick-actions{gap:0;border:1px solid var(--line-strong);border-radius:var(--shape-row-radius);background:var(--surface);overflow:hidden}
+[data-skin="ledger"] .quick-chip{border:0;border-radius:0;background:transparent}
+[data-skin="ledger"] .quick-chip+.quick-chip{border-left:1px solid var(--line)}
+[data-skin="ledger"] .card-heading{padding-bottom:var(--space-2);border-bottom:1px solid var(--line)}
+[data-skin="ledger"] #view-records .form-grid{gap:0;border:1px solid var(--line);border-radius:var(--shape-ctrl-radius);background:var(--surface-soft);overflow:hidden;margin-bottom:var(--space-3)}
+[data-skin="ledger"] #view-records .form-grid>label{margin:0;padding:var(--space-2) var(--space-3);border-bottom:1px solid var(--line)}
+[data-skin="ledger"] #view-records .form-grid>label:nth-child(even){border-left:1px solid var(--line)}
+[data-skin="ledger"] #view-records .form-grid>label:nth-last-child(-n+2){border-bottom:0}
+[data-skin="ledger"] #view-records input:not([type=checkbox]):not([type=radio]),[data-skin="ledger"] #view-records select,[data-skin="ledger"] #view-records textarea{border-color:var(--line-strong);background:var(--paper)}
+[data-skin="ledger"] #view-records .mic-button,[data-skin="ledger"] #view-records .photo-add{border-color:var(--line);background:var(--surface)}
