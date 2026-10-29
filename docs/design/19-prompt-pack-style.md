@@ -95,32 +95,50 @@
 **附件**：无（让它读文件）
 
 ```
-你是这个仓库的工程师。先读 docs/design/20-audit-visual.md 的「规格」节，只实现那一节写的东西。
+你是这个仓库（D:\AI\health-android）的工程师。当前基线 1.1.96，测试 56/56。
+
+先读 docs/design/20-audit-visual.md 的「规格」节，只实现那一节写的东西，范围是：
+G1 空态叶 40px、G2 加载环 20px/1.2s、G3 完成态 24px 叶、
+T1 趋势点按取数、T3 趋势空态、D1 能量环满圈、D2 数字层级、D3 视线顺序。
+
+不要做：
+- T2（目标区间带）——全仓没有 weightTarget 字段，缺字段决策，跳过。
+- G4/G5/G6——那是「什么时候不用符号」的规则，不是代码。
+- 规格以外的任何顺手优化。
 
 硬规则，违反任何一条都算失败：
-1. 不手改 app/src/main/assets/app.js —— 它是 tools\assemble-app.ps1 从 app/src/fragments/* 拼出来的，
-   改片段后必须跑 assemble。
+1. 不手改 app/src/main/assets/app.js —— 它是 tools\assemble-app.ps1 从 app/src/fragments/* 拼出来的；
+   改片段后必须重跑 assemble，否则改了等于没改。
 2. 账本改动只能写在 [data-skin="ledger"] 作用域；两套皮肤改一处必须同时改另一处。
-3. 新增颜色令牌要登记 docs/design/02-tokens.md，纸感与账本令牌集必须相等。
-4. 改测试断言前先在 docs/design/03-global-changes.md §5.1 登记。
-5. 同一目标连续两次测试仍红 —— 停止，输出 BLOCKED: <根因> + <需要什么>。
+3. 新增颜色令牌要登记 docs/design/02-tokens.md，纸感与账本令牌集必须相等，缺一个测试红。
+4. 改测试断言前先在 docs/design/03-global-changes.md §5.1 登记原因。
+5. 同一目标连续两次测试仍红 → 停止，输出 `BLOCKED: <根因>` + `<需要什么>`。
+6. 点击后才执行的代码（事件回调、评分、弹层）静态断言覆盖不到，必须真的点一次；
+   新增函数里每个标识符对照所在作用域核一遍（曾经把 box 写成 list，56 个测试全绿，一点就报错）。
+7. 控制某个容器显示/隐藏的按钮，放在容器外面或同级，绝不能放在容器内部（放进去了等于入口把自己藏起来）。
 
 流程：
 改片段 → tools\assemble-app.ps1 → node tools/test-all.mjs（必须 56/56）
-→ tools\dev-loop.ps1 -Version 1.1.97 -VersionCode 197 -SkipBackup（会装机并自动同步版本号）
-→ 用 node tools/device.mjs shot build/visual-after/xx.png 截 before/after 对照图。
+→ tools\dev-loop.ps1 -Version 1.1.97 -VersionCode 197 -SkipBackup（会自动同步三处版本号并装机）
+→ node tools/device.mjs shot build/visual-after/xx.png 截 before/after 对照图
+→ node tools/aesthetic-audit.mjs（必须无阻塞项）。
+
+如果写文件的工具（apply_patch 之类）报 aborted，改用 shell 写文件，或把完整内容发我代写；
+不要因为写不进去就跳过这条，也不要用编辑器整份覆盖 app.js。
 
 交付固定格式：
 判断: <现状哪里不对，一句>
 改动: <文件:行 / 设计参数>
 理由: <为什么更好，可验证>
-外加：3 组 before/after 截图路径；一个"没做什么及原因"；测试结果。
+外加：3 组 before/after 截图路径；一个"没做什么及原因"；测试与审计结果；每次点击验证的点了什么、看到什么。
 ```
 
 **验收**
 - [ ] `node tools/test-all.mjs` 56/56
-- [ ] `git status --short` 只有预期文件（片段、styles.css、必要时 tokens/§5.1）
+- [ ] `node tools/aesthetic-audit.mjs` 无阻塞项
+- [ ] `git status --short` 只有预期文件（片段、styles.css、index.html、必要时 tokens/§5.1）
 - [ ] `build/visual-after/` 下有与 before 同角度的截图
+- [ ] 凡是"点击才执行"的改动，交付里有实点记录
 
 ---
 
