@@ -115,3 +115,9 @@
 - 扩表（只加令牌、不做替换）：`--warn-ink:#8f6a39`、`--danger-ink:#7d2a22` 进 base :root；ledger 作用域同名定义（#8a6435 / #7a2b23）。
 - 02-tokens.md 登记两行，token-ratchet 与 training-library 的「两套皮肤同集」均通过。
 - 用花括号配对定位 :root / ledger 块尾插入，避免上次插进内层规则导致的块损坏。
+
+## r36 · 2026-10-29 · 1.1.99
+- 今日日期与趋势范围并入各自标题行；记录页标题单独成型，与记录区共享左侧内容轨。
+- 餐食模板把蛋白/脂肪/碳水改为具名数值列；纸感用松散行距与浅分隔，账本用紧凑网格、右对齐数字和列线。
+- 高频入口复用叶/天平/环并补齐问答、趋势、训练、相机 glyph；图标合同从 21 项扩到 28 项，仍验证平铺、引用与 <900 字节。
+- 验证：`node tools/test-all.mjs` 56/56；`dev-loop.ps1 -Version 1.1.99 -VersionCode 199 -SkipBackup` 安装及 smoke 成功；四页截图在 `build/visual-after/structure-*-1199.png`。

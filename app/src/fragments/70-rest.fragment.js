@@ -96,7 +96,7 @@
         ...(number(draft.oilGrams)>0?{oilGrams:number(draft.oilGrams),oilIncluded:true}:{}),
         ...(number(draft.uncertaintyPercent)!==null?{uncertaintyPercent:number(draft.uncertaintyPercent)}:{})});
       // Keep draftId on failures so native idempotency prevents duplicate confirmations.
-      const savedDate=draft.date; activeDate=savedDate; $('#active-date').value=savedDate;
+      const savedDate=draft.date; activeDate=savedDate; $('#active-date').value=savedDate; syncActiveDateLabel();
        draft=null;$('#estimate-preview').hidden=true;$('#estimate-form').reset();setDefaultDates();clearImage();feedback($('#estimate-feedback'),`餐食已确认保存到 ${savedDate}，已切换到该日汇总。`);
       try {await loadState({quiet:true});} catch {feedback($('#estimate-feedback'),'已保存，但刷新失败。请重新加载检查记录，不要再次估算保存。',true);}
       loadDrafts().catch(() => {});
@@ -104,7 +104,7 @@
   }
   function setActiveDate(value) {
     if(!validDate(value)) return false;
-    activeDate=value; $('#active-date').value=value; setDefaultDates(); render();
+    activeDate=value; $('#active-date').value=value; syncActiveDateLabel(); setDefaultDates(); render();
     const content=$('#advice-content'); content.textContent=''; content.removeAttribute('data-date');
     return true;
   }
@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.1.98';
+  const APP_VERSION = '1.1.99';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -856,6 +856,34 @@
   installContextPreview('chat-data-preview-panel','chat-data-preview','chat');
   installContextPreview('advice-data-preview-panel','advice-data-preview','advice');
   $$('[data-tab]').forEach(button=>button.addEventListener('click',()=>switchTab(button.dataset.tab,true)));
+  function installPageHeadingStructures() {
+    const todayHeading = $('.page-heading', $('#view-today'));
+    const datePicker = todayHeading?.querySelector('.date-picker');
+    const dateInput = $('#active-date');
+    if (todayHeading && datePicker && dateInput) {
+      todayHeading.classList.add('page-heading--today');
+      const currentDate = document.createElement('time');
+      currentDate.id = 'active-date-label';
+      currentDate.className = 'date-picker-value';
+      currentDate.setAttribute('aria-hidden', 'true');
+      dateInput.setAttribute('aria-label', '查看日期');
+      datePicker.replaceChildren(currentDate, dateInput);
+    }
+    const recordHeading = $('.page-heading', $('#view-records'));
+    recordHeading?.classList.add('page-heading--records');
+    const trendsHeading = $('.page-heading', $('#view-trends'));
+    const rangeLabel = trendsHeading?.querySelector('label');
+    const rangeSelect = $('#trend-range');
+    if (trendsHeading && rangeLabel && rangeSelect) {
+      trendsHeading.classList.add('page-heading--trends');
+      rangeLabel.className = 'range-picker';
+      rangeSelect.setAttribute('aria-label', '观察范围');
+      const accessibleLabel = document.createElement('span');
+      accessibleLabel.className = 'sr-only';
+      accessibleLabel.textContent = '观察范围';
+      rangeLabel.replaceChildren(accessibleLabel, rangeSelect);
+    }
+  }
   /**
    * Four chips at the top of today: the actions people actually take every day, one tap away instead of
    * a scroll hunt. Each chip routes to the right segment and focuses the field.
@@ -871,10 +899,10 @@
     row.setAttribute('role', 'group');
     row.setAttribute('aria-label', '今日快捷操作');
     row.innerHTML = [
-      ['icon-meal.svg', '记一餐', 'meal-text'],
-      ['icon-training.svg', '记训练', 'training-form'],
-      ['icon-weight.svg', '记体重', 'measurement-weight'],
-      ['icon-camera-flat.svg', '拍照', 'photo']
+      ['icon-glyph-leaf.svg', '记一餐', 'meal-text'],
+      ['icon-glyph-training.svg', '记训练', 'training-form'],
+      ['icon-glyph-balance.svg', '记体重', 'measurement-weight'],
+      ['icon-glyph-camera.svg', '拍照', 'photo']
     ].map(([icon, label, focus]) => `<button type="button" class="quick-chip" data-quick-focus="${focus}" data-quick-icon="${icon}"><span class="quick-chip-icon" aria-hidden="true">${iconMarkup(icon)}</span>${label}</button>`).join('');
     heading.after(row);
     row.addEventListener('click', event => {
@@ -1662,6 +1690,8 @@ feedback(message,'数据已导入。'+report);
     if (bar) bar.hidden = true;
     loadState({quiet: false}).catch(() => showRenderError(new Error('重新加载失败，请确认应用仍在前台')));
   });
+  installPageHeadingStructures();
+  syncActiveDateLabel();
   installTodayQuickActions();
   installRecordPanels();
   installTrendPanels();

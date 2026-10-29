@@ -195,12 +195,13 @@ assert.match(app, /class="row-toggle" data-chat-toggle=/, 'a long answer offers 
 assert.match(css, /\.answer\.is-clamped\{max-height:5\.4em;overflow:hidden/, 'the preview is clamped to a few lines');
 assert.match(css, /\.row-date\{margin-left:auto/, 'the date is pushed to the end of the head line');
 assert.match(app, /<span class="row-tag subtle-tag">\$\{esc\(source\)\}<\/span>/, 'meal source and item count are head-line tags, keeping the number line short');
-assert.match(app, /<span>蛋 <b>\$\{fmt\(meal\.protein\)\}<\/b><\/span>/, 'macros use short labels so they fit one line');
+assert.match(app, /class="meal-numbers" aria-label="营养数值"/, 'meal metrics have a dedicated value group');
+assert.match(app, /<span><small>蛋白<\/small><b>\$\{fmt\(meal\.protein\)\} g<\/b><\/span>/, 'protein is a named, unit-bearing numeric column');
 assert(!/delete-meal">删除</.test(app), 'the old text delete button is gone');
 assert.match(app, /<span class="row-tag">\$\{type\}<\/span>/, 'the meal type is a tag beside the name');
 assert.match(app, /共 \$\{meal\.items\.length\} 项/, 'the row states how many items the meal has');
 assert.match(app, /const source = \(\{manual:'手动'/, 'the row states where the record came from');
-assert.match(app, /脂 <b>\$\{fmt\(meal\.fat\)\}<\/b>/, 'macros are compact enough to share one line');
+assert.match(app, /<span><small>脂肪<\/small><b>\$\{fmt\(meal\.fat\)\} g<\/b><\/span>/, 'fat is a named, unit-bearing numeric column');
 
 assert.match(app, /function answerHtml\(text\)/, 'answers go through one rich renderer');
 assert.match(app, /function answerIcon\(text\)/, 'a section picks a coloured icon from its topic');
@@ -228,8 +229,8 @@ assert.match(css, /\.stats-good\{color:var\(--tone-weight\)\}\.stats-bad\{color:
 
 assert.match(css, /\.app-dialog-panel\{width:min\(560px,100%\)/, 'dialogs are wider than before');
 assert.match(css, /\.voice-panel\{width:min\(560px,100%\)/, 'the listening sheet matches the dialog width');
-assert.match(html, /icon-nav-today\.svg/, 'navigation uses the shared icon family');
-for (const [tab, icon] of [['today','icon-nav-today.svg'],['records','icon-nav-record.svg'],['chat','icon-nav-chat.svg'],['trends','icon-nav-trends.svg'],['profile','icon-nav-profile.svg']]) {
+assert.match(html, /icon-glyph-ring\.svg/, 'navigation reuses the ring glyph family');
+for (const [tab, icon] of [['today','icon-glyph-ring.svg'],['records','icon-glyph-balance.svg'],['chat','icon-glyph-chat.svg'],['trends','icon-glyph-trends.svg'],['profile','icon-glyph-leaf.svg']]) {
   const block = html.slice(html.indexOf(`data-tab="${tab}"`));
   assert(block.slice(0, 260).includes(icon), `the ${tab} tab uses ${icon}`);
 }

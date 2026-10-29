@@ -36,7 +36,17 @@ const SEMANTIC = [
   'icon-check.svg',
 ];
 
-const REQUIRED = [...SKELETON, ...SEMANTIC];
+const BRAND_GLYPHS = [
+  'icon-glyph-leaf.svg',
+  'icon-glyph-balance.svg',
+  'icon-glyph-ring.svg',
+  'icon-glyph-chat.svg',
+  'icon-glyph-trends.svg',
+  'icon-glyph-training.svg',
+  'icon-glyph-camera.svg',
+];
+
+const REQUIRED = [...SKELETON, ...SEMANTIC, ...BRAND_GLYPHS];
 
 const COMMON_SNIPPETS = [
   'viewBox="0 0 24 24"',
@@ -82,7 +92,9 @@ for (const name of REQUIRED) {
   }
   check(!FORBIDDEN_SIZE_ATTR.test(text), `${name}: must not set a width/height attribute (CSS governs size)`);
 
-  const expectedStroke = SKELETON.includes(name) ? 'stroke="#44755d"' : 'stroke="currentColor"';
+  const expectedStroke = SKELETON.includes(name) || BRAND_GLYPHS.includes(name)
+    ? 'stroke="#44755d"'
+    : 'stroke="currentColor"';
   check(text.includes(expectedStroke), `${name}: missing ${expectedStroke}`);
 
   const colors = [...text.matchAll(/#[0-9a-fA-F]{6}/g)].map((m) => m[0].toLowerCase());
@@ -153,7 +165,7 @@ if (failures.length > 0) {
   process.exitCode = 1;
 } else {
   console.log(
-    `PASS icon style: ${REQUIRED.length} icons (${SKELETON.length} skeleton + ${SEMANTIC.length} semantic), ` +
+      `PASS icon style: ${REQUIRED.length} icons (${SKELETON.length} skeleton + ${SEMANTIC.length} semantic + ${BRAND_GLYPHS.length} brand glyphs), ` +
       `flat assets dir, ${refCount} ./icon-*.svg reference(s) resolved, all < 900 bytes`,
   );
 }

@@ -423,10 +423,7 @@ label.sheet-option{flex-direction:row;margin:0;cursor:pointer}
 /* 光学补偿：按 getBBox 实测的墨迹高度（几何 + 0.9u 描边半径）统一到 ≈14px——
    meal 16.8u→20px、training 13.8u→24px、weight 19.8u→17px、camera 15.8u→21px，
    避免「体重秤撑满、哑铃偏小」的大小不一。 */
-.quick-chip[data-quick-icon="icon-meal.svg"] .quick-chip-icon :is(svg,img){width:20px;height:20px}
-.quick-chip[data-quick-icon="icon-training.svg"] .quick-chip-icon :is(svg,img){width:24px;height:24px}
-.quick-chip[data-quick-icon="icon-weight.svg"] .quick-chip-icon :is(svg,img){width:17px;height:17px}
-.quick-chip[data-quick-icon="icon-camera-flat.svg"] .quick-chip-icon :is(svg,img){width:21px;height:21px}
+.quick-chip .quick-chip-icon :is(svg,img){width:22px;height:22px}
 
 /* Per-food breakdown: every meal can show which food supplied the calories. */
 .meal-items-wrap{margin:6px 0 2px}
@@ -913,6 +910,8 @@ details[open] .preview-panel, .data-preview-panel{border:1px solid var(--line);b
   --shape-ctrl-radius:12px;
   --shape-card-shadow:0 1px 2px rgba(20,20,19,.045);
   --shape-row-shadow:none;
+  --record-row-pad:var(--space-4);
+  --record-separator:var(--line);
 }
 [data-skin="ledger"]{
   --shape-card-radius:8px;
@@ -920,6 +919,8 @@ details[open] .preview-panel, .data-preview-panel{border:1px solid var(--line);b
   --shape-ctrl-radius:8px;
   --shape-card-shadow:none;
   --shape-row-shadow:none;
+  --record-row-pad:var(--space-2);
+  --record-separator:var(--line-strong);
 }
 
 /* 卡片 */
@@ -959,6 +960,84 @@ input,select,textarea,.button,.chip,.term,.text-button{border-radius:var(--shape
 
 /* 纸感的阴影再淡一档，避免卡片「浮」得过头。 */
 :root{--shape-card-shadow:0 1px 1px rgba(20,20,19,.035)}
+
+/* The shared meal row carries named values so each skin can express its own reading rhythm. */
+#today-meals .meal-row,#record-meals .meal-row{
+  padding:var(--record-row-pad) 0;
+  border-top-color:var(--record-separator);
+}
+.meal-numbers{display:flex;flex-wrap:wrap;gap:var(--space-4);margin-top:var(--space-3);font-variant-numeric:tabular-nums}
+.meal-numbers>span{display:flex;flex-direction:column;gap:var(--space-1);min-width:48px}
+.meal-numbers small{color:var(--muted);font-size:var(--text-xs)}
+.meal-numbers b{font-weight:var(--fw-semibold);white-space:nowrap}
+#today-meals .row-side,#record-meals .row-side{font-variant-numeric:tabular-nums;text-align:right}
+[data-skin="ledger"] .meal-numbers{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:0;
+  margin-top:var(--space-2);
+  border-block:1px solid var(--line-strong);
+}
+[data-skin="ledger"] .meal-numbers>span{padding:var(--space-1) var(--space-2);text-align:right}
+[data-skin="ledger"] .meal-numbers>span+span{border-left:1px solid var(--line)}
+[data-skin="ledger"] .stats-table th,
+[data-skin="ledger"] .stats-table td{border-bottom:1px solid var(--line-strong)}
+[data-skin="ledger"] .stats-table th+th,
+[data-skin="ledger"] .stats-table td+td{border-left:1px solid var(--line)}
+[data-skin="ledger"] .stats-table td.num{text-align:right;font-variant-numeric:tabular-nums}
+
+/* Each page gets a different header structure, with its first content aligned to the same left rail. */
+.page-heading--today,.page-heading--trends{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:start;
+  column-gap:var(--space-2);
+  margin-bottom:var(--space-4);
+}
+.page-heading--today>div,.page-heading--trends>div{min-width:0}
+.page-heading--today h1,.page-heading--trends h1{margin:0;line-height:1.22}
+.page-heading--records{display:block;width:100%;margin-bottom:var(--space-4)}
+.page-heading--today .date-picker{
+  position:relative;
+  display:grid;
+  place-items:center;
+  flex:0 0 auto;
+  width:64px;
+  min-height:40px;
+  margin:0;
+  padding:0 var(--space-2);
+  border:1px solid var(--line);
+  border-radius:var(--shape-ctrl-radius);
+  background:var(--surface);
+  color:var(--ink-soft);
+  font-size:var(--text-sm);
+  font-variant-numeric:tabular-nums;
+}
+.date-picker-value{line-height:1}
+.page-heading--today .date-picker input{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  min-height:0;
+  margin:0;
+  padding:0;
+  opacity:0;
+  cursor:pointer;
+}
+.page-heading--today .date-picker:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.page-heading--trends .range-picker{width:132px;margin:0;align-self:start}
+.page-heading--trends .range-picker select{
+  width:100%;
+  min-height:40px;
+  padding:var(--space-2);
+  background:var(--surface);
+  font-size:var(--text-sm);
+}
+@media(min-width:700px){
+  .page-heading--today,.page-heading--trends{margin:18px 0 var(--space-5)}
+  .page-heading--records{margin:18px 0 var(--space-5)}
+}
 
 /* 图表标签：数值密集时缩到 10px 会看不清，改为更小字重 + 更淡色，靠位置错开。 */
 .chart-wrap text{font-variant-numeric:tabular-nums}

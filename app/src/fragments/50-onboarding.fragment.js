@@ -247,8 +247,9 @@
         + `${showDate ? `<span class="row-date">${esc(meal.date)}</span>` : ''}`
         + `${meal.id !== undefined ? `<button type="button" class="icon-button danger row-delete" data-delete-meal="${esc(meal.id)}" aria-label="删除${esc(meal.name || '餐食')}" title="删除这条餐食"><span class="inline-icon" aria-hidden="true">${SVG_ICONS['icon-trash.svg']}</span></button>` : ''}</div>`
         + `${Array.isArray(meal.items) && meal.items.length ? `<div class="meal-items-wrap"><button type="button" class="meal-items-toggle" data-meal-items="${esc(meal.id ?? '')}" aria-expanded="false">共 ${meal.items.length} 项 · 查看每项热量</button><div class="meal-items" hidden>${[...meal.items].sort((a, b) => (number(b.calories) ?? 0) - (number(a.calories) ?? 0)).map(item => `<div class="meal-item"><span>${esc(item.name || '未命名')}</span><b>${number(item.grams) !== null ? `${fmt(item.grams, 0)} g · ` : ''}${fmt(number(item.calories) ?? 0, 0)} kcal</b></div>`).join('')}</div></div>` : ''}`
+        + `<div class="meal-numbers" aria-label="营养数值">`
+        + `<span><small>蛋白</small><b>${fmt(meal.protein)} g</b></span><span><small>脂肪</small><b>${fmt(meal.fat)} g</b></span><span><small>碳水</small><b>${fmt(meal.carbs)} g</b></span></div>`
         + `<div class="row-meta">${clock ? `<span>${clock}</span>` : ''}`
-        + `<span>蛋 <b>${fmt(meal.protein)}</b></span><span>脂 <b>${fmt(meal.fat)}</b></span><span>碳 <b>${fmt(meal.carbs)}</b></span>`
         + `${oilLabel(meal)}`
         + `${photo ? `<span>${photo}</span>` : ''}</div></div>`
         + `<div class="row-side"><span class="row-kcal">${fmt(meal.calories,0)} <small>kcal</small></span></div></div>`;
@@ -355,7 +356,7 @@
     const records = state.measurements.filter(record => validDate(record.date) && record.date <= activeDate && dayTime(record.date)>=cutoff).sort((a,b) => a.date.localeCompare(b.date));
     const points = records.filter(record => number(record.weight)!==null && Number(record.weight)>0);
     const height = number(state.profile.height);
-    $('#measurement-history').innerHTML = records.length ? [...records].reverse().map(item => `<tr><td>${esc(item.date)}</td><td>${fmt(item.weight)}</td><td>${fmt(item.waist)}</td><td>${fmt(item.bodyFat)}</td><td>${fmt(item.muscle)}</td><td>${fmt(number(item.weight)!==null && height>0 ? item.weight / ((height/100)**2) : null)}</td></tr>`).join('') : '<tr><td colspan="6">这个范围内尚无测量记录。缺失数值显示为 —。</td></tr>';
+    $('#measurement-history').innerHTML = records.length ? [...records].reverse().map(item => `<tr><td>${esc(item.date)}</td><td class="num">${fmt(item.weight)}</td><td class="num">${fmt(item.waist)}</td><td class="num">${fmt(item.bodyFat)}</td><td class="num">${fmt(item.muscle)}</td><td class="num">${fmt(number(item.weight)!==null && height>0 ? item.weight / ((height/100)**2) : null)}</td></tr>`).join('') : '<tr><td colspan="6">这个范围内尚无测量记录。缺失数值显示为 —。</td></tr>';
     // Body-composition comparison, computed locally: the previous 30-day window versus the last
     // 30 days. It reports direction only, never a medical verdict, and shows — for missing values.
     $('#stats-table').innerHTML = statsTableHtml();

@@ -147,8 +147,15 @@
     const today = localDate();
     if (today === lastObservedToday) return;
     // Follow the clock only while viewing the former today; intentional history selections stay put.
-    if (activeDate === lastObservedToday) {activeDate = today; $('#active-date').value = today; setDefaultDates(); if (loaded) render();}
+    if (activeDate === lastObservedToday) {activeDate = today; $('#active-date').value = today; syncActiveDateLabel(); setDefaultDates(); if (loaded) render();}
     lastObservedToday = today;
+  }
+  function syncActiveDateLabel() {
+    const label = $('#active-date-label');
+    const parts = String(activeDate || '').match(/^\d{4}-(\d{2})-(\d{2})$/);
+    if (!label || !parts) return;
+    label.dateTime = activeDate;
+    label.textContent = `${Number(parts[1])}/${Number(parts[2])}`;
   }
   let noticeTimer = null;
   /** Hides the notice and lets the page flow back up (it sits in the document flow, not as an overlay). */

@@ -147,8 +147,15 @@
     const today = localDate();
     if (today === lastObservedToday) return;
     // Follow the clock only while viewing the former today; intentional history selections stay put.
-    if (activeDate === lastObservedToday) {activeDate = today; $('#active-date').value = today; setDefaultDates(); if (loaded) render();}
+    if (activeDate === lastObservedToday) {activeDate = today; $('#active-date').value = today; syncActiveDateLabel(); setDefaultDates(); if (loaded) render();}
     lastObservedToday = today;
+  }
+  function syncActiveDateLabel() {
+    const label = $('#active-date-label');
+    const parts = String(activeDate || '').match(/^\d{4}-(\d{2})-(\d{2})$/);
+    if (!label || !parts) return;
+    label.dateTime = activeDate;
+    label.textContent = `${Number(parts[1])}/${Number(parts[2])}`;
   }
   let noticeTimer = null;
   /** Hides the notice and lets the page flow back up (it sits in the document flow, not as an overlay). */
@@ -2799,8 +2806,9 @@ function intakeRangeForDate(date = activeDate) {
         + `${showDate ? `<span class="row-date">${esc(meal.date)}</span>` : ''}`
         + `${meal.id !== undefined ? `<button type="button" class="icon-button danger row-delete" data-delete-meal="${esc(meal.id)}" aria-label="删除${esc(meal.name || '餐食')}" title="删除这条餐食"><span class="inline-icon" aria-hidden="true">${SVG_ICONS['icon-trash.svg']}</span></button>` : ''}</div>`
         + `${Array.isArray(meal.items) && meal.items.length ? `<div class="meal-items-wrap"><button type="button" class="meal-items-toggle" data-meal-items="${esc(meal.id ?? '')}" aria-expanded="false">共 ${meal.items.length} 项 · 查看每项热量</button><div class="meal-items" hidden>${[...meal.items].sort((a, b) => (number(b.calories) ?? 0) - (number(a.calories) ?? 0)).map(item => `<div class="meal-item"><span>${esc(item.name || '未命名')}</span><b>${number(item.grams) !== null ? `${fmt(item.grams, 0)} g · ` : ''}${fmt(number(item.calories) ?? 0, 0)} kcal</b></div>`).join('')}</div></div>` : ''}`
+        + `<div class="meal-numbers" aria-label="营养数值">`
+        + `<span><small>蛋白</small><b>${fmt(meal.protein)} g</b></span><span><small>脂肪</small><b>${fmt(meal.fat)} g</b></span><span><small>碳水</small><b>${fmt(meal.carbs)} g</b></span></div>`
         + `<div class="row-meta">${clock ? `<span>${clock}</span>` : ''}`
-        + `<span>蛋 <b>${fmt(meal.protein)}</b></span><span>脂 <b>${fmt(meal.fat)}</b></span><span>碳 <b>${fmt(meal.carbs)}</b></span>`
         + `${oilLabel(meal)}`
         + `${photo ? `<span>${photo}</span>` : ''}</div></div>`
         + `<div class="row-side"><span class="row-kcal">${fmt(meal.calories,0)} <small>kcal</small></span></div></div>`;
@@ -2907,7 +2915,7 @@ function intakeRangeForDate(date = activeDate) {
     const records = state.measurements.filter(record => validDate(record.date) && record.date <= activeDate && dayTime(record.date)>=cutoff).sort((a,b) => a.date.localeCompare(b.date));
     const points = records.filter(record => number(record.weight)!==null && Number(record.weight)>0);
     const height = number(state.profile.height);
-    $('#measurement-history').innerHTML = records.length ? [...records].reverse().map(item => `<tr><td>${esc(item.date)}</td><td>${fmt(item.weight)}</td><td>${fmt(item.waist)}</td><td>${fmt(item.bodyFat)}</td><td>${fmt(item.muscle)}</td><td>${fmt(number(item.weight)!==null && height>0 ? item.weight / ((height/100)**2) : null)}</td></tr>`).join('') : '<tr><td colspan="6">这个范围内尚无测量记录。缺失数值显示为 —。</td></tr>';
+    $('#measurement-history').innerHTML = records.length ? [...records].reverse().map(item => `<tr><td>${esc(item.date)}</td><td class="num">${fmt(item.weight)}</td><td class="num">${fmt(item.waist)}</td><td class="num">${fmt(item.bodyFat)}</td><td class="num">${fmt(item.muscle)}</td><td class="num">${fmt(number(item.weight)!==null && height>0 ? item.weight / ((height/100)**2) : null)}</td></tr>`).join('') : '<tr><td colspan="6">这个范围内尚无测量记录。缺失数值显示为 —。</td></tr>';
     // Body-composition comparison, computed locally: the previous 30-day window versus the last
     // 30 days. It reports direction only, never a medical verdict, and shows — for missing values.
     $('#stats-table').innerHTML = statsTableHtml();
@@ -4428,7 +4436,7 @@ function metricIcon(label) {
         ...(number(draft.oilGrams)>0?{oilGrams:number(draft.oilGrams),oilIncluded:true}:{}),
         ...(number(draft.uncertaintyPercent)!==null?{uncertaintyPercent:number(draft.uncertaintyPercent)}:{})});
       // Keep draftId on failures so native idempotency prevents duplicate confirmations.
-      const savedDate=draft.date; activeDate=savedDate; $('#active-date').value=savedDate;
+      const savedDate=draft.date; activeDate=savedDate; $('#active-date').value=savedDate; syncActiveDateLabel();
        draft=null;$('#estimate-preview').hidden=true;$('#estimate-form').reset();setDefaultDates();clearImage();feedback($('#estimate-feedback'),`餐食已确认保存到 ${savedDate}，已切换到该日汇总。`);
       try {await loadState({quiet:true});} catch {feedback($('#estimate-feedback'),'已保存，但刷新失败。请重新加载检查记录，不要再次估算保存。',true);}
       loadDrafts().catch(() => {});
@@ -4436,7 +4444,7 @@ function metricIcon(label) {
   }
   function setActiveDate(value) {
     if(!validDate(value)) return false;
-    activeDate=value; $('#active-date').value=value; setDefaultDates(); render();
+    activeDate=value; $('#active-date').value=value; syncActiveDateLabel(); setDefaultDates(); render();
     const content=$('#advice-content'); content.textContent=''; content.removeAttribute('data-date');
     return true;
   }
@@ -4484,7 +4492,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.1.98';
+  const APP_VERSION = '1.1.99';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -5188,6 +5196,34 @@ function metricIcon(label) {
   installContextPreview('chat-data-preview-panel','chat-data-preview','chat');
   installContextPreview('advice-data-preview-panel','advice-data-preview','advice');
   $$('[data-tab]').forEach(button=>button.addEventListener('click',()=>switchTab(button.dataset.tab,true)));
+  function installPageHeadingStructures() {
+    const todayHeading = $('.page-heading', $('#view-today'));
+    const datePicker = todayHeading?.querySelector('.date-picker');
+    const dateInput = $('#active-date');
+    if (todayHeading && datePicker && dateInput) {
+      todayHeading.classList.add('page-heading--today');
+      const currentDate = document.createElement('time');
+      currentDate.id = 'active-date-label';
+      currentDate.className = 'date-picker-value';
+      currentDate.setAttribute('aria-hidden', 'true');
+      dateInput.setAttribute('aria-label', '查看日期');
+      datePicker.replaceChildren(currentDate, dateInput);
+    }
+    const recordHeading = $('.page-heading', $('#view-records'));
+    recordHeading?.classList.add('page-heading--records');
+    const trendsHeading = $('.page-heading', $('#view-trends'));
+    const rangeLabel = trendsHeading?.querySelector('label');
+    const rangeSelect = $('#trend-range');
+    if (trendsHeading && rangeLabel && rangeSelect) {
+      trendsHeading.classList.add('page-heading--trends');
+      rangeLabel.className = 'range-picker';
+      rangeSelect.setAttribute('aria-label', '观察范围');
+      const accessibleLabel = document.createElement('span');
+      accessibleLabel.className = 'sr-only';
+      accessibleLabel.textContent = '观察范围';
+      rangeLabel.replaceChildren(accessibleLabel, rangeSelect);
+    }
+  }
   /**
    * Four chips at the top of today: the actions people actually take every day, one tap away instead of
    * a scroll hunt. Each chip routes to the right segment and focuses the field.
@@ -5203,10 +5239,10 @@ function metricIcon(label) {
     row.setAttribute('role', 'group');
     row.setAttribute('aria-label', '今日快捷操作');
     row.innerHTML = [
-      ['icon-meal.svg', '记一餐', 'meal-text'],
-      ['icon-training.svg', '记训练', 'training-form'],
-      ['icon-weight.svg', '记体重', 'measurement-weight'],
-      ['icon-camera-flat.svg', '拍照', 'photo']
+      ['icon-glyph-leaf.svg', '记一餐', 'meal-text'],
+      ['icon-glyph-training.svg', '记训练', 'training-form'],
+      ['icon-glyph-balance.svg', '记体重', 'measurement-weight'],
+      ['icon-glyph-camera.svg', '拍照', 'photo']
     ].map(([icon, label, focus]) => `<button type="button" class="quick-chip" data-quick-focus="${focus}" data-quick-icon="${icon}"><span class="quick-chip-icon" aria-hidden="true">${iconMarkup(icon)}</span>${label}</button>`).join('');
     heading.after(row);
     row.addEventListener('click', event => {
@@ -5994,6 +6030,8 @@ feedback(message,'数据已导入。'+report);
     if (bar) bar.hidden = true;
     loadState({quiet: false}).catch(() => showRenderError(new Error('重新加载失败，请确认应用仍在前台')));
   });
+  installPageHeadingStructures();
+  syncActiveDateLabel();
   installTodayQuickActions();
   installRecordPanels();
   installTrendPanels();
