@@ -298,7 +298,7 @@
   let sheetResolve = null;
   // Inline SVG copies of the semantic icons (currentColor). Loaded via <img> an SVG cannot inherit
   // the page colour and renders black; inline markup follows the surrounding CSS colour instead.
-  const svgIcon = paths => `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><g stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths}</g></svg>`;
+  const svgIcon = paths => `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><g stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${paths}</g></svg>`;
   const SVG_ICONS = {
     'icon-copy.svg': svgIcon('<rect x="8.5" y="8.5" width="11" height="12" rx="2.5"/><path d="M15.5 5.5H7A2.5 2.5 0 0 0 4.5 8v9"/>'),
     'icon-select.svg': svgIcon('<path d="M12 5v14M9.5 5h5M9.5 19h5"/>'),
@@ -309,22 +309,17 @@
     'icon-nutrient-fat.svg': svgIcon('<path d="M12 3c4.5 4.9 6.5 8.5 6.5 11a6.5 6.5 0 0 1-13 0c0-2.5 2-6.1 6.5-11Z"/>'),
     'icon-nutrient-carb.svg': svgIcon('<path d="M4.5 11.5h15a7.5 7.5 0 0 1-15 0Z"/><path d="M8 19.5h8"/><path d="M15.5 9.5l5-5.5"/>'),
     'icon-energy.svg': svgIcon('<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5Z"/>'),
-    'icon-weight.svg': svgIcon('<path d="M8 3h8a5 5 0 0 1 5 5v8a5 5 0 0 1-5 5H8a5 5 0 0 1-5-5V8a5 5 0 0 1 5-5Z"/><path d="M8 15.5a4.5 4.5 0 0 1 8 0"/><path d="M12 12.5V9.5"/>'),
-    'icon-training.svg': svgIcon('<path d="M7 6v12M4 8.5v7M17 6v12M20 8.5v7M7 12h10"/>'),
-    'icon-sleep.svg': svgIcon('<path d="M20 14.7A8.4 8.4 0 0 1 9.3 4a8.6 8.6 0 1 0 10.7 10.7Z"/>'),
+    'icon-meal.svg': svgIcon('<path d="M3.5 12h17a7 7 0 0 1-7 7h-3a7 7 0 0 1-7-7Z"/><path d="M6 4v4M8 4v4M10 4v4M6 8a2 2 0 0 0 4 0M8 10v2"/><path d="M17 4v7M17 7c2 0 3-1 3-3"/>'),
+    'icon-glyph-balance.svg': svgIcon('<path d="M12 4v16"/><path d="M4 8h16"/><path d="M7 8l-3 6h6z"/><path d="M17 8l-3 6h6z"/><path d="M8 20h8"/>'),
+    'icon-glyph-training.svg': svgIcon('<path d="M4 10v4M7 7v10M17 7v10M20 10v4M7 12h10"/>'),
+    'icon-habit-sleep.svg': svgIcon('<path d="M19.5 14.3A8 8 0 0 1 9.7 4.5a8.2 8.2 0 1 0 9.8 9.8z"/>'),
     'icon-water.svg': svgIcon('<path d="M6 3.5h12l-1.5 15a1.5 1.5 0 0 1-1.5 1.5h-6a1.5 1.5 0 0 1-1.5-1.5Z"/><path d="M6.8 12.5h10.4"/>'),
     'icon-warn.svg': svgIcon('<path d="M10.2 4.1a2.1 2.1 0 0 1 3.6 0l6.3 11a2.1 2.1 0 0 1-1.8 3.1H5.7a2.1 2.1 0 0 1-1.8-3.1Z"/><path d="M12 9v4"/><path d="M12 16.4h.01"/>'),
     'icon-tip.svg': svgIcon('<circle cx="12" cy="10" r="5.5"/><path d="M9.5 18h5M10.5 21h3"/><path d="M12 3v2"/>'),
-    'icon-sparkle.svg': svgIcon('<path d="M12 3c.8 5.2 3 7.4 8.2 8.2-5.2.8-7.4 3-8.2 8.2-.8-5.2-3-7.4-8.2-8.2C9 10.4 11.2 8.2 12 3Z"/>'),
-    'icon-habit-training.svg': svgIcon('<path d="M4 9v6M20 9v6M7 12h10M7 8v8M17 8v8"/>'),
     'icon-habit-steps.svg': svgIcon('<path d="M7 19.5c-1.6 0-2.4-1.2-2.4-3 0-2.1 1-3.5 2.1-4.4.9-.8 1.5-1.5 1.7-2.8.1-.9.6-1.4 1.3-1.4 1 0 1.5.8 1.3 2-.2 1.4-.8 2.3-.8 3.3 0 .9.5 1.4 1.4 1.9 1.1.6 1.7 1.5 1.7 2.7 0 1.5-1 2.7-2.7 2.7"/><path d="M5.2 16.8h4.2"/>'),
-    'icon-habit-sleep.svg': svgIcon('<path d="M19.5 14.3A8 8 0 0 1 9.7 4.5a8.2 8.2 0 1 0 9.8 9.8z"/>'),
-    'icon-habit-water.svg': svgIcon('<path d="M12 4s5 5.2 5 8.8A5 5 0 0 1 12 17.8a5 5 0 0 1-5-5C7 9.2 12 4 12 4z"/><path d="M9.8 13c0 1.5 1 2.4 2.2 2.4"/>'),
-    'icon-meal.svg': svgIcon('<path d="M9.5 4.5c.9.9.9 1.9 0 2.8M14.5 4.5c.9.9.9 1.9 0 2.8"/><path d="M4.5 11h15a7.5 7.5 0 0 1-15 0Z"/><path d="M9.5 19.5h5"/>'),
-    'icon-camera-flat.svg': svgIcon('<path d="M4.5 8.5a2 2 0 0 1 2-2h1.6l1.3-2h5.2l1.3 2h1.6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2Z"/><circle cx="12" cy="12.4" r="3.4"/>'),
   };
-  /** Inline markup for a named icon; falls back to the <img> tag for skeleton icons. */
-  const iconMarkup = name => SVG_ICONS[name] || `<img src="./${esc(name)}" alt="" width="19" height="19">`;
+  /** Inline markup for tinted symbols; other icons use their single-color SVG asset. */
+  const iconMarkup = name => SVG_ICONS[name] || `<img src="./${esc(name)}" alt="" width="24" height="24">`;
   function sheetOpen() {const root = $('#action-sheet'); return !!root && !root.hidden;}
   function openSheet(config) {
     const root = $('#action-sheet');
@@ -769,6 +764,8 @@
   const TAB_ORDER = ['today','records','chat','trends','profile'];
   let lastShownTab = '';
   function switchTab(tab, moveFocus = false, sub = '') {
+    const currentTab = $('[data-tab][aria-current="page"]')?.dataset.tab || '';
+    if (tab === 'records' && currentTab !== 'records' && !sub && typeof switchRecordPanel === 'function') switchRecordPanel('food');
   document.documentElement.dataset.tab = tab;
   if (typeof applySkin === 'function') applySkin(document.documentElement.dataset.skinChoice || 'paper', false);
     if (!TAB_ORDER.includes(tab)) tab = 'today';
@@ -1135,9 +1132,9 @@ function intakeRangeForDate(date = activeDate) {
     {tone:'fat', icon:'icon-nutrient-fat.svg', words:['脂肪','油']},
     {tone:'carb', icon:'icon-nutrient-carb.svg', words:['碳水','主食','米饭','面条']},
     {tone:'energy', icon:'icon-energy.svg', words:['热量','卡路里','kcal','千卡']},
-    {tone:'weight', icon:'icon-weight.svg', words:['体重','体脂','BMI','腰围','体重变化']},
-    {tone:'training', icon:'icon-training.svg', words:['训练','力量','运动','健身']},
-    {tone:'sleep', icon:'icon-sleep.svg', words:['睡眠','休息','入睡']},
+    {tone:'weight', icon:'icon-glyph-balance.svg', words:['体重','体脂','BMI','腰围','体重变化']},
+    {tone:'training', icon:'icon-glyph-training.svg', words:['训练','力量','运动','健身']},
+    {tone:'sleep', icon:'icon-habit-sleep.svg', words:['睡眠','休息','入睡']},
     {tone:'water', icon:'icon-water.svg', words:['饮水','喝水','水分']},
     {tone:'warn', icon:'icon-warn.svg', words:['注意','警告','风险','偏高','超标','不足']},
     {tone:'ok', icon:'icon-check.svg', words:['完成','达标','很好','不错','已经']},
@@ -1146,7 +1143,7 @@ function intakeRangeForDate(date = activeDate) {
   function answerIcon(text) {
     const value = String(text || '');
     for (const rule of answerIconRules) if (rule.words.some(word => value.includes(word))) return rule;
-    return {tone:'neutral', icon:'icon-sparkle.svg', words:[]};
+    return {tone:'neutral', icon:'', words:[]};
   }
   /** Latin runs that were written in capitals are kept as an uppercase label above the heading. */
   function answerEyebrow(text) {
@@ -1163,7 +1160,7 @@ function intakeRangeForDate(date = activeDate) {
     if (!clean) return '';
     const rule = answerIcon(clean);
     const eyebrow = answerEyebrow(clean);
-    return `<div class="answer-section tone-${rule.tone}"><span class="inline-icon" aria-hidden="true">${iconMarkup(rule.icon)}</span>`
+    return `<div class="answer-section tone-${rule.tone}">${rule.icon ? `<span class="inline-icon" aria-hidden="true">${iconMarkup(rule.icon)}</span>` : ''}`
       + `<div>${eyebrow ? `<p class="answer-eyebrow">${esc(eyebrow)}</p>` : ''}<p class="answer-heading">${answerInline(clean)}</p></div></div>`;
   }
   /** Renders a pipe table when the block looks like one; returns '' otherwise. */
@@ -1367,10 +1364,10 @@ function intakeRangeForDate(date = activeDate) {
     const training = habit.training === true || habit.training === 'true' ? '已训练' : habit.training === false || habit.training === 'false' ? '休息日' : habit.training ? String(habit.training) : '未记录';
     // SVG icons instead of ↗ ♧ ☾ ◇: those characters rendered differently on every ROM.
     const tiles = [
-      ...(trainingEnabled() ? [['icon-habit-training.svg', training, '训练']] : []),
+      ...(trainingEnabled() ? [['icon-glyph-training.svg', training, '训练']] : []),
       ['icon-habit-steps.svg', number(habit.steps) === null ? '未记录' : `${fmt(habit.steps,0)} 步`, '日常活动'],
       ['icon-habit-sleep.svg', number(habit.sleep) === null ? '未记录' : `${fmt(habit.sleep)} 小时`, '睡眠'],
-      ['icon-habit-water.svg', number(habit.water) === null ? '未记录' : `${fmt(habit.water,0)} ml`, '饮水']
+      ['icon-water.svg', number(habit.water) === null ? '未记录' : `${fmt(habit.water,0)} ml`, '饮水']
     ];
     $('#habit-summary').innerHTML = tiles.map(([icon, value, label]) => `<div class="habit-tile"><span class="habit-symbol" aria-hidden="true">${iconMarkup(icon)}</span><div><strong>${esc(value)}</strong><small>${label}</small></div></div>`).join('');
     $('#today-meal-count').textContent = meals.length ? `${meals.length} 餐已记录` : '尚无记录';
@@ -1894,10 +1891,20 @@ function intakeRangeForDate(date = activeDate) {
   }
   function openQuickRecord() {
     const root = $('#quick-record-dialog'), select = $('#quick-record-source'), feedback = $('#quick-record-feedback');
-    quickRecordSources = state.meals.slice().sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))).slice(0, 12);
+    // 同一天可能有多餐：先按日期倒序，再按进餐时间倒序，否则同日的先后取决于存储顺序。
+    const mealOrder = (meal) => String(meal.date || '') + ' ' + String(meal.mealTime || '');
+    quickRecordSources = state.meals.slice()
+      .sort((a, b) => mealOrder(b).localeCompare(mealOrder(a)))
+      .slice(0, 12);
+    const quickTypeLabel = {breakfast: '早餐', lunch: '午餐', dinner: '晚餐', snack: '加餐'};
+    const quickShortName = (meal) => {
+      const raw = String(meal.name || '未命名餐食').replace(/\s+/g, ' ').trim();
+      return raw.length > 14 ? raw.slice(0, 14) + '…' : raw;
+    };
     select.innerHTML = quickRecordSources.length
-      ? quickRecordSources.map((meal, index) => `<option value="${index}">${esc(meal.date || '')} · ${esc(meal.name || '未命名餐食')}</option>`).join('')
+      ? quickRecordSources.map((meal, index) => `<option value="${index}">${esc(meal.date || '')} ${esc(quickTypeLabel[meal.mealType] || '')} · ${esc(quickShortName(meal))}</option>`).join('')
       : '<option value="">还没有可复制的餐食</option>';
+    select.value = '0';
     $('#quick-record-date').value = activeDate;
     const quickTime = $('#quick-record-time'); if (quickTime) quickTime.value = nowClock();
     $('#quick-record-type').value = 'snack';
@@ -1905,6 +1912,10 @@ function intakeRangeForDate(date = activeDate) {
     $('#quick-record-text').value = '';
     feedback.textContent = quickRecordSources.length ? '' : '先记录一餐后，就可以在这里快速复制。';
     root.hidden = false;
+    // 打开时回到顶部并收起键盘：否则表单会停在「份量比例」，日期与餐次被滚出视野。
+    if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur();
+    const quickForm = $('#quick-record-form');
+    if (quickForm) quickForm.scrollTop = 0;
   }
   async function submitQuickRecord(event) {
     event.preventDefault();
@@ -2896,7 +2907,7 @@ function intakeRangeForDate(date = activeDate) {
       const flat = Math.abs(diff) < Math.max(0.05, Math.abs(before) * 0.005);
       const wants = spec.key === 'muscle' || spec.key === 'bmr' ? 'up' : (lighterIsGoal ? 'down' : 'up');
       const tone = flat ? 'flat' : ((diff > 0 ? 'up' : 'down') === wants ? 'good' : 'bad');
-      const arrow = flat ? '' : `<span class="inline-icon" aria-hidden="true"><img src="./icon-nav-trends.svg" alt="" width="15" height="15" style="transform:${diff > 0 ? 'none' : 'scale(-1,-1)'}"></span>`;
+      const arrow = flat ? '' : `<span class="inline-icon" aria-hidden="true"><img src="./icon-glyph-trends.svg" alt="" width="15" height="15" style="transform:${diff > 0 ? 'none' : 'scale(-1,-1)'}"></span>`;
       const label = flat ? '基本持平' : `${diff > 0 ? '+' : '−'}${fmt(Math.abs(diff), spec.digits)}${spec.unit}`;
       rows.push(`<tr><td>${esc(spec.label)}</td><td class="num">${fmt(before, spec.digits)}${spec.unit ? ` <small>${esc(spec.unit)}</small>` : ''}</td>`
         + `<td class="num">${fmt(after, spec.digits)}${spec.unit ? ` <small>${esc(spec.unit)}</small>` : ''}</td>`
@@ -4334,7 +4345,7 @@ const values = points.length<=7 ? points.map((item,i) => {
  * 只映射已有资源，不新增文件；未知指标回退成空，保持排版不塌。
  */
 function metricIcon(label) {
-  const map = {'热量':'icon-energy','蛋白质':'icon-nutrient-protein','脂肪':'icon-nutrient-fat','碳水':'icon-nutrient-carb','训练':'icon-training','睡眠':'icon-sleep','饮水':'icon-water'};
+  const map = {'热量':'icon-energy','蛋白质':'icon-nutrient-protein','脂肪':'icon-nutrient-fat','碳水':'icon-nutrient-carb','训练':'icon-glyph-training','睡眠':'icon-habit-sleep','饮水':'icon-water'};
   const file = map[label];
   return file ? '<img src="./' + file + '.svg" alt="" width="16" height="16">' : '';
 }
@@ -4492,7 +4503,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.1.100';
+  const APP_VERSION = '1.1.102';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -5241,27 +5252,24 @@ function metricIcon(label) {
       rangeLabel.replaceChildren(accessibleLabel, rangeSelect);
     }
   }
-  /**
-   * Four chips at the top of today: the actions people actually take every day, one tap away instead of
-   * a scroll hunt. Each chip routes to the right segment and focuses the field.
-   */
+  /** Place common actions below the calorie summary, in reach without covering page content. */
   function installTodayQuickActions() {
     const view = $('#view-today');
     if (!view || $('#today-quick-actions')) return;
-    const heading = $('.page-heading', view);
-    if (!heading) return;
+    const energyBody = $('.energy-body', $('.energy-card', view));
+    if (!energyBody) return;
     const row = document.createElement('div');
     row.className = 'quick-actions';
     row.id = 'today-quick-actions';
     row.setAttribute('role', 'group');
     row.setAttribute('aria-label', '今日快捷操作');
     row.innerHTML = [
-      ['icon-glyph-leaf.svg', '记一餐', 'meal-text'],
-      ['icon-glyph-training.svg', '记训练', 'training-form'],
-      ['icon-glyph-balance.svg', '记体重', 'measurement-weight'],
+      ['icon-meal.svg', '记一餐', 'meal-text', 'quick-chip-primary'],
+      ['icon-glyph-training.svg', '训练', 'training-form', ''],
+      ['icon-glyph-balance.svg', '身体', 'measurement-weight', ''],
       ['icon-glyph-camera.svg', '拍照', 'photo']
-    ].map(([icon, label, focus]) => `<button type="button" class="quick-chip" data-quick-focus="${focus}" data-quick-icon="${icon}"><span class="quick-chip-icon" aria-hidden="true">${iconMarkup(icon)}</span>${label}</button>`).join('');
-    heading.after(row);
+    ].map(([icon, label, focus, className = '']) => `<button type="button" class="quick-chip ${className}" data-quick-focus="${focus}" data-quick-icon="${icon}"><span class="quick-chip-icon" aria-hidden="true">${iconMarkup(icon)}</span>${label}</button>`).join('');
+    energyBody.after(row);
     row.addEventListener('click', event => {
       const chip = event.target.closest('[data-quick-focus]');
       if (!chip) return;
@@ -5284,6 +5292,48 @@ function metricIcon(label) {
       }, 80);
     });
   }
+  function installChatTaskOrder() {
+    const card = $('#view-chat')?.querySelector('article.card');
+    const dateRow = $('#chat-date')?.closest('.form-grid');
+    const question = $('#chat-question')?.closest('label');
+    const chips = $('#chat-chips');
+    const draft = $('#chat-training-draft');
+    if (!card || !dateRow || !question || !chips) return;
+    dateRow.before(question);
+    question.after(chips);
+    if (draft) chips.after(draft);
+  }
+  function installProfileMore() {
+    const hub = $('#profile-hub');
+    if (!hub || $('#profile-more')) return;
+    [
+      ['targets', 'icon-nav-profile.svg'],
+      ['model', 'icon-glyph-chat.svg'],
+      ['push', 'icon-tip.svg'],
+      ['data', 'icon-copy.svg'],
+      ['about', 'icon-glyph-leaf.svg']
+    ].forEach(([id, icon]) => {
+      const node = hub.querySelector(`[data-subpage-open="${id}"] .hub-icon`);
+      if (node) node.innerHTML = iconMarkup(icon);
+    });
+    const details = document.createElement('details');
+    details.className = 'profile-more';
+    details.id = 'profile-more';
+    const summary = document.createElement('summary');
+    summary.textContent = '数据、外观与说明';
+    const content = document.createElement('div');
+    content.className = 'profile-more-content';
+    const lowFrequency = [
+      hub.querySelector('[data-subpage-open="data"]'),
+      $('#skin-card'),
+      hub.querySelector('[data-subpage-open="about"]'),
+      $('#restart-onboarding')
+    ].filter(Boolean);
+    if (!lowFrequency.length) return;
+    lowFrequency.forEach(node => content.append(node));
+    details.append(summary, content);
+    hub.insertBefore(details, hub.querySelector('.page-footer'));
+  }
   /**
    * Trends also grew into one long column. Same segmented treatment, plus a diet card that the page
    * never had (it only showed weight, volume and body composition).
@@ -5295,7 +5345,7 @@ function metricIcon(label) {
     const cardFor = heading => cards.find(card => $('h2', card)?.textContent.trim() === heading);
     const host = $('.record-grid', view) || view;
     const panels = [
-      {key: 'weight', label: '体重', headings: ['体重变化', '身体成分对照', '身体记录明细']},
+      {key: 'weight', label: '体重', headings: ['体重变化', '身体记录明细'], foldedHeadings: ['身体记录明细']},
       {key: 'diet', label: '饮食', headings: [], extra: true},
       {key: 'training', label: '训练', headings: ['训练容量（渐进超负荷）']}
     ];
@@ -5314,9 +5364,23 @@ function metricIcon(label) {
       container.className = 'record-panel';
       container.id = 'trend-panel-' + panel.key;
       container.dataset.panel = panel.key;
+      let more = null;
       for (const heading of panel.headings) {
         const card = cardFor(heading);
-        if (card) container.append(card);
+        if (!card) continue;
+        if (panel.foldedHeadings?.includes(heading)) {
+          if (!more) {
+            more = document.createElement('details');
+            more.className = 'panel-more';
+            const summary = document.createElement('summary');
+            summary.textContent = panel.key === 'weight' ? '更多身体数据' : '更多趋势';
+            more.append(summary);
+            container.append(more);
+          }
+          more.append(card);
+        } else {
+          container.append(card);
+        }
       }
       if (panel.extra) container.append(dietTrendCard());
       host.append(container);
@@ -5408,8 +5472,8 @@ function metricIcon(label) {
    * bar on top, one short screen per intent.
    */
   const RECORD_PANELS = [
-    {key: 'food', label: '饮食', headings: ['轻松记一餐', '复制一餐', '最近的餐食记录', '食品热量参考库', '手动记录餐食']},
-    {key: 'training', label: '训练', headings: ['训练计划', '下周计划', '训练日志'], trainingOnly: true},
+    {key: 'food', label: '饮食', headings: ['轻松记一餐', '最近的餐食记录', '复制一餐', '食品热量参考库', '手动记录餐食'], foldedHeadings: ['食品热量参考库', '手动记录餐食']},
+    {key: 'training', label: '训练', headings: ['训练日志', '训练计划', '下周计划'], trainingOnly: true},
     {key: 'body', label: '身体', headings: ['身体数据', '日常习惯']}
   ];
   const RECORD_PANEL_STORAGE = 'qingheng.recordsPanel';
@@ -5433,9 +5497,23 @@ function metricIcon(label) {
       container.className = 'record-panel';
       container.id = 'record-panel-' + panel.key;
       container.dataset.panel = panel.key;
+      let more = null;
       for (const heading of panel.headings) {
         const card = cardFor(heading);
-        if (card) container.append(card);
+        if (!card) continue;
+        if (panel.foldedHeadings?.includes(heading)) {
+          if (!more) {
+            more = document.createElement('details');
+            more.className = 'panel-more';
+            const summary = document.createElement('summary');
+            summary.textContent = panel.key === 'food' ? '更多记录工具' : '更多记录';
+            more.append(summary);
+            container.append(more);
+          }
+          more.append(card);
+        } else {
+          container.append(card);
+        }
       }
       host.append(container);
       panels[panel.key] = container;
@@ -6050,6 +6128,8 @@ feedback(message,'数据已导入。'+report);
   installPageHeadingStructures();
   syncActiveDateLabel();
   installTodayQuickActions();
+  installChatTaskOrder();
+  installProfileMore();
   installRecordPanels();
   installTrendPanels();
   installProfileAutoRecalc();

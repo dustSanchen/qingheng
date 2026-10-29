@@ -20,11 +20,12 @@ check('the jump uses it after the tab switch', app.includes('setTimeout(() => re
 check('the habit card still exposes the anchor', html.includes('data-focus="habit-steps"'));
 
 // --- habit icons ----------------------------------------------------------------------------------------
-for (const name of ['icon-habit-training.svg', 'icon-habit-steps.svg', 'icon-habit-sleep.svg', 'icon-habit-water.svg']) {
+for (const name of ['icon-glyph-training.svg', 'icon-habit-steps.svg', 'icon-habit-sleep.svg', 'icon-water.svg']) {
   check(`icon exists: ${name}`, fs.existsSync(`app/src/main/assets/${name}`));
 }
 check('the tiles render images, not characters', app.includes("icon-habit-steps.svg") && !app.includes("['♧',"));
-check('the training tile can disappear', app.includes("trainingEnabled() ? [['icon-habit-training.svg'"));
+check('the training tile reuses the main training glyph', app.includes("trainingEnabled() ? [['icon-glyph-training.svg'"));
+check('today metric icons resolve training and sleep to shipped assets', app.includes("'训练':'icon-glyph-training'") && app.includes("'睡眠':'icon-habit-sleep'"));
 
 // --- push carries one training line ---------------------------------------------------------------------
 check('the prompt asks for one training sentence', prompts.includes('另加一句健身提示') && prompts.includes('不超过 20 个汉字'));

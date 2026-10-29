@@ -12,11 +12,12 @@ assert(html.indexOf('food-models.js')<html.indexOf('native-adapter.js'));
 // which Android's AssetManager cannot resolve, so nested assets silently 404 at runtime.
 const assetDirs=fs.readdirSync(root+'assets',{withFileTypes:true}).filter(e=>e.isDirectory());
 assert.deepEqual(assetDirs.map(e=>e.name),[],'assets/ must not contain sub-directories');
-for(const name of ['camera','gallery']){
- const svg=fs.readFileSync(root+'assets/icon-'+name+'.svg','utf8');
- assert(svg.includes('stroke="#44755d"')&&svg.includes('rx="14"'));
+for(const name of ['icon-glyph-camera','icon-gallery']){
+ const svg=fs.readFileSync(root+'assets/'+name+'.svg','utf8');
+ assert(svg.includes('viewBox="0 0 24 24"')&&svg.includes('stroke-width="1.5"'));
+ assert(svg.includes('stroke-linecap="round"')&&svg.includes('stroke-linejoin="round"'));
  assert(!svg.includes('<script')&&!svg.includes('http://',svg.indexOf('>')));
- assert(html.includes('./icon-'+name+'.svg'),name+' icon is referenced by its flat path');
+ assert(html.includes('./'+name+'.svg'),name+' icon is referenced by its flat path');
 }
 assert(!html.includes('./icons/'),'no nested asset references remain');
 assert(html.includes('id="connection-check"'));

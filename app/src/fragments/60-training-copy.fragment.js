@@ -1111,7 +1111,7 @@
  * 只映射已有资源，不新增文件；未知指标回退成空，保持排版不塌。
  */
 function metricIcon(label) {
-  const map = {'热量':'icon-energy','蛋白质':'icon-nutrient-protein','脂肪':'icon-nutrient-fat','碳水':'icon-nutrient-carb','训练':'icon-training','睡眠':'icon-sleep','饮水':'icon-water'};
+  const map = {'热量':'icon-energy','蛋白质':'icon-nutrient-protein','脂肪':'icon-nutrient-fat','碳水':'icon-nutrient-carb','训练':'icon-glyph-training','睡眠':'icon-habit-sleep','饮水':'icon-water'};
   const file = map[label];
   return file ? '<img src="./' + file + '.svg" alt="" width="16" height="16">' : '';
 }

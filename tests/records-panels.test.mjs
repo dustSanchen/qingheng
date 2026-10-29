@@ -8,10 +8,15 @@ const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + 
 const read = path => fs.readFileSync(path, 'utf8');
 const app = read('app/src/main/assets/app.js');
 const css = read('app/src/main/assets/styles.css');
+const html = read('app/src/main/assets/index.html');
 
 check('three segments are declared', /label: '饮食'/.test(app) && /label: '训练'/.test(app) && /label: '身体'/.test(app));
 check('every card lands in a segment', ['轻松记一餐', '复制一餐', '最近的餐食记录', '食品热量参考库', '手动记录餐食', '训练日志', '身体数据', '日常习惯']
   .every(h => app.includes(`'${h}'`)));
+check('recent meals precede copying and reference tools fold', app.includes("headings: ['轻松记一餐', '最近的餐食记录', '复制一餐', '食品热量参考库', '手动记录餐食']") && app.includes("foldedHeadings: ['食品热量参考库', '手动记录餐食']"));
+check('training logging precedes planning', app.includes("headings: ['训练日志', '训练计划', '下周计划']"));
+check('entering records from another page opens food first', app.includes("tab === 'records' && currentTab !== 'records' && !sub"));
+check('training save outranks week planning', html.includes('class="button subtle" id="pref-save"') && html.includes('class="button primary" type="submit">保存训练'));
 check('the installer runs at boot', app.includes('installRecordPanels();'));
 check('segments are buttons with role=tab', app.includes('role="tab" data-records-panel='));
 check('one segment is visible at a time', app.includes("node.hidden = panel.key !== target"));

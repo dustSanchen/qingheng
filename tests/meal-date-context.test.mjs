@@ -230,7 +230,7 @@ assert.match(css, /\.stats-good\{color:var\(--tone-weight\)\}\.stats-bad\{color:
 assert.match(css, /\.app-dialog-panel\{width:min\(560px,100%\)/, 'dialogs are wider than before');
 assert.match(css, /\.voice-panel\{width:min\(560px,100%\)/, 'the listening sheet matches the dialog width');
 assert.match(html, /icon-glyph-ring\.svg/, 'navigation reuses the ring glyph family');
-for (const [tab, icon] of [['today','icon-glyph-ring.svg'],['records','icon-glyph-balance.svg'],['chat','icon-glyph-chat.svg'],['trends','icon-glyph-trends.svg'],['profile','icon-glyph-leaf.svg']]) {
+for (const [tab, icon] of [['today','icon-glyph-ring.svg'],['records','icon-glyph-balance.svg'],['chat','icon-glyph-chat.svg'],['trends','icon-glyph-trends.svg'],['profile','icon-nav-profile.svg']]) {
   const block = html.slice(html.indexOf(`data-tab="${tab}"`));
   assert(block.slice(0, 260).includes(icon), `the ${tab} tab uses ${icon}`);
 }

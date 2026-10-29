@@ -9,9 +9,9 @@
     {tone:'fat', icon:'icon-nutrient-fat.svg', words:['脂肪','油']},
     {tone:'carb', icon:'icon-nutrient-carb.svg', words:['碳水','主食','米饭','面条']},
     {tone:'energy', icon:'icon-energy.svg', words:['热量','卡路里','kcal','千卡']},
-    {tone:'weight', icon:'icon-weight.svg', words:['体重','体脂','BMI','腰围','体重变化']},
-    {tone:'training', icon:'icon-training.svg', words:['训练','力量','运动','健身']},
-    {tone:'sleep', icon:'icon-sleep.svg', words:['睡眠','休息','入睡']},
+    {tone:'weight', icon:'icon-glyph-balance.svg', words:['体重','体脂','BMI','腰围','体重变化']},
+    {tone:'training', icon:'icon-glyph-training.svg', words:['训练','力量','运动','健身']},
+    {tone:'sleep', icon:'icon-habit-sleep.svg', words:['睡眠','休息','入睡']},
     {tone:'water', icon:'icon-water.svg', words:['饮水','喝水','水分']},
     {tone:'warn', icon:'icon-warn.svg', words:['注意','警告','风险','偏高','超标','不足']},
     {tone:'ok', icon:'icon-check.svg', words:['完成','达标','很好','不错','已经']},
@@ -20,7 +20,7 @@
   function answerIcon(text) {
     const value = String(text || '');
     for (const rule of answerIconRules) if (rule.words.some(word => value.includes(word))) return rule;
-    return {tone:'neutral', icon:'icon-sparkle.svg', words:[]};
+    return {tone:'neutral', icon:'', words:[]};
   }
   /** Latin runs that were written in capitals are kept as an uppercase label above the heading. */
   function answerEyebrow(text) {
@@ -37,7 +37,7 @@
     if (!clean) return '';
     const rule = answerIcon(clean);
     const eyebrow = answerEyebrow(clean);
-    return `<div class="answer-section tone-${rule.tone}"><span class="inline-icon" aria-hidden="true">${iconMarkup(rule.icon)}</span>`
+    return `<div class="answer-section tone-${rule.tone}">${rule.icon ? `<span class="inline-icon" aria-hidden="true">${iconMarkup(rule.icon)}</span>` : ''}`
       + `<div>${eyebrow ? `<p class="answer-eyebrow">${esc(eyebrow)}</p>` : ''}<p class="answer-heading">${answerInline(clean)}</p></div></div>`;
   }
   /** Renders a pipe table when the block looks like one; returns '' otherwise. */
@@ -241,10 +241,10 @@
     const training = habit.training === true || habit.training === 'true' ? '已训练' : habit.training === false || habit.training === 'false' ? '休息日' : habit.training ? String(habit.training) : '未记录';
     // SVG icons instead of ↗ ♧ ☾ ◇: those characters rendered differently on every ROM.
     const tiles = [
-      ...(trainingEnabled() ? [['icon-habit-training.svg', training, '训练']] : []),
+      ...(trainingEnabled() ? [['icon-glyph-training.svg', training, '训练']] : []),
       ['icon-habit-steps.svg', number(habit.steps) === null ? '未记录' : `${fmt(habit.steps,0)} 步`, '日常活动'],
       ['icon-habit-sleep.svg', number(habit.sleep) === null ? '未记录' : `${fmt(habit.sleep)} 小时`, '睡眠'],
-      ['icon-habit-water.svg', number(habit.water) === null ? '未记录' : `${fmt(habit.water,0)} ml`, '饮水']
+      ['icon-water.svg', number(habit.water) === null ? '未记录' : `${fmt(habit.water,0)} ml`, '饮水']
     ];
     $('#habit-summary').innerHTML = tiles.map(([icon, value, label]) => `<div class="habit-tile"><span class="habit-symbol" aria-hidden="true">${iconMarkup(icon)}</span><div><strong>${esc(value)}</strong><small>${label}</small></div></div>`).join('');
     $('#today-meal-count').textContent = meals.length ? `${meals.length} 餐已记录` : '尚无记录';

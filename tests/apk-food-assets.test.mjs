@@ -27,17 +27,17 @@ const names = [...entries.keys()];
 // aapt2 on Windows emits backslash separators for asset sub-directories, which Android's
 // AssetManager cannot resolve, so a nested asset silently 404s on the device.
 assert.deepEqual(names.filter(n => n.includes('\\')), [], 'no APK entry may use a backslash separator');
-assert(names.includes('assets/icon-camera.svg'), 'camera icon ships flat');
+assert(names.includes('assets/icon-glyph-camera.svg'), 'camera glyph ships flat');
 assert(names.includes('assets/icon-gallery.svg'), 'gallery icon ships flat');
 assert(names.includes('assets/food-models.js'), 'food library ships');
 assert(!names.some(n => n.startsWith('assets/icons/')), 'no nested asset directory ships');
 
 const html = entries.get('assets/index.html').toString('utf8');
-assert(html.includes('./icon-camera.svg') && html.includes('./icon-gallery.svg'), 'page references the flat icons');
+assert(html.includes('./icon-glyph-camera.svg') && html.includes('./icon-gallery.svg'), 'page references the flat icons');
 assert(html.indexOf('food-models.js') < html.indexOf('native-adapter.js'), 'food library loads before the adapter');
 assert(html.includes('id="connection-check"'), 'connection check ships');
 
-const svg = entries.get('assets/icon-camera.svg').toString('utf8');
+const svg = entries.get('assets/icon-glyph-camera.svg').toString('utf8');
 assert(svg.startsWith('<svg') && svg.includes('</svg>'), 'camera icon is a complete SVG document');
 assert(!svg.includes('<script'), 'icons carry no script');
 

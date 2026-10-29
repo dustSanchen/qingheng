@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.1.100';
+  const APP_VERSION = '1.1.102';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -901,27 +901,24 @@
       rangeLabel.replaceChildren(accessibleLabel, rangeSelect);
     }
   }
-  /**
-   * Four chips at the top of today: the actions people actually take every day, one tap away instead of
-   * a scroll hunt. Each chip routes to the right segment and focuses the field.
-   */
+  /** Place common actions below the calorie summary, in reach without covering page content. */
   function installTodayQuickActions() {
     const view = $('#view-today');
     if (!view || $('#today-quick-actions')) return;
-    const heading = $('.page-heading', view);
-    if (!heading) return;
+    const energyBody = $('.energy-body', $('.energy-card', view));
+    if (!energyBody) return;
     const row = document.createElement('div');
     row.className = 'quick-actions';
     row.id = 'today-quick-actions';
     row.setAttribute('role', 'group');
     row.setAttribute('aria-label', '今日快捷操作');
     row.innerHTML = [
-      ['icon-glyph-leaf.svg', '记一餐', 'meal-text'],
-      ['icon-glyph-training.svg', '记训练', 'training-form'],
-      ['icon-glyph-balance.svg', '记体重', 'measurement-weight'],
+      ['icon-meal.svg', '记一餐', 'meal-text', 'quick-chip-primary'],
+      ['icon-glyph-training.svg', '训练', 'training-form', ''],
+      ['icon-glyph-balance.svg', '身体', 'measurement-weight', ''],
       ['icon-glyph-camera.svg', '拍照', 'photo']
-    ].map(([icon, label, focus]) => `<button type="button" class="quick-chip" data-quick-focus="${focus}" data-quick-icon="${icon}"><span class="quick-chip-icon" aria-hidden="true">${iconMarkup(icon)}</span>${label}</button>`).join('');
-    heading.after(row);
+    ].map(([icon, label, focus, className = '']) => `<button type="button" class="quick-chip ${className}" data-quick-focus="${focus}" data-quick-icon="${icon}"><span class="quick-chip-icon" aria-hidden="true">${iconMarkup(icon)}</span>${label}</button>`).join('');
+    energyBody.after(row);
     row.addEventListener('click', event => {
       const chip = event.target.closest('[data-quick-focus]');
       if (!chip) return;
@@ -944,6 +941,48 @@
       }, 80);
     });
   }
+  function installChatTaskOrder() {
+    const card = $('#view-chat')?.querySelector('article.card');
+    const dateRow = $('#chat-date')?.closest('.form-grid');
+    const question = $('#chat-question')?.closest('label');
+    const chips = $('#chat-chips');
+    const draft = $('#chat-training-draft');
+    if (!card || !dateRow || !question || !chips) return;
+    dateRow.before(question);
+    question.after(chips);
+    if (draft) chips.after(draft);
+  }
+  function installProfileMore() {
+    const hub = $('#profile-hub');
+    if (!hub || $('#profile-more')) return;
+    [
+      ['targets', 'icon-nav-profile.svg'],
+      ['model', 'icon-glyph-chat.svg'],
+      ['push', 'icon-tip.svg'],
+      ['data', 'icon-copy.svg'],
+      ['about', 'icon-glyph-leaf.svg']
+    ].forEach(([id, icon]) => {
+      const node = hub.querySelector(`[data-subpage-open="${id}"] .hub-icon`);
+      if (node) node.innerHTML = iconMarkup(icon);
+    });
+    const details = document.createElement('details');
+    details.className = 'profile-more';
+    details.id = 'profile-more';
+    const summary = document.createElement('summary');
+    summary.textContent = '数据、外观与说明';
+    const content = document.createElement('div');
+    content.className = 'profile-more-content';
+    const lowFrequency = [
+      hub.querySelector('[data-subpage-open="data"]'),
+      $('#skin-card'),
+      hub.querySelector('[data-subpage-open="about"]'),
+      $('#restart-onboarding')
+    ].filter(Boolean);
+    if (!lowFrequency.length) return;
+    lowFrequency.forEach(node => content.append(node));
+    details.append(summary, content);
+    hub.insertBefore(details, hub.querySelector('.page-footer'));
+  }
   /**
    * Trends also grew into one long column. Same segmented treatment, plus a diet card that the page
    * never had (it only showed weight, volume and body composition).
@@ -955,7 +994,7 @@
     const cardFor = heading => cards.find(card => $('h2', card)?.textContent.trim() === heading);
     const host = $('.record-grid', view) || view;
     const panels = [
-      {key: 'weight', label: '体重', headings: ['体重变化', '身体成分对照', '身体记录明细']},
+      {key: 'weight', label: '体重', headings: ['体重变化', '身体记录明细'], foldedHeadings: ['身体记录明细']},
       {key: 'diet', label: '饮食', headings: [], extra: true},
       {key: 'training', label: '训练', headings: ['训练容量（渐进超负荷）']}
     ];
@@ -974,9 +1013,23 @@
       container.className = 'record-panel';
       container.id = 'trend-panel-' + panel.key;
       container.dataset.panel = panel.key;
+      let more = null;
       for (const heading of panel.headings) {
         const card = cardFor(heading);
-        if (card) container.append(card);
+        if (!card) continue;
+        if (panel.foldedHeadings?.includes(heading)) {
+          if (!more) {
+            more = document.createElement('details');
+            more.className = 'panel-more';
+            const summary = document.createElement('summary');
+            summary.textContent = panel.key === 'weight' ? '更多身体数据' : '更多趋势';
+            more.append(summary);
+            container.append(more);
+          }
+          more.append(card);
+        } else {
+          container.append(card);
+        }
       }
       if (panel.extra) container.append(dietTrendCard());
       host.append(container);
@@ -1068,8 +1121,8 @@
    * bar on top, one short screen per intent.
    */
   const RECORD_PANELS = [
-    {key: 'food', label: '饮食', headings: ['轻松记一餐', '复制一餐', '最近的餐食记录', '食品热量参考库', '手动记录餐食']},
-    {key: 'training', label: '训练', headings: ['训练计划', '下周计划', '训练日志'], trainingOnly: true},
+    {key: 'food', label: '饮食', headings: ['轻松记一餐', '最近的餐食记录', '复制一餐', '食品热量参考库', '手动记录餐食'], foldedHeadings: ['食品热量参考库', '手动记录餐食']},
+    {key: 'training', label: '训练', headings: ['训练日志', '训练计划', '下周计划'], trainingOnly: true},
     {key: 'body', label: '身体', headings: ['身体数据', '日常习惯']}
   ];
   const RECORD_PANEL_STORAGE = 'qingheng.recordsPanel';
@@ -1093,9 +1146,23 @@
       container.className = 'record-panel';
       container.id = 'record-panel-' + panel.key;
       container.dataset.panel = panel.key;
+      let more = null;
       for (const heading of panel.headings) {
         const card = cardFor(heading);
-        if (card) container.append(card);
+        if (!card) continue;
+        if (panel.foldedHeadings?.includes(heading)) {
+          if (!more) {
+            more = document.createElement('details');
+            more.className = 'panel-more';
+            const summary = document.createElement('summary');
+            summary.textContent = panel.key === 'food' ? '更多记录工具' : '更多记录';
+            more.append(summary);
+            container.append(more);
+          }
+          more.append(card);
+        } else {
+          container.append(card);
+        }
       }
       host.append(container);
       panels[panel.key] = container;
@@ -1710,6 +1777,8 @@ feedback(message,'数据已导入。'+report);
   installPageHeadingStructures();
   syncActiveDateLabel();
   installTodayQuickActions();
+  installChatTaskOrder();
+  installProfileMore();
   installRecordPanels();
   installTrendPanels();
   installProfileAutoRecalc();

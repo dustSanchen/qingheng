@@ -173,10 +173,20 @@
   }
   function openQuickRecord() {
     const root = $('#quick-record-dialog'), select = $('#quick-record-source'), feedback = $('#quick-record-feedback');
-    quickRecordSources = state.meals.slice().sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))).slice(0, 12);
+    // 同一天可能有多餐：先按日期倒序，再按进餐时间倒序，否则同日的先后取决于存储顺序。
+    const mealOrder = (meal) => String(meal.date || '') + ' ' + String(meal.mealTime || '');
+    quickRecordSources = state.meals.slice()
+      .sort((a, b) => mealOrder(b).localeCompare(mealOrder(a)))
+      .slice(0, 12);
+    const quickTypeLabel = {breakfast: '早餐', lunch: '午餐', dinner: '晚餐', snack: '加餐'};
+    const quickShortName = (meal) => {
+      const raw = String(meal.name || '未命名餐食').replace(/\s+/g, ' ').trim();
+      return raw.length > 14 ? raw.slice(0, 14) + '…' : raw;
+    };
     select.innerHTML = quickRecordSources.length
-      ? quickRecordSources.map((meal, index) => `<option value="${index}">${esc(meal.date || '')} · ${esc(meal.name || '未命名餐食')}</option>`).join('')
+      ? quickRecordSources.map((meal, index) => `<option value="${index}">${esc(meal.date || '')} ${esc(quickTypeLabel[meal.mealType] || '')} · ${esc(quickShortName(meal))}</option>`).join('')
       : '<option value="">还没有可复制的餐食</option>';
+    select.value = '0';
     $('#quick-record-date').value = activeDate;
     const quickTime = $('#quick-record-time'); if (quickTime) quickTime.value = nowClock();
     $('#quick-record-type').value = 'snack';
@@ -184,6 +194,10 @@
     $('#quick-record-text').value = '';
     feedback.textContent = quickRecordSources.length ? '' : '先记录一餐后，就可以在这里快速复制。';
     root.hidden = false;
+    // 打开时回到顶部并收起键盘：否则表单会停在「份量比例」，日期与餐次被滚出视野。
+    if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur();
+    const quickForm = $('#quick-record-form');
+    if (quickForm) quickForm.scrollTop = 0;
   }
   async function submitQuickRecord(event) {
     event.preventDefault();

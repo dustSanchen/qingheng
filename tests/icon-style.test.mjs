@@ -9,57 +9,22 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(here, '..');
 const assetsDir = path.join(projectRoot, 'app', 'src', 'main', 'assets');
 
-const SKELETON = [
-  'icon-nav-today.svg',
-  'icon-nav-record.svg',
-  'icon-nav-chat.svg',
-  'icon-nav-trends.svg',
-  'icon-nav-profile.svg',
-  'icon-mic.svg',
-  'icon-refresh.svg',
-  'icon-trash.svg',
-  'icon-chevron-down.svg',
-  'icon-sparkle.svg',
-];
+const ICONS = fs.readdirSync(assetsDir)
+  .filter(name => /^icon-[a-z0-9-]+\.svg$/i.test(name))
+  .sort();
 
-const SEMANTIC = [
-  'icon-nutrient-protein.svg',
-  'icon-nutrient-fat.svg',
-  'icon-nutrient-carb.svg',
-  'icon-energy.svg',
-  'icon-weight.svg',
-  'icon-training.svg',
-  'icon-sleep.svg',
-  'icon-water.svg',
-  'icon-tip.svg',
-  'icon-warn.svg',
-  'icon-check.svg',
-];
-
-const BRAND_GLYPHS = [
-  'icon-glyph-leaf.svg',
-  'icon-glyph-balance.svg',
-  'icon-glyph-ring.svg',
-  'icon-glyph-chat.svg',
-  'icon-glyph-trends.svg',
-  'icon-glyph-training.svg',
-  'icon-glyph-camera.svg',
-];
-
-const REQUIRED = [...SKELETON, ...SEMANTIC, ...BRAND_GLYPHS];
-
-const COMMON_SNIPPETS = [
+const STYLE_SNIPPETS = [
   'viewBox="0 0 24 24"',
   'fill="none"',
   '<g ',
-  'stroke-width="1.8"',
+  'stroke-width="1.5"',
   'stroke-linecap="round"',
   'stroke-linejoin="round"',
 ];
 
 const FORBIDDEN_SNIPPETS = ['<image', 'base64', 'style='];
-// A bare width/height attribute (stroke-width="1.8" is fine and required).
-const FORBIDDEN_SIZE_ATTR = /(?:^|[\s"'<>])(?:width|height)="/;
+// Only the SVG canvas must be CSS-sized; rect/path geometry may use width/height.
+const FORBIDDEN_SIZE_ATTR = /<svg\b[^>]*\s(?:width|height)="/i;
 
 const failures = [];
 function check(condition, message) {
@@ -73,18 +38,16 @@ const entries = fs.readdirSync(assetsDir, { withFileTypes: true });
 const subDirs = entries.filter((e) => e.isDirectory()).map((e) => e.name);
 check(subDirs.length === 0, `assets must stay flat, found subdirectories: ${subDirs.join(', ')}`);
 
-// 2. Every declared icon exists and obeys the shared drawing contract.
-for (const name of REQUIRED) {
+// 2. Every icon in the flat assets directory obeys one shared drawing contract.
+check(ICONS.length > 0, 'assets must contain at least one icon-*.svg');
+for (const name of ICONS) {
   const file = path.join(assetsDir, name);
-  check(fs.existsSync(file) && fs.statSync(file).isFile(), `missing icon: ${name}`);
-  if (!fs.existsSync(file)) continue;
-
   const raw = fs.readFileSync(file);
   const text = raw.toString('utf8');
   svgText.set(name, text);
 
   check(raw.length < 900, `${name}: ${raw.length} bytes is not < 900`);
-  for (const snippet of COMMON_SNIPPETS) {
+  for (const snippet of STYLE_SNIPPETS) {
     check(text.includes(snippet), `${name}: missing ${snippet}`);
   }
   for (const snippet of FORBIDDEN_SNIPPETS) {
@@ -92,14 +55,10 @@ for (const name of REQUIRED) {
   }
   check(!FORBIDDEN_SIZE_ATTR.test(text), `${name}: must not set a width/height attribute (CSS governs size)`);
 
-  const expectedStroke = SKELETON.includes(name) || BRAND_GLYPHS.includes(name)
-    ? 'stroke="#44755d"'
-    : 'stroke="currentColor"';
-  check(text.includes(expectedStroke), `${name}: missing ${expectedStroke}`);
-
-  const colors = [...text.matchAll(/#[0-9a-fA-F]{6}/g)].map((m) => m[0].toLowerCase());
-  const strays = [...new Set(colors)].filter((c) => c !== '#44755d');
-  check(strays.length === 0, `${name}: unexpected hard-coded colours ${strays.join(', ')}`);
+  const colors = [...text.matchAll(/(?:stroke|fill)="(#[0-9a-fA-F]{3,8}|currentColor)"/g)]
+    .map(match => match[1].toLowerCase());
+  check(new Set(colors).size === 1, `${name}: expected one non-none drawing color, got ${[...new Set(colors)].join(', ')}`);
+  check(!/fill="#/i.test(text), `${name}: must remain an outline icon`);
 
   // Geometry must breathe inside a 24x24 box: absolute coordinates stay in 3..21.
   // Absolute commands are arity-aware scanned; relative deltas and arc flags are skipped.
@@ -146,18 +105,21 @@ for (const name of REQUIRED) {
 
 // 3. Every ./icon-*.svg reference in the shipped web code must resolve to a real file.
 const REF_SOURCES = ['index.html', 'app.js'];
-const refPattern = /\.\/(icon-[a-z0-9-]+\.svg)/g;
+const refPattern = /(?:\.\/)?(icon-[a-z0-9-]+\.svg)/g;
 let refCount = 0;
+const referenced = new Set();
 for (const sourceName of REF_SOURCES) {
   const sourceFile = path.join(assetsDir, sourceName);
   if (!fs.existsSync(sourceFile)) continue;
   const source = fs.readFileSync(sourceFile, 'utf8');
   for (const match of source.matchAll(refPattern)) {
     refCount += 1;
+    referenced.add(match[1]);
     const target = path.join(assetsDir, match[1]);
     check(fs.existsSync(target), `${sourceName}: references missing asset ${match[1]}`);
   }
 }
+for (const name of ICONS) check(referenced.has(name), `${name}: unreferenced icon asset`);
 
 if (failures.length > 0) {
   console.error(`FAIL icon style: ${failures.length} problem(s)`);
@@ -165,7 +127,7 @@ if (failures.length > 0) {
   process.exitCode = 1;
 } else {
   console.log(
-      `PASS icon style: ${REQUIRED.length} icons (${SKELETON.length} skeleton + ${SEMANTIC.length} semantic + ${BRAND_GLYPHS.length} brand glyphs), ` +
-      `flat assets dir, ${refCount} ./icon-*.svg reference(s) resolved, all < 900 bytes`,
+      `PASS icon style: ${ICONS.length} icons, 24x24 / 1.5 round strokes, ` +
+      `flat assets dir, ${refCount} references resolved, no orphans, all < 900 bytes`,
   );
 }

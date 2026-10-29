@@ -10,16 +10,16 @@ const html = fs.readFileSync('app/src/main/assets/index.html', 'utf8');
 const css = fs.readFileSync('app/src/main/assets/styles.css', 'utf8');
 
 // --- inline delivery of semantic icons ---------------------------------------------------------
-const SEMANTIC = ['tip', 'copy', 'check', 'bookmark', 'select', 'trash', 'sparkle',
-  'nutrient-protein', 'nutrient-fat', 'nutrient-carb', 'energy', 'weight', 'training', 'sleep', 'water', 'warn',
-  'habit-training', 'habit-steps', 'habit-sleep', 'habit-water'];
+const SEMANTIC = ['tip', 'copy', 'check', 'bookmark', 'select', 'trash',
+  'nutrient-protein', 'nutrient-fat', 'nutrient-carb', 'energy', 'meal',
+  'habit-steps', 'habit-sleep', 'water', 'warn'];
 assert(app.includes('const SVG_ICONS = {'), 'app.js carries the inline icon map');
 assert(app.includes('const iconMarkup = name =>'), 'app.js renders icons through iconMarkup()');
 for (const name of SEMANTIC) {
   assert(!app.includes(`<img src="./icon-${name}.svg`), `app.js must not load icon-${name}.svg via <img>`);
   assert(!html.includes(`<img src="./icon-${name}.svg`), `index.html must not load icon-${name}.svg via <img>`);
 }
-for (const name of ['copy', 'select', 'bookmark', 'trash', 'check', 'habit-training', 'habit-steps', 'habit-sleep', 'habit-water', 'meal', 'camera-flat']) {
+for (const name of ['copy', 'select', 'bookmark', 'trash', 'check', 'meal', 'glyph-balance', 'glyph-training', 'habit-steps', 'habit-sleep']) {
   assert(app.includes(`'icon-${name}.svg': svgIcon(`), `SVG_ICONS defines icon-${name}.svg`);
 }
 // Today quick-action chips carry the line-icon family, never emoji glyphs.
@@ -37,10 +37,10 @@ for (const rule of ['.hub-icon svg{width:21px', '.sheet-option-icon svg{width:19
 }
 
 // --- habit icon files obey the shared drawing contract -----------------------------------------
-for (const name of ['icon-habit-training.svg', 'icon-habit-steps.svg', 'icon-habit-sleep.svg', 'icon-habit-water.svg']) {
+for (const name of ['icon-glyph-training.svg', 'icon-habit-steps.svg', 'icon-habit-sleep.svg', 'icon-water.svg']) {
   const text = fs.readFileSync(`app/src/main/assets/${name}`, 'utf8');
-  assert(text.includes('stroke="currentColor"'), `${name} uses currentColor`);
-  assert(text.includes('stroke-width="1.8"'), `${name} uses the shared 1.8 stroke`);
+  assert(text.includes('stroke-width="1.5"'), `${name} uses the shared 1.5 stroke`);
+  assert(text.includes('stroke-linecap="round"') && text.includes('stroke-linejoin="round"'), `${name} uses round joins`);
   assert(!/(^|[\s"'<>])width="/.test(text), `${name} sets no width attribute`);
   assert(!text.includes('#4b6b52'), `${name} left the off-palette colour`);
 }
@@ -63,4 +63,4 @@ for (const kf of ['viewIn', 'viewInRight', 'viewInLeft', 'dialogRise', 'scrimIn'
   assert(!/[,{;]width:|[,{;]height:|[,{;]margin|[,{;]padding|[,{;]top:|[,{;]left:/.test(body[0].replace('@keyframes ' + kf, '')), `${kf} animates only transform/opacity`);
 }
 
-console.log('PASS icons-motion: semantic icons inline (colour inherits), skeleton files intact, habit files on contract, direction-aware tab motion, dialog/collapsible/list transitions on transform+opacity');
+console.log('PASS icons-motion: reusable symbols inline (colour inherits), SVG assets on 1.5 round-stroke contract, direction-aware tab motion, dialog/collapsible/list transitions on transform+opacity');
