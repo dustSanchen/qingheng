@@ -167,8 +167,6 @@
     explanation.append(summary, detail);
     body.replaceChildren(ring, actions);
     card.insertBefore(explanation, macro);
-    const primaryAction = $('button[data-go="records"]', actions);
-    if (primaryAction) primaryAction.textContent = '记录一餐';
   }
   function renderBody() {
     arrangeEnergyCard();

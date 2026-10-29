@@ -1290,8 +1290,6 @@ function intakeRangeForDate(date = activeDate) {
     explanation.append(summary, detail);
     body.replaceChildren(ring, actions);
     card.insertBefore(explanation, macro);
-    const primaryAction = $('button[data-go="records"]', actions);
-    if (primaryAction) primaryAction.textContent = '记录一餐';
   }
   function renderBody() {
     arrangeEnergyCard();
@@ -4503,7 +4501,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.1.102';
+  const APP_VERSION = '1.1.103';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
