@@ -107,7 +107,7 @@
 
 流程：
 改片段 → tools\assemble-app.ps1 → node tools/test-all.mjs（必须 56/56）
-→ tools\dev-loop.ps1 -Version 1.1.93 -VersionCode 193 -SkipBackup（会装机并自动同步版本号）
+→ tools\dev-loop.ps1 -Version 1.1.97 -VersionCode 197 -SkipBackup（会装机并自动同步版本号）
 → 用 node tools/device.mjs shot build/visual-after/xx.png 截 before/after 对照图。
 
 交付固定格式：
