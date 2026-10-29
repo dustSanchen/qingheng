@@ -1277,8 +1277,8 @@ function intakeRangeForDate(date = activeDate) {
     const ratio = Math.min(1, Math.max(0, rawRatio));
     // 0–300° 是目标区间，300–360° 留给超出；达标时绿环停在刻度线处，右侧留一段底色。
     const overRatio = Math.max(0, rawRatio - 1);
-    $('#energy-ring').style.setProperty('--progress',`${(ratio*360).toFixed(1)}deg`);
-    $('#energy-ring').style.setProperty('--over',`${(Math.min(overRatio, 1) * 360).toFixed(1)}deg`);
+    $('#energy-ring').style.setProperty('--progress',`${(ratio*300).toFixed(1)}deg`);
+    $('#energy-ring').style.setProperty('--over',`${(Math.min(overRatio, 1) * 60).toFixed(1)}deg`);
     // 差值必须跟屏幕上显示的上下限同一口径：以前用 calorieTarget 算「超出区间上限」会多算。
     const floor = number(range ? range.min : p.calorieTarget);
     const cap = number(range ? range.max : p.calorieTarget);
@@ -4411,7 +4411,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.1.93';
+  const APP_VERSION = '1.1.92';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
