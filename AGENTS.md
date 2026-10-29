@@ -61,6 +61,8 @@ adb shell dumpsys package cn.qingheng.health | Select-String 'versionName'
    `node tools/sync-version.mjs <版本> <versionCode>`，一次对齐三处：`70-rest.fragment.js` 的
    `APP_VERSION`、`build.ps1` 的默认 `$Version/$VersionCode`、`tests/meal-date-java.test.mjs` 的字面量。
    **不要手改版本号**，只跑 `dev-loop -Version X -VersionCode N`。
+   版本号形如 `1.2.06`：patch 两位补零，逢百进一（1.2.99 → 1.3.00）；versionCode 由脚本按
+   `minor*100 + patch` 派生，不用手算。
 2. **`.bak` 备份被打进 APK**（体积 467 KB → 668 KB）。`build.ps1` 现在先把 assets 复制到
    `build/assets-stage` 并排除 `*.bak/.tmp`（含 `-rNN` 这类后缀）再交给 aapt2；打包 guard 的正则也覆盖了后缀。
    备份请放 `backups/`，不要留在 `app/src/main/assets`。

@@ -28,7 +28,8 @@ param(
 
 # -Fast: skip the full suite and the device smoke; keep assemble + build + install (~15 s).
 if ($Fast) { $SkipTests = $true; $SkipSmoke = $true }
-if ($Version -match "^1\.1\.(\d+)$" -and $VersionCode -gt 0 -and $VersionCode -le [int]$Matches[1]) { $VersionCode = 100 + [int]$Matches[1] }
+# 版本号形如 1.<minor>.<patch>：versionCode = minor*100 + patch；patch 逢百进一（1.2.99 → 1.3.00）。
+if ($Version -match "^1\.(\d+)\.(\d+)$") { $VersionCode = [int]$Matches[1] * 100 + [int]$Matches[2] }
 $ErrorActionPreference = 'Continue'
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
