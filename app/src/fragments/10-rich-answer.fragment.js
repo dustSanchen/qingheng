@@ -157,16 +157,10 @@
     if (!card) return;
     const body = $('.energy-body', card);
     const ring = $('#energy-ring', card), actions = $('#energy-actions', card);
-    const detail = $('.energy-detail', card), macro = $('#macro-summary', card);
-    if (!card || !body || !ring || !actions || !detail || !macro || $('#energy-explanation', card)) return;
-    const explanation = document.createElement('details');
-    explanation.className = 'advanced energy-explanation';
-    explanation.id = 'energy-explanation';
-    const summary = document.createElement('summary');
-    summary.textContent = '为什么是这个数';
-    explanation.append(summary, detail);
-    body.replaceChildren(ring, actions);
-    card.insertBefore(explanation, macro);
+    const detail = $('.energy-detail', card);
+    if (!body || !ring || !actions || !detail || (body.contains(ring) && detail.contains(actions))) return;
+    body.replaceChildren(ring, detail);
+    detail.append(actions);
   }
   function renderBody() {
     arrangeEnergyCard();

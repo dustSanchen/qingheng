@@ -9,9 +9,21 @@ const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + 
 const read = path => fs.readFileSync(path, 'utf8');
 const app = read('app/src/main/assets/app.js');
 const css = read('app/src/main/assets/styles.css');
+const html = read('app/src/main/assets/index.html');
+
+check('all tabs share one compact brand header', html.includes('<img src="./icon.svg" alt="" width="28" height="28">') &&
+  css.includes('.app-header{padding:14px 0 12px;margin-bottom:4px;border-bottom:1px solid var(--line)}') &&
+  css.includes('.brand small{display:none}') && css.includes('.brand img{width:28px;height:28px}') &&
+  css.includes('.brand>span{font-size:var(--text-lg)}') &&
+  !css.includes('html[data-tab]:not([data-tab="today"]) .app-header'));
 
 // --- 1. today quick actions ---------------------------------------------------------------------------
 check('a quick action row is installed on today', app.includes('function installTodayQuickActions()') && app.includes("row.id = 'today-quick-actions'"));
+check('energy ring, target detail and primary action share one compact summary', app.includes('body.replaceChildren(ring, detail)') &&
+  app.includes('detail.append(actions)') && !app.includes('energy-explanation'));
+check('energy summary keeps a responsive two-column layout', css.includes('.energy-body{display:grid;grid-template-columns:112px minmax(0,1fr)') &&
+  css.includes('.energy-body{grid-template-columns:150px minmax(0,1fr)') &&
+  css.includes('.energy-body{grid-template-columns:96px minmax(0,1fr)'));
 for (const label of ['记一餐', '训练', '身体', '拍照']) check(`chip: ${label}`, app.includes(label));
 check('only the meal action is visually primary', app.includes("'quick-chip-primary'") && css.includes('.quick-chip.quick-chip-primary{background:var(--accent)'));
 check('chips route to the right segment', app.includes('switchRecordPanel(recordPanelForField(focus === \'photo\' ? \'meal-text\' : focus))'));

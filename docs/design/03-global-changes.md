@@ -109,5 +109,7 @@
 | 2026-10-29 | `tests/icons-motion.test.mjs`、`tests/meal-date-context.test.mjs` | 底部导航图标断言由 `icon-nav-*.svg` 改为 `icon-glyph-*.svg`，餐食行营养数值断言改为 `.meal-numbers` 命名数值列 | 1.1.99 底部导航复用品牌 glyph 家族；餐食行抽出 `.meal-numbers` 供纸感与账本皮肤分别应用阅读流与三列网格 |
 | 2026-10-29 | `tests/meal-date-java.test.mjs` | `APP_VERSION` 随版本同步（`1.1.98` → `1.1.99` → `1.1.100`） | dev-loop 同步片段常量、build.ps1 默认值与测试字面量 |
 | 2026-10-29 | `tests/icon-style.test.mjs`、`tests/icons-motion.test.mjs`、`tests/layout-four.test.mjs`、`tests/records-panels.test.mjs`、`tests/apk-food-assets.test.mjs`、`tests/auth-food-integration.test.mjs`、`tests/habit-and-training-mode.test.mjs`、`tests/meal-date-context.test.mjs` | 图标固定 28 名单 / 1.8 描边改为目录全量 / 24 格 / 1.5 单色圆头；入口断言跟到任务操作条、分段默认、低频折叠、复用 glyph 与快捷操作文流防遮挡 | 用户取消图标数量上限并要求重复符号合并；14 个未用或重复 SVG 删除后，27 个实际图标均受同一守卫检查，快捷操作紧随能量摘要且不覆盖页面内容，页面与 APK 引用同步跟随 |
+| 2026-10-30 | `tests/layout-four.test.mjs` | 新增跨页面共享品牌页头断言 | 当前今天页与其他页分别使用 38px/28px logo、显示/隐藏副标题；统一品牌标志尺寸、文字字号、间距和分隔线，避免回归页面专属页头分叉 |
+| 2026-10-30 | `tests/layout-four.test.mjs` | 新增能量摘要双列结构断言，守住环、目标信息、记录操作同区及窄屏响应式布局 | 现有纵向堆叠使“为什么是这个数”独占整行并把营养数据压出首屏；摘要改为环旁信息列，数值口径不变 |
 
 
