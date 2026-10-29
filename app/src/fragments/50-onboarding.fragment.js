@@ -357,15 +357,7 @@
     // Body-composition comparison, computed locally: the previous 30-day window versus the last
     // 30 days. It reports direction only, never a medical verdict, and shows — for missing values.
     $('#stats-table').innerHTML = statsTableHtml();
-    if (!points.length) {
-      // 空态：叶 + 一句下一步 + 一个入口；无数据时画坐标轴只会像故障。
-      $('#weight-chart').innerHTML = empty('记录第一笔体重，趋势从这里开始', '记完之后，这里会画出趋势线、周均值和变化方向。')
-        + '<button class="button primary" type="button" data-goto-records>去记录体重</button>';
-      const goRecords = $('#weight-chart').querySelector('[data-goto-records]');
-      if (goRecords) goRecords.addEventListener('click', () => switchTab('records'));
-      $('#trend-stats').innerHTML = '';
-      return;
-    }
+    if (!points.length) {$('#weight-chart').innerHTML = empty('还没有可绘制的体重数据。开始记录，让变化慢慢浮现。'); $('#trend-stats').innerHTML = ''; return;}
     const first = points[0], last = points[points.length-1];
     // View-box sized close to the rendered phone width so axis text stays legible after scaling.
     const W=330,H=215,L=46,R=16,T=18,B=36,plotW=W-L-R,plotH=H-T-B;
@@ -417,27 +409,7 @@ const values = points.length<=7 ? points.map((item,i) => {
       .filter(entry => entry.mean > 0 && (end === start || (dayTime(entry.week) >= start - 6 * 86400000 && dayTime(entry.week) <= end)))
       .map(entry => [x(entry.week), y(entry.mean)]);
     const meanPath = meanCoords.length > 1 ? `<path class="chart-line chart-mean" d="${meanCoords.map(([px,py],index) => `${index?'L':'M'}${px.toFixed(2)},${py.toFixed(2)}`).join(' ')}"/>` : '';
-    $('#weight-chart').innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-labelledby="chart-title chart-desc"><title id="chart-title">按真实日期绘制的体重趋势</title><desc id="chart-desc">${esc(points.map(item => `${item.date}：${fmt(item.weight)}公斤`).join('；'))}${weeklyNote ? `；${esc(weeklyNote)}` : ''}</desc><defs><linearGradient id="weight-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#a7c2a3" stop-opacity=".3"/><stop offset="100%" stop-color="#a7c2a3" stop-opacity=".015"/></linearGradient></defs>${grid}${points.length>1 ? `<path class="chart-area" d="${path} L${coords[coords.length-1][0]},${H-B} L${coords[0][0]},${H-B} Z"/><path class="chart-line" d="${path}"/>` : ''}${meanPath}${points.map((item,i) => `<circle class="chart-point" cx="${coords[i][0]}" cy="${coords[i][1]}" r="5"><title>${esc(item.date)} · ${fmt(item.weight)} kg</title></circle>`).join('')}${points.map((item,i) => `<circle class="chart-hit" data-point="${i}" cx="${coords[i][0]}" cy="${coords[i][1]}" r="22"><title>点按查看 ${esc(item.date)} 的数据</title></circle>`).join('')}<g id="chart-tip" class="chart-tip" aria-hidden="true"><rect rx="8" width="150" height="40"/><text class="chart-text chart-tip-line" x="10" y="17"></text><text class="chart-text chart-tip-line" x="10" y="32"></text></g>${values}${labels}</svg>`;
-    const chartBox = $('#weight-chart');
-    const tipBox = chartBox.querySelector('#chart-tip');
-    const tipLines = tipBox ? tipBox.querySelectorAll('.chart-tip-line') : [];
-    let tipTimer = 0;
-    chartBox.querySelectorAll('.chart-hit').forEach(hit => hit.addEventListener('click', () => {
-      const i = Number(hit.dataset.point);
-      const point = points[i];
-      if (!point || !tipBox) return;
-      const prevWeight = i > 0 ? Number(points[i - 1].weight) : null;
-      const step = prevWeight === null ? null : Number(point.weight) - prevWeight;
-      const boxW = 150, boxH = 40;
-      const tx = Math.min(Math.max(2, coords[i][0] - boxW / 2), W - boxW - 2);
-      const ty = Math.max(2, coords[i][1] - boxH - 12);
-      tipBox.setAttribute('transform', `translate(${tx.toFixed(1)},${ty.toFixed(1)})`);
-      tipLines[0].textContent = `${point.date} · ${fmt(point.weight)} kg`;
-      tipLines[1].textContent = step === null ? '第一笔记录' : `较上次 ${step >= 0 ? '+' : ''}${fmt(step)} kg`;
-      tipBox.dataset.open = '1';
-      clearTimeout(tipTimer);
-      tipTimer = setTimeout(() => { delete tipBox.dataset.open; }, 3000);
-    }));
+    $('#weight-chart').innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-labelledby="chart-title chart-desc"><title id="chart-title">按真实日期绘制的体重趋势</title><desc id="chart-desc">${esc(points.map(item => `${item.date}：${fmt(item.weight)}公斤`).join('；'))}${weeklyNote ? `；${esc(weeklyNote)}` : ''}</desc><defs><linearGradient id="weight-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#a7c2a3" stop-opacity=".3"/><stop offset="100%" stop-color="#a7c2a3" stop-opacity=".015"/></linearGradient></defs>${grid}${points.length>1 ? `<path class="chart-area" d="${path} L${coords[coords.length-1][0]},${H-B} L${coords[0][0]},${H-B} Z"/><path class="chart-line" d="${path}"/>` : ''}${meanPath}${points.map((item,i) => `<circle class="chart-point" cx="${coords[i][0]}" cy="${coords[i][1]}" r="5"><title>${esc(item.date)} · ${fmt(item.weight)} kg</title></circle>`).join('')}${values}${labels}</svg>`;
     const delta = Number(last.weight)-Number(first.weight);
     // Observed weekly rate vs the rate the current plan implies; the closer they are, the greener.
     const spanDays = Math.max(1, Math.round((dayTime(last.date) - dayTime(first.date)) / 86400000));
