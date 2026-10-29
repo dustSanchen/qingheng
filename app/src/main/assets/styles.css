@@ -1130,3 +1130,23 @@ html{scroll-padding-bottom:calc(var(--tabbar-safe,96px) + 16px)}
 /* 体检格：恢复无边框（1.1.79 做过、被文件恢复回滚），分隔改内阴影 */
 .check-item{border:0;background:transparent;border-radius:0}
 .check-item+.check-item{box-shadow:inset 1px 0 0 var(--line)}
+
+/* ---- 2026-10-29 visual audit: restrained feedback, touch targets and energy hierarchy -------- */
+.busy-spinner{width:20px;height:20px;animation-duration:1.2s;animation-timing-function:linear}
+.form-feedback.pending{color:var(--ok)}
+.form-feedback.success{display:flex;align-items:center;gap:var(--space-1);color:var(--ok)}
+.form-feedback.success svg{display:block;flex:0 0 24px;width:24px;height:24px}
+.energy-body{flex-direction:column;align-items:center;gap:var(--space-3);padding:var(--space-3) 0 var(--space-4)}
+.energy-ring{background:conic-gradient(from 0deg,var(--warn) 0 var(--over),transparent 0),conic-gradient(from 0deg,var(--ring-fill) 0 var(--progress),var(--accent-soft) 0)}
+.energy-actions{display:flex;flex-direction:column;gap:var(--space-2);width:100%;margin:0}
+.energy-actions .button{width:100%;flex:0 0 auto}
+.energy-explanation{width:100%;margin:0 0 var(--space-4)}
+.energy-explanation .energy-detail{display:block;min-width:0;margin-top:var(--space-2)}
+.energy-explanation .energy-detail>p{margin:var(--space-2) 0 0}
+.energy-explanation .energy-detail>p:first-child{margin-top:0}
+.chart-hit-area{cursor:pointer;pointer-events:all;touch-action:manipulation}
+.chart-wrap{position:relative}
+.chart-hit-area:focus{outline:none}
+.chart-hit-area:focus-visible{stroke:var(--ring-focus-color);stroke-width:2}
+.trend-point-tip{position:absolute;top:var(--space-2);left:var(--space-2);right:var(--space-2);z-index:1;margin:0;padding:var(--space-2) var(--space-3);border-left:2px solid var(--accent);background:var(--surface-soft);color:var(--body-text);font-size:var(--text-sm);line-height:1.5;overflow-wrap:anywhere;pointer-events:none}
+.trend-empty-action{display:flex;min-width:min(220px,100%);margin:0 auto}

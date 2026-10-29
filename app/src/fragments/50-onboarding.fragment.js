@@ -347,7 +347,9 @@
       + `<thead><tr><th scope="col">指标</th><th scope="col">30~60 天前</th><th scope="col">最近 30 天</th><th scope="col">变化</th></tr></thead>`
       + `<tbody>${rows.join('')}</tbody></table>`;
   }
+  let trendTooltipTimer = null;
   function renderTrends() {
+    if (trendTooltipTimer) {clearTimeout(trendTooltipTimer); trendTooltipTimer = null;}
     const range = $('#trend-range').value;
     const cutoff = range === 'all' ? -Infinity : dayTime(activeDate)-(Number(range)-1)*86400000;
     const records = state.measurements.filter(record => validDate(record.date) && record.date <= activeDate && dayTime(record.date)>=cutoff).sort((a,b) => a.date.localeCompare(b.date));
@@ -357,7 +359,12 @@
     // Body-composition comparison, computed locally: the previous 30-day window versus the last
     // 30 days. It reports direction only, never a medical verdict, and shows — for missing values.
     $('#stats-table').innerHTML = statsTableHtml();
-    if (!points.length) {$('#weight-chart').innerHTML = empty('还没有可绘制的体重数据。开始记录，让变化慢慢浮现。'); $('#trend-stats').innerHTML = ''; return;}
+    if (!points.length) {
+      $('#weight-chart').innerHTML = empty('记录第一笔体重，趋势从这里开始')
+        + '<button class="button subtle trend-empty-action" type="button" data-go="records" data-focus="measurement-weight">记录体重</button>';
+      $('#trend-stats').innerHTML = '';
+      return;
+    }
     const first = points[0], last = points[points.length-1];
     // View-box sized close to the rendered phone width so axis text stays legible after scaling.
     const W=330,H=215,L=46,R=16,T=18,B=36,plotW=W-L-R,plotH=H-T-B;
@@ -409,7 +416,20 @@ const values = points.length<=7 ? points.map((item,i) => {
       .filter(entry => entry.mean > 0 && (end === start || (dayTime(entry.week) >= start - 6 * 86400000 && dayTime(entry.week) <= end)))
       .map(entry => [x(entry.week), y(entry.mean)]);
     const meanPath = meanCoords.length > 1 ? `<path class="chart-line chart-mean" d="${meanCoords.map(([px,py],index) => `${index?'L':'M'}${px.toFixed(2)},${py.toFixed(2)}`).join(' ')}"/>` : '';
-    $('#weight-chart').innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-labelledby="chart-title chart-desc"><title id="chart-title">按真实日期绘制的体重趋势</title><desc id="chart-desc">${esc(points.map(item => `${item.date}：${fmt(item.weight)}公斤`).join('；'))}${weeklyNote ? `；${esc(weeklyNote)}` : ''}</desc><defs><linearGradient id="weight-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#a7c2a3" stop-opacity=".3"/><stop offset="100%" stop-color="#a7c2a3" stop-opacity=".015"/></linearGradient></defs>${grid}${points.length>1 ? `<path class="chart-area" d="${path} L${coords[coords.length-1][0]},${H-B} L${coords[0][0]},${H-B} Z"/><path class="chart-line" d="${path}"/>` : ''}${meanPath}${points.map((item,i) => `<circle class="chart-point" cx="${coords[i][0]}" cy="${coords[i][1]}" r="5"><title>${esc(item.date)} · ${fmt(item.weight)} kg</title></circle>`).join('')}${values}${labels}</svg>`;
+    const hitAreas = points.map((item, index) => {
+      const previous = index ? Number(points[index - 1].weight) : null;
+      const difference = previous === null ? '首笔记录' : `${Number(item.weight) - previous > 0 ? '+' : ''}${fmt(Number(item.weight) - previous)} kg`;
+      return `<circle class="chart-hit-area" cx="${coords[index][0]}" cy="${coords[index][1]}" r="22" fill="currentColor" fill-opacity="0.001" data-trend-point="${index}" data-date="${esc(item.date)}" data-weight="${fmt(item.weight)}" data-delta="${esc(difference)}" tabindex="0" role="button" aria-label="查看 ${esc(item.date)} 体重 ${fmt(item.weight)} kg"/>`;
+    }).join('');
+    $('#weight-chart').innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="group" aria-labelledby="chart-title chart-desc"><title id="chart-title">按真实日期绘制的体重趋势</title><desc id="chart-desc">${esc(points.map(item => `${item.date}：${fmt(item.weight)}公斤`).join('；'))}${weeklyNote ? `；${esc(weeklyNote)}` : ''}</desc><defs><linearGradient id="weight-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#a7c2a3" stop-opacity=".3"/><stop offset="100%" stop-color="#a7c2a3" stop-opacity=".015"/></linearGradient></defs>${grid}${points.length>1 ? `<path class="chart-area" d="${path} L${coords[coords.length-1][0]},${H-B} L${coords[0][0]},${H-B} Z"/><path class="chart-line" d="${path}"/>` : ''}${meanPath}${points.map((item,i) => `<circle class="chart-point" cx="${coords[i][0]}" cy="${coords[i][1]}" r="5"><title>${esc(item.date)} · ${fmt(item.weight)} kg</title></circle>`).join('')}${hitAreas}${values}${labels}</svg><p class="trend-point-tip" id="trend-point-tip" role="status" aria-live="polite" hidden></p>`;
+    $('#weight-chart').querySelectorAll('.chart-hit-area').forEach(hit => {
+      hit.addEventListener('pointerup', () => showTrendPoint(hit));
+      hit.addEventListener('keydown', event => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        showTrendPoint(hit);
+      });
+    });
     const delta = Number(last.weight)-Number(first.weight);
     // Observed weekly rate vs the rate the current plan implies; the closer they are, the greener.
     const spanDays = Math.max(1, Math.round((dayTime(last.date) - dayTime(first.date)) / 86400000));
@@ -437,6 +457,17 @@ const values = points.length<=7 ? points.map((item,i) => {
       weeklyNode.textContent = weeklyNote || '';
       weeklyNode.hidden = !weeklyNote;
     }
+  }
+  function showTrendPoint(hit) {
+    const tooltip = $('#trend-point-tip');
+    if (!hit || !hit.hasAttribute('data-trend-point') || !tooltip) return;
+    tooltip.textContent = `${hit.dataset.date} / ${hit.dataset.weight} kg / 差值 ${hit.dataset.delta}`;
+    tooltip.hidden = false;
+    if (trendTooltipTimer) clearTimeout(trendTooltipTimer);
+    trendTooltipTimer = setTimeout(() => {
+      tooltip.hidden = true;
+      trendTooltipTimer = null;
+    }, 3000);
   }
   /** The habit row for a date; older builds could append duplicates, so keep the fullest one. */
   function habitRowFor(date) {

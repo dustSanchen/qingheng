@@ -168,7 +168,30 @@
     // A notice used to stay until the next action, pushing the page down the whole time.
     if (message) noticeTimer = setTimeout(hideNotice, 10000);
   };
-  const feedback = (node, message, error = false) => {if (!node) return; node.textContent = message; node.className = `form-feedback ${error ? 'error' : 'success'}`;};
+  const feedback = (node, message, error = false) => {
+    if (!node) return;
+    const value = String(message ?? '');
+    const pending = !error && (value.startsWith('正在') || value.startsWith('流式输出不可用'));
+    node.className = `form-feedback ${error ? 'error' : pending ? 'pending' : 'success'}`;
+    if (error || pending || !value) {node.textContent = value; return;}
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const leaf = document.createElementNS(svgNS, 'svg');
+    leaf.setAttribute('viewBox', '0 0 24 24');
+    leaf.setAttribute('fill', 'none');
+    leaf.setAttribute('stroke', 'currentColor');
+    leaf.setAttribute('stroke-width', '1.5');
+    leaf.setAttribute('stroke-linecap', 'round');
+    leaf.setAttribute('stroke-linejoin', 'round');
+    leaf.setAttribute('aria-hidden', 'true');
+    const outline = document.createElementNS(svgNS, 'path');
+    outline.setAttribute('d', 'M5 19c0-8 5-13 14-14 0 9-5 14-13 14H5z');
+    const vein = document.createElementNS(svgNS, 'path');
+    vein.setAttribute('d', 'M5 19c4-4 7-6 11-8');
+    leaf.append(outline, vein);
+    const label = document.createElement('span');
+    label.textContent = value;
+    node.replaceChildren(leaf, label);
+  };
   let fieldErrorSequence = 0;
   function clearFieldError(field) {
     if (!field?.removeAttribute) return;
@@ -1248,7 +1271,26 @@ function intakeRangeForDate(date = activeDate) {
     if (!state) return; // nothing to draw yet; loadState() calls render() again
     try { renderBody(); } catch (error) { showRenderError(error); }
   }
+  function arrangeEnergyCard() {
+    const card = $('.energy-card');
+    if (!card) return;
+    const body = $('.energy-body', card);
+    const ring = $('#energy-ring', card), actions = $('#energy-actions', card);
+    const detail = $('.energy-detail', card), macro = $('#macro-summary', card);
+    if (!card || !body || !ring || !actions || !detail || !macro || $('#energy-explanation', card)) return;
+    const explanation = document.createElement('details');
+    explanation.className = 'advanced energy-explanation';
+    explanation.id = 'energy-explanation';
+    const summary = document.createElement('summary');
+    summary.textContent = '为什么是这个数';
+    explanation.append(summary, detail);
+    body.replaceChildren(ring, actions);
+    card.insertBefore(explanation, macro);
+    const primaryAction = $('button[data-go="records"]', actions);
+    if (primaryAction) primaryAction.textContent = '记录一餐';
+  }
   function renderBody() {
+    arrangeEnergyCard();
     const count=state.meals.filter(row=>row.date===activeDate).length;
     const chatDate=$('#chat-date'); if(chatDate && document.activeElement!==chatDate) chatDate.value=activeDate;
     const hint=$('#chat-data-context'); if(hint)hint.textContent=`分析日期：${activeDate} · 已保存 ${count} 条餐食（未确认预览和问答照片不计入饮食）`;
@@ -1275,10 +1317,10 @@ function intakeRangeForDate(date = activeDate) {
     // 不截断：超出目标的部分要能被环和下方差额行看到。
     const rawRatio = totals.calories !== null && number(p.calorieTarget) > 0 ? totals.calories / p.calorieTarget : 0;
     const ratio = Math.min(1, Math.max(0, rawRatio));
-    // 0–300° 是目标区间，300–360° 留给超出；达标时绿环停在刻度线处，右侧留一段底色。
+    // 达到目标时填满一圈；超出量从同一起点叠加警示色，最多再覆盖一圈。
     const overRatio = Math.max(0, rawRatio - 1);
-    $('#energy-ring').style.setProperty('--progress',`${(ratio*300).toFixed(1)}deg`);
-    $('#energy-ring').style.setProperty('--over',`${(Math.min(overRatio, 1) * 60).toFixed(1)}deg`);
+    $('#energy-ring').style.setProperty('--progress',`${(ratio*360).toFixed(1)}deg`);
+    $('#energy-ring').style.setProperty('--over',`${(Math.min(overRatio, 1) * 360).toFixed(1)}deg`);
     // 差值必须跟屏幕上显示的上下限同一口径：以前用 calorieTarget 算「超出区间上限」会多算。
     const floor = number(range ? range.min : p.calorieTarget);
     const cap = number(range ? range.max : p.calorieTarget);
@@ -2857,7 +2899,9 @@ function intakeRangeForDate(date = activeDate) {
       + `<thead><tr><th scope="col">指标</th><th scope="col">30~60 天前</th><th scope="col">最近 30 天</th><th scope="col">变化</th></tr></thead>`
       + `<tbody>${rows.join('')}</tbody></table>`;
   }
+  let trendTooltipTimer = null;
   function renderTrends() {
+    if (trendTooltipTimer) {clearTimeout(trendTooltipTimer); trendTooltipTimer = null;}
     const range = $('#trend-range').value;
     const cutoff = range === 'all' ? -Infinity : dayTime(activeDate)-(Number(range)-1)*86400000;
     const records = state.measurements.filter(record => validDate(record.date) && record.date <= activeDate && dayTime(record.date)>=cutoff).sort((a,b) => a.date.localeCompare(b.date));
@@ -2867,7 +2911,12 @@ function intakeRangeForDate(date = activeDate) {
     // Body-composition comparison, computed locally: the previous 30-day window versus the last
     // 30 days. It reports direction only, never a medical verdict, and shows — for missing values.
     $('#stats-table').innerHTML = statsTableHtml();
-    if (!points.length) {$('#weight-chart').innerHTML = empty('还没有可绘制的体重数据。开始记录，让变化慢慢浮现。'); $('#trend-stats').innerHTML = ''; return;}
+    if (!points.length) {
+      $('#weight-chart').innerHTML = empty('记录第一笔体重，趋势从这里开始')
+        + '<button class="button subtle trend-empty-action" type="button" data-go="records" data-focus="measurement-weight">记录体重</button>';
+      $('#trend-stats').innerHTML = '';
+      return;
+    }
     const first = points[0], last = points[points.length-1];
     // View-box sized close to the rendered phone width so axis text stays legible after scaling.
     const W=330,H=215,L=46,R=16,T=18,B=36,plotW=W-L-R,plotH=H-T-B;
@@ -2919,7 +2968,20 @@ const values = points.length<=7 ? points.map((item,i) => {
       .filter(entry => entry.mean > 0 && (end === start || (dayTime(entry.week) >= start - 6 * 86400000 && dayTime(entry.week) <= end)))
       .map(entry => [x(entry.week), y(entry.mean)]);
     const meanPath = meanCoords.length > 1 ? `<path class="chart-line chart-mean" d="${meanCoords.map(([px,py],index) => `${index?'L':'M'}${px.toFixed(2)},${py.toFixed(2)}`).join(' ')}"/>` : '';
-    $('#weight-chart').innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-labelledby="chart-title chart-desc"><title id="chart-title">按真实日期绘制的体重趋势</title><desc id="chart-desc">${esc(points.map(item => `${item.date}：${fmt(item.weight)}公斤`).join('；'))}${weeklyNote ? `；${esc(weeklyNote)}` : ''}</desc><defs><linearGradient id="weight-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#a7c2a3" stop-opacity=".3"/><stop offset="100%" stop-color="#a7c2a3" stop-opacity=".015"/></linearGradient></defs>${grid}${points.length>1 ? `<path class="chart-area" d="${path} L${coords[coords.length-1][0]},${H-B} L${coords[0][0]},${H-B} Z"/><path class="chart-line" d="${path}"/>` : ''}${meanPath}${points.map((item,i) => `<circle class="chart-point" cx="${coords[i][0]}" cy="${coords[i][1]}" r="5"><title>${esc(item.date)} · ${fmt(item.weight)} kg</title></circle>`).join('')}${values}${labels}</svg>`;
+    const hitAreas = points.map((item, index) => {
+      const previous = index ? Number(points[index - 1].weight) : null;
+      const difference = previous === null ? '首笔记录' : `${Number(item.weight) - previous > 0 ? '+' : ''}${fmt(Number(item.weight) - previous)} kg`;
+      return `<circle class="chart-hit-area" cx="${coords[index][0]}" cy="${coords[index][1]}" r="22" fill="currentColor" fill-opacity="0.001" data-trend-point="${index}" data-date="${esc(item.date)}" data-weight="${fmt(item.weight)}" data-delta="${esc(difference)}" tabindex="0" role="button" aria-label="查看 ${esc(item.date)} 体重 ${fmt(item.weight)} kg"/>`;
+    }).join('');
+    $('#weight-chart').innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="group" aria-labelledby="chart-title chart-desc"><title id="chart-title">按真实日期绘制的体重趋势</title><desc id="chart-desc">${esc(points.map(item => `${item.date}：${fmt(item.weight)}公斤`).join('；'))}${weeklyNote ? `；${esc(weeklyNote)}` : ''}</desc><defs><linearGradient id="weight-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#a7c2a3" stop-opacity=".3"/><stop offset="100%" stop-color="#a7c2a3" stop-opacity=".015"/></linearGradient></defs>${grid}${points.length>1 ? `<path class="chart-area" d="${path} L${coords[coords.length-1][0]},${H-B} L${coords[0][0]},${H-B} Z"/><path class="chart-line" d="${path}"/>` : ''}${meanPath}${points.map((item,i) => `<circle class="chart-point" cx="${coords[i][0]}" cy="${coords[i][1]}" r="5"><title>${esc(item.date)} · ${fmt(item.weight)} kg</title></circle>`).join('')}${hitAreas}${values}${labels}</svg><p class="trend-point-tip" id="trend-point-tip" role="status" aria-live="polite" hidden></p>`;
+    $('#weight-chart').querySelectorAll('.chart-hit-area').forEach(hit => {
+      hit.addEventListener('pointerup', () => showTrendPoint(hit));
+      hit.addEventListener('keydown', event => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        showTrendPoint(hit);
+      });
+    });
     const delta = Number(last.weight)-Number(first.weight);
     // Observed weekly rate vs the rate the current plan implies; the closer they are, the greener.
     const spanDays = Math.max(1, Math.round((dayTime(last.date) - dayTime(first.date)) / 86400000));
@@ -2947,6 +3009,17 @@ const values = points.length<=7 ? points.map((item,i) => {
       weeklyNode.textContent = weeklyNote || '';
       weeklyNode.hidden = !weeklyNote;
     }
+  }
+  function showTrendPoint(hit) {
+    const tooltip = $('#trend-point-tip');
+    if (!hit || !hit.hasAttribute('data-trend-point') || !tooltip) return;
+    tooltip.textContent = `${hit.dataset.date} / ${hit.dataset.weight} kg / 差值 ${hit.dataset.delta}`;
+    tooltip.hidden = false;
+    if (trendTooltipTimer) clearTimeout(trendTooltipTimer);
+    trendTooltipTimer = setTimeout(() => {
+      tooltip.hidden = true;
+      trendTooltipTimer = null;
+    }, 3000);
   }
   /** The habit row for a date; older builds could append duplicates, so keep the fullest one. */
   function habitRowFor(date) {
@@ -4411,7 +4484,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.1.96';
+  const APP_VERSION = '1.1.98';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}

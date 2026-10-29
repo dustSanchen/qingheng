@@ -168,7 +168,30 @@
     // A notice used to stay until the next action, pushing the page down the whole time.
     if (message) noticeTimer = setTimeout(hideNotice, 10000);
   };
-  const feedback = (node, message, error = false) => {if (!node) return; node.textContent = message; node.className = `form-feedback ${error ? 'error' : 'success'}`;};
+  const feedback = (node, message, error = false) => {
+    if (!node) return;
+    const value = String(message ?? '');
+    const pending = !error && (value.startsWith('正在') || value.startsWith('流式输出不可用'));
+    node.className = `form-feedback ${error ? 'error' : pending ? 'pending' : 'success'}`;
+    if (error || pending || !value) {node.textContent = value; return;}
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const leaf = document.createElementNS(svgNS, 'svg');
+    leaf.setAttribute('viewBox', '0 0 24 24');
+    leaf.setAttribute('fill', 'none');
+    leaf.setAttribute('stroke', 'currentColor');
+    leaf.setAttribute('stroke-width', '1.5');
+    leaf.setAttribute('stroke-linecap', 'round');
+    leaf.setAttribute('stroke-linejoin', 'round');
+    leaf.setAttribute('aria-hidden', 'true');
+    const outline = document.createElementNS(svgNS, 'path');
+    outline.setAttribute('d', 'M5 19c0-8 5-13 14-14 0 9-5 14-13 14H5z');
+    const vein = document.createElementNS(svgNS, 'path');
+    vein.setAttribute('d', 'M5 19c4-4 7-6 11-8');
+    leaf.append(outline, vein);
+    const label = document.createElement('span');
+    label.textContent = value;
+    node.replaceChildren(leaf, label);
+  };
   let fieldErrorSequence = 0;
   function clearFieldError(field) {
     if (!field?.removeAttribute) return;

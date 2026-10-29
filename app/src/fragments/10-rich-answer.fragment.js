@@ -152,7 +152,26 @@
     if (!state) return; // nothing to draw yet; loadState() calls render() again
     try { renderBody(); } catch (error) { showRenderError(error); }
   }
+  function arrangeEnergyCard() {
+    const card = $('.energy-card');
+    if (!card) return;
+    const body = $('.energy-body', card);
+    const ring = $('#energy-ring', card), actions = $('#energy-actions', card);
+    const detail = $('.energy-detail', card), macro = $('#macro-summary', card);
+    if (!card || !body || !ring || !actions || !detail || !macro || $('#energy-explanation', card)) return;
+    const explanation = document.createElement('details');
+    explanation.className = 'advanced energy-explanation';
+    explanation.id = 'energy-explanation';
+    const summary = document.createElement('summary');
+    summary.textContent = '为什么是这个数';
+    explanation.append(summary, detail);
+    body.replaceChildren(ring, actions);
+    card.insertBefore(explanation, macro);
+    const primaryAction = $('button[data-go="records"]', actions);
+    if (primaryAction) primaryAction.textContent = '记录一餐';
+  }
   function renderBody() {
+    arrangeEnergyCard();
     const count=state.meals.filter(row=>row.date===activeDate).length;
     const chatDate=$('#chat-date'); if(chatDate && document.activeElement!==chatDate) chatDate.value=activeDate;
     const hint=$('#chat-data-context'); if(hint)hint.textContent=`分析日期：${activeDate} · 已保存 ${count} 条餐食（未确认预览和问答照片不计入饮食）`;
@@ -179,10 +198,10 @@
     // 不截断：超出目标的部分要能被环和下方差额行看到。
     const rawRatio = totals.calories !== null && number(p.calorieTarget) > 0 ? totals.calories / p.calorieTarget : 0;
     const ratio = Math.min(1, Math.max(0, rawRatio));
-    // 0–300° 是目标区间，300–360° 留给超出；达标时绿环停在刻度线处，右侧留一段底色。
+    // 达到目标时填满一圈；超出量从同一起点叠加警示色，最多再覆盖一圈。
     const overRatio = Math.max(0, rawRatio - 1);
-    $('#energy-ring').style.setProperty('--progress',`${(ratio*300).toFixed(1)}deg`);
-    $('#energy-ring').style.setProperty('--over',`${(Math.min(overRatio, 1) * 60).toFixed(1)}deg`);
+    $('#energy-ring').style.setProperty('--progress',`${(ratio*360).toFixed(1)}deg`);
+    $('#energy-ring').style.setProperty('--over',`${(Math.min(overRatio, 1) * 360).toFixed(1)}deg`);
     // 差值必须跟屏幕上显示的上下限同一口径：以前用 calorieTarget 算「超出区间上限」会多算。
     const floor = number(range ? range.min : p.calorieTarget);
     const cap = number(range ? range.max : p.calorieTarget);
