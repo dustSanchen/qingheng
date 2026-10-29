@@ -1292,3 +1292,38 @@ textarea{resize:none}
 .quick-source-name{grid-column:1;font-size:var(--text-sm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .quick-source-kcal{grid-row:1/span 2;grid-column:2;align-self:center;font-size:var(--text-xs);color:var(--body-text);font-variant-numeric:tabular-nums}
 .quick-source-empty{margin:0;font-size:var(--text-sm);color:var(--muted)}
+
+/* ── 动效层（2026-10-30）：一套节奏——进场轻、反馈快、不循环 ─────────────
+   原则：动效只做三件事——说明「新内容来了」「操作生效了」「焦点在哪」。
+   时长只用既有令牌：fast .15s（反馈）/ base .22s（进场）/ slow .28s（较大位移）。 */
+@property --progress{syntax:'<angle>';inherits:false;initial-value:0deg}
+@property --over{syntax:'<angle>';inherits:false;initial-value:0deg}
+
+/* 1. 切换视图：淡入 + 4px 上浮，不做横向滑动（横向会晕） */
+.view:not([hidden]){animation:viewIn var(--dur-base) cubic-bezier(.22,.61,.36,1) both}
+@keyframes viewIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* 2. 能量环：进度变化时角度平滑过渡，而不是瞬间跳 */
+.energy-ring{transition:--progress var(--dur-slow) var(--ease-out,ease-out),--over var(--dur-slow) var(--ease-out,ease-out)}
+
+/* 3. 分段控件：选中态位移用 transform，不用背景突变 */
+.segment{transition:background var(--dur-fast) ease-out,color var(--dur-fast) ease-out,transform var(--dur-fast) ease-out}
+.segment:active{transform:scale(.97)}
+
+/* 4. 可选控件：按下缩到 96%，只在这一下、不常驻（不动 .card，避免覆盖它已有的过渡） */
+.pref-chip,.chip-toggle{transition:border-color var(--dur-fast) ease-out,background var(--dur-fast) ease-out,color var(--dur-fast) ease-out,transform var(--dur-fast) ease-out}
+.pref-chip:active,.chip-toggle:active{transform:scale(.96)}
+
+/* 5. 提示条：从底部 8px 滑入，只播一次 */
+.notice,.slot-hint{animation:noticeIn var(--dur-base) cubic-bezier(.22,.61,.36,1) both}
+@keyframes noticeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* 6. 数值更新：数字变化时轻微高亮，不闪烁 */
+#calorie-value,#calorie-target{transition:color var(--dur-fast) ease-out}
+[data-flash="1"]{animation:valueFlash var(--dur-slow) ease-out 1}
+@keyframes valueFlash{0%{color:var(--accent)}100%{color:inherit}}
+
+/* 统一降级：系统要求减少动效时，全部收敛为无动画 */
+@media (prefers-reduced-motion: reduce){
+  .view:not([hidden]),.notice,.slot-hint,.energy-ring,.segment,.pref-chip,.chip-toggle{animation:none!important;transition:none!important}
+}
