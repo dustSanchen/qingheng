@@ -97,6 +97,7 @@
 | 2026-10-26 | `tests/anchors-oil.test.mjs` ×3 | `宁可略高不要低报`／`照片识别系统性低估热量`／预览提示语 → `不要系统性往高报`／`两者要抵消`／`不必刻意往高报` | 用户要求「不要过分高估脂肪摄入，保证尽量准确」；1.1.39 把提示词与预览文案统一改成中位值口径，断言跟到新口径而非删除意图 |
 | 2026-10-26 | `tests/ci-and-versions.test.mjs`、`tests/modularization.test.mjs` | `PROMPT_VERSION = 2` → `= 3` | 提示词口径改动必须升版本，版本号断言同步 |
 | 2026-10-26 | `tests/trends-ui.test.mjs` ×2 | 「作者署名与邮箱存在」→「页面里不再有 mailto」+「免责声明保留」；`.page-author` 样式断言改为「样式随元素一起删除」 | 用户要求删除个人邮箱；隐私处理，footer 只保留免责声明 |
+| 2026-10-29 | `tests/meal-date-java.test.mjs` | `APP_VERSION = '1.1.71'` → `'1.1.91'`（常量字面量与 build.ps1 默认值同步） | 关于页显示 1.1.71 而装机是 1.1.91：dev-loop 用 `-Version` 覆盖了 build.ps1 参数，但片段里的常量没人改。本次把三处（片段常量、build.ps1 默认值、测试字面量）对齐到装机版本 |
 | 2026-10-26 | 无断言变更 | 新增 token `--ring-green` 已登记到 `02-tokens.md` | 按本节第 4 条，新增 token 必须入表，否则 `tokens-snapshot` 漏锁 |
 | 2026-10-29 | `tests/p0-p1-round.test.mjs` | 「下一餐先吃蛋白质」→「下一餐吃 一掌心鸡胸 / 两个鸡蛋」 | B 节要求缺口落到一份可执行食材；同时守住 1.1.37 的决定——只用生活量词（掌心/个），不做克数等价换算 |
 | 2026-10-29 | `tests/meal-date-context.test.mjs` | `.stats-bad{color:#a8622c}` → `var(--warn-ink)` | 令牌化替换，颜色值不变（1.1.86） |
