@@ -644,8 +644,7 @@ button,input,select,textarea{font-family:var(--font-ui);font-size:var(--text-md)
 
 /* 账本暗色：只覆盖账本作用域的令牌，纸感保持暖纸不动（AGENTS.md 双皮肤约束）。
    规则仍是 token-only：切换系统深浅色不需要任何新规则。 */
-@media (prefers-color-scheme: dark){
-  [data-skin="ledger"]{
+[data-theme="dark"][data-skin="ledger"]{
     --paper:#141719;
     --surface:#1c2024;
     --surface-soft:#22272b;

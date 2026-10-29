@@ -668,11 +668,21 @@
             });
             return;
           }
+          // 本周安排长在「训练」分段里：先切分段，再等卡片真的渲染出来再滚。
+          // 原来只 switchTab + 80ms 后 scrollIntoView，记录页此刻还停在饮食分段，滚动打空。
+          const wantAi = jump.dataset.todayPlan === "ai";
           switchTab("records", true);
-          setTimeout(() => {
-            const target = jump.dataset.todayPlan === "ai" ? $("#ai-plan") : $("#week-plan-card");
-            if (target) { target.scrollIntoView({block: "start", behavior: "smooth"}); if (typeof flashTarget === "function") flashTarget(target); }
-          }, 80);
+          const jumpToPlan = (attempt = 0) => {
+            if (!wantAi && typeof switchRecordPanel === "function") switchRecordPanel("training");
+            const target = $(wantAi ? "#ai-plan" : "#week-plan-card");
+            if (target) {
+              target.scrollIntoView({block: "start", behavior: "smooth"});
+              if (typeof flashTarget === "function") flashTarget(target);
+              return;
+            }
+            if (attempt < 12) setTimeout(() => jumpToPlan(attempt + 1), 100);
+          };
+          setTimeout(() => jumpToPlan(), 60);
         }
       });
     }

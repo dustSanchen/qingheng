@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.1.104';
+  const APP_VERSION = '1.1.106';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -687,35 +687,40 @@
   }
 
   /** 皮肤：attribute + localStorage；不写进 state，避免一次换肤触发整份数据同步。 */
-  const SKINS = ['paper', 'ledger', 'auto'];
+  const SKINS = ['paper', 'ledger', 'night'];
   const DATA_PAGES = ['trends'];
   /** 系统是否处于深色；取不到时按浅色处理。 */
   function darkScheme() {
     try { return window.matchMedia('(prefers-color-scheme: dark)').matches === true; } catch (error) { return false; }
   }
-  /** 自动模式：深色系统全程用账本（纸感没有暗色变体）；浅色时趋势页用 ledger，其余用 paper。 */
+  /** 夜间是显式选择：全程账本 + 暗色令牌，不再看系统深浅色。 */
   function skinForPage(base, tab) {
-    if (base !== 'auto') return SKINS.includes(base) ? base : 'paper';
-    if (darkScheme()) return 'ledger';
-    return DATA_PAGES.includes(tab) ? 'ledger' : 'paper';
+    if (base === 'night') return 'ledger';
+    if (base !== 'paper' && base !== 'ledger') base = 'paper';
+    return base;
   }
   const SKIN_KEY = 'qingheng.skin';
   function currentSkin() {
-    // 默认「自动」：系统深色时全程账本（夜间模式开箱即用），浅色时趋势页账本、其余纸感。
-    try { const saved = localStorage.getItem(SKIN_KEY); return SKINS.includes(saved) ? saved : 'auto'; }
-    catch (error) { return 'auto'; }
+    // 默认纸感；历史存过 auto 的用户按「夜间」处理，因为自动模式已移除（不再依赖系统深浅色）。
+    try {
+      const saved = localStorage.getItem(SKIN_KEY);
+      if (saved === 'auto') return 'night';
+      return SKINS.includes(saved) ? saved : 'paper';
+    } catch (error) { return 'paper'; }
   }
   function applySkin(name, persist = true) {
     const choice = SKINS.includes(name) ? name : 'paper';
     const skin = skinForPage(choice, document.documentElement.dataset.tab || 'today');
+    // 暗色不再跟系统走：[data-theme="dark"] 是唯一的暗色开关，由「夜间」这个显式选择驱动。
+    const night = choice === 'night';
     document.documentElement.dataset.skin = skin;
     document.documentElement.dataset.skinChoice = choice;
-    // 持久化用户的选择本身（含 auto），而不是解析结果；否则自动模式在下次启动就退化了。
+    document.documentElement.dataset.theme = night ? 'dark' : 'light';
     if (persist) { try { localStorage.setItem(SKIN_KEY, choice); } catch (error) {} }
-    const tag = $('#skin-tag'); if (tag) tag.textContent = choice === 'auto' ? '自动 · ' + skin : skin;
-    // 系统状态栏颜色跟随皮肤：账本深色用暗底，其余保持浅绿。
+    const tag = $('#skin-tag'); if (tag) tag.textContent = night ? '夜间 · ledger' : skin;
+    // 系统状态栏颜色跟随皮肤：夜间用暗底，其余保持浅绿。
     const theme = document.querySelector('meta[name="theme-color"]');
-    if (theme) theme.setAttribute('content', skin === 'ledger' && darkScheme() ? '#141719' : '#eaf4ed');
+    if (theme) theme.setAttribute('content', night ? '#141719' : '#eaf4ed');
     for (const button of $$('[data-skin-pick]')) button.setAttribute('aria-pressed', String(button.dataset.skinPick === choice));
     return skin;
   }
@@ -739,13 +744,9 @@
     if (typeof installPhotoEntry === "function") installPhotoEntry();
     if (typeof renderDayStream === "function") renderDayStream();
     applySkin(currentSkin(), false);
-    // 系统深浅色翻转时按同一选择重算皮肤；旧的 addEventListener 不存在时静默跳过。
-    try {
-      const media = window.matchMedia('(prefers-color-scheme: dark)');
-      if (media && typeof media.addEventListener === 'function') media.addEventListener('change', () => applySkin(currentSkin(), false));
-    } catch (error) { }
+    // 系统深浅色不再影响皮肤：夜间是用户显式选择的开关。
     for (const button of $$('[data-skin-pick]')) {
-      button.addEventListener('click', () => { applySkin(button.dataset.skinPick); notice('外观已切换为「' + ({paper: '纸感', ledger: '账本', auto: '自动'}[button.dataset.skinPick] || '纸感') + '」。'); });
+      button.addEventListener('click', () => { applySkin(button.dataset.skinPick); notice('外观已切换为「' + ({paper: '纸感', ledger: '账本', night: '夜间'}[button.dataset.skinPick] || '纸感') + '」。'); });
     }
   }
 
@@ -1642,7 +1643,10 @@ feedback(message,'数据已导入。'+report);
       if (!button) return;
       const [label, key, value] = presets[Number(button.dataset.habitPreset)];
       const field = form.elements[key];
-      if (field) {field.value = value; field.focus();}
+      // 不抢焦点：这里只是代入默认值，弹起键盘会挡住下面的字段和保存按钮。
+      if (field) field.value = value;
+      button.classList.add('is-used');
+      setTimeout(() => button.classList.remove('is-used'), 900);
     });
   }
   /** Suggested questions: an empty box is the main reason people do not ask anything. */
