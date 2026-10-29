@@ -152,6 +152,7 @@
     });
   }
   let quickRecordSources = [];
+  let quickRecordSelected = 0;
   function installQuickRecordControls() {
     const detail = $('.energy-actions') || $('.energy-detail');
     if (detail && !$('#quick-record')) {
@@ -164,7 +165,7 @@
     if (!$('#quick-record-dialog')) {
       const root = document.createElement('div');
       root.className = 'app-dialog'; root.id = 'quick-record-dialog'; root.hidden = true;
-      root.innerHTML = `<div class="app-dialog-panel app-dialog-panel--quick" role="dialog" aria-modal="true" aria-labelledby="quick-record-title"><h2 id="quick-record-title">快速记录</h2><form id="quick-record-form"><label>日期<input id="quick-record-date" type="date" required></label><label>餐次<select id="quick-record-type"><option value="breakfast">早餐</option><option value="lunch">午餐</option><option value="dinner">晚餐</option><option value="snack">加餐</option></select></label><label>复制哪一餐<select id="quick-record-source"></select></label><label>份量比例<input id="quick-record-scale" type="number" min="0.1" max="10" step="0.1" value="1"></label><label>进餐时间<input id="quick-record-time" type="time" required></label><label>名称补充<span class="field-with-action"><input id="quick-record-text" maxlength="120" placeholder="可选，也可使用语音输入"><button type="button" class="mic-button" data-voice-target="quick" aria-label="用语音补充名称"><span class="mic-icon" aria-hidden="true"><img src="./icon-mic.svg" alt="" width="20" height="20"></span></button></span></label><p class="form-feedback" id="quick-record-feedback" role="status" aria-live="polite"></p><div class="app-dialog-actions"><button type="button" class="button subtle" id="quick-record-cancel">取消</button><button type="submit" class="button primary">保存</button></div></form></div>`;
+      root.innerHTML = `<div class="app-dialog-panel app-dialog-panel--quick" role="dialog" aria-modal="true" aria-labelledby="quick-record-title"><h2 id="quick-record-title">快速记录</h2><form id="quick-record-form"><label>日期<input id="quick-record-date" type="date" required></label><label>餐次<select id="quick-record-type"><option value="breakfast">早餐</option><option value="lunch">午餐</option><option value="dinner">晚餐</option><option value="snack">加餐</option></select></label><div class="quick-source"><span class="quick-source-label">复制哪一餐</span><div class="quick-source-list" id="quick-record-source" role="radiogroup" aria-label="复制哪一餐"></div></div><label>份量比例<input id="quick-record-scale" type="number" min="0.1" max="10" step="0.1" value="1"></label><label>进餐时间<input id="quick-record-time" type="time" required></label><label>名称补充<span class="field-with-action"><input id="quick-record-text" maxlength="120" placeholder="可选，也可使用语音输入"><button type="button" class="mic-button" data-voice-target="quick" aria-label="用语音补充名称"><span class="mic-icon" aria-hidden="true"><img src="./icon-mic.svg" alt="" width="20" height="20"></span></button></span></label><p class="form-feedback" id="quick-record-feedback" role="status" aria-live="polite"></p><div class="app-dialog-actions"><button type="button" class="button subtle" id="quick-record-cancel">取消</button><button type="submit" class="button primary">保存</button></div></form></div>`;
       document.body.appendChild(root);
       $('#quick-record-cancel').addEventListener('click', () => {root.hidden = true;});
       root.addEventListener('click', event => {if (event.target === root) root.hidden = true;});
@@ -183,10 +184,31 @@
       const raw = String(meal.name || '未命名餐食').replace(/\s+/g, ' ').trim();
       return raw.length > 14 ? raw.slice(0, 14) + '…' : raw;
     };
+    quickRecordSelected = 0;
+    // 原生 <select> 在这个弹层里选择体验不稳定，改成弹窗内的单选列表：点一行即选中。
     select.innerHTML = quickRecordSources.length
-      ? quickRecordSources.map((meal, index) => `<option value="${index}">${esc(meal.date || '')} ${esc(quickTypeLabel[meal.mealType] || '')} · ${esc(quickShortName(meal))}</option>`).join('')
-      : '<option value="">还没有可复制的餐食</option>';
-    select.value = '0';
+      ? quickRecordSources.map((meal, index) => {
+        const kcal = Math.round(Number(meal.calories ?? meal.totals?.calories ?? 0)) || 0;
+        return `<button type="button" class="quick-source-item${index === 0 ? ' is-selected' : ''}" data-index="${index}" role="radio" aria-checked="${index === 0}">`
+          + `<span class="quick-source-meta">${esc(meal.date || '')} ${esc(quickTypeLabel[meal.mealType] || '')}</span>`
+          + `<span class="quick-source-name">${esc(quickShortName(meal))}</span>`
+          + (kcal ? `<span class="quick-source-kcal">${kcal} kcal</span>` : '')
+          + '</button>';
+      }).join('')
+      : '<p class="quick-source-empty">先记录一餐后，就可以在这里快速复制。</p>';
+    if (!select.dataset.bound) {
+      select.dataset.bound = '1';
+      select.addEventListener('click', event => {
+        const item = event.target.closest('.quick-source-item');
+        if (!item) return;
+        quickRecordSelected = Number(item.dataset.index) || 0;
+        select.querySelectorAll('.quick-source-item').forEach(node => {
+          const on = node === item;
+          node.classList.toggle('is-selected', on);
+          node.setAttribute('aria-checked', on ? 'true' : 'false');
+        });
+      });
+    }
     $('#quick-record-date').value = activeDate;
     const quickTime = $('#quick-record-time'); if (quickTime) quickTime.value = nowClock();
     $('#quick-record-type').value = 'snack';
@@ -202,7 +224,7 @@
   async function submitQuickRecord(event) {
     event.preventDefault();
     const root = $('#quick-record-dialog'), feedback = $('#quick-record-feedback');
-    const source = quickRecordSources[Number($('#quick-record-source').value)];
+    const source = quickRecordSources[quickRecordSelected];
     if (!source) {feedback.textContent = '请选择要复制的餐食。'; return;}
     const factor = number($('#quick-record-scale').value);
     if (factor === null || factor < .1 || factor > 10) {feedback.textContent = '份量比例要在 0.1 到 10 之间。'; return;}
