@@ -269,7 +269,7 @@ label.sheet-option{flex-direction:row;margin:0;cursor:pointer}
 
 /* ---- 2026-10-17: 我的 becomes a list of entries with sub-pages -------------------------------- */
 .hub{display:flex;flex-direction:column;gap:10px}
-.hub-row{display:flex;align-items:center;gap:14px;width:100%;min-height:var(--btn-h);padding:16px 18px;border:1px solid var(--line);border-radius:20px;background:var(--surface);color:var(--ink);text-align:left;box-shadow:var(--elev-1)}
+.hub-row{display:flex;align-items:center;gap:14px;width:100%;min-height:var(--btn-h);padding:16px 18px;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;color:var(--ink);text-align:left;box-shadow:none}
 .hub-row:active{background:var(--accent-soft)}
 .hub-icon{display:grid;place-items:center;width:40px;height:40px;min-width:40px;border-radius:12px;background:var(--accent-soft);color:var(--accent);flex:0 0 auto}
 .hub-icon img{width:21px;height:21px}
@@ -447,7 +447,7 @@ label.sheet-option{flex-direction:row;margin:0;cursor:pointer}
 .notice-close:active{opacity:1;background:#00000010}
 
 /* The draft card: obviously a proposal, not a record, until the user confirms. */
-.training-draft{border-style:dashed;border-color:var(--accent-line);background:var(--accent-soft);margin:10px 0 14px}
+.training-draft{border:1px dashed var(--accent-line);border-radius:var(--shape-card-radius);background:var(--accent-soft);margin:10px 0 14px}
 .training-draft h2{font-size:13px}
 .training-draft p{margin:6px 0;font-size:13px}
 
@@ -733,7 +733,7 @@ details[open]{background:var(--surface)}
 .button.is-now{box-shadow:inset 0 0 0 2px var(--accent)}
 
 /* 「更多」折叠：把三张低频卡片收成一行，第一屏只留 5 张。 */
-.day-more{margin:0 0 var(--space-3);border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface);padding:12px 14px}
+.day-more{margin:0 0 var(--space-3);border-block:1px solid var(--line);border-radius:0;background:transparent;padding:12px 0}
 .day-more > summary{cursor:pointer;font-size:var(--text-sm);color:var(--muted)}
 .day-more[open] > summary{margin-bottom:var(--space-2)}
 .day-more .card{border:0;box-shadow:none;padding:var(--space-3) 0;margin:0;border-top:1px solid var(--line);border-radius:0}
@@ -923,19 +923,20 @@ details[open] .preview-panel, .data-preview-panel{border:1px solid var(--line);b
   --record-separator:var(--line-strong);
 }
 
-/* 卡片 */
-.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--shape-card-radius);padding:var(--card-pad);margin-bottom:var(--card-gap)}
-.day-more,.card-notes{border-radius:var(--shape-card-radius)}
+/* 纸感用留白组织内容；账本用单层外框组织数据。 */
+.card{background:transparent;border:0;border-radius:0;padding:var(--card-pad) 0;margin-bottom:var(--card-gap)}
+[data-skin="ledger"] .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--shape-card-radius);padding:var(--card-pad)}
+.day-more,.card-notes{border-radius:0}
 
 /* 列表行与磁贴 */
-.hub-row,.list-row,.meal-row,.capture-card,.check-item,.slot-hint,.photo-add,.segment-bar,.segment{border-radius:var(--shape-row-radius)}
+.list-row,.meal-row,.capture-card,.check-item,.slot-hint,.photo-add,.segment-bar,.segment{border-radius:var(--shape-row-radius)}
 
 /* 表单控件 */
 input,select,textarea,.button,.chip,.term,.text-button{border-radius:var(--shape-ctrl-radius)}
 
 
 /* 账本：实线边框顶替阴影 */
-[data-skin="ledger"] .card,
+[data-skin="ledger"] .hub-row{border:1px solid var(--line);border-radius:var(--shape-row-radius);background:var(--surface);box-shadow:none}
 [data-skin="ledger"] .capture-card,
 [data-skin="ledger"] .check-item,
 [data-skin="ledger"] .slot-hint{border:1px solid var(--line)}
@@ -1273,7 +1274,7 @@ textarea{resize:none}
 [data-skin="ledger"] .quick-chip{border:1px solid var(--line);border-radius:var(--shape-ctrl-radius);background:var(--surface)}
 [data-skin="ledger"] .quick-chip.quick-chip-primary{background:var(--accent);color:var(--on-accent)}
 [data-skin="ledger"] .quick-chip.quick-chip-primary .quick-chip-icon img{filter:brightness(0) invert(1)}
-[data-skin="ledger"] .card-heading{padding-bottom:var(--space-2);border-bottom:1px solid var(--line)}
+[data-skin="ledger"] .card-heading{padding-bottom:0;border-bottom:0}
 [data-skin="ledger"] #view-records .form-grid{gap:0;border:1px solid var(--line);border-radius:var(--shape-ctrl-radius);background:var(--surface-soft);overflow:hidden;margin-bottom:var(--space-3)}
 [data-skin="ledger"] #view-records .form-grid>label{margin:0;padding:var(--space-2) var(--space-3);border-bottom:1px solid var(--line)}
 [data-skin="ledger"] #view-records .form-grid>label:nth-child(even){border-left:1px solid var(--line)}
@@ -1291,6 +1292,9 @@ textarea{resize:none}
 /* 我的页先放常用设置；低频数据、外观与说明折叠在一个行目标后。 */
 details.profile-more,details.panel-more{margin:var(--space-3) 0;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;padding:0}
 details.profile-more[open],details.panel-more[open]{background:transparent}
+.day-more{border-block:1px solid var(--line);background:transparent;padding:var(--space-3) 0}
+.day-more .card{margin:0;padding:var(--space-3) 0;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;box-shadow:none}
+.day-more .card:first-of-type{border-top:0}
 .profile-more>summary{display:flex;align-items:center;min-height:48px;padding:var(--space-2) 0;cursor:pointer;color:var(--muted);font-size:var(--text-sm)}
 .profile-more>summary .inline-icon{margin-right:var(--space-2)}
 .profile-more-content{display:flex;flex-direction:column;gap:8px;padding-bottom:var(--space-2)}
@@ -1300,6 +1304,7 @@ details.profile-more[open],details.panel-more[open]{background:transparent}
 .panel-more>summary{display:flex;align-items:center;min-height:48px;padding:var(--space-2) 0;cursor:pointer;color:var(--muted);font-size:var(--text-sm)}
 .panel-more[open]>summary{margin-bottom:var(--space-2)}
 .panel-more>.card,.profile-more-content>.card{margin:var(--space-2) 0 0;padding:var(--space-2) 0;border:0;border-radius:0;background:transparent;box-shadow:none}
+.training-draft{border:1px dashed var(--accent-line);border-radius:var(--shape-card-radius);background:var(--accent-soft);padding:var(--space-3)}
 .meal-row{border-radius:0}
 
 /* 快速记录的「复制哪一餐」：弹窗内单选列表，替代原生 select（原生选择器在此弹层里不可靠）。 */

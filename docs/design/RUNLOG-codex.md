@@ -127,3 +127,9 @@
 - 折叠区、账本表格控件、餐食 / 训练行和 Today 空态收敛为单边分隔；皮肤选择提前，皮肤选择器实机展开可见。
 - 验证：`1.2.24/224` 至 `1.2.27/227` 四轮 dev-loop 均 56/56、安装成功、smoke `js errors : none`；`aesthetic-audit.mjs` 返回 `OK（无阻塞项）`，67 色值、6 阴影、11 强调色警告仍在；纸感、夜间、账本截图在 `artifacts/brand-after-1.2.27-*.png`。
 - 源码提交 `4ce6bb6`；回滚：`git revert 4ce6bb6`；完整分档见 `21-brand-audit-implementation-2026-10-31.md`。
+
+## r38 · 2026-10-31 · 1.2.28 → 1.2.30
+- 边框结构按皮肤分工：纸感卡片无闭合外框，导航项改直线底部分隔；账本保留单层卡框与表格格线，卡片标题不再重复画横线；折叠区统一为章节分隔。
+- 未改数据字段、历史含义、评分口径或颜色令牌；草稿虚线、输入边界、焦点和可操作控件边界保留。
+- 验收：三轮 `dev-loop.ps1` 均 56/56、APK 安装成功、smoke `js errors : none`；最终 `aesthetic-audit.mjs` 无阻塞，67 色值 / 7 卡片阴影 / 11 强调色警告保留。
+- 实机截图：纸感 `artifacts/border-after-paper-today.png`、`artifacts/border-after-paper-records.png`；账本 `artifacts/border-after-ledger-today.png`、`artifacts/border-after-ledger-records.png`；夜间 `artifacts/border-after-night-profile.png`。最终皮肤恢复 ledger。

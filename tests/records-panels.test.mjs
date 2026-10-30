@@ -27,6 +27,17 @@ check('reveal switches before focusing', /switchRecordPanel\(recordPanelForField
 check('the bar is sticky and styled', css.includes('.segment-bar{position:sticky') && css.includes('.segment[aria-selected="true"]'));
 check('both skins share the hairline segment bar', css.includes('#view-records .segment-bar,#view-trends .segment-bar{border:0;border-bottom:1px solid var(--line)') &&
   !css.includes('[data-skin="ledger"] #view-records .segment-bar'));
+check('paper cards use open sections while ledger cards keep one frame', css.includes('.card{background:transparent;border:0;border-radius:0;padding:var(--card-pad) 0') &&
+  css.includes('[data-skin="ledger"] .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--shape-card-radius)'));
+check('paper navigation rows use separators while ledger rows keep a frame', css.includes('.hub-row{display:flex;align-items:center;gap:14px;width:100%;min-height:var(--btn-h);padding:16px 18px;border:0;border-bottom:1px solid var(--line)') &&
+  css.includes('[data-skin="ledger"] .hub-row{border:1px solid var(--line)') &&
+  css.includes('border-radius:0;background:transparent;color:var(--ink);text-align:left;box-shadow:none}') &&
+  css.includes('border-radius:var(--shape-row-radius);background:var(--surface);box-shadow:none}'));
+check('ledger card headings do not duplicate the outer frame', css.includes('[data-skin="ledger"] .card-heading{padding-bottom:0;border-bottom:0}'));
+check('day disclosures are open sections in both skins', css.includes('.day-more{border-block:1px solid var(--line);background:transparent;padding:var(--space-3) 0}') &&
+  css.includes('.day-more .card{margin:0;padding:var(--space-3) 0;border:0;border-top:1px solid var(--line)') &&
+  css.includes('.day-more .card:first-of-type{border-top:0}'));
+check('draft state keeps its dashed boundary after paper cards are opened', css.includes('.training-draft{border:1px dashed var(--accent-line)'));
 const profileMore = app.slice(app.indexOf('function installProfileMore()'), app.indexOf('function installTrendPanels()'));
 check('skin selection leads the expanded low-frequency settings', profileMore.indexOf("$('#skin-card')") >= 0 &&
   profileMore.indexOf("$('#skin-card')") < profileMore.indexOf('[data-subpage-open="data"]'));
