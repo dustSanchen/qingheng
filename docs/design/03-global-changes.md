@@ -121,5 +121,6 @@
 | 2026-10-30 | `tests/adapter.test.mjs`、`tests/advice-and-training-window.test.mjs`、`tests/p1-answers-phase-collapse.test.mjs`、`tests/training-library.test.mjs`、`tests/p0-p1-round.test.mjs` | 外发同意从各处复选框改为「向导勾一次 + 我的设置里一个开关」；隐藏数据预览；快速记录收藏优先 | 用户要求同意集中在初次使用与「数据、外观与说明」，不再在提问/建议框下方重复勾选；同时把收藏的饮食记录纳入快速复制的候选 |
 | 2026-10-30 | `tests/meal-date-context.test.mjs`、`tests/p0-p1-round.test.mjs` | 问答页日期选择器删除后的断言；数据/外观/说明摘要图标、联网检索开关、说明收纳的断言 | 用户要求问答不再单独选日期（跟随当前分析日）、联网检索做成开关按钮、问答说明收进「数据、外观与说明」 |
 | 2026-10-31 | `tests/meal-date-context.test.mjs` | 问答恢复历史日期入口的断言（chip + 隐藏 date input） | 用户要求问答可以调取历史日期数据；改成「分析日期 · 今天」chip，点开原生日期选择器，选择后切换 activeDate |
+| 2026-10-31 | `tests/layout-four.test.mjs`、`tests/records-panels.test.mjs` | 新增 Today 单时间线、餐食 / 日常事件单底线、空态无内框、账本表格控件去重框和共享分段栏断言 | 2026-10-31 品牌审计落地：组件边界改为单一发丝线，保留现有数据字段、历史含义及账本表格布局；无新增 token |
 
 

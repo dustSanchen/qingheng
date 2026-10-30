@@ -121,3 +121,9 @@
 - 餐食模板把蛋白/脂肪/碳水改为具名数值列；纸感用松散行距与浅分隔，账本用紧凑网格、右对齐数字和列线。
 - 高频入口复用叶/天平/环并补齐问答、趋势、训练、相机 glyph；图标合同从 21 项扩到 28 项，仍验证平铺、引用与 <900 字节。
 - 验证：`node tools/test-all.mjs` 56/56；`dev-loop.ps1 -Version 1.1.99 -VersionCode 199 -SkipBackup` 安装及 smoke 成功；四页截图在 `build/visual-after/structure-*-1199.png`。
+
+## r37 · 2026-10-31 · 1.2.27
+- Today 餐食与训练、睡眠、体重记录合并到「今日记录」；移除记录页重复流水卡，保留原 meal / habit / measurement 字段与操作。
+- 折叠区、账本表格控件、餐食 / 训练行和 Today 空态收敛为单边分隔；皮肤选择提前，皮肤选择器实机展开可见。
+- 验证：`1.2.24/224` 至 `1.2.27/227` 四轮 dev-loop 均 56/56、安装成功、smoke `js errors : none`；`aesthetic-audit.mjs` 返回 `OK（无阻塞项）`，67 色值、6 阴影、11 强调色警告仍在；纸感、夜间、账本截图在 `artifacts/brand-after-1.2.27-*.png`。
+- 源码提交 `4ce6bb6`；回滚：`git revert 4ce6bb6`；完整分档见 `21-brand-audit-implementation-2026-10-31.md`。
