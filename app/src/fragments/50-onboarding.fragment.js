@@ -269,6 +269,39 @@
   function renderMeals(container, meals, showDate) {
     container.innerHTML = meals.length ? mealRowsHtml(meals, showDate) : empty('还没有餐食记录。记下第一餐，从了解自己开始。');
   }
+  function renderTodayTimeline(container, meals) {
+    if (!container) return;
+    const entries = meals.map((meal, index) => {
+      const time = String(meal.mealTime || '');
+      const timed = clockPattern.test(time);
+      return {priority: timed ? 0 : 1, time: timed ? time : '', order: index, html: mealRowsHtml([meal], false)};
+    });
+    const habit = (state.habits || []).find(row => row && row.date === activeDate) || {};
+    const addEvent = (kind, text, priority) => entries.push({
+      priority,
+      time: '',
+      order: entries.length,
+      html: `<div class="day-event" role="listitem"><div class="row-head"><strong>${esc(kind)}</strong><span class="row-tag">已记录</span></div><p class="muted">${esc(text)}</p></div>`
+    });
+    if (habit.training === true || habit.training === 'true') {
+      const count = Array.isArray(habit.exercises) ? habit.exercises.length : 0;
+      addEvent('训练', count ? `${count} 个动作` : '已标记训练', 2);
+    }
+    if (Number(habit.sleep) > 0) addEvent('睡眠', `${Number(habit.sleep)} 小时`, 3);
+    const measurement = (state.measurements || []).find(row => row && row.date === activeDate);
+    const weight = number(measurement?.weight);
+    if (weight > 0) addEvent('体重', `${fmt(weight)} kg`, 4);
+    entries.sort((a, b) => a.priority - b.priority || a.time.localeCompare(b.time) || a.order - b.order);
+    const activities = entries.length - meals.length;
+    const count = [
+      meals.length ? `${meals.length} 餐` : '',
+      activities ? `${activities} 项` : ''
+    ].filter(Boolean).join(' · ');
+    $('#today-record-count').textContent = count || '暂无';
+    container.innerHTML = entries.length
+      ? entries.map(entry => entry.html).join('')
+      : empty('今天还没有记录', '记下一餐或一项日常数据，这里会汇总当天的变化。');
+  }
   /**
    * The record list is grouped by day (the way 薄荷健康 shows 按天卡片) and capped at five meals until
    * the user asks for everything. Both keep the page short without hiding data.

@@ -19,8 +19,8 @@ check('all tabs share one compact brand header', html.includes('<img src="./icon
 
 // --- 1. today quick actions ---------------------------------------------------------------------------
 check('a quick action row is installed on today', app.includes('function installTodayQuickActions()') && app.includes("row.id = 'today-quick-actions'"));
-check('energy ring, target detail and primary action share one compact summary', app.includes('body.replaceChildren(ring, detail)') &&
-  app.includes('detail.append(actions)') && !app.includes('energy-explanation'));
+check('energy ring and target detail share one compact summary', app.includes('body.replaceChildren(ring, detail)') &&
+  !app.includes('detail.append(actions)') && !app.includes('energy-explanation'));
 check('energy summary keeps a responsive two-column layout', css.includes('.energy-body{display:grid;grid-template-columns:112px minmax(0,1fr)') &&
   css.includes('.energy-body{grid-template-columns:150px minmax(0,1fr)') &&
   css.includes('.energy-body{grid-template-columns:96px minmax(0,1fr)'));
@@ -55,7 +55,16 @@ check('expanding is remembered in the session', app.includes('recordMealsExpande
 check('rows are grouped by day', app.includes('function renderRecordMeals(rows)') && app.includes('const groups = new Map();'));
 check('each day shows its own total', app.includes('${list.length} 餐 · ${fmt(kcal, 0)} kcal'));
 check('the record list uses the grouped renderer', app.includes('renderRecordMeals(favoriteOnlyMeals ? recordMeals.filter'));
-check('the today list keeps the flat renderer', app.includes("renderMeals($('#today-meals'),meals,false);"));
+check('today has one timeline for meals and same-day health events', html.includes('id="today-records-card"') &&
+  html.includes('id="today-record-count"') && !html.includes('id="day-stream-card"') &&
+  app.includes("renderTodayTimeline($('#today-meals'), meals)") && app.includes("mealRowsHtml([meal], false)"));
+check('the timeline reads weight from the same-day measurement record', app.includes("state.measurements || []).find(row => row && row.date === activeDate"));
+check('today and historical meals share one bottom separator per row', /#today-meals \.meal-row,#record-meals \.meal-row\{[^}]*border-top:0;[^}]*border-bottom:1px solid var\(--record-separator\)/s.test(css) &&
+  css.includes('#today-meals > :last-child,#record-meals .meal-day > .meal-row:last-child{border-bottom:0}') &&
+  css.includes('.day-event{padding:var(--space-2) 0;border:0;border-bottom:1px solid var(--line)}'));
+check('quick copy is a header action rather than a second full-width button', app.includes("button.className = 'text-button quick-record-action'") &&
+  app.includes('heading.appendChild(button)') && !html.includes('id="energy-actions"'));
+check('today records empty state does not add a dashed inner frame', css.includes('#today-records-card .empty-state.is-empty{border:0;border-radius:0}'));
 
 // --- styles ---------------------------------------------------------------------------------------------
 check('quick actions follow the energy summary without overlaying content', app.includes('energyBody.after(row)') && css.includes('.quick-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))') && !css.includes('.quick-actions{position:fixed'));

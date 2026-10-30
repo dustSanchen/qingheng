@@ -319,7 +319,9 @@ label.sheet-option{flex-direction:row;margin:0;cursor:pointer}
 #copy-meal-buttons .button{justify-content:flex-start;text-align:left}
 
 /* Training log rows: compact, and the remove control sits with the volume readout. */
-.training-row{padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);margin-bottom:8px}
+.training-row{padding:12px 0;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;margin-bottom:0}
+#training-exercises.list-stack{gap:0}
+#training-exercises .training-row:last-child{border-bottom:0}
 .training-row .form-grid{margin-top:6px}
 .training-row .row-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px;font-size:var(--text-sm)}
 
@@ -601,7 +603,7 @@ h1,h2,h3,.card h2,.page-title,.hero-title{color:var(--ink)}
 button,input,select,textarea{font-family:var(--font-ui);font-size:var(--text-md);line-height:1.4}
 
 /* ── skins ─────────────────────────────────────────────────────────────────────────────
-   Every rule below must stay token-only: switching the attribute must not need new CSS.
+   Theme differences use tokens; ledger's record fields share one explicit table-cell grid.
    paper = warm editorial (serif titles); ledger = crisp data-first (sans titles).      */
 [data-skin="ledger"]{
   --paper:#f2f5f7;
@@ -734,13 +736,12 @@ details[open]{background:var(--surface)}
 .day-more{margin:0 0 var(--space-3);border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface);padding:12px 14px}
 .day-more > summary{cursor:pointer;font-size:var(--text-sm);color:var(--muted)}
 .day-more[open] > summary{margin-bottom:var(--space-2)}
-.day-more .card{border:0;box-shadow:none;padding:var(--space-3) 0;margin:0;border-top:1px solid var(--line);border-radius:8px}
+.day-more .card{border:0;box-shadow:none;padding:var(--space-3) 0;margin:0;border-top:1px solid var(--line);border-radius:0}
 .day-more .card:first-of-type{border-top:0}
 
-/* 今日流水：时间在上、事件在下，一眼看完今天。 */
-#day-stream .meal-row{padding:var(--space-2) 0;border-top:1px solid var(--line)}
-#day-stream .meal-row:first-child{border-top:0}
-#day-stream .row-head strong{font-variant-numeric:tabular-nums;min-width:52px;display:inline-block}
+/* Non-meal entries share the meal list's single hairline rhythm without pretending to have a time. */
+.day-event{padding:var(--space-2) 0;border:0;border-bottom:1px solid var(--line)}
+.day-event .row-head strong{font-weight:var(--fw-semibold)}
 
 /* 手机上不排两列：能量卡只有 60% 宽度时，150px 的能量球会被裁掉。 */
 @media (max-width: 640px){
@@ -923,7 +924,7 @@ details[open] .preview-panel, .data-preview-panel{border:1px solid var(--line);b
 }
 
 /* 卡片 */
-.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--shape-card-radius);padding:var(--card-pad);margin-bottom:var(--card-gap);box-shadow:var(--elev-1)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--shape-card-radius);padding:var(--card-pad);margin-bottom:var(--card-gap)}
 .day-more,.card-notes{border-radius:var(--shape-card-radius)}
 
 /* 列表行与磁贴 */
@@ -963,8 +964,10 @@ input,select,textarea,.button,.chip,.term,.text-button{border-radius:var(--shape
 /* The shared meal row carries named values so each skin can express its own reading rhythm. */
 #today-meals .meal-row,#record-meals .meal-row{
   padding:var(--record-row-pad) 0;
-  border-top-color:var(--record-separator);
+  border-top:0;
+  border-bottom:1px solid var(--record-separator);
 }
+#today-meals > :last-child,#record-meals .meal-day > .meal-row:last-child{border-bottom:0}
 .meal-numbers{display:flex;flex-wrap:wrap;gap:var(--space-4);margin-top:var(--space-3);font-variant-numeric:tabular-nums}
 .meal-numbers>span{display:flex;flex-direction:column;gap:var(--space-1);min-width:48px}
 .meal-numbers small{color:var(--muted);font-size:var(--text-xs)}
@@ -1140,6 +1143,7 @@ html{scroll-padding-bottom:calc(var(--tabbar-safe,96px) + 16px)}
 /* 空状态三态：同一骨架，靠图标色与左侧色条区分「没数据 / 没权限 / 加载失败」。 */
 .empty-state{border-radius:var(--shape-row-radius);border:1px dashed var(--line);padding:var(--space-4) var(--space-3)}
 .empty-state.is-empty{border-style:dashed}
+#today-records-card .empty-state.is-empty{border:0;border-radius:0}
 .empty-state.is-denied{border-style:solid;border-left:3px solid var(--warn);background:var(--warn-soft)}
 .empty-state.is-denied .empty-icon{color:var(--warn)}
 .empty-state.is-error{border-style:solid;border-left:3px solid var(--danger);background:var(--danger-soft)}
@@ -1227,8 +1231,6 @@ html{scroll-padding-bottom:calc(var(--tabbar-safe,96px) + 16px)}
 .energy-ring{background:conic-gradient(from 0deg,var(--warn) 0 var(--over),transparent 0),conic-gradient(from 0deg,var(--ring-fill) 0 var(--progress),var(--accent-soft) 0)}
 .energy-detail{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:var(--space-2);min-width:0;margin:0}
 .energy-detail>p{flex:0 0 auto;width:100%;margin:0}
-.energy-actions{display:flex;justify-content:flex-start;width:100%;gap:var(--space-2);margin:var(--space-1) 0 0}
-.energy-actions .button{width:100%;max-width:220px;min-height:44px;padding:8px 16px}
 @media(min-width:700px){
   .energy-body{grid-template-columns:150px minmax(0,1fr);gap:var(--space-5)}
   .energy-ring{width:150px;height:150px}
@@ -1267,9 +1269,6 @@ textarea{resize:none}
 .photo-add-icon,.capture-card img{opacity:1}
 .capture-card img{background:transparent;padding:0}
 [data-skin="ledger"] .page-heading--today,[data-skin="ledger"] .page-heading--records,[data-skin="ledger"] .page-heading--trends{padding-bottom:var(--space-2);margin-bottom:var(--space-3);border-bottom:1px solid var(--line-strong)}
-[data-skin="ledger"] #view-records .segment-bar,[data-skin="ledger"] #view-trends .segment-bar{gap:8px;padding:var(--space-1);border:1px solid var(--line-strong);border-radius:var(--shape-row-radius);background:var(--surface);overflow:hidden}
-[data-skin="ledger"] #view-records .segment,[data-skin="ledger"] #view-trends .segment{border-radius:0}
-[data-skin="ledger"] #view-records .segment+.segment,[data-skin="ledger"] #view-trends .segment+.segment{border-left:0}
 [data-skin="ledger"] .quick-actions{gap:8px;border:0;border-radius:0;background:transparent;overflow:visible}
 [data-skin="ledger"] .quick-chip{border:1px solid var(--line);border-radius:var(--shape-ctrl-radius);background:var(--surface)}
 [data-skin="ledger"] .quick-chip.quick-chip-primary{background:var(--accent);color:var(--on-accent)}
@@ -1280,6 +1279,9 @@ textarea{resize:none}
 [data-skin="ledger"] #view-records .form-grid>label:nth-child(even){border-left:1px solid var(--line)}
 [data-skin="ledger"] #view-records .form-grid>label:nth-last-child(-n+2){border-bottom:0}
 [data-skin="ledger"] #view-records input:not([type=checkbox]):not([type=radio]),[data-skin="ledger"] #view-records select,[data-skin="ledger"] #view-records textarea{border-color:var(--line-strong);background:var(--paper)}
+[data-skin="ledger"] #view-records .form-grid>label input:not([type=checkbox]):not([type=radio]),
+[data-skin="ledger"] #view-records .form-grid>label select,
+[data-skin="ledger"] #view-records .form-grid>label textarea{border:0;border-radius:0;background:transparent;padding-left:0;padding-right:0}
 [data-skin="ledger"] #view-records .mic-button,[data-skin="ledger"] #view-records .photo-add{border-color:var(--line);background:var(--surface)}
 
 /* 问答先露出输入框，常用问题仍是独立的 44px 目标。 */
@@ -1287,18 +1289,18 @@ textarea{resize:none}
 #view-chat #chat-chips{margin:0 0 var(--space-3)}
 
 /* 我的页先放常用设置；低频数据、外观与说明折叠在一个行目标后。 */
-.profile-more{margin:var(--space-3) 0;border-top:1px solid var(--line)}
+details.profile-more,details.panel-more{margin:var(--space-3) 0;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;padding:0}
+details.profile-more[open],details.panel-more[open]{background:transparent}
 .profile-more>summary{display:flex;align-items:center;min-height:48px;padding:var(--space-2) 0;cursor:pointer;color:var(--muted);font-size:var(--text-sm)}
 .profile-more>summary .inline-icon{margin-right:var(--space-2)}
 .profile-more-content{display:flex;flex-direction:column;gap:8px;padding-bottom:var(--space-2)}
 .profile-more-content>.hub-row{min-height:56px}
-.profile-more-content>.card{margin:0}
 .hub-icon img{display:block;width:21px;height:21px}
 .hub-icon svg g{stroke-width:1.5}
-.panel-more{margin-top:4px;border-top:1px solid var(--line)}
 .panel-more>summary{display:flex;align-items:center;min-height:48px;padding:var(--space-2) 0;cursor:pointer;color:var(--muted);font-size:var(--text-sm)}
 .panel-more[open]>summary{margin-bottom:var(--space-2)}
-.panel-more>.card{margin:var(--space-2) 0 0}
+.panel-more>.card,.profile-more-content>.card{margin:var(--space-2) 0 0;padding:var(--space-2) 0;border:0;border-radius:0;background:transparent;box-shadow:none}
+.meal-row{border-radius:0}
 
 /* 快速记录的「复制哪一餐」：弹窗内单选列表，替代原生 select（原生选择器在此弹层里不可靠）。 */
 .quick-source{display:flex;flex-direction:column;gap:6px}

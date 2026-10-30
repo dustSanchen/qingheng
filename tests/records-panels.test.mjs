@@ -25,8 +25,19 @@ check('training segment hides for a no-training profile', app.includes('panel.tr
 check('jumps pick the owning segment', app.includes('function recordPanelForField(id)') && app.includes("return 'body';"));
 check('reveal switches before focusing', /switchRecordPanel\(recordPanelForField\(id\)\);/.test(app));
 check('the bar is sticky and styled', css.includes('.segment-bar{position:sticky') && css.includes('.segment[aria-selected="true"]'));
+check('both skins share the hairline segment bar', css.includes('#view-records .segment-bar,#view-trends .segment-bar{border:0;border-bottom:1px solid var(--line)') &&
+  !css.includes('[data-skin="ledger"] #view-records .segment-bar'));
+const profileMore = app.slice(app.indexOf('function installProfileMore()'), app.indexOf('function installTrendPanels()'));
+check('skin selection leads the expanded low-frequency settings', profileMore.indexOf("$('#skin-card')") >= 0 &&
+  profileMore.indexOf("$('#skin-card')") < profileMore.indexOf('[data-subpage-open="data"]'));
 check('hidden panels do not take space', css.includes('.record-panel[hidden]{display:none}'));
 check('ledger record controls use a 2px physical hairline at 480 dpi', /\[data-skin="ledger"\] #view-records input:not\(\[type=checkbox\]\):not\(\[type=radio\]\),\s*\[data-skin="ledger"\] #view-records select,\s*\[data-skin="ledger"\] #view-records textarea\{border-width:\.67px\}/.test(css));
+check('ledger form cells own separators without nested control borders', css.includes('[data-skin="ledger"] #view-records .form-grid>label input:not([type=checkbox]):not([type=radio])') &&
+  css.includes('border:0;border-radius:0;background:transparent;padding-left:0;padding-right:0'));
+check('training entries use bottom separators instead of closed cards', /\.training-row\{[^}]*border:0;border-bottom:1px solid var\(--line\);border-radius:0/.test(css) &&
+  css.includes('#training-exercises .training-row:last-child{border-bottom:0}'));
+check('folded cards do not keep a second frame', css.includes('details.profile-more,details.panel-more{margin:var(--space-3) 0;border:0;border-top:1px solid var(--line)') &&
+  css.includes('.panel-more>.card,.profile-more-content>.card{margin:var(--space-2) 0 0;padding:var(--space-2) 0;border:0'));
 
 console.log('\nFAIL total: ' + fail);
 process.exitCode = fail ? 1 : 0;

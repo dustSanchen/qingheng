@@ -1317,11 +1317,10 @@ function intakeRangeForDate(date = activeDate) {
     const card = $('.energy-card');
     if (!card) return;
     const body = $('.energy-body', card);
-    const ring = $('#energy-ring', card), actions = $('#energy-actions', card);
+    const ring = $('#energy-ring', card);
     const detail = $('.energy-detail', card);
-    if (!body || !ring || !actions || !detail || (body.contains(ring) && detail.contains(actions))) return;
+    if (!body || !ring || !detail || (body.contains(ring) && body.contains(detail))) return;
     body.replaceChildren(ring, detail);
-    detail.append(actions);
   }
   function renderBody() {
     arrangeEnergyCard();
@@ -1400,9 +1399,8 @@ function intakeRangeForDate(date = activeDate) {
       ['icon-water.svg', number(habit.water) === null ? '未记录' : `${fmt(habit.water,0)} ml`, '饮水']
     ];
     $('#habit-summary').innerHTML = tiles.map(([icon, value, label]) => `<div class="habit-tile"><span class="habit-symbol" aria-hidden="true">${iconMarkup(icon)}</span><div><strong>${esc(value)}</strong><small>${label}</small></div></div>`).join('');
-    $('#today-meal-count').textContent = meals.length ? `${meals.length} 餐已记录` : '尚无记录';
     const recordMeals=[...state.meals].sort((a,b) => String(b.date).localeCompare(String(a.date)));
-    renderMeals($('#today-meals'),meals,false);
+    renderTodayTimeline($('#today-meals'), meals);
     renderRecordMeals(favoriteOnlyMeals ? recordMeals.filter(row => row.favorite === true) : recordMeals);
     $('#settings-status').textContent = state.settings.apiConfigured === true ? '已配置 · 密钥不回传' : settingsKnown ? '未配置外部 API' : '配置状态未知';
     $('#estimate-mode').textContent = state.settings.apiConfigured === true ? '已配置外部文字模型；勾选本次同意才调用外部 API。不勾选时按明确克重离线估算；照片还需已启用视觉模型。' : settingsKnown ? '当前使用本地估算，不发送给外部模型；结果仍需手动检查确认。' : '尚未加载手机配置，请稍后重试。';
@@ -1922,12 +1920,11 @@ function intakeRangeForDate(date = activeDate) {
   let quickRecordSources = [];
   let quickRecordSelected = 0;
   function installQuickRecordControls() {
-    const detail = $('.energy-actions') || $('.energy-detail');
-    if (detail && !$('#quick-record')) {
+    const heading = $('.energy-card .card-heading');
+    if (heading && !$('#quick-record')) {
       const button = document.createElement('button');
-      button.type = 'button'; button.className = 'button subtle'; button.id = 'quick-record'; button.textContent = '快速记录';
-      // 插在主按钮之后：「＋ 记录一餐」是主路径，不能被次按钮挤到屏外。
-      detail.appendChild(button);
+      button.type = 'button'; button.className = 'text-button quick-record-action'; button.id = 'quick-record'; button.textContent = '快速记录';
+      heading.appendChild(button);
       button.addEventListener('click', openQuickRecord);
     }
     if (!$('#quick-record-dialog')) {
@@ -2908,6 +2905,39 @@ function intakeRangeForDate(date = activeDate) {
   }
   function renderMeals(container, meals, showDate) {
     container.innerHTML = meals.length ? mealRowsHtml(meals, showDate) : empty('还没有餐食记录。记下第一餐，从了解自己开始。');
+  }
+  function renderTodayTimeline(container, meals) {
+    if (!container) return;
+    const entries = meals.map((meal, index) => {
+      const time = String(meal.mealTime || '');
+      const timed = clockPattern.test(time);
+      return {priority: timed ? 0 : 1, time: timed ? time : '', order: index, html: mealRowsHtml([meal], false)};
+    });
+    const habit = (state.habits || []).find(row => row && row.date === activeDate) || {};
+    const addEvent = (kind, text, priority) => entries.push({
+      priority,
+      time: '',
+      order: entries.length,
+      html: `<div class="day-event" role="listitem"><div class="row-head"><strong>${esc(kind)}</strong><span class="row-tag">已记录</span></div><p class="muted">${esc(text)}</p></div>`
+    });
+    if (habit.training === true || habit.training === 'true') {
+      const count = Array.isArray(habit.exercises) ? habit.exercises.length : 0;
+      addEvent('训练', count ? `${count} 个动作` : '已标记训练', 2);
+    }
+    if (Number(habit.sleep) > 0) addEvent('睡眠', `${Number(habit.sleep)} 小时`, 3);
+    const measurement = (state.measurements || []).find(row => row && row.date === activeDate);
+    const weight = number(measurement?.weight);
+    if (weight > 0) addEvent('体重', `${fmt(weight)} kg`, 4);
+    entries.sort((a, b) => a.priority - b.priority || a.time.localeCompare(b.time) || a.order - b.order);
+    const activities = entries.length - meals.length;
+    const count = [
+      meals.length ? `${meals.length} 餐` : '',
+      activities ? `${activities} 项` : ''
+    ].filter(Boolean).join(' · ');
+    $('#today-record-count').textContent = count || '暂无';
+    container.innerHTML = entries.length
+      ? entries.map(entry => entry.html).join('')
+      : empty('今天还没有记录', '记下一餐或一项日常数据，这里会汇总当天的变化。');
   }
   /**
    * The record list is grouped by day (the way 薄荷健康 shows 按天卡片) and capped at five meals until
@@ -4584,7 +4614,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.2.23';
+  const APP_VERSION = '1.2.27';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -5187,36 +5217,11 @@ function metricIcon(label) {
     if (typeof installAiPlan === "function") installAiPlan();
     if (typeof installSegmentKeys === "function") installSegmentKeys();
     if (typeof installPhotoEntry === "function") installPhotoEntry();
-    if (typeof renderDayStream === "function") renderDayStream();
     applySkin(currentSkin(), false);
     // 系统深浅色不再影响皮肤：夜间是用户显式选择的开关。
     for (const button of $$('[data-skin-pick]')) {
       button.addEventListener('click', () => { applySkin(button.dataset.skinPick); notice('外观已切换为「' + ({paper: '纸感', ledger: '账本', night: '夜间'}[button.dataset.skinPick] || '纸感') + '」。'); });
     }
-  }
-
-  /** 把今天发生的事按时间排成一条流水：餐食、训练、体重/睡眠。 */
-  function renderDayStream() {
-    const box = $("#day-stream");
-    if (!box) return;
-    const day = activeDate;
-    const events = [];
-    for (const meal of (Array.isArray(state.meals) ? state.meals : []).filter(row => row && row.date === day)) {
-      events.push({time: String(meal.mealTime || ""), sort: meal.mealTime ? 0 : 1, kind: "餐食", text: (meal.name || "一餐") + " · " + Math.round(Number(meal.calories) || 0) + " kcal"});
-    }
-    const habit = (Array.isArray(state.habits) ? state.habits : []).find(row => row && row.date === day) || {};
-    if (habit.training === true || habit.training === "true") {
-      const count = Array.isArray(habit.exercises) ? habit.exercises.length : 0;
-      events.push({time: "", sort: 2, kind: "训练", text: count ? count + " 个动作" : "已标记训练"});
-    }
-    if (Number(habit.sleep) > 0) events.push({time: "", sort: 3, kind: "睡眠", text: Number(habit.sleep) + " 小时"});
-    if (Number(habit.weight) > 0) events.push({time: "", sort: 3, kind: "体重", text: Number(habit.weight) + " kg"});
-    events.sort((a, b) => a.sort - b.sort || String(a.time).localeCompare(String(b.time)));
-    const tag = $("#day-stream-tag");
-    if (tag) tag.textContent = events.length ? events.length + " 条" : "暂无";
-    box.innerHTML = events.length
-      ? events.map(item => "<div class=\"meal-row list-row\" role=\"listitem\"><div class=\"row-body\"><div class=\"row-head\"><strong>" + esc(item.time || "未填时间") + "</strong><span class=\"row-tag\">" + esc(item.kind) + "</span></div><p class=\"muted\">" + esc(item.text) + "</p></div></div>").join("")
-      : empty("今天还没有记录", "记一餐、一次训练，流水就会长出来。");
   }
 
   async function loadStorageStatus(remirror = false) {
@@ -5426,8 +5431,8 @@ function metricIcon(label) {
     const content = document.createElement('div');
     content.className = 'profile-more-content';
     const lowFrequency = [
-      hub.querySelector('[data-subpage-open="data"]'),
       $('#skin-card'),
+      hub.querySelector('[data-subpage-open="data"]'),
       hub.querySelector('[data-subpage-open="about"]'),
       $('#restart-onboarding')
     ].filter(Boolean);

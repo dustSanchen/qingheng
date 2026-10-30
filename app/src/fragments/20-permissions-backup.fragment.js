@@ -154,12 +154,11 @@
   let quickRecordSources = [];
   let quickRecordSelected = 0;
   function installQuickRecordControls() {
-    const detail = $('.energy-actions') || $('.energy-detail');
-    if (detail && !$('#quick-record')) {
+    const heading = $('.energy-card .card-heading');
+    if (heading && !$('#quick-record')) {
       const button = document.createElement('button');
-      button.type = 'button'; button.className = 'button subtle'; button.id = 'quick-record'; button.textContent = '快速记录';
-      // 插在主按钮之后：「＋ 记录一餐」是主路径，不能被次按钮挤到屏外。
-      detail.appendChild(button);
+      button.type = 'button'; button.className = 'text-button quick-record-action'; button.id = 'quick-record'; button.textContent = '快速记录';
+      heading.appendChild(button);
       button.addEventListener('click', openQuickRecord);
     }
     if (!$('#quick-record-dialog')) {

@@ -156,11 +156,10 @@
     const card = $('.energy-card');
     if (!card) return;
     const body = $('.energy-body', card);
-    const ring = $('#energy-ring', card), actions = $('#energy-actions', card);
+    const ring = $('#energy-ring', card);
     const detail = $('.energy-detail', card);
-    if (!body || !ring || !actions || !detail || (body.contains(ring) && detail.contains(actions))) return;
+    if (!body || !ring || !detail || (body.contains(ring) && body.contains(detail))) return;
     body.replaceChildren(ring, detail);
-    detail.append(actions);
   }
   function renderBody() {
     arrangeEnergyCard();
@@ -239,9 +238,8 @@
       ['icon-water.svg', number(habit.water) === null ? '未记录' : `${fmt(habit.water,0)} ml`, '饮水']
     ];
     $('#habit-summary').innerHTML = tiles.map(([icon, value, label]) => `<div class="habit-tile"><span class="habit-symbol" aria-hidden="true">${iconMarkup(icon)}</span><div><strong>${esc(value)}</strong><small>${label}</small></div></div>`).join('');
-    $('#today-meal-count').textContent = meals.length ? `${meals.length} 餐已记录` : '尚无记录';
     const recordMeals=[...state.meals].sort((a,b) => String(b.date).localeCompare(String(a.date)));
-    renderMeals($('#today-meals'),meals,false);
+    renderTodayTimeline($('#today-meals'), meals);
     renderRecordMeals(favoriteOnlyMeals ? recordMeals.filter(row => row.favorite === true) : recordMeals);
     $('#settings-status').textContent = state.settings.apiConfigured === true ? '已配置 · 密钥不回传' : settingsKnown ? '未配置外部 API' : '配置状态未知';
     $('#estimate-mode').textContent = state.settings.apiConfigured === true ? '已配置外部文字模型；勾选本次同意才调用外部 API。不勾选时按明确克重离线估算；照片还需已启用视觉模型。' : settingsKnown ? '当前使用本地估算，不发送给外部模型；结果仍需手动检查确认。' : '尚未加载手机配置，请稍后重试。';
