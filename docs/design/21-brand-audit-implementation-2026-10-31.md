@@ -1,11 +1,11 @@
 # 品牌审计落地报告（2026-10-31）
 
 ## 1. 结论先行
-Today 已合并当日餐食与日常记录，嵌套边框已收敛；实机版本 `1.2.27 / 227`，评分、字段及历史含义未改。
+纸感已改为开放内容流、账本保留单层数据框格；实机版本 `1.2.30 / 230`，评分、字段及历史含义未改。
 
 ## 2. 改动表
 
-### 审查建议分档
+##
 | 报告建议 | 分档 | 理由 / 与原建议的差别 |
 |---|---|---|
 | P0：今日三样与今日训练建议在 Today 消失 | 拒绝 | 报告自己的 `03-today-second-paper.png` 可见「今日三样」，源码也保留两个模块；不重建已有入口。 |
@@ -21,8 +21,8 @@ Today 已合并当日餐食与日常记录，嵌套边框已收敛；实机版�
 | 组件 #2：餐食 / 训练行改为底线列表 | 采纳 | 训练行与餐食行只留单条底线，去掉继承的顶部重复线，末行不留分隔线。 |
 | 组件 #3：分段栏去账本闭合外框 | 采纳 | 删除账本专属外框覆盖，两种浅色皮肤共用现有底线式分段栏。 |
 | 样式 #1：折叠区及内部卡片去框 | 采纳 | `profile-more`、`panel-more` 和直接子卡片只保留章节分隔，不再卡中套卡。 |
-| 样式 #2：把纸底改为 `#f6f4ee` | 拒绝 | 基准截图皮肤标注错误，且该令牌作用于全站；缺少可靠 paper 前后基准，不改颜色。 |
-| 样式 #3：删除全部 ledger 结构覆盖 | 修正 | 删除重复边框和分段栏覆盖，但保留 ledger 记录表格的单元格布局，避免把两种皮肤强行做成同一排版。 |
+| 样式 #2：把纸底改为 `#f6f4ee` | 拒绝 | 不改全局底色令牌；纸感改用开放内容流与留白，不依赖扩大背景色差。 |
+| 样式 #3：删除全部 ledger 结构覆盖 | 修正 | 去掉重复覆盖，同时明确纸感开放、账本保留面板与表格框线；两种皮肤不强求同一边框结构。 |
 
 ### 文件改动
 | 文件 | 改动与理由 |
@@ -32,17 +32,20 @@ Today 已合并当日餐食与日常记录，嵌套边框已收敛；实机版�
 | `app/src/fragments/10-rich-answer.fragment.js` | Today 刷新时调用新时间线渲染器，移除旧餐食计数写入。 |
 | `app/src/fragments/70-rest.fragment.js` | 删除重复流水渲染器；将皮肤选择提前；版本由 dev-loop 同步。 |
 | `app/src/fragments/20-permissions-backup.fragment.js` | 「快速记录」改为能量卡标题栏次级动作，避免与主快捷入口竞争。 |
-| `app/src/main/assets/styles.css` | 复用现有 token；统一分隔线、去折叠内框、账本格内控件去框，并移除 Today 空态虚线内框。 |
+| `app/src/main/assets/styles.css` | 1.2.27 收敛折叠区与表格内框；1.2.28/29 让纸感卡片/导航成为开放直线分隔，账本保留单层面板与表格格线并去掉标题重复线；无新 token。 |
 | `app/src/main/assets/app.js` | 由 `assemble-app.ps1` 从 fragments 生成，未手改。 |
-| `build.ps1` | dev-loop 同步默认版本为 `1.2.27 / 227`；未改签名材料。 |
-| `tests/layout-four.test.mjs`、`tests/records-panels.test.mjs`、`tests/meal-date-java.test.mjs` | 锁定时间线、单分隔线、空态、分段栏、账本表单和版本行为。 |
-| `docs/design/03-global-changes.md` | §5.1 登记本轮断言调整原因。 |
-| `docs/design/RUNLOG-codex.md` | 追加 r37 实施与验收记录。 |
+| `build.ps1` | dev-loop 同步默认版本至 `1.2.30 / 230`；未改签名材料。 |
+| `tests/layout-four.test.mjs`、`tests/records-panels.test.mjs`、`tests/meal-date-java.test.mjs` | 锁定时间线、单分隔线、皮肤边框分工、表格控件和版本行为。 |
+| `docs/design/03-global-changes.md` | §5.1 登记边框结构断言及其设计取舍。 |
+| `docs/design/RUNLOG-codex.md` | 追加 r38 实施与验收记录。 |
 | 本报告 | 记录逐项分档、证据、不做项与回滚方式；`build/brand-audit-2026-10-31/` 未修改。 |
 
 假设：当天时间线只呈现餐食、训练、睡眠与体重；继续沿用现有 meal / habit / measurement 字段和当天筛选口径，不把饮水、步数或旧记录解释为新增事件。
 
 ## 3. 验收证据
+- 本轮三次命令：`powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\dev-loop.ps1 -Version '1.2.28' -VersionCode 228 -SkipBackup`、同命令使用 `1.2.29 / 229`、最终使用 `1.2.30 / 230`。三轮均 `56 run / 0 failed / 0 timeout`、打包和安装成功、smoke `js errors : none`；最终 APK `dist/qingheng-1.2.30.apk`，SHA-256 `89ABC1D9BDC19222AAB636FB5B31637E07E50944A8A94F94AFDA8C65D00B2529`。
+- 最终 `node tools/aesthetic-audit.mjs`：`OK（无阻塞项）`；发丝线、7 档字号、数字、焦点、动效和账本作用域 PASS；67 处 token 外色值、7 处 `.card` 阴影、11 处强调色为 WARN，未绕过。
+- 设备样张：纸感 `artifacts/border-after-paper-today.png`、`artifacts/border-after-paper-records.png`；账本 `artifacts/border-after-ledger-today.png`、`artifacts/border-after-ledger-records.png`；夜间 `artifacts/border-after-night-profile.png`。最终版本皮肤恢复 ledger，见 `artifacts/border-after-1.2.29-profile-ledger.png`。
 - 四个可编译单元的命令：
   ```powershell
   powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\dev-loop.ps1 -Version '1.2.24' -VersionCode 224 -SkipBackup
@@ -62,8 +65,8 @@ Today 已合并当日餐食与日常记录，嵌套边框已收敛；实机版�
 ## 5. 不做清单
 - 不重建已存在的「今日三样 / 今日训练建议」，也不把训练日志再次提前。
 - 不改今日体检评分、分值说明或指标点击语义；这些会改变评分口径或行为，需先由产品确认。
-- 不改 `--paper` 等全局颜色，不新增令牌；原审查截图的皮肤身份不可靠，现有 token 已能支撑一致的浅色 / 夜间样式。
-- 不删除所有 ledger 结构规则；保留其记录表格单元格布局，仅消除重复边框。
+- 不改 `--paper` 等全局颜色，不新增令牌；边框层级由结构和留白区分。
+- 不删账本表格格线或可操作控件边界；只移除卡片标题重复线与无意义的闭合外框。
 
 ## 6. 回滚
-源码提交：`4ce6bb6`。回滚命令：`git revert 4ce6bb6`。
+源码提交：`bb41ef2c56a7b2a7bb1b581969b43eb2818c0a30`。回滚命令：`git revert bb41ef2c56a7b2a7bb1b581969b43eb2818c0a30`。

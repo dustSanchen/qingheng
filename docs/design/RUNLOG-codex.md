@@ -133,3 +133,4 @@
 - 未改数据字段、历史含义、评分口径或颜色令牌；草稿虚线、输入边界、焦点和可操作控件边界保留。
 - 验收：三轮 `dev-loop.ps1` 均 56/56、APK 安装成功、smoke `js errors : none`；最终 `aesthetic-audit.mjs` 无阻塞，67 色值 / 7 卡片阴影 / 11 强调色警告保留。
 - 实机截图：纸感 `artifacts/border-after-paper-today.png`、`artifacts/border-after-paper-records.png`；账本 `artifacts/border-after-ledger-today.png`、`artifacts/border-after-ledger-records.png`；夜间 `artifacts/border-after-night-profile.png`。最终皮肤恢复 ledger。
+- 源码提交 `bb41ef2`；回滚：`git revert bb41ef2c56a7b2a7bb1b581969b43eb2818c0a30`。
