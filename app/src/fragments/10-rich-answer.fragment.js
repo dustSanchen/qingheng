@@ -345,9 +345,8 @@
     const box = $('#chat-question');
     if (box) {box.value = String(row.question || ''); box.focus();}
     window.scrollTo({top: 0, behavior: 'smooth'});
-    const consent = $('#chat-consent');
-    if (consent && !consent.hidden && consent.checked) {await sendChat();}
-    else notice('问题已填回输入框；勾选同意后点「提问」即可重新生成。');
+    if (typeof externalConsent === 'function' && externalConsent()) {await sendChat();}
+    else notice('问题已填回输入框；到「我的 → 数据、外观与说明」开启外部模型授权后点「提问」即可重新生成。');
   }
   let chatQuery = "";
   /** 按日期分组，组内保持倒序（最新在前）。 */
@@ -537,7 +536,7 @@
     if (button.disabled) return;
     if (chatImageBusy) {feedback(message,'照片还在压缩，请稍等一下。',true); return;}
     if (!question && !chatImage) {feedback(message,'请先写下你的问题，或拍一张照片。',true); $('#chat-question').focus(); return;}
-    if (!$('#chat-consent').hidden && !$('#chat-consent').checked) {feedback(message,'发送给外部模型前，请先勾选本次同意。',true); $('#chat-consent').focus(); return;}
+    if (!externalConsent()) {feedback(message,'请先到「我的 → 数据、外观与说明」开启外部模型授权。',true); return;}
     if (question.length > 2000) {feedback(message,'问题请控制在 2000 字以内。',true); return;}
     // A sentence describing finished training becomes a draft card; nothing is written until confirmed.
     if (typeof parseTrainingDraft === 'function') {
@@ -545,7 +544,7 @@
       if (draft) showTrainingDraft(draft); else renderTrainingDraft(null);
     }
     if (chatImage && (state.settings.apiConfigured !== true || state.settings.visionEnabled !== true || !state.settings.visionModel)) {feedback(message,'带照片提问需要已启用的视觉模型：DeepSeek 请使用 deepseek-flash，B.AI 请填写其支持图片的模型。',true); return;}
-    if ((chatImage || $('#chat-consent').checked) && !navigator.onLine) {feedback(message,'当前离线，带照片或外部提问不可用；可先记录数据，联网后再问。',true); return;}
+    if (!navigator.onLine) {feedback(message,'当前离线；可先记录数据，联网后再问。',true); return;}
     syncCalendarDay();
     const submittedImage = chatImage, submittedPhotoMeta = photoMeta(chatPhotoMeta), submittedDate = activeDate;
     button.disabled = true; feedback(message, submittedImage ? '正在上传照片并思考，请稍候…' : '正在思考，请稍候…');

@@ -262,7 +262,7 @@ check('photo entries follow the skin', cssText.includes('.photo-add:active{backg
 check('the weight calculator handles per-side input', appJs.includes('weight-per-side') && appJs.includes('weight-fill'));
 check('the credits block lists the channels', idxHtml.includes('id="credits"') && idxHtml.includes('space.bilibili.com/2100737396') && idxHtml.includes('space.bilibili.com/521903482') && idxHtml.includes('space.bilibili.com/2078781964'));
 check('training tabs disappear in the no-training mode', appJs.includes('[data-records-panel=\"training\"]') && appJs.includes('[data-trends-panel=\"training\"]'));
-check('the AI plan needs consent', appJs.includes('id="ai-plan-consent"') && appJs.includes('先勾选同意') === false ? true : appJs.includes('先勾选同意'));
+check('the AI plan uses the shared external consent', !appJs.includes('id="ai-plan-consent"') && appJs.includes('externalConsent()'));
 check('the AI plan parses JSON only', appJs.includes('reply.indexOf("[")') && appJs.includes('JSON.parse'));
 check('the AI plan stores per day', appJs.includes('qingheng.aiPlan.'));
 check('the term sheet exists', idxHtml.includes('id="term-sheet"') && appJs.includes('function openTerm'));

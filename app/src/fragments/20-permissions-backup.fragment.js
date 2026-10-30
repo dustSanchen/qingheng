@@ -176,9 +176,19 @@
     const root = $('#quick-record-dialog'), select = $('#quick-record-source'), feedback = $('#quick-record-feedback');
     // 同一天可能有多餐：先按日期倒序，再按进餐时间倒序，否则同日的先后取决于存储顺序。
     const mealOrder = (meal) => String(meal.date || '') + ' ' + String(meal.mealTime || '');
-    quickRecordSources = state.meals.slice()
-      .sort((a, b) => mealOrder(b).localeCompare(mealOrder(a)))
-      .slice(0, 12);
+    // 收藏的餐食优先出现在「复制哪一餐」里，再补最近 12 餐；同一条只出现一次。
+    const favorites = state.meals.filter(meal => meal && meal.favorite === true)
+      .sort((a, b) => mealOrder(b).localeCompare(mealOrder(a)));
+    const recent = state.meals.slice().sort((a, b) => mealOrder(b).localeCompare(mealOrder(a))).slice(0, 12);
+    const merged = [], seen = new Set();
+    for (const meal of [...favorites, ...recent]) {
+      const key = meal.id ?? `${meal.date}|${meal.mealTime}|${meal.name}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(meal);
+      if (merged.length >= 12) break;
+    }
+    quickRecordSources = merged;
     const quickTypeLabel = {breakfast: '早餐', lunch: '午餐', dinner: '晚餐', snack: '加餐'};
     const quickShortName = (meal) => {
       const raw = String(meal.name || '未命名餐食').replace(/\s+/g, ' ').trim();
@@ -190,7 +200,7 @@
       ? quickRecordSources.map((meal, index) => {
         const kcal = Math.round(Number(meal.calories ?? meal.totals?.calories ?? 0)) || 0;
         return `<button type="button" class="quick-source-item${index === 0 ? ' is-selected' : ''}" data-index="${index}" role="radio" aria-checked="${index === 0}">`
-          + `<span class="quick-source-meta">${esc(meal.date || '')} ${esc(quickTypeLabel[meal.mealType] || '')}</span>`
+          + `<span class="quick-source-meta">${esc(meal.date || '')} ${esc(quickTypeLabel[meal.mealType] || '')}${meal.favorite === true ? ' · 收藏' : ''}</span>`
           + `<span class="quick-source-name">${esc(quickShortName(meal))}</span>`
           + (kcal ? `<span class="quick-source-kcal">${kcal} kcal</span>` : '')
           + '</button>';

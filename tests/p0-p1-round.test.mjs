@@ -43,6 +43,10 @@ check('the plan checklist rows stay horizontal', css.includes('.adv-plan-item{di
 check('insights render as labelled rows', app.includes('adv-insight-tag') && app.includes('adv-insight'));
 check('the last-advice row only reads training advice', app.includes('qingheng.lastTrainingAdvice') && app.includes('function saveLastTrainingAdvice'));
 check('opening it stays in the card instead of jumping to chat', !/last-chat-open[\s\S]{0,240}switchTab\('chat'\)/.test(app));
+check('external consent is one switch in settings', app.includes("EXTERNAL_CONSENT_KEY = 'qingheng.consent.external'") && html.includes('id="settings-consent"'));
+check('the per-box consent rows are gone', !html.includes('training-advice-consent') && !html.includes('id="advice-ai"') && !html.includes('id="ai-plan-consent"') && !html.includes('id="chat-consent"') && !html.includes('id="estimate-consent"'));
+check('the data previews are hidden', html.includes('id="chat-data-preview-panel" hidden') && html.includes('id="advice-data-preview-panel" hidden'));
+check('quick record lists favourites first', app.includes('收藏的餐食优先出现在'));
 
 console.log('\nFAIL total: ' + fail);
 process.exitCode = fail ? 1 : 0;

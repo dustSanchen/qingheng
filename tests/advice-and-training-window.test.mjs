@@ -27,8 +27,8 @@ check('an empty day is explained', rest.includes('今天还没有生成建议'))
 // --- the training window ---------------------------------------------------------------------------
 check('the training window exists on the today page', html.includes('id="training-advice"') && html.includes('id="training-advice-form"'));
 check('it has three presets', rest.includes("'今天练什么最划算？'") && rest.includes("'只有 40 分钟，怎么排？'") && rest.includes("'昨晚没睡好，今天强度怎么调？'"));
-check('it requires its own consent', html.includes('id="training-advice-consent"') && rest.includes("请先勾选同意，训练建议需要发送给外部模型。"));
-check('the consent choice is remembered', rest.includes('localStorage.setItem(TRAINING_CONSENT_KEY'));
+check('it uses the shared external consent', !html.includes('training-advice-consent') && rest.includes('externalConsent()'));
+check('the consent choice lives in settings', html.includes('id="settings-consent"') && html.includes('id="ob-allow"'));
 check('it asks the chat route for training focus', rest.includes("focus: 'training'"));
 check('the answer renders as rich text', rest.includes('answerBox.innerHTML = answerHtml(reply)'));
 check('the native side narrows the prompt for training', main.includes('"training".equals(b.optString("focus", ""))') && main.includes('本次只回答训练安排'));

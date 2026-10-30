@@ -22,7 +22,7 @@ check('the buffered path saves citations', adapter.includes('sources:reply?.sour
 check('rows render citations', app.includes('function citationBlock(row)') && app.includes('来源 ${sources.length} 条'));
 check('rows offer regenerate and unhelpful', app.includes('data-chat-again') && app.includes('data-chat-unhelpful'));
 check('regenerate refills the question', app.includes('async function regenerateChat(id)') && app.includes("box.value = String(row.question || '')"));
-check('regenerate respects consent', app.includes("if (consent && !consent.hidden && consent.checked) {await sendChat();}"));
+check('regenerate respects the shared consent', app.includes("typeof externalConsent === 'function' && externalConsent()"));
 check('unhelpful state is remembered', app.includes('localStorage.setItem(CHAT_UNHELPFUL_KEY'));
 
 // --- P1-6 lean phase ---------------------------------------------------------------------------------

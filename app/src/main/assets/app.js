@@ -548,13 +548,50 @@
   function populate(form, values) {for (const [key, value] of Object.entries(values || {})) {const control = form.elements.namedItem(key); if (!control || control.type === 'password' || control.type === 'checkbox') continue; control.value = value ?? '';}}
   let selectedProvider = 'deepseek';
   const consentStorageKey = 'qingheng.consent.onetime';
-  const consentIds = new Set(['advice','estimate','chat','ob-allow']);
+  const consentIds = new Set(['advice','estimate','chat']);
   function readConsent(){try{return new Set(JSON.parse(localStorage.getItem(consentStorageKey)||'[]').filter(x=>consentIds.has(x)));}catch{return new Set();}}
   function persistConsent(ids){try{localStorage.setItem(consentStorageKey,JSON.stringify([...ids]));}catch{}}
   // Consent rows stay visible: a remembered consent shows as a ticked box and unticking revokes it.
   const consentBox=id=>document.getElementById(id==='ob-allow'?'ob-allow':id+'-consent');
   function restoreConsent(){const ids=readConsent();for(const id of consentIds){const box=consentBox(id);if(!box)continue;box.checked=ids.has(id);const row=box.closest('[data-consent-once]');if(row)row.hidden=false;box.addEventListener('change',()=>{const next=readConsent();if(box.checked)next.add(id);else next.delete(id);persistConsent(next);});}}
-  function acceptConsent(id){const ids=readConsent();ids.add(id);persistConsent(ids);const box=consentBox(id);if(box)box.checked=true;}
+  function acceptConsent(id){const ids=readConsent();ids.add(id);persistConsent(ids);const box=consentBox(id);if(box)box.checked=true;setExternalConsent(true);}
+  // 外发授权只问一次：向导里勾过，之后开关在「我的 → 数据、外观与说明」。
+  const EXTERNAL_CONSENT_KEY = 'qingheng.consent.external';
+  function externalConsent() {
+    try {
+      const saved = localStorage.getItem(EXTERNAL_CONSENT_KEY);
+      if (saved === '1') return true;
+      if (saved === '0') return false;
+      // 旧版本把同意拆成几处，迁移时任何一处勾过都视为已同意。
+      let legacy = [];
+      try { legacy = JSON.parse(localStorage.getItem(consentStorageKey) || '[]'); } catch { legacy = []; }
+      if (['advice','estimate','chat','ob-allow'].some(id => Array.isArray(legacy) && legacy.includes(id))) return true;
+      try { if (localStorage.getItem(TRAINING_CONSENT_KEY) === '1') return true; } catch {}
+      const legacyBox = document.getElementById('ob-allow');
+      if (legacyBox && legacyBox.checked) return true;
+    } catch {}
+    return false;
+  }
+  function setExternalConsent(on) {
+    try { localStorage.setItem(EXTERNAL_CONSENT_KEY, on ? '1' : '0'); } catch {}
+    syncExternalConsentBoxes();
+  }
+  function syncExternalConsentBoxes() {
+    const on = externalConsent();
+    for (const id of ['settings-consent','ob-allow']) {
+      const box = document.getElementById(id);
+      if (box) box.checked = on;
+    }
+  }
+  function installExternalConsent() {
+    for (const id of ['settings-consent','ob-allow']) {
+      const box = document.getElementById(id);
+      if (!box || box.dataset.externalWired) continue;
+      box.dataset.externalWired = '1';
+      box.addEventListener('change', () => setExternalConsent(box.checked));
+    }
+    syncExternalConsentBoxes();
+  }
   const providerDrafts = {};
   function captureProvider() {
     const form=$('#settings-form');
@@ -1469,9 +1506,8 @@ function intakeRangeForDate(date = activeDate) {
     const box = $('#chat-question');
     if (box) {box.value = String(row.question || ''); box.focus();}
     window.scrollTo({top: 0, behavior: 'smooth'});
-    const consent = $('#chat-consent');
-    if (consent && !consent.hidden && consent.checked) {await sendChat();}
-    else notice('问题已填回输入框；勾选同意后点「提问」即可重新生成。');
+    if (typeof externalConsent === 'function' && externalConsent()) {await sendChat();}
+    else notice('问题已填回输入框；到「我的 → 数据、外观与说明」开启外部模型授权后点「提问」即可重新生成。');
   }
   let chatQuery = "";
   /** 按日期分组，组内保持倒序（最新在前）。 */
@@ -1661,7 +1697,7 @@ function intakeRangeForDate(date = activeDate) {
     if (button.disabled) return;
     if (chatImageBusy) {feedback(message,'照片还在压缩，请稍等一下。',true); return;}
     if (!question && !chatImage) {feedback(message,'请先写下你的问题，或拍一张照片。',true); $('#chat-question').focus(); return;}
-    if (!$('#chat-consent').hidden && !$('#chat-consent').checked) {feedback(message,'发送给外部模型前，请先勾选本次同意。',true); $('#chat-consent').focus(); return;}
+    if (!externalConsent()) {feedback(message,'请先到「我的 → 数据、外观与说明」开启外部模型授权。',true); return;}
     if (question.length > 2000) {feedback(message,'问题请控制在 2000 字以内。',true); return;}
     // A sentence describing finished training becomes a draft card; nothing is written until confirmed.
     if (typeof parseTrainingDraft === 'function') {
@@ -1669,7 +1705,7 @@ function intakeRangeForDate(date = activeDate) {
       if (draft) showTrainingDraft(draft); else renderTrainingDraft(null);
     }
     if (chatImage && (state.settings.apiConfigured !== true || state.settings.visionEnabled !== true || !state.settings.visionModel)) {feedback(message,'带照片提问需要已启用的视觉模型：DeepSeek 请使用 deepseek-flash，B.AI 请填写其支持图片的模型。',true); return;}
-    if ((chatImage || $('#chat-consent').checked) && !navigator.onLine) {feedback(message,'当前离线，带照片或外部提问不可用；可先记录数据，联网后再问。',true); return;}
+    if (!navigator.onLine) {feedback(message,'当前离线；可先记录数据，联网后再问。',true); return;}
     syncCalendarDay();
     const submittedImage = chatImage, submittedPhotoMeta = photoMeta(chatPhotoMeta), submittedDate = activeDate;
     button.disabled = true; feedback(message, submittedImage ? '正在上传照片并思考，请稍候…' : '正在思考，请稍候…');
@@ -1908,9 +1944,19 @@ function intakeRangeForDate(date = activeDate) {
     const root = $('#quick-record-dialog'), select = $('#quick-record-source'), feedback = $('#quick-record-feedback');
     // 同一天可能有多餐：先按日期倒序，再按进餐时间倒序，否则同日的先后取决于存储顺序。
     const mealOrder = (meal) => String(meal.date || '') + ' ' + String(meal.mealTime || '');
-    quickRecordSources = state.meals.slice()
-      .sort((a, b) => mealOrder(b).localeCompare(mealOrder(a)))
-      .slice(0, 12);
+    // 收藏的餐食优先出现在「复制哪一餐」里，再补最近 12 餐；同一条只出现一次。
+    const favorites = state.meals.filter(meal => meal && meal.favorite === true)
+      .sort((a, b) => mealOrder(b).localeCompare(mealOrder(a)));
+    const recent = state.meals.slice().sort((a, b) => mealOrder(b).localeCompare(mealOrder(a))).slice(0, 12);
+    const merged = [], seen = new Set();
+    for (const meal of [...favorites, ...recent]) {
+      const key = meal.id ?? `${meal.date}|${meal.mealTime}|${meal.name}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(meal);
+      if (merged.length >= 12) break;
+    }
+    quickRecordSources = merged;
     const quickTypeLabel = {breakfast: '早餐', lunch: '午餐', dinner: '晚餐', snack: '加餐'};
     const quickShortName = (meal) => {
       const raw = String(meal.name || '未命名餐食').replace(/\s+/g, ' ').trim();
@@ -1922,7 +1968,7 @@ function intakeRangeForDate(date = activeDate) {
       ? quickRecordSources.map((meal, index) => {
         const kcal = Math.round(Number(meal.calories ?? meal.totals?.calories ?? 0)) || 0;
         return `<button type="button" class="quick-source-item${index === 0 ? ' is-selected' : ''}" data-index="${index}" role="radio" aria-checked="${index === 0}">`
-          + `<span class="quick-source-meta">${esc(meal.date || '')} ${esc(quickTypeLabel[meal.mealType] || '')}</span>`
+          + `<span class="quick-source-meta">${esc(meal.date || '')} ${esc(quickTypeLabel[meal.mealType] || '')}${meal.favorite === true ? ' · 收藏' : ''}</span>`
           + `<span class="quick-source-name">${esc(quickShortName(meal))}</span>`
           + (kcal ? `<span class="quick-source-kcal">${kcal} kcal</span>` : '')
           + '</button>';
@@ -3926,15 +3972,8 @@ const values = points.length<=7 ? points.map((item,i) => {
         if (jump) {
           // 「用 AI 排今天」就地排：跳页再让用户点第二次，是最伤直觉的一步。
           if (jump.dataset.todayPlan === "ai" && typeof askAiPlan === "function") {
-            const agreed = (() => { try { return localStorage.getItem(TRAINING_CONSENT_KEY) === "1"; } catch { return false; } })();
-            if (agreed) { askAiPlan(jump); return; }
-            askConfirm("会把你今天的训练记录、目标与偏好发送给已配置的模型来排顺序，同意吗？",
-              {title: "用 AI 排今天", ok: "同意并排", cancel: "先不排"}).then(go => {
-              if (!go) return;
-              try { localStorage.setItem(TRAINING_CONSENT_KEY, "1"); } catch {}
-              if (typeof schedulePrefsSync === "function") schedulePrefsSync({trainingConsent: true});
-              askAiPlan(jump);
-            });
+            if (!externalConsent()) { notice("请先到「我的 → 数据、外观与说明」开启外部模型授权。"); return; }
+            askAiPlan(jump);
             return;
           }
           // 本周安排长在「训练」分段里：先切分段，再等卡片真的渲染出来再滚。
@@ -4267,12 +4306,9 @@ const values = points.length<=7 ? points.map((item,i) => {
     const button=$('#refresh-advice'), container=$('#advice-content');
     button.disabled=true; container.textContent='正在整理已记录数据…'; container.removeAttribute('data-date');
     syncCalendarDay();
-    const date=activeDate,useAI=$('#advice-ai').checked;
-    // 授权合并后只有一个可见开关：勾了它就是同意发送，这里把状态位同步过去。
-    {const consentBox=$('#advice-consent'); if(consentBox) consentBox.checked=useAI;}
-    if(useAI && !$('#advice-consent').checked){container.textContent='AI 建议需要先勾选本次外发同意。';button.disabled=false;return;}
+    const date=activeDate,useAI=externalConsent();
     try {const data=await api('/api/advice',{date,...(useAI?{useAI:true,allowExternal:true}:{})}); if(date!==activeDate) return; if(!Array.isArray(data?.messages)) throw new Error('建议数据格式不正确。'); renderAdvice(data.messages,date);}
-    catch(error) {container.textContent=error.message;} finally {button.disabled=false;if(useAI)acceptConsent('advice');}
+    catch(error) {container.textContent=error.message;} finally {button.disabled=false;}
   }
   function clearImage() {lastCaptureId='';mealPhotoMeta=photoMeta(null);imageVersion++;imageData=null;imageBusy=false;$('#meal-image').value='';$('#meal-gallery').value='';$('#image-preview').hidden=true;$('#meal-image-preview').removeAttribute('src');}
   async function compressImage(file) {
@@ -4548,7 +4584,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.2.19';
+  const APP_VERSION = '1.2.20';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -4892,10 +4928,7 @@ function metricIcon(label) {
       : "");
   }
   async function askAiPlan(button) {
-    const consent = $("#ai-plan-consent");
-    // 训练域同意只问一次：今日页一点就排，不必先跑去记录页勾选。
-    const agreedOnce = (() => { try { return localStorage.getItem(TRAINING_CONSENT_KEY) === "1"; } catch { return false; } })();
-    if (!(consent && consent.checked) && !agreedOnce) { notice("先勾选同意，才会把今天的数据发给模型。"); return; }
+    if (!externalConsent()) { notice("请先到「我的 → 数据、外观与说明」开启外部模型授权。"); return; }
     const prefs = typeof planPrefs === "function" ? planPrefs() : null;
     const profile = state.profile || {};
     const done = exercisesFor(activeDate).filter(item => item && item.name).map(item => item.name + " " + (item.sets || "") + "x" + (item.reps || ""));
@@ -4957,18 +4990,6 @@ function metricIcon(label) {
     if (!ask || ask.dataset.wired) return;
     ask.dataset.wired = "1";
     ask.addEventListener("click", () => askAiPlan(ask));
-    // 训练域的外发同意只记一次：训练建议与 AI 排课共用同一个开关（TRAINING_CONSENT_KEY），
-    // 在这里同意过，训练建议那边不用再勾；反之亦然。
-    const planConsent = $("#ai-plan-consent");
-    if (planConsent && !planConsent.dataset.consentWired) {
-      planConsent.dataset.consentWired = "1";
-      try { if (localStorage.getItem(TRAINING_CONSENT_KEY) === "1") planConsent.checked = true; } catch {}
-      planConsent.addEventListener("change", () => {
-        if (!planConsent.checked) return;
-        try { localStorage.setItem(TRAINING_CONSENT_KEY, "1"); } catch {}
-        if (typeof schedulePrefsSync === "function") schedulePrefsSync({trainingConsent: true});
-      });
-    }
     if (clear) clear.addEventListener("click", () => { aiPlanStore(activeDate, []); renderAiPlan(); });
     const edit = $("#ai-plan-edit");
     if (list && !list.dataset.aiRemoveWired) {
@@ -5792,7 +5813,7 @@ function metricIcon(label) {
     if(imageBusy){feedback(message,'图片仍在压缩，请稍等。',true);return;}
     if(!loaded || !settingsKnown){feedback(message,'尚未加载手机模型配置，请重新打开应用后再估算。',true);return;}
     if(imageData && (!state.settings.apiConfigured || !state.settings.visionEnabled || !state.settings.visionModel)){feedback(message,'照片需要已启用的视觉模型：请到「我的 → 模型连接」为所选服务商填写并启用支持图片的模型。',true);return;}
-    if(imageData && !$('#estimate-consent').hidden && !$('#estimate-consent').checked){feedback(message,'照片外部估算前，请先勾选本次数据发送同意。',true);$('#estimate-consent').focus();return;}
+    if(imageData && !externalConsent()){feedback(message,'照片估算需要外部模型：请到「我的 → 数据、外观与说明」开启授权。',true);return;}
     if(imageData && !navigator.onLine){feedback(message,'当前离线，照片无法识别；请移除照片并用明确克重文字做本地估算。',true);return;}
     const text=form.elements.text.value.trim();if(!text && !imageData){feedback(message,'请描述餐食或添加一张图片。',true);return;}
     if(draft && !await askConfirm('新估算会替换当前未保存的预览，继续吗？', {title:'替换预览'}))return;
@@ -5800,8 +5821,8 @@ function metricIcon(label) {
       text, photo:photoMeta(imageData?mealPhotoMeta:null)};
     estimateBusy=true;button.disabled=true;feedback(message,'正在生成预览，不会自动保存…');
 if (typeof showBusy === 'function') showBusy('正在计算热量…', 'estimate-busy');
-    try {const data=await api('/api/estimate',{text,allowExternal:$('#estimate-consent').checked && navigator.onLine,anchors:anchorSummary(),...(imageData?{image:imageData}:{})});previewDraft(data,submittedForm);feedback(message,'估算完成。请在下方修改并确认，才会保存。');}
-    catch(error){feedback(message,error.message,true);}finally{estimateBusy=false;button.disabled=false;if(typeof hideBusy==='function')hideBusy();if($('#estimate-consent').checked)acceptConsent('estimate');}
+    try {const data=await api('/api/estimate',{text,allowExternal:externalConsent() && navigator.onLine,anchors:anchorSummary(),...(imageData?{image:imageData}:{})});previewDraft(data,submittedForm);feedback(message,'估算完成。请在下方修改并确认，才会保存。');}
+    catch(error){feedback(message,error.message,true);}finally{estimateBusy=false;button.disabled=false;if(typeof hideBusy==='function')hideBusy();}
   });
   $('#estimate-items').addEventListener('input',event=>{
     const input=event.target.closest('[data-item-field]');if(!input)return;
@@ -5952,10 +5973,10 @@ feedback(message,'数据已导入。'+report);
       `<div class="adv-insight"><span class="adv-insight-tag">${esc(item.tag)}</span><p>${esc(item.text)}</p></div>`
     ).join('');
   }
-  /** The 今天-page window: training questions only, with its own consent gate. */
+  /** The 今天-page window: training questions only; external sending uses the one-time consent. */
   let lastTrainingReply = "";
   function installTrainingAdvice() {
-    const form = $('#training-advice-form'), input = $('#training-advice-input'), consent = $('#training-advice-consent');
+    const form = $('#training-advice-form'), input = $('#training-advice-input');
     const answerBox = $('#training-advice-answer'), feedbackBox = $('#training-advice-feedback'), chips = $('#training-advice-chips');
     if (!form || !input) return;
     const presets = ['今天练什么最划算？', '只有 40 分钟，怎么排？', '昨晚没睡好，今天强度怎么调？'];
@@ -5966,16 +5987,11 @@ feedback(message,'数据已导入。'+report);
       input.value = presets[Number(button.dataset.trainingPreset)] || '';
       input.focus();
     });
-    if (consent) {try {consent.checked = localStorage.getItem(TRAINING_CONSENT_KEY) === '1';} catch {}}
     form.addEventListener('submit', async event => {
       event.preventDefault();
       const question = input.value.trim();
       if (!question) {feedback(feedbackBox, '先写一句要问的训练问题。', true); return;}
-      if (consent && !consent.checked) {feedback(feedbackBox, '请先勾选同意，训练建议需要发送给外部模型。', true); return;}
-      if (consent) {
-        try {localStorage.setItem(TRAINING_CONSENT_KEY, '1');} catch {}
-        if (typeof schedulePrefsSync === 'function') schedulePrefsSync({trainingConsent: true});
-      }
+      if (!externalConsent()) {feedback(feedbackBox, '请先到「我的 → 数据、外观与说明」开启外部模型授权。', true); return;}
       feedback(feedbackBox, '正在生成…');
       const button = form.querySelector('button[type="submit"]');
       if (button) button.disabled = true;
@@ -6215,7 +6231,7 @@ feedback(message,'数据已导入。'+report);
   installProfileAutoRecalc();
   applyTrainingVisibility();
   installCardCollapse(); installTrainingAdvice(); installHabitChips(); installChatChips();
-  setupCollapsibleSections(); installQuickRecordControls(); installHealthConnectControls(); searchFoods(); restoreConsent(); installExactAlarmControl();
+  setupCollapsibleSections(); installQuickRecordControls(); installHealthConnectControls(); searchFoods(); restoreConsent(); installExternalConsent(); installExactAlarmControl();
 /* Fragment of assets/app.js -- assembled by tools/assemble-app.ps1 in filename order.
  * Edit this file, never the generated assets/app.js; tests/app-fragments.test.mjs fails on drift. */
   installSkinPicker();

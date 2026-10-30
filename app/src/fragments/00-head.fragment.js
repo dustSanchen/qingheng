@@ -548,13 +548,50 @@
   function populate(form, values) {for (const [key, value] of Object.entries(values || {})) {const control = form.elements.namedItem(key); if (!control || control.type === 'password' || control.type === 'checkbox') continue; control.value = value ?? '';}}
   let selectedProvider = 'deepseek';
   const consentStorageKey = 'qingheng.consent.onetime';
-  const consentIds = new Set(['advice','estimate','chat','ob-allow']);
+  const consentIds = new Set(['advice','estimate','chat']);
   function readConsent(){try{return new Set(JSON.parse(localStorage.getItem(consentStorageKey)||'[]').filter(x=>consentIds.has(x)));}catch{return new Set();}}
   function persistConsent(ids){try{localStorage.setItem(consentStorageKey,JSON.stringify([...ids]));}catch{}}
   // Consent rows stay visible: a remembered consent shows as a ticked box and unticking revokes it.
   const consentBox=id=>document.getElementById(id==='ob-allow'?'ob-allow':id+'-consent');
   function restoreConsent(){const ids=readConsent();for(const id of consentIds){const box=consentBox(id);if(!box)continue;box.checked=ids.has(id);const row=box.closest('[data-consent-once]');if(row)row.hidden=false;box.addEventListener('change',()=>{const next=readConsent();if(box.checked)next.add(id);else next.delete(id);persistConsent(next);});}}
-  function acceptConsent(id){const ids=readConsent();ids.add(id);persistConsent(ids);const box=consentBox(id);if(box)box.checked=true;}
+  function acceptConsent(id){const ids=readConsent();ids.add(id);persistConsent(ids);const box=consentBox(id);if(box)box.checked=true;setExternalConsent(true);}
+  // 外发授权只问一次：向导里勾过，之后开关在「我的 → 数据、外观与说明」。
+  const EXTERNAL_CONSENT_KEY = 'qingheng.consent.external';
+  function externalConsent() {
+    try {
+      const saved = localStorage.getItem(EXTERNAL_CONSENT_KEY);
+      if (saved === '1') return true;
+      if (saved === '0') return false;
+      // 旧版本把同意拆成几处，迁移时任何一处勾过都视为已同意。
+      let legacy = [];
+      try { legacy = JSON.parse(localStorage.getItem(consentStorageKey) || '[]'); } catch { legacy = []; }
+      if (['advice','estimate','chat','ob-allow'].some(id => Array.isArray(legacy) && legacy.includes(id))) return true;
+      try { if (localStorage.getItem(TRAINING_CONSENT_KEY) === '1') return true; } catch {}
+      const legacyBox = document.getElementById('ob-allow');
+      if (legacyBox && legacyBox.checked) return true;
+    } catch {}
+    return false;
+  }
+  function setExternalConsent(on) {
+    try { localStorage.setItem(EXTERNAL_CONSENT_KEY, on ? '1' : '0'); } catch {}
+    syncExternalConsentBoxes();
+  }
+  function syncExternalConsentBoxes() {
+    const on = externalConsent();
+    for (const id of ['settings-consent','ob-allow']) {
+      const box = document.getElementById(id);
+      if (box) box.checked = on;
+    }
+  }
+  function installExternalConsent() {
+    for (const id of ['settings-consent','ob-allow']) {
+      const box = document.getElementById(id);
+      if (!box || box.dataset.externalWired) continue;
+      box.dataset.externalWired = '1';
+      box.addEventListener('change', () => setExternalConsent(box.checked));
+    }
+    syncExternalConsentBoxes();
+  }
   const providerDrafts = {};
   function captureProvider() {
     const form=$('#settings-form');

@@ -657,15 +657,8 @@
         if (jump) {
           // 「用 AI 排今天」就地排：跳页再让用户点第二次，是最伤直觉的一步。
           if (jump.dataset.todayPlan === "ai" && typeof askAiPlan === "function") {
-            const agreed = (() => { try { return localStorage.getItem(TRAINING_CONSENT_KEY) === "1"; } catch { return false; } })();
-            if (agreed) { askAiPlan(jump); return; }
-            askConfirm("会把你今天的训练记录、目标与偏好发送给已配置的模型来排顺序，同意吗？",
-              {title: "用 AI 排今天", ok: "同意并排", cancel: "先不排"}).then(go => {
-              if (!go) return;
-              try { localStorage.setItem(TRAINING_CONSENT_KEY, "1"); } catch {}
-              if (typeof schedulePrefsSync === "function") schedulePrefsSync({trainingConsent: true});
-              askAiPlan(jump);
-            });
+            if (!externalConsent()) { notice("请先到「我的 → 数据、外观与说明」开启外部模型授权。"); return; }
+            askAiPlan(jump);
             return;
           }
           // 本周安排长在「训练」分段里：先切分段，再等卡片真的渲染出来再滚。
@@ -998,12 +991,9 @@
     const button=$('#refresh-advice'), container=$('#advice-content');
     button.disabled=true; container.textContent='正在整理已记录数据…'; container.removeAttribute('data-date');
     syncCalendarDay();
-    const date=activeDate,useAI=$('#advice-ai').checked;
-    // 授权合并后只有一个可见开关：勾了它就是同意发送，这里把状态位同步过去。
-    {const consentBox=$('#advice-consent'); if(consentBox) consentBox.checked=useAI;}
-    if(useAI && !$('#advice-consent').checked){container.textContent='AI 建议需要先勾选本次外发同意。';button.disabled=false;return;}
+    const date=activeDate,useAI=externalConsent();
     try {const data=await api('/api/advice',{date,...(useAI?{useAI:true,allowExternal:true}:{})}); if(date!==activeDate) return; if(!Array.isArray(data?.messages)) throw new Error('建议数据格式不正确。'); renderAdvice(data.messages,date);}
-    catch(error) {container.textContent=error.message;} finally {button.disabled=false;if(useAI)acceptConsent('advice');}
+    catch(error) {container.textContent=error.message;} finally {button.disabled=false;}
   }
   function clearImage() {lastCaptureId='';mealPhotoMeta=photoMeta(null);imageVersion++;imageData=null;imageBusy=false;$('#meal-image').value='';$('#meal-gallery').value='';$('#image-preview').hidden=true;$('#meal-image-preview').removeAttribute('src');}
   async function compressImage(file) {
