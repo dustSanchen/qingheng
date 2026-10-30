@@ -1112,9 +1112,12 @@ function intakeRangeForDate(date = activeDate) {
   function effectiveProfileForDate(date = activeDate) {
     const profile = {...(state?.profile || {})}, adjustment = targetAdjustmentForDate(date);
     const range = intakeRangeForDate(date);
-    // The stored ceiling only wins when the 口径 has nothing to say (older data without rules).
-    const hasRules = number(state?.profile?.trainingDayMax) !== null || number(state?.profile?.restDayMax) !== null;
-    if (hasRules) profile.calorieTarget = range.max;
+    // 区间与当日上限都以目标预设算出的结果为准，手填字段不再参与。
+    profile.calorieTarget = range.max;
+    profile.trainingDayMin = range.trainingDay.min;
+    profile.trainingDayMax = range.trainingDay.max;
+    profile.restDayMin = range.restDay.min;
+    profile.restDayMax = range.restDay.max;
     if (adjustment) Object.assign(profile, adjustment.temporary);
     profile.intakeRange = {min: range.min, max: range.max, basis: range.basis};
     return profile;

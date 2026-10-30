@@ -31,8 +31,18 @@
       training: plannedSessions()
     };
   }
+  function paintGoalHints() {
+    const form = $('#profile-form');
+    const goal = form ? form.elements.goal.value : '';
+    const profileHint = $('#profile-goal-hint');
+    if (profileHint) profileHint.textContent = GOAL_HINTS[goal] || '选择一个饮食目标后，这里会说明热量与蛋白口径。';
+    const checked = document.querySelector('#ob-goals input[name=goal]:checked');
+    const obHint = $('#ob-goal-hint');
+    if (obHint) obHint.textContent = checked ? (GOAL_HINTS[checked.value] || '') : '五个目标的缺口、蛋白带与节奏都不一样；选一个再测算。';
+  }
   function obSyncTargets() {
     const values = obValues();
+    paintGoalHints();
     const node = $('#ob-result');
     // 不预选目标：没有明确选择前，这里只提示，不偷偷按某个默认目标测算。
     if (!document.querySelector('#ob-goals input[name=goal]:checked')) {
@@ -130,6 +140,7 @@
   }
   function renderTargetStatus() {
     const node = $('#profile-target-status');
+    paintGoalHints();
     const p = state.profile || {};
     if (number(p.calorieTarget) === null) {
       node.className = 'target-status empty';
@@ -139,15 +150,16 @@
     node.className = 'target-status';
     const goal = GOAL_LABEL[p.goal] || '未设置目标';
     const temporary = targetAdjustmentForDate(localDate());
-    const rules = targetRules(p);
+    // 展示与「今天」页同一套计算：目标预设算出的训练日/休息日区间，不再读手填字段。
+    const range = intakeRangeForDate(localDate());
     const missing = [];
     if (number(p.age) === null) missing.push('年龄');
     if (plannedSessions() === null) missing.push('训练计划');
     const trainingToday = (state.habits || []).some(row => row.date === localDate() && (row.training === true || row.training === 'true'));
     node.textContent = [
       `当前目标：${goal}`,
-      `维持热量 ${number(p.referenceCalories) !== null ? fmt(p.referenceCalories, 0) + ' kcal' : '未测算'} · 训练日 ${fmt(rules.trainingDayMin, 0)}~${fmt(rules.trainingDayMax, 0)} kcal · 休息日 ${fmt(rules.restDayMin, 0)}~${fmt(rules.restDayMax, 0)} kcal`,
-      `今日按${trainingToday ? '训练日' : '休息日'}：${trainingToday ? fmt(rules.trainingDayMin, 0) + '~' + fmt(rules.trainingDayMax, 0) : fmt(rules.restDayMin, 0) + '~' + fmt(rules.restDayMax, 0)} kcal（在记录页把当天标为「已训练」后自动切换）`,
+      `维持热量 ${number(p.referenceCalories) !== null ? fmt(p.referenceCalories, 0) + ' kcal' : '未测算'} · 训练日 ${fmt(range.trainingDay.min, 0)}~${fmt(range.trainingDay.max, 0)} kcal · 休息日 ${fmt(range.restDay.min, 0)}~${fmt(range.restDay.max, 0)} kcal`,
+      `今日按${trainingToday ? '训练日' : '休息日'}：${trainingToday ? fmt(range.trainingDay.min, 0) + '~' + fmt(range.trainingDay.max, 0) : fmt(range.restDay.min, 0) + '~' + fmt(range.restDay.max, 0)} kcal（在记录页把当天标为「已训练」后自动切换）`,
       `蛋白质 ${fmt(p.proteinMin, 0)}~${fmt(p.proteinMax, 0)} g · 脂肪 ${fmt(p.fatMin, 0)}~${fmt(p.fatMax, 0)} g`,
       ...(missing.length ? [`⚠ 还缺 ${missing.join('、')}：训练计划为空时按久坐估算，到「记录→训练计划」保存后点「按目标重新测算」。`] : []),
       ...(temporary ? [`今日临时目标：热量 ${fmt(temporary.temporary.calorieTarget, 0)} kcal · 脂肪上限 ${fmt(temporary.temporary.fatMax, 0)} g；原目标不变，明日结束后恢复。`] : []),
@@ -157,6 +169,7 @@
   $('#profile-goal').addEventListener('change', () => {
     const form = $('#profile-form');
     form.elements.weight.value = form.elements.weight.value || latestWeight() || '';
+    paintGoalHints();
     recalcProfileTargets();
   });
   $('#recalc-target').addEventListener('click', async event => {

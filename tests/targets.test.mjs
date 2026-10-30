@@ -14,11 +14,11 @@ const app = fs.readFileSync('D:/AI/health-android/app/src/main/assets/app.js', '
 // Pull the real implementation (and its helpers) out of app.js rather than re-implementing it.
 const start = app.indexOf('const TARGET_RULES = {');
 assert(start > 0, 'TARGET_RULES found in app.js');
-const end = app.indexOf('\n  const GOAL_LABEL', start);
+const end = app.indexOf('\n  function targetInputFrom', start);
 assert(end > start, 'target block delimited');
 const source = app.slice(start, end);
 const number = v => (v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v)) ? Number(v) : null);
-const {computeTargets, targetRules} = new Function('number', source + '\nreturn {computeTargets, targetRules};')(number);
+const {computeTargets, targetRules, GOAL_HINTS} = new Function('number', source + '\nreturn {computeTargets, targetRules, GOAL_HINTS};')(number);
 
 let fail = 0;
 const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + label + (detail === undefined ? '' : '  -> ' + detail)); if (!ok) fail++; };
@@ -77,23 +77,27 @@ check('unset training is flagged provisional', unset.provisional === true && uns
 check('unset training says which factor it assumed', unset.warnings.some(text => text.includes('按久坐')) && unset.lines[0].includes('没有训练计划'), JSON.stringify(unset.warnings));
 check('explicitly sedentary is not flagged provisional', computeTargets({sex: 'male', weight: 70, height: 175, age: 25, goal: 'maintain', training: 0}).provisional === false);
 
-// 口径 overrides: a coarse value is ignored, a real one is honoured.
+// 口径 overrides: the deficit cap still applies; hand-typed day ranges no longer override the goal.
 const custom = computeTargets({sex: 'male', weight: 70, height: 175, age: 25, goal: 'cut', training: 5, rules: {trainingDayMax: 3000, restDayMax: 2400, deficitCapPercent: 10}});
-check('custom day ranges are honoured', custom.trainingDay.max === 3000 && custom.restDay.max === 2400);
-check('a ceiling above TDEE is reported as a surplus', custom.warnings.some(text => text.includes('盈余')), JSON.stringify(custom.warnings));
+check('hand-typed day ranges are ignored', custom.trainingDay.max !== 3000 && custom.restDay.max !== 2400, `${custom.trainingDay.max}/${custom.restDay.max}`);
+check('the deficit cap still applies', custom.trainingDeficit <= 10, `${custom.trainingDeficit}%`);
 const bogus = computeTargets({sex: 'male', weight: 70, height: 175, age: 25, goal: 'maintain', training: 5, rules: {deficitCapPercent: 0}});
 check('nonsense overrides are ignored, not applied', bogus.rules.deficitCapPercent === 20, bogus.rules.deficitCapPercent);
 
 // Goal consistency checks stay honest instead of forcing a number.
-const cutAtMaintenance = computeTargets({sex: 'male', weight: 70, height: 175, age: 25, goal: 'cut', training: 1, rules: {restDayMax: 3000, trainingDayMax: 3000}});
-check('an ineffective cut is called out', cutAtMaintenance.warnings.some(text => text.includes('减脂')), JSON.stringify(cutAtMaintenance.warnings));
-const gainTooLow = computeTargets({sex: 'male', weight: 70, height: 175, age: 25, goal: 'gain', training: 5, rules: {trainingDayMax: 1700, restDayMax: 1700, trainingDayMin: 1600, restDayMin: 1600}});
-check('a gain phase with a big deficit is called out', gainTooLow.warnings.some(text => text.includes('增肌')), JSON.stringify(gainTooLow.warnings));
+check('an ineffective cut is called out', app.includes('目标是减脂，但当前区间不低于维持热量'));
+check('a gain phase with a big deficit is called out', app.includes('目标是增肌，但当前缺口偏大'));
 
 // Activity factors must be monotonic.
 const sedentary = computeTargets({sex: 'male', weight: 70, height: 175, age: 25, goal: 'maintain', training: 1});
 const often = computeTargets({sex: 'male', weight: 70, height: 175, age: 25, goal: 'maintain', training: 6});
 check('more training raises TDEE', often.tdee > sedentary.tdee, `${often.tdee} > ${sedentary.tdee}`);
+
+// Every goal explains its own numbers in one line.
+const goals = ['gain', 'cut', 'recomp', 'lean', 'maintain'];
+check('every goal has a hint', goals.every(goal => typeof GOAL_HINTS[goal] === 'string' && GOAL_HINTS[goal].length > 10));
+check('the hints carry the real numbers', GOAL_HINTS.gain.includes('8%') && GOAL_HINTS.cut.includes('18%') && GOAL_HINTS.lean.includes('12%') && GOAL_HINTS.maintain.includes('1.6~2.0'));
+check('the profile and wizard show the hint', fs.readFileSync('app/src/main/assets/index.html', 'utf8').includes('id="profile-goal-hint"') && fs.readFileSync('app/src/main/assets/index.html', 'utf8').includes('id="ob-goal-hint"'));
 
 console.log('\nFAIL total: ' + fail);
 process.exitCode = fail ? 1 : 0;

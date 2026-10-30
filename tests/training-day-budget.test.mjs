@@ -20,8 +20,8 @@ check('the goal plan falls back safely when incomplete', app.includes('plan && !
 check('the training flag is read from the habit row', app.includes("const habit = (state?.habits || []).find(row => row && row.date === date);"));
 check('a string "true" from older data is accepted', app.includes("habit.training === 'true' ? true"));
 check('the effective profile carries the range', app.includes('profile.intakeRange = {min: range.min, max: range.max, basis: range.basis};'));
-check('the stored ceiling is replaced by the day range', app.includes('if (hasRules) profile.calorieTarget = range.max;'));
-check('old data without rules keeps working', app.includes('const hasRules = number(state?.profile?.trainingDayMax) !== null'));
+check('the stored ceiling is replaced by the day range', app.includes('profile.calorieTarget = range.max;'));
+check('the stored day ranges are refreshed from the goal plan', app.includes('profile.trainingDayMin = range.trainingDay.min;'));
 check('a one-day adjustment still overrides the ceiling', app.includes('if (adjustment) Object.assign(profile, adjustment.temporary);'));
 // 断言更新登记（03-global-changes.md §5.1，2026-10-29）：C 节把区间降级成「目标单值 + ±2% 容差 + 依据」，
 // 依据与数字必须同屏同源，所以断言的是一段代码里同时写入两者。

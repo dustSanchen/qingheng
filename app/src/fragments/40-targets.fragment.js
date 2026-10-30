@@ -21,7 +21,8 @@
     maintain: {deficitPercent: 0,  proteinPerKgMin: 1.6, proteinPerKgMax: 2.0},
     lean:     {deficitPercent: 12, proteinPerKgMin: 2.2, proteinPerKgMax: 2.4}
   };
-  const RULE_KEYS = Object.keys(TARGET_RULES);
+  // 只有这四个仍允许口径覆盖；训练日/休息日区间永远由目标预设算，避免第二套口径。
+  const RULE_KEYS = ['deficitCapPercent', 'fatFloorG', 'fatIdealMinG', 'fatIdealMaxG'];
   /** 每周训练天数只认「记录→训练计划」的偏好；老档案里的 training 仅作兜底。 */
   function plannedSessions() {
     try {
@@ -95,9 +96,8 @@
       restDay = {min: Math.round(restMid * 0.97), max: Math.round(restMid * 1.02)};
       leanPlan = {plannedPercent: preset.deficitPercent};
     }
-    // non-lean goal ranges：只在没有自定义日区间时套用目标预设，口径永远优先。
-    const customRanges = !!(input.rules && (input.rules.trainingDayMin || input.rules.trainingDayMax || input.rules.restDayMin || input.rules.restDayMax));
-    if (goal !== 'lean' && !customRanges) {
+    // non-lean goal ranges：区间只按目标预设算，不再接受手填的日区间覆盖。
+    if (goal !== 'lean') {
       const gap = goal === 'gain' ? -8 : preset.deficitPercent;
       const centre = Math.round(tdee * (1 - Math.min(gap, cap) / 100));
       trainingDay = {min: Math.round(centre * 0.98), max: Math.round(centre * 1.04)};
@@ -176,6 +176,14 @@
     };
   }
   const GOAL_LABEL = {gain: '增肌', cut: '减脂', recomp: '增肌同时减脂', maintain: '保持身材', lean: '薄肌（线条）'};
+  /** 每个目标的实际口径：缺口/盈余、蛋白带与节奏，和 computeTargets 使用同一组数字。 */
+  const GOAL_HINTS = {
+    gain: '热量比维持高 8%，蛋白 2.0~2.2 g/kg；体重常见 +0.25~0.5%/周，涨秤会带一点脂肪。',
+    recomp: '小幅缺口 8%，蛋白 2.0~2.2 g/kg；体重可能缓降或不动，围度变化更慢。',
+    cut: '缺口 18%，蛋白 2.3~2.5 g/kg；常见 −0.4~0.7%/周，降太快容易掉肌肉。',
+    lean: '缺口 12% 碳循环：训练日接近维持、休息日吃缺口；蛋白 2.2~2.4 g/kg，8~12 周一阶段。',
+    maintain: '按维持热量吃，蛋白 1.6~2.0 g/kg；体重目标稳定在 ±0.2%/周。'
+  };
   /** Onboarding values -> computeTargets input. 训练天数统一取「记录→训练计划」的偏好。 */
   function targetInputFrom(values) {
     return {
@@ -339,6 +347,8 @@
   async function persistProfile(extra) {
     const form = $('#profile-form');
     const goal = form.elements.goal.value;
+    // 区间随档案一起落库，原生层的问答/推送上下文才能拿到同一套目标。
+    const plan = computeTargets(profileTargetInput(form));
     const payload = {
       sex: form.elements.sex.value,
       height: number(form.elements.height.value),
@@ -347,6 +357,10 @@
       // Stamping the start date here is what makes the 8~12 week review possible at all.
       ...(goal === 'lean' && !(state.profile && state.profile.leanPhaseStartedAt) ? {leanPhaseStartedAt: localDate()} : {}),
       training: plannedSessions(),
+      ...(plan && !plan.incomplete ? {
+        trainingDayMin: plan.trainingDay.min, trainingDayMax: plan.trainingDay.max,
+        restDayMin: plan.restDay.min, restDayMax: plan.restDay.max
+      } : {}),
       ...ruleOverridesFrom(form),
       ...extra
     };
