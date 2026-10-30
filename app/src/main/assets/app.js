@@ -1543,26 +1543,47 @@ function intakeRangeForDate(date = activeDate) {
       node.textContent = base;
     }
   }
-  // ---- 上次 AI 回答（今天页的入口行）--------------------------------------------------------------
-  /** Fills the "上次 AI 回答" row with the newest chat record; the row stays hidden until one exists. */
+  // ---- 上次训练建议（今天页训练卡的入口行）--------------------------------------------------------
+  // 训练问答故意不写进全局问答历史（logToHistory:false），所以单独存一份，只在这里回看；
+  // 这样训练卡不会再把饮食类问答当成「上次回答」。
+  const LAST_TRAINING_KEY = 'qingheng.lastTrainingAdvice';
+  function readLastTrainingAdvice() {
+    try {
+      const raw = localStorage.getItem(LAST_TRAINING_KEY);
+      const saved = raw ? JSON.parse(raw) : null;
+      return saved && saved.answer ? saved : null;
+    } catch { return null; }
+  }
+  function saveLastTrainingAdvice(question, answer) {
+    if (!answer) return;
+    try {
+      localStorage.setItem(LAST_TRAINING_KEY, JSON.stringify({
+        date: localDate(), question: String(question || '').slice(0, 200),
+        answer: String(answer).slice(0, 8000)
+      }));
+    } catch { }
+  }
+  /** Fills the "上次训练建议" row; stays hidden until a training question has been answered. */
   function renderLastChat() {
     const open = $('#last-chat-open');
     if (!open) return;
-    const chats = (state && Array.isArray(state.chats) ? state.chats : []).filter(row => row && (row.question || row.answer));
-    const last = chats[chats.length - 1] || null;
+    const last = readLastTrainingAdvice();
     open.hidden = !last;
     if (!last) return;
     const question = $('#last-chat-question'), preview = $('#last-chat-preview');
     if (question) question.textContent = String(last.question || '（未记录问题）').slice(0, 42);
     if (preview) {
       const text = String(last.answer || '').replace(/\s+/g, ' ').trim();
-      preview.textContent = text ? text.slice(0, 48) : '点开看上次 AI 给的完整回答';
+      preview.textContent = text ? text.slice(0, 48) : '点开看上次训练建议的完整回答';
     }
   }
   $('#last-chat-open')?.addEventListener('click', () => {
-    switchTab('chat');
-    // The newest record renders as the first row of the log; bring it into view after the switch.
-    requestAnimationFrame(() => $('#chat-log')?.scrollIntoView({block: 'start', behavior: 'auto'}));
+    const last = readLastTrainingAdvice();
+    const box = $('#training-advice-answer');
+    if (!last || !box) return;
+    box.hidden = false;
+    box.innerHTML = answerHtml(last.answer);
+    box.scrollIntoView({block: 'start', behavior: 'smooth'});
   });
   function renderPush(push) {
     const p = push || (window.QinghengAdapter.currentPush ? window.QinghengAdapter.currentPush() : (window.QinghengAdapter.pushDefaults || {}));
@@ -4527,7 +4548,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.2.18';
+  const APP_VERSION = '1.2.19';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -5967,6 +5988,8 @@ feedback(message,'数据已导入。'+report);
           answerBox.innerHTML = answerHtml(reply)
             + '<div class="button-row" id="training-advice-addrow"><button type="button" class="button subtle" id="training-advice-add">把回答里的动作加入今天的训练</button></div>';
           lastTrainingReply = reply;
+          if (typeof saveLastTrainingAdvice === 'function') saveLastTrainingAdvice(question, reply);
+          if (typeof renderLastChat === 'function') renderLastChat();
           const addButton = $("#training-advice-add");
           if (addButton) addButton.addEventListener("click", async () => {
             const parsed = parseExercisesFromText(lastTrainingReply);

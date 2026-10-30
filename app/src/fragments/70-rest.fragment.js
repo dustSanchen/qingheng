@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.2.18';
+  const APP_VERSION = '1.2.19';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1592,6 +1592,8 @@ feedback(message,'数据已导入。'+report);
           answerBox.innerHTML = answerHtml(reply)
             + '<div class="button-row" id="training-advice-addrow"><button type="button" class="button subtle" id="training-advice-add">把回答里的动作加入今天的训练</button></div>';
           lastTrainingReply = reply;
+          if (typeof saveLastTrainingAdvice === 'function') saveLastTrainingAdvice(question, reply);
+          if (typeof renderLastChat === 'function') renderLastChat();
           const addButton = $("#training-advice-add");
           if (addButton) addButton.addEventListener("click", async () => {
             const parsed = parseExercisesFromText(lastTrainingReply);

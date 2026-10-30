@@ -41,6 +41,8 @@ check('insights render into the training card', html.includes('id="training-advi
 check('insights are refreshed with the rest of the page', app.includes('renderTrainingInsights();'));
 check('the plan checklist rows stay horizontal', css.includes('.adv-plan-item{display:flex;flex-direction:row'));
 check('insights render as labelled rows', app.includes('adv-insight-tag') && app.includes('adv-insight'));
+check('the last-advice row only reads training advice', app.includes('qingheng.lastTrainingAdvice') && app.includes('function saveLastTrainingAdvice'));
+check('opening it stays in the card instead of jumping to chat', !/last-chat-open[\s\S]{0,240}switchTab\('chat'\)/.test(app));
 
 console.log('\nFAIL total: ' + fail);
 process.exitCode = fail ? 1 : 0;
