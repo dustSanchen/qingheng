@@ -430,7 +430,7 @@ public class AlarmReceiver extends BroadcastReceiver {
             JSONObject profile = state.optJSONObject("profile");
             Double proteinMin = profile == null ? null : finite(profile, "proteinMin");
             Double fatMin = profile == null ? null : finite(profile, "fatMin");
-            Double kcalFloor = profile == null ? null : finite(profile, "intakeFloor");
+            Double kcalFloor = profile == null ? null : ("female".equals(profile.optString("sex")) ? 1200.0 : 1500.0);
             Double kcalMax = profile == null ? null : finite(profile, "trainingDayMax");
             int proteinDays = 0, fatDays = 0, calorieDays = 0, recordedDays = 0;
             for (int offset = 0; offset < days; offset++) {
@@ -480,10 +480,15 @@ public class AlarmReceiver extends BroadcastReceiver {
             JSONObject profile = state.optJSONObject("profile");
             JSONObject out = new JSONObject();
             if (profile != null) for (String key : new String[]{"height", "age", "training", "proteinMin", "proteinMax", "fatMin", "fatMax", "calorieTarget",
-                    "referenceCalories", "intakeFloor", "deficitCapPercent", "proteinPerKgMin", "proteinPerKgMax", "fatFloorG",
+                    "referenceCalories", "deficitCapPercent", "fatFloorG",
                     "trainingDayMin", "trainingDayMax", "restDayMin", "restDayMax"}) {
                 Double value = finite(profile, key);
                 if (value != null) out.put(key, value);
+            }
+            // 目标类型让推送/周报能按目标给建议，而不是只看到区间。
+            if (profile != null) {
+                String goal = profile.optString("goal", "").trim();
+                if (!goal.isEmpty()) out.put("goal", goal);
             }
             // Whether that day was actually a training day decides which intake range applies.
             try {

@@ -1085,7 +1085,7 @@ function intakeRangeForDate(date = activeDate) {
           age: profile.age,
           goal: profile.goal,
           applyGoalPresets: true,
-          training: profile.training,
+          training: plannedSessions(),
           rules: profile
         });
     const active = plan && !plan.incomplete ? plan : null;
@@ -1101,7 +1101,6 @@ function intakeRangeForDate(date = activeDate) {
       basis,
       trainingDay,
       restDay,
-      floor: rules.intakeFloor,
       expectedWeeklyKg: active && Number.isFinite(active.expectedWeeklyKg) ? active.expectedWeeklyKg : null
     };
   }
@@ -1118,6 +1117,5 @@ function intakeRangeForDate(date = activeDate) {
     if (hasRules) profile.calorieTarget = range.max;
     if (adjustment) Object.assign(profile, adjustment.temporary);
     profile.intakeRange = {min: range.min, max: range.max, basis: range.basis};
-    profile.intakeFloor = range.floor;
     return profile;
   }

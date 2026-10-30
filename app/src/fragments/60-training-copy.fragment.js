@@ -548,7 +548,7 @@
           minutes: Number(read("minutes")) || 45
         });
         renderWeekPlan();
-        notice("已按偏好生成本周安排。");
+        notice("已保存训练偏好：每周 " + (Number(read("days")) || 3) + " 天，会用于目标测算；到「我的→健康档案」重新测算即可应用。");
       });
     }
     const edit = $("#pref-edit");

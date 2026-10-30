@@ -34,9 +34,10 @@ check('a no-training user gets none', prompts.includes('body.trainingDisabled �
 check('the receiver sends trainsToday', alarm.includes('user.put("trainsToday"'));
 check('and trainingDisabled', alarm.includes('data.trainingOff()') && alarm.includes('user.put("trainingDisabled", true)'));
 
-// --- no-training option ----------------------------------------------------------------------------------
-check('the profile select offers it', html.includes('<option value="none">不健身（隐藏训练功能）</option>'));
-check('the wizard offers it too', (html.match(/value="none"/g) || []).length >= 2);
+// --- training frequency lives in 记录→训练计划 only -------------------------------------------------------
+check('the profile no longer asks for training frequency', !html.includes('每周力量训练次数'));
+check('the wizard points at the training plan instead', html.includes('训练天数取自「记录 → 训练计划」'));
+check('training days are read from planPrefs', targets.includes('function plannedSessions()') && targets.includes('qingheng.planPrefs'));
 check('sedentary is a real answer, not an unset value', targets.includes("const trainingOff = String(rawTraining) === 'none';") && targets.includes('const trainingUnset = !trainingOff'));
 check('the UI has one switch for training visibility', app.includes('function trainingEnabled()') && app.includes('function applyTrainingVisibility()'));
 check('it hides the training cards', app.includes("'training-log', 'training-advice', 'training-volume-card'"));

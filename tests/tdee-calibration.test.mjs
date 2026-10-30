@@ -70,7 +70,7 @@ check('junk rows do not count as data', junk.ok === false, junk.reason);
 const targets = fs.readFileSync('app/src/fragments/40-targets.fragment.js', 'utf8');
 check('the lean plan names the training-frequency lever', targets.includes('训练频率杠杆'));
 check('the lever is computed from a real activity factor', targets.includes('const altFactor = activityFactorFor(4);'));
-check('the lever states whether the floor still holds', targets.includes('仍在硬底线'));
+check('the lever no longer claims a hard floor', !targets.includes('硬底线'));
 
 console.log('\nFAIL total: ' + fail);
 process.exitCode = fail ? 1 : 0;

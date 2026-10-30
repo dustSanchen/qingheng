@@ -1679,10 +1679,7 @@ import java.util.concurrent.Executors;
         if (trainingRaw != null && !"none".equals(String.valueOf(trainingRaw))) {
             boundNumber(patch, "training", 0, 14);
         }
-        boundNumber(patch, "intakeFloor", 800, 6000);
         boundNumber(patch, "deficitCapPercent", 0, 40);
-        boundNumber(patch, "proteinPerKgMin", 0.8, 4);
-        boundNumber(patch, "proteinPerKgMax", 0.8, 4);
         boundNumber(patch, "fatFloorG", 20, 200);
         boundNumber(patch, "fatIdealMinG", 20, 200);
         boundNumber(patch, "fatIdealMaxG", 20, 250);
@@ -2172,14 +2169,12 @@ import java.util.concurrent.Executors;
         double threshold = calorieTarget + Math.max(50, calorieTarget * 0.05);
         if (total <= threshold) throw fail("当前摄入尚未明显超过目标，不需要调整明日目标");
 
-        // The one-day reduction must respect the 口径 floor and must never push the target below it;
-        // a target already at or under the floor is a reason to check the records, not to cut more.
-        Double intakeFloor = finite(profile, "intakeFloor");
-        double floor = intakeFloor != null ? intakeFloor : ("female".equals(profile.optString("sex")) ? 1200 : 1500);
-        if (calorieTarget <= floor)
-            throw fail("当前热量目标已不高于日摄入硬底线 " + trim(floor) + " kcal，不应再下调；请先核对口径与当天记录");
+        // 2000 kcal 硬底线已删除；下调明日目标只用性别安全下限兜底，避免调整到危险区间。
+        double safety = "female".equals(profile.optString("sex")) ? 1200 : 1500;
+        if (calorieTarget <= safety)
+            throw fail("当前热量目标已不高于安全下限 " + trim(safety) + " kcal，不应再下调；请先核对记录");
         double reduction = Math.min(250, Math.max(100, calorieTarget * 0.10));
-        double adjustedCalories = Math.max(floor, Math.round((calorieTarget - reduction) / 50.0) * 50.0);
+        double adjustedCalories = Math.max(safety, Math.round((calorieTarget - reduction) / 50.0) * 50.0);
         double adjustedFatMax = Math.max(fatMin, Math.round(fatMax * 0.90));
 
         JSONObject original = new JSONObject()
@@ -2672,7 +2667,6 @@ import java.util.concurrent.Executors;
     /** Cross-field checks: a range whose min exceeds its max is a typo, not a preference. */
     private void checkProfileRanges(JSONObject profile) throws Exception {
         String[][] pairs = {
-                {"proteinPerKgMin", "proteinPerKgMax", "蛋白质 g/kg"},
                 {"fatIdealMinG", "fatIdealMaxG", "脂肪理想区间"},
                 {"trainingDayMin", "trainingDayMax", "训练日摄入区间"},
                 {"restDayMin", "restDayMax", "休息日摄入区间"},
@@ -2683,9 +2677,9 @@ import java.util.concurrent.Executors;
             Double low = finite(profile, pair[0]), high = finite(profile, pair[1]);
             if (low != null && high != null && low > high) throw fail(pair[2] + "的下限不能大于上限");
         }
-        Double floor = finite(profile, "intakeFloor"), restMin = finite(profile, "restDayMin");
-        if (floor != null && restMin != null && restMin < floor)
-            throw fail("休息日下限低于日摄入硬底线 " + trim(floor) + " kcal，请先改口径");
+        Double restMin = finite(profile, "restDayMin"), trainMin = finite(profile, "trainingDayMin");
+        if (restMin != null && trainMin != null && restMin > trainMin)
+            throw fail("休息日下限高于训练日下限，请先改口径");
     }
 
     /** Whether the habit row for that date says the user trained; null when unrecorded. */
@@ -2823,7 +2817,7 @@ import java.util.concurrent.Executors;
         if (!goal.isEmpty()) context.put("goal", goal).put("goalLabel", goalText(profile));
         JSONObject targets = new JSONObject();
         for (String key : new String[]{"proteinMin", "proteinMax", "fatMin", "fatMax", "calorieTarget",
-                "intakeFloor", "trainingDayMin", "trainingDayMax", "restDayMin", "restDayMax", "training"}) {
+                "trainingDayMin", "trainingDayMax", "restDayMin", "restDayMax", "training"}) {
             Double value = finite(profile, key);
             if (value != null) targets.put(key, value);
         }
@@ -2843,7 +2837,7 @@ import java.util.concurrent.Executors;
         JSONObject profile = effectiveProfile(selectedDate);
         JSONObject targets = new JSONObject();
         for (String key : new String[]{"proteinMin", "proteinMax", "fatMin", "fatMax", "calorieTarget", "referenceCalories",
-                "intakeFloor", "deficitCapPercent", "proteinPerKgMin", "proteinPerKgMax", "fatFloorG",
+                "deficitCapPercent", "fatFloorG",
                 "trainingDayMin", "trainingDayMax", "restDayMin", "restDayMax", "training", "age"}) {
             Double value = finite(profile, key);
             if (value != null) targets.put(key, value);
@@ -3582,7 +3576,7 @@ import java.util.concurrent.Executors;
         JSONObject targets = new JSONObject();
         JSONObject profile = effectiveProfile(day);
         for (String key : new String[]{"calorieTarget", "proteinMin", "proteinMax", "fatMin", "fatMax",
-                "referenceCalories", "intakeFloor", "deficitCapPercent", "proteinPerKgMin", "proteinPerKgMax", "fatFloorG",
+                "referenceCalories", "deficitCapPercent", "fatFloorG",
                 "trainingDayMin", "trainingDayMax", "restDayMin", "restDayMax", "training", "age"})
             if (finite(profile, key) != null) targets.put(key, finite(profile, key));
         targets.put("trainedToday", trainedOn(day));

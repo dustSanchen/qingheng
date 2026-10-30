@@ -41,8 +41,7 @@ const seed = {
   version: 1,
   profile: {
     sex: 'male', height: 166, age: 24, goal: 'cut',
-    calorieTarget: 1800, proteinMin: 100, proteinMax: 130, fatMin: 40, fatMax: 60,
-    intakeFloor: 1700
+    calorieTarget: 1800, proteinMin: 100, proteinMax: 130, fatMin: 40, fatMax: 60
   },
   measurements: [
     {date: dayOffset(-10), weight: 65},
@@ -75,13 +74,13 @@ assert.equal(result.data.effectiveDate, dayOffset(1));
 assert.equal(result.data.original.calorieTarget, 1800);
 assert.equal(result.data.original.fatMax, 60);
 assert(result.data.temporary.calorieTarget < 1800);
-assert(result.data.temporary.calorieTarget >= 1700, 'a one-day cut never crosses the 口径 floor');
+assert(result.data.temporary.calorieTarget >= 1500, 'a one-day cut never crosses the sex-based safety minimum');
 assert(result.data.temporary.fatMax < 60);
 assert(result.data.temporary.fatMax >= result.data.temporary.fatMin);
 
-// A target already at or under the hard floor must be refused instead of silently cut further.
+// A target already at the safety minimum must be refused instead of silently cut further.
 const atFloor = structuredClone(seed);
-atFloor.profile.calorieTarget = 1700;
+atFloor.profile.calorieTarget = 1500;
 atFloor.meals = [{date: today, calories: 2400, protein: 55, fat: 75, carbs: 220}];
 const floorCase = environment(atFloor);
 await assert.rejects(async () => {
@@ -89,8 +88,8 @@ await assert.rejects(async () => {
   if (response.ok) return;
   throw new Error('refused');
 }, /refused/);
-assert.match(java, /不应再下调/, 'the native route refuses below the 口径 floor too');
-assert.match(app, /intakeFloor/, 'the page submits the 口径 floor with the profile');
+assert.match(java, /不应再下调/, 'the native route refuses below the safety minimum too');
+assert(!app.includes('intakeFloor'), 'the page no longer submits a hard intake floor with the profile');
 
 const state = await request(ctx, '/api/state');
 assert.equal(state.data.profile.calorieTarget, 1800, 'temporary adjustment must not overwrite base target');

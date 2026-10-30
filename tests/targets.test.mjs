@@ -34,15 +34,16 @@ check('training frequency is echoed back', ref.sessions === 3 && ref.trainingUns
 
 // The 口径 replaces the old goal multiplier.
 const rules = targetRules(null);
-check('default 口径 matches the written rules (floor 2000)', rules.intakeFloor === 2000, rules.intakeFloor);
+check('the 2000 kcal floor is gone from the rules', !('intakeFloor' in rules) && !('proteinPerKgMin' in rules));
 check('default 口径 deficit cap is 20%', rules.deficitCapPercent === 20, rules.deficitCapPercent);
 check('default 训练日 2150~2350', rules.trainingDayMin === 2150 && rules.trainingDayMax === 2350);
 check('default 休息日 2000~2150', rules.restDayMin === 2000 && rules.restDayMax === 2150);
-check('training-day range follows the goal preset', ref.trainingDay.min >= ref.rules.intakeFloor && ref.trainingDay.max <= ref.tdee, JSON.stringify(ref.trainingDay));
-check('rest-day range follows the goal preset', ref.restDay.min >= ref.rules.intakeFloor && ref.restDay.max <= ref.tdee, JSON.stringify(ref.restDay));
-check('intake never falls below the hard floor', ref.trainingDay.min >= 2000 && ref.restDay.min >= 2000);
+check('training-day range follows the goal preset', ref.trainingDay.min > 0 && ref.trainingDay.max <= ref.tdee && ref.trainingDay.min < ref.trainingDay.max, JSON.stringify(ref.trainingDay));
+check('rest-day range follows the goal preset', ref.restDay.min > 0 && ref.restDay.max <= ref.tdee && ref.restDay.min < ref.restDay.max, JSON.stringify(ref.restDay));
 check('deficit is reported as a signed percentage of TDEE', typeof ref.trainingDeficit === 'number' && Math.abs(ref.trainingDeficit) <= 30, String(ref.trainingDeficit));
-check('a 2412 kcal TDEE is never cut below the floor', ref.trainingDay.min >= ref.rules.intakeFloor, `${ref.tdee} / ${ref.trainingDay.min}`);
+// 同一身体数据下，减脂 18% 会低于旧的 2000 地板，说明地板确实不再参与计算。
+const cutRef = computeTargets({sex: 'male', weight: 64.3, height: 166, age: 24, goal: 'cut', training: 3});
+check('cut goes below the old 2000 floor', cutRef.trainingDay.max < 2000 && cutRef.trainingDay.max > 0, JSON.stringify(cutRef.trainingDay));
 
 // Protein and fat come from the 口径, not from the goal.
 check('protein lower bound is 2.0 g/kg', ref.proteinMin === Math.round(64.3 * 2.0), ref.proteinMin);
@@ -73,21 +74,20 @@ check('the refusal names what is missing', noWeight.lines[0].includes('体重'),
 const unset = computeTargets({sex: 'male', weight: 70, height: 175, age: 25, goal: 'maintain', training: null});
 check('unset training still computes (provisional)', unset.incomplete === false);
 check('unset training is flagged provisional', unset.provisional === true && unset.trainingUnset === true);
-check('unset training says which factor it assumed', unset.warnings.some(text => text.includes('按久坐')) && unset.lines[0].includes('训练次数未填'), JSON.stringify(unset.warnings));
+check('unset training says which factor it assumed', unset.warnings.some(text => text.includes('按久坐')) && unset.lines[0].includes('没有训练计划'), JSON.stringify(unset.warnings));
 check('explicitly sedentary is not flagged provisional', computeTargets({sex: 'male', weight: 70, height: 175, age: 25, goal: 'maintain', training: 0}).provisional === false);
 
 // 口径 overrides: a coarse value is ignored, a real one is honoured.
-const custom = computeTargets({sex: 'male', weight: 70, height: 175, age: 25, goal: 'cut', training: 5, rules: {intakeFloor: 2200, trainingDayMax: 3000, restDayMax: 2400, deficitCapPercent: 10}});
-check('a raised floor lifts the ranges', custom.trainingDay.min >= 2200 && custom.restDay.min >= 2200, `${custom.trainingDay.min}/${custom.restDay.min}`);
-check('a raised ceiling is honoured', custom.trainingDay.max === 3000);
+const custom = computeTargets({sex: 'male', weight: 70, height: 175, age: 25, goal: 'cut', training: 5, rules: {trainingDayMax: 3000, restDayMax: 2400, deficitCapPercent: 10}});
+check('custom day ranges are honoured', custom.trainingDay.max === 3000 && custom.restDay.max === 2400);
 check('a ceiling above TDEE is reported as a surplus', custom.warnings.some(text => text.includes('盈余')), JSON.stringify(custom.warnings));
-const bogus = computeTargets({sex: 'male', weight: 70, height: 175, age: 25, goal: 'maintain', training: 5, rules: {intakeFloor: -5, deficitCapPercent: 0}});
-check('nonsense overrides are ignored, not applied', bogus.rules.intakeFloor === 2000, bogus.rules.intakeFloor);
+const bogus = computeTargets({sex: 'male', weight: 70, height: 175, age: 25, goal: 'maintain', training: 5, rules: {deficitCapPercent: 0}});
+check('nonsense overrides are ignored, not applied', bogus.rules.deficitCapPercent === 20, bogus.rules.deficitCapPercent);
 
 // Goal consistency checks stay honest instead of forcing a number.
-const cutAtMaintenance = computeTargets({sex: 'male', weight: 70, height: 175, age: 25, goal: 'cut', training: 1, rules: {restDayMax: 3000, trainingDayMax: 3000, intakeFloor: 2000}});
+const cutAtMaintenance = computeTargets({sex: 'male', weight: 70, height: 175, age: 25, goal: 'cut', training: 1, rules: {restDayMax: 3000, trainingDayMax: 3000}});
 check('an ineffective cut is called out', cutAtMaintenance.warnings.some(text => text.includes('减脂')), JSON.stringify(cutAtMaintenance.warnings));
-const gainTooLow = computeTargets({sex: 'male', weight: 70, height: 175, age: 25, goal: 'gain', training: 5, rules: {trainingDayMax: 1700, restDayMax: 1700, trainingDayMin: 1600, restDayMin: 1600, intakeFloor: 1500}});
+const gainTooLow = computeTargets({sex: 'male', weight: 70, height: 175, age: 25, goal: 'gain', training: 5, rules: {trainingDayMax: 1700, restDayMax: 1700, trainingDayMin: 1600, restDayMin: 1600}});
 check('a gain phase with a big deficit is called out', gainTooLow.warnings.some(text => text.includes('增肌')), JSON.stringify(gainTooLow.warnings));
 
 // Activity factors must be monotonic.

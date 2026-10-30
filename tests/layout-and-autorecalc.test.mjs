@@ -22,14 +22,14 @@ check('it is compact and self-aligned', css.includes('.row-delete{width:32px;hei
 
 // --- auto recalculation -------------------------------------------------------------------------------
 check('a change listener is installed', targets.includes('function installProfileAutoRecalc()'));
-check('goal, training, weight, height and age all trigger it', targets.includes("const fields = ['goal', 'training', 'weight', 'height', 'age'];"));
+check('goal, weight, height and age all trigger it', targets.includes("const fields = ['goal', 'weight', 'height', 'age'];"));
 check('it recalculates without saving', targets.includes('recalcProfileTargets({saveMeasurement: false, auto: true})'));
 check('the status says it is unsaved', targets.includes('已按当前选择自动重算（未保存，点「保存档案」生效）：'));
 check('it is wired at boot', rest.includes('installProfileAutoRecalc();'));
 
 // --- the derived numbers come from the same function ---------------------------------------------------
-check('calorie ranges come from the goal plan', targets.includes('trainingDay = {min: Math.max(floor, Math.round(trainMid * 0.98))'));
-check('protein follows the goal preset', targets.includes('proteinPerKgMin = Math.max(rules.proteinPerKgMin, preset.proteinPerKgMin)'));
+check('calorie ranges come from the goal plan', targets.includes('trainingDay = {min: Math.round(centre * 0.98), max: Math.round(centre * 1.04)}'));
+check('protein follows the goal preset', targets.includes('const proteinPerKgMin = preset.proteinPerKgMin;'));
 check('the weekly average is reported', targets.includes('weeklyAverage'));
 check('the training-frequency lever is still shown', targets.includes('训练频率杠杆'));
 

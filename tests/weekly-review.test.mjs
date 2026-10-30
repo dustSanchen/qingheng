@@ -35,7 +35,7 @@ check('it feeds seven days, oldest first', alarm.includes('data.weekDays(today, 
 check('it feeds weekly weight means', alarm.includes('data.weightWeeklyMeans(today)'));
 check('it feeds days meeting each target', alarm.includes('data.targetsMetDays(today, 7)'));
 check('the five documented outputs are requested', prompts.includes('①体重周均值与上周对比') && prompts.includes('⑤下周 1~2 条最小可执行调整'));
-check('the weekly prompt repeats the 口径 hard limits', prompts.includes('摄入不得低于 intakeFloor'));
+check('the weekly prompt repeats the 口径 hard limits', prompts.includes('缺口不得超过 deficitCapPercent% 的维持热量'));
 check('the weekly prompt reuses the anchors', prompts.includes('body.anchors'));
 check('weekDays sums only what was recorded', alarm.includes('RecordMath.hasAnyOf(rows, "calories"') && alarm.includes('RecordMath.sumRounded(rows, "calories")'));
 check('weekly means are grouped Monday-first', alarm.includes('TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY)'));

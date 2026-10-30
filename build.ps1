@@ -1,4 +1,4 @@
-param([switch]$Clean,[string]$Version='1.2.13',[int]$VersionCode=213)
+param([switch]$Clean,[string]$Version='1.2.15',[int]$VersionCode=215)
 $ErrorActionPreference='Stop'
 $root=$PSScriptRoot
 $jdk=Get-ChildItem "$root\toolchain\jdk" -Directory | Select-Object -First 1

@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.2.13';
+  const APP_VERSION = '1.2.15';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -170,7 +170,7 @@
     const targets = $('#hub-summary-targets');
     if (targets) {
       const height = number(profile.height), age = number(profile.age), calorie = number(profile.calorieTarget);
-      const training = number(profile.training);
+      const training = plannedSessions();
       // Same source as the 今天 page: a lean plan must not be summarised with the recomp ranges.
       const range = intakeRangeForDate();
       const bits = [
@@ -510,7 +510,7 @@
     const library = typeof librarySummary === "function" ? librarySummary(6) : "";
     const prompt = [
       "你是力量训练教练。请为今天排一个按顺序执行的训练清单。",
-      "信息：目标=" + (profile.goal || "未填") + "；体重=" + (profile.weight || "未填") + "kg；每周练=" + (prefs ? prefs.days : (profile.training || "未填")) + "；分化=" + (prefs ? prefs.split : "未填") + "；器械=" + (prefs ? (typeof GEAR_LABELS === "object" && GEAR_LABELS[prefs.gear] ? GEAR_LABELS[prefs.gear] : prefs.gear) : "未填")
+      "信息：目标=" + (GOAL_LABEL[profile.goal] || "未填") + "；体重=" + (profile.weight || "未填") + "kg；每周练=" + (prefs && prefs.days ? prefs.days : (plannedSessions() || "未填")) + "；分化=" + (prefs ? prefs.split : "未填") + "；器械=" + (prefs ? (typeof GEAR_LABELS === "object" && GEAR_LABELS[prefs.gear] ? GEAR_LABELS[prefs.gear] : prefs.gear) : "未填")
         + "；时长=" + (prefs ? prefs.minutes : 45) + " 分钟。"
         + (prefs && prefs.gear === "mixed" ? "器械不限：请在同一份清单里混用杠铃、哑铃、固定器械与自重，不要全部用同一种器械。" : ""),
       baselineText ? "上周最近记录（供渐进参考，不要盲目加量）：" + baselineText + "。" : "",
@@ -1380,9 +1380,8 @@
   $('#profile-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/profile',form=>{
     const values=numericForm(form,['height','age','calorieTarget','referenceCalories','proteinMin','proteinMax','fatMin','fatMax']);
     if(values.proteinMin>values.proteinMax || values.fatMin>values.fatMax) {if(values.proteinMin>values.proteinMax) {markFieldInvalid(form.elements.proteinMin, '蛋白质下限不能高于上限。'); markFieldInvalid(form.elements.proteinMax, '蛋白质上限不能低于下限。');} if(values.fatMin>values.fatMax) {markFieldInvalid(form.elements.fatMin, '脂肪下限不能高于上限。'); markFieldInvalid(form.elements.fatMax, '脂肪上限不能低于下限。');} throw new Error('目标下限不能高于上限。');}
-    // goal / training / 口径 used to be dropped here, so a saved profile silently kept the old values.
-    const rawTraining=form.elements.training.value;
-    const training=rawTraining==='none' ? 'none' : (rawTraining==='' ? null : number(rawTraining));
+    // 训练天数统一来自「记录→训练计划」；档案表单里不再有第二个入口。
+    const training = plannedSessions();
     const goal=form.elements.goal.value;
     const payload={sex:form.elements.sex.value,goal,...values,...ruleOverridesFrom(form)};
     if(training!==null) payload.training=training;

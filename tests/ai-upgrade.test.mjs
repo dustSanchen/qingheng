@@ -45,7 +45,7 @@ check('the prompt defines 薄肌 scientifically', prompts.includes('【薄肌问
 check('it gives protein and deficit numbers', prompts.includes('2.2~2.4 g/kg') && prompts.includes('10~15%'));
 check('it gives training and lifestyle doses', prompts.includes('每肌群 10~20 组/周') && prompts.includes('步数 8000~10000'));
 check('it names the myths', prompts.includes('局部减脂不成立') && prompts.includes('纯有氧会掉肌肉'));
-check('it defers to the app plan when present', prompts.includes('直接引用其中的区间、有效缺口与每周速率'));
+check('it defers to the app plan when present', prompts.includes('直接引用其中的区间与速率'));
 
 // --- the goal mode travels with the question -----------------------------------------------------------
 check('the goal is in the chat context', main.includes('context.put("goal", goal)') && main.includes('.put("goalLabel", goalText(profile))') );

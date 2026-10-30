@@ -45,7 +45,7 @@ check('the suggestions are state questions', rest.includes("'我今天蛋白够�
 
 // --- advice wording is still honest about the notification limit ---------------------------------------
 check('the advice prompt still asks for a one-line push body', prompts.includes('通知栏只显示很短的一行'));
-check('the advice prompt still carries the 口径 limits', prompts.includes('摄入不得低于 intakeFloor'));
+check('the advice prompt carries the goal ranges without a global floor', prompts.includes('缺口不得超过 deficitCapPercent% 的维持热量') && prompts.includes('不另设全局地板'));
 
 console.log('\nFAIL total: ' + fail);
 process.exitCode = fail ? 1 : 0;

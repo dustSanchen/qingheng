@@ -113,5 +113,6 @@
 | 2026-10-30 | `tests/layout-four.test.mjs` | 新增能量摘要双列结构断言，守住环、目标信息、记录操作同区及窄屏响应式布局 | 现有纵向堆叠使“为什么是这个数”独占整行并把营养数据压出首屏；摘要改为环旁信息列，数值口径不变 |
 | 2026-10-30 | `tests/training-log.test.mjs`、`tests/chat-quality.test.mjs` | 新增 AI 计划行「名字/建议/组数同栏、组数垫底」结构断言与推送提示词「不暴露字段名、无区间退回 calorieTarget」断言 | 训练计划行被长建议挤成竖排名字且组数与建议文字重叠；晚间分析把 intakeFloor/日型区间写成「无法核算」，用户判定为报错 |
 | 2026-10-30 | `tests/training-log.test.mjs` | 新增编辑态断言：输入框中文 aria-label、`添加一个动作` 入口、编辑时保留原建议 | 修改模式原来只有英文 aria-label（sets/reps/weight），且不能手动加动作、看不到原建议；补齐可达性与可操作性 |
+| 2026-10-30 | `tests/targets.test.mjs`、`tests/lean-targets.test.mjs`、`tests/training-day-budget.test.mjs`、`tests/layout-and-autorecalc.test.mjs`、`tests/advice-targets.test.mjs`、`tests/advice-and-training-window.test.mjs`、`tests/weekly-review.test.mjs`、`tests/ai-upgrade.test.mjs`、`tests/tdee-calibration.test.mjs`、`tests/habit-and-training-mode.test.mjs` | 断言从「2000 kcal 地板/训练次数下拉」改为「无统一地板、按目标蛋白带、训练天数来自 planPrefs」；明日目标调整改用性别安全下限 1200/1500 | 用户要求删除 2000 kcal 硬底线、删去档案与向导里的训练次数选项；蛋白带改为目标直接决定（maintain 1.6~2.0 不再被全局 2.0 抬回），训练天数统一取「记录→训练计划」，减少死配置 |
 
 

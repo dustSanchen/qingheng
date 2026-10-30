@@ -28,7 +28,7 @@
       weight: number($('#ob-weight').value),
       age: number($('#ob-age').value),
       goal: g('goal'),
-      training: $('#ob-training').value === '' ? null : Number($('#ob-training').value)
+      training: plannedSessions()
     };
   }
   function obSyncTargets() {
@@ -94,7 +94,6 @@
       $('#profile-form').elements.age.value = values.age ?? '';
       $('#profile-form').elements.goal.value = values.goal;
       $('#profile-form').elements.weight.value = values.weight;
-      $('#profile-form').elements.training.value = values.training === null ? '' : String(values.training);
       $('#profile-form').elements.calorieTarget.value = result.trainingDay.max;
       $('#profile-form').elements.referenceCalories.value = result.tdee;
       $('#profile-form').elements.proteinMin.value = result.proteinMin;
@@ -134,7 +133,7 @@
     const p = state.profile || {};
     if (number(p.calorieTarget) === null) {
       node.className = 'target-status empty';
-      node.textContent = '尚未测算。填写身高、体重、年龄与每周训练次数后点「按目标重新测算」。';
+      node.textContent = '尚未测算。填写身高、体重与年龄后点「按目标重新测算」；训练天数取自「记录 → 训练计划」。';
       return;
     }
     node.className = 'target-status';
@@ -143,14 +142,14 @@
     const rules = targetRules(p);
     const missing = [];
     if (number(p.age) === null) missing.push('年龄');
-    if (number(p.training) === null) missing.push('每周训练次数');
+    if (plannedSessions() === null) missing.push('训练计划');
     const trainingToday = (state.habits || []).some(row => row.date === localDate() && (row.training === true || row.training === 'true'));
     node.textContent = [
       `当前目标：${goal}`,
       `维持热量 ${number(p.referenceCalories) !== null ? fmt(p.referenceCalories, 0) + ' kcal' : '未测算'} · 训练日 ${fmt(rules.trainingDayMin, 0)}~${fmt(rules.trainingDayMax, 0)} kcal · 休息日 ${fmt(rules.restDayMin, 0)}~${fmt(rules.restDayMax, 0)} kcal`,
       `今日按${trainingToday ? '训练日' : '休息日'}：${trainingToday ? fmt(rules.trainingDayMin, 0) + '~' + fmt(rules.trainingDayMax, 0) : fmt(rules.restDayMin, 0) + '~' + fmt(rules.restDayMax, 0)} kcal（在记录页把当天标为「已训练」后自动切换）`,
-      `蛋白质 ${fmt(p.proteinMin, 0)}~${fmt(p.proteinMax, 0)} g · 脂肪 ${fmt(p.fatMin, 0)}~${fmt(p.fatMax, 0)} g · 摄入硬底线 ${fmt(rules.intakeFloor, 0)} kcal`,
-      ...(missing.length ? [`⚠ 还缺 ${missing.join('、')}：现在的数字是按默认值算的，补齐后点「按目标重新测算」。`] : []),
+      `蛋白质 ${fmt(p.proteinMin, 0)}~${fmt(p.proteinMax, 0)} g · 脂肪 ${fmt(p.fatMin, 0)}~${fmt(p.fatMax, 0)} g`,
+      ...(missing.length ? [`⚠ 还缺 ${missing.join('、')}：训练计划为空时按久坐估算，到「记录→训练计划」保存后点「按目标重新测算」。`] : []),
       ...(temporary ? [`今日临时目标：热量 ${fmt(temporary.temporary.calorieTarget, 0)} kcal · 脂肪上限 ${fmt(temporary.temporary.fatMax, 0)} g；原目标不变，明日结束后恢复。`] : []),
       '口径与阈值可在下方「口径与手动调整」中修改，改完点「按目标重新测算」。'
     ].join('\n');
@@ -191,7 +190,6 @@
     catch {notice('已跳过引导；可随时在「我的」重新填写。', true);}
   });
   $$('#ob-goals input').forEach(input => input.addEventListener('change', obSyncTargets));
-  $('#ob-training').addEventListener('change', obSyncTargets);
   $('#ob-height').addEventListener('input', obSyncTargets);
   $('#ob-weight').addEventListener('input', obSyncTargets);
   $('#export-markdown').addEventListener('click', async event => {

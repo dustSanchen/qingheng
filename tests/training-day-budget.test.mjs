@@ -56,7 +56,7 @@ check('a trained day budgets to the training ceiling', pick([{date: '2026-10-17'
 check('a rest day budgets to the rest ceiling', pick([{date: '2026-10-17', training: false}], '2026-10-17') === rules.restDayMax);
 check('an unrecorded day falls back to the rest ceiling', pick([], '2026-10-17') === rules.restDayMax);
 check('the training ceiling is above the rest ceiling', rules.trainingDayMax > rules.restDayMax, `${rules.trainingDayMax} > ${rules.restDayMax}`);
-check('every range stays above the hard floor', rules.restDayMin >= rules.intakeFloor && rules.trainingDayMin >= rules.intakeFloor);
+check('no default rule carries a hard intake floor', !('intakeFloor' in rules));
 
 console.log('\nFAIL total: ' + fail);
 process.exitCode = fail ? 1 : 0;
