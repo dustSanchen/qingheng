@@ -11,6 +11,7 @@ const sched = read('app/src/main/java/cn/qingheng/health/AlarmScheduler.java');
 const alarm = read('app/src/main/java/cn/qingheng/health/AlarmReceiver.java');
 const app = read('app/src/main/assets/app.js');
 const html = read('app/src/main/assets/index.html');
+const css = read('app/src/main/assets/styles.css');
 
 // --- P0-2: a silent day still gets one reminder ------------------------------------------------------
 check('the scheduler remembers which day the last reminder was', sched.includes('KEY_LAST_POSTED_DAY') && sched.includes('putString(KEY_LAST_POSTED_DAY'));
@@ -38,6 +39,8 @@ check('a swap is offered per lift', app.includes("'深蹲': '腿举'"));
 check('a deload is suggested from the volume jump', app.includes('下周减量 40% 当 deload'));
 check('insights render into the training card', html.includes('id="training-advice-insights"') && app.includes('function renderTrainingInsights()'));
 check('insights are refreshed with the rest of the page', app.includes('renderTrainingInsights();'));
+check('the plan checklist rows stay horizontal', css.includes('.adv-plan-item{display:flex;flex-direction:row'));
+check('insights render as labelled rows', app.includes('adv-insight-tag') && app.includes('adv-insight'));
 
 console.log('\nFAIL total: ' + fail);
 process.exitCode = fail ? 1 : 0;

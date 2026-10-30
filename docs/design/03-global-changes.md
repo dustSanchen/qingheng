@@ -116,5 +116,6 @@
 | 2026-10-30 | `tests/targets.test.mjs`、`tests/lean-targets.test.mjs`、`tests/training-day-budget.test.mjs`、`tests/layout-and-autorecalc.test.mjs`、`tests/advice-targets.test.mjs`、`tests/advice-and-training-window.test.mjs`、`tests/weekly-review.test.mjs`、`tests/ai-upgrade.test.mjs`、`tests/tdee-calibration.test.mjs`、`tests/habit-and-training-mode.test.mjs` | 断言从「2000 kcal 地板/训练次数下拉」改为「无统一地板、按目标蛋白带、训练天数来自 planPrefs」；明日目标调整改用性别安全下限 1200/1500 | 用户要求删除 2000 kcal 硬底线、删去档案与向导里的训练次数选项；蛋白带改为目标直接决定（maintain 1.6~2.0 不再被全局 2.0 抬回），训练天数统一取「记录→训练计划」，减少死配置 |
 | 2026-10-30 | `tests/targets.test.mjs` | 新增每个目标的说明文案断言（缺口/蛋白带/节奏）与向导、档案的提示位 | 五个目标原来只有「温和缺口」「高蛋白」这类笼统描述，用户要优化各模式说明；补 `GOAL_HINTS` 单一来源，数字与 computeTargets 同源 |
 | 2026-10-30 | `tests/targets.test.mjs`、`tests/training-day-budget.test.mjs` | 改为断言手填日区间被忽略、档案回写计算区间、状态条读计算区间 | 1.2.17 移除第二套日区间口径：训练日/休息日区间只由目标预设算，档案保存时把计算值写回，原生层上下文与页面同源 |
+| 2026-10-30 | `tests/p0-p1-round.test.mjs` | 新增今日清单行保持横向、训练洞察改用带标签的行的断言 | 全局 `label{flex-direction:column}` 让今日清单的复选框/名称/剂量各占一行；洞察是裸「· 文本」。改为横向行 + 负荷/停滞/容量/状态标签 |
 
 

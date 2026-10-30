@@ -4527,7 +4527,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.2.17';
+  const APP_VERSION = '1.2.18';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -5906,20 +5906,20 @@ feedback(message,'数据已导入。'+report);
     const load = typeof acwrFromDailyLoads === 'function' && typeof dailyLoads === 'function'
       ? acwrFromDailyLoads(dailyLoads(28), activeDate) : null;
     if (load && Number.isFinite(load.ratio)) {
-      if (load.flag === 'high') insights.push(`近 7 天训练负荷是近 4 周周均的 ${load.ratio} 倍，偏高；本周减载或安排一天完全休息`);
-      else if (load.flag === 'low' && load.ratio > 0) insights.push(`近 7 天负荷只有平时的 ${load.ratio} 倍，偏低；停练或减量时优先保住蛋白摄入与睡眠`);
+      if (load.flag === 'high') insights.push({tag: '负荷', text: `近 7 天训练负荷是近 4 周周均的 ${load.ratio} 倍，偏高；本周减载或安排一天完全休息`});
+      else if (load.flag === 'low' && load.ratio > 0) insights.push({tag: '负荷', text: `近 7 天负荷只有平时的 ${load.ratio} 倍，偏低；停练或减量时优先保住蛋白摄入与睡眠`});
     }
     for (const row of rows) {
       if (!(row.prevVolume > 0) || row.lastVolume > row.prevVolume * 1.02) continue;
       const swap = swaps[row.name];
-      insights.push(`${row.name} 连续两周没有进步（${fmt(row.prevVolume,0)} → ${fmt(row.lastVolume,0)} kg 容量）${swap ? `，可以换成 ${swap} 练 4~6 周` : ''}`);
+      insights.push({tag: '停滞', text: `${row.name} 连续两周没有进步（${fmt(row.prevVolume,0)} → ${fmt(row.lastVolume,0)} kg 容量）${swap ? `，可以换成 ${swap} 练 4~6 周` : ''}`});
     }
     let last = 0, prev = 0;
     for (const row of rows) {last += row.lastVolume; prev += row.prevVolume;}
-    if (prev > 0 && last > prev * 1.25) insights.push(`本周总容量比上周高 ${fmt((last / prev - 1) * 100, 0)}%；如果连着两周都这样，下周减量 40% 当 deload`);
+    if (prev > 0 && last > prev * 1.25) insights.push({tag: '容量', text: `本周总容量比上周高 ${fmt((last / prev - 1) * 100, 0)}%；如果连着两周都这样，下周减量 40% 当 deload`});
     if (!insights.length) {
       const trained = (state.habits || []).some(row => row && row.date === localDate() && (row.training === true || row.training === 'true'));
-      insights.push(trained ? '今天已训练；容量连续两周上升，说明渐进超负荷在生效。' : '今天还没记录训练；练完记一条，下周就能看出哪个动作停了。');
+      insights.push({tag: '状态', text: trained ? '今天已训练；容量连续两周上升，说明渐进超负荷在生效。' : '今天还没记录训练；练完记一条，下周就能看出哪个动作停了。'});
     }
     return insights.slice(0, 3);
   }
@@ -5927,7 +5927,9 @@ feedback(message,'数据已导入。'+report);
   function renderTrainingInsights() {
     const box = $('#training-advice-insights');
     if (!box) return;
-    box.innerHTML = trainingInsights().map(text => `<p class="fine-print">· ${esc(text)}</p>`).join('');
+    box.innerHTML = trainingInsights().map(item =>
+      `<div class="adv-insight"><span class="adv-insight-tag">${esc(item.tag)}</span><p>${esc(item.text)}</p></div>`
+    ).join('');
   }
   /** The 今天-page window: training questions only, with its own consent gate. */
   let lastTrainingReply = "";
