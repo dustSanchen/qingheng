@@ -166,6 +166,7 @@
     arrangeEnergyCard();
     const count=state.meals.filter(row=>row.date===activeDate).length;
     const hint=$('#chat-data-context'); if(hint)hint.textContent=`分析日期：${activeDate} · 已保存 ${count} 条餐食（未确认预览和问答照片不计入饮食）`;
+    const dateLabel=$('#chat-date-label'); if(dateLabel) dateLabel.textContent = activeDate === localDate() ? '今天' : activeDate.slice(5);
     const adviceHint=$('#advice-data-context'); if(adviceHint)adviceHint.textContent=`分析日期：${activeDate} · 已保存 ${count} 条餐食`;
     const adviceNode=$('#advice-content'), stale=$('#advice-stale');
     if (stale) {

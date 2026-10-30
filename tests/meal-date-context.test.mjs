@@ -77,7 +77,8 @@ for (const id of ['estimate-date', 'estimate-meal-type', 'estimate-photo-time', 
   assert(ids.includes(id), `the page defines #${id}`);
 }
 assert.match(app, /function setActiveDate\(value\)/, 'one helper owns the analysed day');
-assert(!app.includes('chat-date'), 'the chat page no longer has its own date picker');
+assert.match(app, /chat-date-toggle/, 'the chat page can pick a historical analysis date');
+assert.match(app, /#chat-date-input'\)\?\.addEventListener\('change'/, 'the picked date becomes the active date');
 
 // --- Unconfirmed draft box ---------------------------------------------------------------------
 for (const id of ['draft-box', 'draft-box-text', 'draft-list']) {

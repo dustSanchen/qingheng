@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.2.21';
+  const APP_VERSION = '1.2.23';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -848,7 +848,16 @@
   window.addEventListener('focus',syncCalendarDay);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncCalendarDay();});
   $('#active-date').addEventListener('change',event=>{setActiveDate(event.target.value);});
-  $('#active-date').addEventListener('change',event=>{setActiveDate(event.target.value);});
+  $('#chat-date-toggle')?.addEventListener('click', () => {
+    const input = $('#chat-date-input'); if (!input) return;
+    input.value = activeDate;
+    try { if (typeof input.showPicker === 'function') { input.showPicker(); return; } } catch {}
+    input.click();
+  });
+  $('#chat-date-input')?.addEventListener('change', event => {
+    if (!setActiveDate(event.target.value)) event.target.value = activeDate;
+    if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur();
+  });
   document.addEventListener('click', event => {
     const more = event.target.closest('[data-chat-more]');
     if (more) {event.preventDefault(); showEarlierChats(); return;}

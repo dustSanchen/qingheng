@@ -1327,6 +1327,7 @@ function intakeRangeForDate(date = activeDate) {
     arrangeEnergyCard();
     const count=state.meals.filter(row=>row.date===activeDate).length;
     const hint=$('#chat-data-context'); if(hint)hint.textContent=`分析日期：${activeDate} · 已保存 ${count} 条餐食（未确认预览和问答照片不计入饮食）`;
+    const dateLabel=$('#chat-date-label'); if(dateLabel) dateLabel.textContent = activeDate === localDate() ? '今天' : activeDate.slice(5);
     const adviceHint=$('#advice-data-context'); if(adviceHint)adviceHint.textContent=`分析日期：${activeDate} · 已保存 ${count} 条餐食`;
     const adviceNode=$('#advice-content'), stale=$('#advice-stale');
     if (stale) {
@@ -4583,7 +4584,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.2.21';
+  const APP_VERSION = '1.2.23';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -5279,7 +5280,16 @@ function metricIcon(label) {
   window.addEventListener('focus',syncCalendarDay);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncCalendarDay();});
   $('#active-date').addEventListener('change',event=>{setActiveDate(event.target.value);});
-  $('#active-date').addEventListener('change',event=>{setActiveDate(event.target.value);});
+  $('#chat-date-toggle')?.addEventListener('click', () => {
+    const input = $('#chat-date-input'); if (!input) return;
+    input.value = activeDate;
+    try { if (typeof input.showPicker === 'function') { input.showPicker(); return; } } catch {}
+    input.click();
+  });
+  $('#chat-date-input')?.addEventListener('change', event => {
+    if (!setActiveDate(event.target.value)) event.target.value = activeDate;
+    if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur();
+  });
   document.addEventListener('click', event => {
     const more = event.target.closest('[data-chat-more]');
     if (more) {event.preventDefault(); showEarlierChats(); return;}
