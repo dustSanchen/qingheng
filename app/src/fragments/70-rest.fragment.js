@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.2.20';
+  const APP_VERSION = '1.2.21';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -848,7 +848,7 @@
   window.addEventListener('focus',syncCalendarDay);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncCalendarDay();});
   $('#active-date').addEventListener('change',event=>{setActiveDate(event.target.value);});
-  $('#chat-date').addEventListener('change',event=>{if(!setActiveDate(event.target.value)) event.target.value=activeDate;});
+  $('#active-date').addEventListener('change',event=>{setActiveDate(event.target.value);});
   document.addEventListener('click', event => {
     const more = event.target.closest('[data-chat-more]');
     if (more) {event.preventDefault(); showEarlierChats(); return;}
@@ -957,12 +957,10 @@
   }
   function installChatTaskOrder() {
     const card = $('#view-chat')?.querySelector('article.card');
-    const dateRow = $('#chat-date')?.closest('.form-grid');
     const question = $('#chat-question')?.closest('label');
     const chips = $('#chat-chips');
     const draft = $('#chat-training-draft');
-    if (!card || !dateRow || !question || !chips) return;
-    dateRow.before(question);
+    if (!card || !question || !chips) return;
     question.after(chips);
     if (draft) chips.after(draft);
   }
@@ -983,7 +981,7 @@
     details.className = 'profile-more';
     details.id = 'profile-more';
     const summary = document.createElement('summary');
-    summary.textContent = '数据、外观与说明';
+    summary.innerHTML = `<span class="inline-icon" aria-hidden="true">${iconMarkup('icon-copy.svg')}</span>数据、外观与说明`;
     const content = document.createElement('div');
     content.className = 'profile-more-content';
     const lowFrequency = [
@@ -994,6 +992,9 @@
     ].filter(Boolean);
     if (!lowFrequency.length) return;
     lowFrequency.forEach(node => content.append(node));
+    // 问答页的说明收进这里，问答卡只留提问本身。
+    const chatNotes = $('#view-chat .card-notes');
+    if (chatNotes) content.append(chatNotes);
     details.append(summary, content);
     hub.insertBefore(details, hub.querySelector('.page-footer'));
   }
@@ -1689,9 +1690,17 @@ feedback(message,'数据已导入。'+report);
   };
   $('#refresh-push-history').addEventListener('click', event => runPushHistory(false, event.currentTarget));
   $('#query-push-history').addEventListener('click', event => runPushHistory(true, event.currentTarget));
-  (function(){const box=$('#chat-web');if(!box)return;try{const saved=localStorage.getItem(CHAT_WEB_KEY);if(saved!==null)box.checked=saved==='1';}catch{}box.addEventListener('change',()=>{try{localStorage.setItem(CHAT_WEB_KEY,box.checked?'1':'0');}catch{}
-  if (typeof schedulePrefsSync === 'function') schedulePrefsSync({chatWeb: box.checked});
-});})();
+  (function(){
+    const box=$('#chat-web'), toggle=$('#chat-web-toggle');
+    if(!box) return;
+    const paint=()=>{ if(toggle) toggle.setAttribute('aria-pressed', box.checked ? 'true' : 'false'); };
+    try{const saved=localStorage.getItem(CHAT_WEB_KEY);if(saved!==null)box.checked=saved==='1';}catch{}
+    paint();
+    if(toggle) toggle.addEventListener('click',()=>{box.checked=!box.checked;paint();try{localStorage.setItem(CHAT_WEB_KEY,box.checked?'1':'0');}catch{}if (typeof schedulePrefsSync === 'function') schedulePrefsSync({chatWeb: box.checked});});
+    box.addEventListener('change',()=>{paint();try{localStorage.setItem(CHAT_WEB_KEY,box.checked?'1':'0');}catch{}
+      if (typeof schedulePrefsSync === 'function') schedulePrefsSync({chatWeb: box.checked});
+    });
+  })();
   // ---- Generic draft: recognise -> confirm -> write -> undo ----------------------------------------
   let pendingDraft = null, draftUndo = null;
   function showTrainingDraft(draft) {

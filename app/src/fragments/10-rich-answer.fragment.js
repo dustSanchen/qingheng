@@ -165,7 +165,6 @@
   function renderBody() {
     arrangeEnergyCard();
     const count=state.meals.filter(row=>row.date===activeDate).length;
-    const chatDate=$('#chat-date'); if(chatDate && document.activeElement!==chatDate) chatDate.value=activeDate;
     const hint=$('#chat-data-context'); if(hint)hint.textContent=`分析日期：${activeDate} · 已保存 ${count} 条餐食（未确认预览和问答照片不计入饮食）`;
     const adviceHint=$('#advice-data-context'); if(adviceHint)adviceHint.textContent=`分析日期：${activeDate} · 已保存 ${count} 条餐食`;
     const adviceNode=$('#advice-content'), stale=$('#advice-stale');

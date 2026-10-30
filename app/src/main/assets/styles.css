@@ -1289,6 +1289,7 @@ textarea{resize:none}
 /* 我的页先放常用设置；低频数据、外观与说明折叠在一个行目标后。 */
 .profile-more{margin:var(--space-3) 0;border-top:1px solid var(--line)}
 .profile-more>summary{display:flex;align-items:center;min-height:48px;padding:var(--space-2) 0;cursor:pointer;color:var(--muted);font-size:var(--text-sm)}
+.profile-more>summary .inline-icon{margin-right:var(--space-2)}
 .profile-more-content{display:flex;flex-direction:column;gap:8px;padding-bottom:var(--space-2)}
 .profile-more-content>.hub-row{min-height:56px}
 .profile-more-content>.card{margin:0}

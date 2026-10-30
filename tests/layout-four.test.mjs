@@ -29,8 +29,8 @@ check('only the meal action is visually primary', app.includes("'quick-chip-prim
 check('chips route to the right segment', app.includes('switchRecordPanel(recordPanelForField(focus === \'photo\' ? \'meal-text\' : focus))'));
 check('the photo chip opens the camera tile', app.includes("$('#view-records label[for=\"meal-image\"]')?.click();"));
 check('the training chip scrolls without focusing', app.includes("flashTarget(form.closest('.card'))") && app.includes("revealField(focus, {focus: false, block: 'start'});"));
-check('chat input and quick prompts lead the composer', app.includes('function installChatTaskOrder()') && app.includes('dateRow.before(question)'));
-check('low-frequency profile settings are folded', app.includes('function installProfileMore()') && app.includes("summary.textContent = '数据、外观与说明'"));
+check('chat input and quick prompts lead the composer', app.includes('function installChatTaskOrder()') && app.includes('question.after(chips)'));
+check('low-frequency profile settings are folded', app.includes('function installProfileMore()') && app.includes('数据、外观与说明') && app.includes("iconMarkup('icon-copy.svg')"));
 
 // --- 2. trends segments + diet trend ------------------------------------------------------------------
 check('trends get a segment bar', app.includes("bar.id = 'trends-tabs'"));

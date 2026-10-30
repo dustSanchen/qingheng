@@ -73,11 +73,11 @@ assert.match(adapter, /photoTakenAt:body\.photoTakenAt,photoTimeSource:body\.pho
 const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map(match => match[1]);
 const duplicated = ids.filter((id, index) => ids.indexOf(id) !== index);
 assert.deepEqual(duplicated, [], 'no element id may be duplicated');
-for (const id of ['estimate-date', 'estimate-meal-type', 'estimate-photo-time', 'meal-photo-time', 'chat-photo-time', 'chat-data-context', 'advice-data-context', 'chat-date']) {
+for (const id of ['estimate-date', 'estimate-meal-type', 'estimate-photo-time', 'meal-photo-time', 'chat-photo-time', 'chat-data-context', 'advice-data-context']) {
   assert(ids.includes(id), `the page defines #${id}`);
 }
 assert.match(app, /function setActiveDate\(value\)/, 'one helper owns the analysed day');
-assert.match(app, /#chat-date'\)\.addEventListener\('change'/, 'the chat page can change the analysed day without leaving the tab');
+assert(!app.includes('chat-date'), 'the chat page no longer has its own date picker');
 
 // --- Unconfirmed draft box ---------------------------------------------------------------------
 for (const id of ['draft-box', 'draft-box-text', 'draft-list']) {

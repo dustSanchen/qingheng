@@ -119,5 +119,6 @@
 | 2026-10-30 | `tests/p0-p1-round.test.mjs` | 新增今日清单行保持横向、训练洞察改用带标签的行的断言 | 全局 `label{flex-direction:column}` 让今日清单的复选框/名称/剂量各占一行；洞察是裸「· 文本」。改为横向行 + 负荷/停滞/容量/状态标签 |
 | 2026-10-30 | `tests/p0-p1-round.test.mjs` | 新增「上次建议只读训练问答、点击留在卡内」的断言 | 训练卡底部「上次回答」原来绑全局最后一条问答，可能显示饮食评分；训练问答本就不写全局历史，改为单独存 `qingheng.lastTrainingAdvice` 并在卡内回看 |
 | 2026-10-30 | `tests/adapter.test.mjs`、`tests/advice-and-training-window.test.mjs`、`tests/p1-answers-phase-collapse.test.mjs`、`tests/training-library.test.mjs`、`tests/p0-p1-round.test.mjs` | 外发同意从各处复选框改为「向导勾一次 + 我的设置里一个开关」；隐藏数据预览；快速记录收藏优先 | 用户要求同意集中在初次使用与「数据、外观与说明」，不再在提问/建议框下方重复勾选；同时把收藏的饮食记录纳入快速复制的候选 |
+| 2026-10-30 | `tests/meal-date-context.test.mjs`、`tests/p0-p1-round.test.mjs` | 问答页日期选择器删除后的断言；数据/外观/说明摘要图标、联网检索开关、说明收纳的断言 | 用户要求问答不再单独选日期（跟随当前分析日）、联网检索做成开关按钮、问答说明收进「数据、外观与说明」 |
 
 
