@@ -1058,18 +1058,18 @@ body.no-training #training-advice-order{display:none !important}
 .ai-plan{margin:var(--space-3) 0 0;padding-top:var(--space-3);border-top:1px solid var(--line)}
 .ai-plan .card-heading h3{margin:0;font-size:var(--text-sm);color:var(--muted);font-weight:var(--fw-medium)}
 #ai-plan-list{counter-reset:ai-step}
-.ai-plan-row{display:flex;flex-direction:row;align-items:center;gap:var(--space-2);margin:0;min-height:48px;padding:var(--space-2) 0;border-bottom:1px solid var(--line);font-size:var(--text-md)}
-.ai-plan-row input{order:-1;flex:0 0 auto;width:18px;height:18px;margin:0;accent-color:var(--accent)}
+.ai-plan-row{display:flex;flex-direction:row;align-items:flex-start;gap:var(--space-2);margin:0;min-height:48px;padding:var(--space-2) 0;border-bottom:1px solid var(--line);font-size:var(--text-md)}
+.ai-plan-row input[type=checkbox]{order:-1;flex:0 0 auto;width:18px;height:18px;margin:2px 0 0;accent-color:var(--accent)}
 .ai-plan-row::before{counter-increment:ai-step;content:counter(ai-step);flex:0 0 1.5em;color:var(--muted);font-size:var(--text-sm);font-variant-numeric:tabular-nums}
 .ai-plan-row:last-child{border-bottom:0}
-.ai-plan-name{flex:1 1 auto;min-width:0;overflow-wrap:anywhere;color:var(--ink)}
+.ai-plan-name{min-width:0;overflow-wrap:anywhere;color:var(--ink)}
 /* 汇总条：组数 + 按组数算出的时长；差异大时给一个改时长的入口。 */
 .ai-plan-summary{display:flex;flex-direction:row;flex-wrap:wrap;align-items:baseline;gap:var(--space-1) var(--space-2);margin:var(--space-2) 0 0;font-size:var(--text-xs);color:var(--muted);font-variant-numeric:tabular-nums}
 .ai-plan-summary-text{flex:0 1 auto}
 .ai-plan-summary-note{flex:0 1 auto;color:var(--muted)}
 .ai-plan-summary .text-button{flex:0 0 auto;min-height:0;padding:0 2px;font-size:var(--text-xs)}
 .ai-plan-dose{flex:0 0 auto;white-space:nowrap;color:var(--muted);font-size:var(--text-sm);font-variant-numeric:tabular-nums}
-.ai-plan-row input:checked ~ .ai-plan-name{color:var(--muted);text-decoration:line-through}
+.ai-plan-row input:checked ~ .ai-plan-text .ai-plan-name{color:var(--muted);text-decoration:line-through}
 
 /* 等待层：半透明遮罩 + 旋转环 + 一行说明，轻量、不抢焦点。 */
 .busy-layer{position:fixed;inset:0;z-index:var(--z-busy);display:flex;align-items:center;justify-content:center;background:var(--overlay-weak)}
@@ -1088,14 +1088,18 @@ body.no-training #training-advice-order{display:none !important}
 .ai-plan-no{color:var(--muted);font-size:var(--text-sm);font-variant-numeric:tabular-nums}
 .ai-plan-row.is-editing .ai-plan-input{width:100%;min-height:40px;padding:8px 10px;border:1px solid var(--line-strong);border-radius:var(--shape-ctrl-radius);background:var(--paper);color:var(--ink);font-size:var(--text-sm)}
 .ai-plan-row.is-editing .ai-plan-input.is-name{font-size:var(--text-md)}
-.ai-plan-nums{grid-column:1 / -1;display:flex;align-items:center;gap:var(--space-1);font-size:var(--text-xs);color:var(--muted)}
+.ai-plan-nums{grid-column:1 / -1;display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);font-size:var(--text-xs);color:var(--muted)}
+.ai-plan-num{display:flex;align-items:center;gap:6px;font-size:var(--text-xs);color:var(--muted)}
+.ai-plan-edit-reason{grid-column:2 / -1;margin:0;font-size:var(--text-xs);color:var(--muted);overflow-wrap:anywhere}
+.ai-plan-append{margin-top:var(--space-2)}
 .ai-plan-row.is-editing .ai-plan-nums .ai-plan-input{width:5.5em;min-height:36px;text-align:center}
 .ai-plan-remove{width:36px;height:36px;min-height:0;border:1px solid var(--line);border-radius:var(--shape-ctrl-radius);background:var(--surface);color:var(--muted);font-size:17px;line-height:1}
 .ai-plan-remove:active{background:var(--surface-soft)}
 /* 「加入」是次要动作：贴在行尾，默认不加边框，不跟勾选框抢注意力。 */
-.ai-plan-row{align-items:center}
-.ai-plan-main{display:flex;flex-direction:row;align-items:center;gap:var(--space-2);flex:1 1 auto;min-width:0;margin:0}
-.ai-plan-add{flex:0 0 auto;min-height:32px;padding:4px 10px;border:1px solid var(--line);border-radius:var(--shape-ctrl-radius);background:var(--surface);color:var(--accent);font-size:var(--text-xs);white-space:nowrap}
+.ai-plan-row{align-items:flex-start}
+.ai-plan-main{display:flex;flex-direction:row;align-items:flex-start;gap:var(--space-2);flex:1 1 auto;min-width:0;margin:0}
+.ai-plan-text{display:flex;flex-direction:column;gap:2px;flex:1 1 auto;min-width:0}
+.ai-plan-add{flex:0 0 auto;align-self:center;min-height:32px;padding:4px 10px;border:1px solid var(--line);border-radius:var(--shape-ctrl-radius);background:var(--surface);color:var(--accent);font-size:var(--text-xs);white-space:nowrap}
 .ai-plan-add:active{background:var(--accent-soft)}
 #ai-plan-all{margin-top:var(--space-2)}
 

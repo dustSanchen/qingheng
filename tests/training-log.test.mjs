@@ -9,6 +9,7 @@ const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + 
 
 const app = fs.readFileSync('app/src/main/assets/app.js', 'utf8');
 const html = fs.readFileSync('app/src/main/assets/index.html', 'utf8');
+const css = fs.readFileSync('app/src/main/assets/styles.css', 'utf8');
 const main = fs.readFileSync('app/src/main/java/cn/qingheng/health/MainActivity.java', 'utf8');
 
 // --- the log UI ---------------------------------------------------------------------------------------
@@ -57,6 +58,13 @@ check('the today list mirrors the AI plan with done checkboxes', app.includes('d
 // 源码里的属性引号是转义的（\"ai\"），断言不能按字面量比对。
 check('an empty day offers two generators', /data-today-plan=\\?"ai\\?"/.test(app) && /data-today-plan=\\?"week\\?"/.test(app));
 check('AI plan rows carry the model reason', app.includes('ai-plan-reason') && app.includes('一句话为什么排它'));
+check('the plan row keeps name, advice and dose in one text column', app.includes('ai-plan-text') && css.includes('.ai-plan-text{display:flex;flex-direction:column'));
+check('the dose sits below the model advice', /ai-plan-reason[\s\S]{0,120}ai-plan-dose/.test(app));
+check('a checked row strikes the name inside the text column', css.includes('.ai-plan-row input:checked ~ .ai-plan-text .ai-plan-name'));
+check('edit rows label their inputs in Chinese', app.includes('组数') && app.includes('负重公斤') && !app.includes('aria-label="sets"'));
+check('edit mode can add a blank row and keeps the reason visible', app.includes('data-ai-append') && app.includes('ai-plan-edit-reason') && app.includes('一份清单最多 12 个动作'));
+check('only the checkbox uses order:-1 so edit inputs keep their grid slot', css.includes('.ai-plan-row input[type=checkbox]{order:-1') && !css.includes('.ai-plan-row input{order:-1'));
+check('removing a row names it from the edit input too', app.includes('已移除这个动作') && app.includes('nameField.value'));
 check('askAiPlan sees the same baselines as the rule engine', app.includes('function recentExerciseBaselines') && app.includes('上周最近记录（供渐进参考'));
 check('askAiPlan follows the training library', /askAiPlan[\s\S]{0,3400}librarySummary\(6\)/.test(app));
 check('run km/minutes inherit by name, not by row index', app.includes('runsByName') && !app.includes('exercisesFor(activeDate)[index]'));

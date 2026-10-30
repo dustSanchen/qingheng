@@ -21,6 +21,8 @@ check('refusing is explicitly forbidden', prompts.includes('禁止拒答') && pr
 check('a best-effort answer is required even with partial data', prompts.includes('即使数据不全也要给出你能给的最好答案'));
 check('missing sections are skipped silently', prompts.includes('【缺数据就跳过】') && prompts.includes('不要提、不要追问、不要要求用户补齐'));
 check('missing is not treated as zero', prompts.includes('数据缺失时不要把缺失当成 0'));
+check('the push advice never prints internal field names', prompts.includes('不要出现 intakeFloor') && prompts.includes('无法核算'));
+check('missing day ranges fall back to the calorie target', prompts.includes('没有训练日/休息日区间时') && prompts.includes('calorieTarget'));
 check('over-caution is called out', prompts.includes('【不要过度严谨】') && prompts.includes('不要罗列免责声明'));
 check('medical constraints stay internal', prompts.includes('这一条只需在心里约束，不必每次写在回答里'));
 check('answers are asked to be short', prompts.includes('通常 3~8 句，问什么答什么'));

@@ -4527,7 +4527,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.2.09';
+  const APP_VERSION = '1.2.13';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -4791,7 +4791,7 @@ function metricIcon(label) {
   function collectAiPlanEdits() {
     const box = $("#ai-plan-list");
     const plan = aiPlanStore(activeDate) || [];
-    if (!box) return;
+    if (!box) return 0;
     $$("[data-ai-row]", box).forEach(row => {
       const item = plan[Number(row.dataset.aiRow)];
       if (!item) return;
@@ -4805,22 +4805,30 @@ function metricIcon(label) {
       delete item.dose;
     });
     aiPlanStore(activeDate, plan.filter(item => item && item.name));
+    return plan.length - plan.filter(item => item && item.name).length;
   }
   /** 一行一个动作；编辑态把名称、组、次、负重换成输入框。 */
   function aiPlanRowHtml(item, index, editing) {
     if (!editing) {
-      return "<div class=\"ai-plan-row\" role=\"listitem\"><label class=\"ai-plan-main\"><input type=\"checkbox\" data-ai-done=\"" + index + "\"" + (item.done ? " checked" : "") + "><span class=\"ai-plan-name\">" + esc(item.name) + "</span><span class=\"ai-plan-dose\">" + esc(aiPlanDose(item)) + "</span></label>"
+      const dose = aiPlanDose(item);
+      // 名字、建议、组数同一栏：建议再长也只在自己的列里换行，不会把名字挤成一列，
+      // 组数落在建议下方，和「做什么、为什么、做多少」的阅读顺序一致。
+      return "<div class=\"ai-plan-row\" role=\"listitem\"><label class=\"ai-plan-main\"><input type=\"checkbox\" data-ai-done=\"" + index + "\"" + (item.done ? " checked" : "") + "><span class=\"ai-plan-text\"><span class=\"ai-plan-name\">" + esc(item.name) + "</span>"
         + (item.reason ? "<span class=\"ai-plan-reason\">" + esc(item.reason) + "</span>" : "")
+        + (dose ? "<span class=\"ai-plan-dose\">" + esc(dose) + "</span>" : "")
+        + "</span></label>"
         + "<button type=\"button\" class=\"ai-plan-add\" data-ai-add=\"" + index + "\" aria-label=\"\u52a0\u5165\u4eca\u5929\u7684\u8bad\u7ec3\u8bb0\u5f55\">\u52a0\u5165</button></div>";
     }
-    const num = (name, value, attrs) => "<input class=\"ai-plan-input\" data-ai-field=\"" + name + "\" type=\"number\" " + attrs + " value=\"" + (value == null ? "" : value) + "\" aria-label=\"" + name + "\">";
+    const num = (name, value, attrs, label) => "<input class=\"ai-plan-input\" data-ai-field=\"" + name + "\" type=\"number\" inputmode=\"decimal\" " + attrs + " value=\"" + (value == null ? "" : value) + "\" aria-label=\"" + label + "\">";
+    // 编辑态留一行原建议：改名字/组数时还看得见「为什么排它」，不用退出编辑再回忆。
     return "<div class=\"ai-plan-row is-editing\" role=\"listitem\" data-ai-row=\"" + index + "\">"
       + "<span class=\"ai-plan-no\">" + (index + 1) + "</span>"
-      + "<input class=\"ai-plan-input is-name\" data-ai-field=\"name\" maxlength=\"24\" value=\"" + esc(item.name) + "\" aria-label=\"动作名\">"
+      + "<input class=\"ai-plan-input is-name\" data-ai-field=\"name\" maxlength=\"24\" enterkeyhint=\"done\" value=\"" + esc(item.name) + "\" aria-label=\"动作名\">"
       + "<button type=\"button\" class=\"ai-plan-remove\" data-ai-remove=\"" + index + "\" aria-label=\"删除这个动作\">×</button>"
-      + "<div class=\"ai-plan-nums\">" + num("sets", item.sets, 'min=\"0\" max=\"30\" step=\"1\"') + "<span>组</span>"
-      + num("reps", item.reps, 'min=\"0\" max=\"200\" step=\"1\"') + "<span>次</span>"
-      + num("weight", item.weight, 'min=\"0\" max=\"500\" step=\"0.5\"') + "<span>kg</span></div>"
+      + (item.reason ? "<p class=\"ai-plan-edit-reason\">" + esc(item.reason) + "</p>" : "")
+      + "<div class=\"ai-plan-nums\"><label class=\"ai-plan-num\"><span>组</span>" + num("sets", item.sets, 'min=\"0\" max=\"30\" step=\"1\"', "组数") + "</label>"
+      + "<label class=\"ai-plan-num\"><span>次</span>" + num("reps", item.reps, 'min=\"0\" max=\"200\" step=\"1\"', "次数") + "</label>"
+      + "<label class=\"ai-plan-num\"><span>kg</span>" + num("weight", item.weight, 'min=\"0\" max=\"500\" step=\"0.5\"', "负重公斤") + "</label></div>"
       + "</div>";
   }
   function renderAiPlan() {
@@ -4858,7 +4866,9 @@ function metricIcon(label) {
     }
     box.innerHTML = plan.map((item, index) =>
       aiPlanRowHtml(item, index, box.classList.contains("editing"))
-    ).join("");
+    ).join("") + (box.classList.contains("editing")
+      ? '<div class="ai-plan-append"><button type="button" class="button subtle" data-ai-append>添加一个动作</button></div>'
+      : "");
   }
   async function askAiPlan(button) {
     const consent = $("#ai-plan-consent");
@@ -4951,6 +4961,21 @@ function metricIcon(label) {
           if (item) addExercisesToToday([item]).catch(() => {});
           return;
         }
+        const appendButton = event.target.closest("[data-ai-append]");
+        if (appendButton) {
+          event.preventDefault();
+          collectAiPlanEdits();
+          const plan = aiPlanStore(activeDate) || [];
+          if (plan.length >= 12) { notice("一份清单最多 12 个动作。"); return; }
+          // 先落成可编辑的一行，名字让用户自己改；不默认叫「动作 N」，避免带着占位词保存。
+          plan.push({name: "新动作", sets: 3, reps: 10, weight: null, reason: "", done: false});
+          aiPlanStore(activeDate, plan);
+          renderAiPlan();
+          const names = $$(".ai-plan-row.is-editing .ai-plan-input.is-name", list);
+          const last = names[names.length - 1];
+          if (last) { last.focus(); last.select(); }
+          return;
+        }
         const removeButton = event.target.closest("[data-ai-remove]");
         if (!removeButton) return;
         const row = event.target.closest(".ai-plan-row");
@@ -4965,7 +4990,10 @@ function metricIcon(label) {
         aiPlanStore(activeDate, plan);
         renderAiPlan();
         if (!plan.length) list.classList.remove("editing");
-        notice("已移除「" + row.querySelector(".ai-plan-name")?.textContent + "」。");
+        // 编辑态的名字在输入框里，非编辑态在 .ai-plan-name；两处都要能拿到，提示才不会变成 undefined。
+        const nameField = row.querySelector(".ai-plan-name") || row.querySelector("[data-ai-field=\"name\"]");
+        const removedName = nameField ? (nameField.value || nameField.textContent || "").trim() : "";
+        notice(removedName ? "已移除「" + removedName + "」。" : "已移除这个动作。");
       });
     }
     if (edit && !edit.dataset.editWired) {
@@ -4974,10 +5002,10 @@ function metricIcon(label) {
         const box = $("#ai-plan-list");
         if (!box) return;
         if (box.classList.contains("editing")) {
-          collectAiPlanEdits();
+          const dropped = collectAiPlanEdits();
           box.classList.remove("editing");
           edit.textContent = "修改";
-          notice("已保存修改。");
+          notice(dropped ? "已保存修改，移除了 " + dropped + " 个没有名字的动作。" : "已保存修改。");
         } else {
           box.classList.add("editing");
           edit.textContent = "完成";
