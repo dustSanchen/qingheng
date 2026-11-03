@@ -1437,7 +1437,29 @@ function intakeRangeForDate(date = activeDate) {
     const measurements = state.measurements.filter(item => validDate(item.date) && item.date <= activeDate).sort((a,b) => b.date.localeCompare(a.date));
     const weight = latestField(measurements,'weight'), waist = latestField(measurements,'waist'), bodyFat = latestField(measurements,'bodyFat');
     const bmi = weight && number(p.height)>0 ? weight.weight / ((p.height/100)**2) : null;
-    $('#latest-measurement').innerHTML = [['体重',weight?.weight,'kg',weight?.date],['BMI',bmi,'',weight?.date],['腰围',waist?.waist,'cm',waist?.date],['体脂率',bodyFat?.bodyFat,'%',bodyFat?.date]].map(([label,value,unit,date]) => `<div><span class="stat-label">${label}</span><div class="stat-number">${fmt(value)}<small>${unit}</small></div><span class="fine-print">${date ? esc(date) : '尚无测量'}</span></div>`).join('');
+    // 身体近况：数值 + 较上次的变化，日期只写一次（原来四格各贴一个 ISO 日期）。
+    const prevField = (key, date) => {
+      const older = measurements.find(item => item.date < date && number(item[key]) !== null);
+      return older ? number(older[key]) : null;
+    };
+    const daysBetween = (from, to) => {
+      try { return Math.round((new Date(to + 'T00:00:00') - new Date(from + 'T00:00:00')) / 86400000); } catch { return null; }
+    };
+    const deltaLine = (value, prev, unit) => {
+      if (value === null || value === undefined) return '';
+      if (prev === null) return '首次记录';
+      const diff = Number(value) - prev;
+      if (!Number.isFinite(diff) || Math.abs(diff) < 0.05) return '与上次持平';
+      return `较上次 ${diff > 0 ? '＋' : '－'}${fmt(Math.abs(diff), 1)} ${unit}`.trim();
+    };
+    const bodyCells = [['体重', weight?.weight, 'kg', weight?.date, 'weight'], ['BMI', bmi, '', '', null], ['腰围', waist?.waist, 'cm', waist?.date, 'waist'], ['体脂率', bodyFat?.bodyFat, '%', bodyFat?.date, 'bodyFat']];
+    const measured = weight?.date || waist?.date || bodyFat?.date || '';
+    const ago = measured ? daysBetween(measured, activeDate) : null;
+    $('#latest-measurement').innerHTML = bodyCells.map(([label, value, unit, date, key]) => {
+      const delta = key && date ? deltaLine(value, prevField(key, date), unit) : '';
+      const shown = value === null || value === undefined ? '—' : fmt(value);
+      return `<div class="stat-cell"><span class="stat-label">${label}</span><div class="stat-number${shown === '—' ? ' is-empty' : ''}">${shown}<small>${shown === '—' ? '' : unit}</small></div>${delta ? `<span class="stat-delta">${esc(delta)}</span>` : ''}</div>`;
+    }).join('') + `<p class="stat-when fine-print">${measured ? `最近测量 ${esc(measured)}${ago !== null && ago > 0 ? `（${ago} 天前）` : '（今天）'}` : '还没有身体测量'}</p>`;
     const habit = state.habits.find(item => item.date === activeDate) || {};
     const training = habit.training === true || habit.training === 'true' ? '已训练' : habit.training === false || habit.training === 'false' ? '休息日' : habit.training ? String(habit.training) : '未记录';
     // SVG icons instead of ↗ ♧ ☾ ◇: those characters rendered differently on every ROM.
@@ -4792,7 +4814,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.2.49';
+  const APP_VERSION = '1.2.51';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}

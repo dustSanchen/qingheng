@@ -792,6 +792,15 @@ details[open]{background:var(--surface)}
 .day-more[open] > summary{margin-bottom:var(--space-2)}
 .day-more .card{border:0;box-shadow:none;padding:var(--space-3) 0;margin:0;border-top:1px solid var(--line);border-radius:0}
 .day-more .card:first-of-type{border-top:0}
+/* ── 身体近况（2026-11-03）：数值 + 变化量，日期只出现一次 ────────────────────────── */
+.stat-cell{display:flex;flex-direction:column;gap:2px;min-width:0}
+.stat-number.is-empty{font-size:var(--text-lg);color:var(--muted);line-height:1.9;letter-spacing:.1em}
+.stat-delta{font-size:var(--text-xs);color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.stat-delta.is-up{color:var(--warn)}
+.stat-delta.is-down{color:var(--accent)}
+.stat-when{grid-column:1/-1;margin:0;padding-top:6px;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
+/* 折进「更多」以后，建议卡不再用整块浅绿抢注意力，靠分隔线分组。 */
+.day-more .advice-card{background:transparent}
 
 /* Non-meal entries share the meal list's single hairline rhythm without pretending to have a time. */
 .day-event{padding:var(--space-2) 0;border:0;border-bottom:1px solid var(--line)}
