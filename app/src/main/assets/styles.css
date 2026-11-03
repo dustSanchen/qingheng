@@ -718,6 +718,12 @@ details[open]{background:var(--surface)}
 .chat-search{display:block;margin:0 0 var(--space-2)}
 .chat-search input{width:100%}
 .chat-day{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-2);margin:var(--space-3) 0 var(--space-1);padding-top:var(--space-2);border-top:1px solid var(--line);font-size:var(--text-sm);color:var(--muted);font-variant-numeric:tabular-nums}
+/* 按天查看：日期 chip 居中，两侧箭头在「有记录的日期」之间翻页；到最新一天再往后就回全部。 */
+.chat-day-bar{display:flex;align-items:center;gap:8px;margin:0 0 var(--space-3)}
+.chat-day-bar .icon-button{width:44px;height:44px;min-width:44px;font-size:16px;line-height:1;color:var(--accent)}
+.chat-day-bar .icon-button:disabled{color:var(--muted);background:var(--surface-soft);border-color:var(--line);opacity:1}
+.chat-day-bar .chip-toggle{flex:1 1 auto;display:flex;align-items:center;justify-content:center;min-height:44px;font-size:var(--text-sm);font-weight:var(--fw-semibold);color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.chat-day-bar .chip-toggle[aria-pressed="true"]{color:var(--accent)}
 .chat-day span{color:var(--muted);font-size:var(--text-xs)}
 .chat-day:first-child{border-top:0;padding-top:0;margin-top:0}
 

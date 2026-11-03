@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.2.32';
+  const APP_VERSION = '1.2.34';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -738,6 +738,24 @@
     return skin;
   }
   let chatSearchTimer = 0;
+  /** 问答记录的按天浏览：日期 chip 打开原生日历，两侧箭头在「有记录的日期」之间翻页。 */
+  function installChatDayFilter() {
+    const toggle = $('#chat-day-toggle'), input = $('#chat-day-input');
+    if (!toggle || toggle.dataset.wired) return;
+    toggle.dataset.wired = '1';
+    toggle.addEventListener('click', () => {
+      if (!input) return;
+      if (typeof input.showPicker === 'function') { try { input.showPicker(); return; } catch {} }
+      input.focus(); input.click();
+    });
+    input?.addEventListener('change', () => {
+      const value = /^\d{4}-\d{2}-\d{2}$/.test(input.value) ? input.value : '';
+      if (value) setChatDayFilter(value);
+      input.value = '';
+    });
+    $('#chat-day-prev')?.addEventListener('click', () => stepChatDay(-1));
+    $('#chat-day-next')?.addEventListener('click', () => stepChatDay(1));
+  }
   function installSkinPicker() {
     const chatSearch = $("#chat-search");
     if (chatSearch && !chatSearch.dataset.wired) {

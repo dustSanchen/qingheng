@@ -272,7 +272,17 @@ assert.match(app, /bindFavoriteFilter\('chat-favorites-only'/, 'the chat list ca
 assert.match(app, /bindFavoriteFilter\('meal-favorites-only'/, 'the meal list can show favourites only');
 assert.match(html, /id="chat-favorites-only" aria-pressed="false"/, 'the filter is a pressed-state chip');
 assert.match(html, /id="meal-favorites-only" aria-pressed="false"/, 'the meal filter is a pressed-state chip');
-assert.match(app, /const baseRows = favoriteOnlyChats \? chats\.filter\(row => row\.favorite === true\) : chats;[\s\S]{0,120}const shown = baseRows\.filter\(row => chatMatches\(row, chatQuery\)\);/, 'the chat filter really filters');
+assert.match(app, /function chatRowsInScope\(\) \{[\s\S]{0,220}const base = favoriteOnlyChats \? chats\.filter\(row => row\.favorite === true\) : chats;[\s\S]{0,140}return base\.filter\(row => chatMatches\(row, chatQuery\)\);/, 'the chat filter really filters');
+assert.match(app, /const shown = chatRowsInScope\(\);/, 'renderChat reads the filtered rows from one place');
+
+// --- 问答记录：按天查看 + 日期翻页 ------------------------------------------------------------
+assert.match(html, /id="chat-day-toggle" aria-pressed="false"/, 'the history has a day chip');
+assert.match(html, /id="chat-day-prev"[\s\S]{0,260}id="chat-day-next"/, 'the day chip is flanked by step buttons');
+assert.match(app, /let chatDayFilter = '';/, 'the day filter keeps a session state');
+assert.match(app, /function chatDates\(\)/, 'the pager walks the dates that actually have records');
+assert.match(app, /const dayRows = chatDayFilter \? shown\.filter\(row => String\(row\.date \|\| ''\) === chatDayFilter\) : shown;/, 'renderChat honours the day filter');
+assert.match(app, /if \(!chatDayFilter\) \{ if \(dir < 0\) setChatDayFilter\(dates\[0\]\); return; \}/, 'the arrows start from the newest day and clear back to all');
+assert.match(app, /installChatDayFilter\(\);/, 'the day filter is wired at boot');
 
 // --- Advice is invalidated when the records change ---------------------------------------------
 assert.match(app, /function mealsFingerprint\(date\)/, 'the advice is tied to a record fingerprint');

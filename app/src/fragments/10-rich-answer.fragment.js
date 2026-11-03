@@ -368,14 +368,55 @@
   const CHAT_PAGE_SIZE = 30;
   function resetChatPaging() { chatShownCount = CHAT_PAGE_SIZE; }
   function showEarlierChats() { chatShownCount += CHAT_PAGE_SIZE; renderChat(); }
-  function renderChat() {
+  // ---- 按天查看 ------------------------------------------------------------------------------
+  // 历史越长，"更早的记录"越像抽奖。日期 chip 直接筛出某一天，两侧箭头只在有记录的日期之间走，
+  // 到最新一天再按一次就回到全部——翻页和按天查询是同一个动作。
+  let chatDayFilter = '';
+  function chatRowsInScope() {
     const chats = Array.isArray(state.chats) ? state.chats : [];
+    const base = favoriteOnlyChats ? chats.filter(row => row.favorite === true) : chats;
+    return base.filter(row => chatMatches(row, chatQuery));
+  }
+  /** 有记录的日期，从新到旧；箭头按这个列表走，不会停在空白的一天。 */
+  function chatDates() {
+    const dates = [];
+    for (const row of chatRowsInScope()) {
+      const date = String(row.date || '');
+      if (date && !dates.includes(date)) dates.push(date);
+    }
+    return dates.sort((a, b) => b.localeCompare(a));
+  }
+  function setChatDayFilter(date) {chatDayFilter = date || ''; resetChatPaging(); renderChat();}
+  /** dir=-1 更早，dir=1 更晚。dates 是「从新到旧」，所以更早 = 索引 +1。 */
+  function stepChatDay(dir) {
+    const dates = chatDates();
+    if (!dates.length) return;
+    if (!chatDayFilter) { if (dir < 0) setChatDayFilter(dates[0]); return; }
+    const index = dates.indexOf(chatDayFilter);
+    if (index < 0) {setChatDayFilter(''); return;}
+    const target = index - dir;
+    if (target < 0) {setChatDayFilter(''); return;}
+    setChatDayFilter(dates[Math.min(target, dates.length - 1)]);
+  }
+  function renderChatDayBar() {
+    const toggle = $('#chat-day-toggle'), prev = $('#chat-day-prev'), next = $('#chat-day-next');
+    if (!toggle) return;
+    const dates = chatDates();
+    const index = chatDayFilter ? dates.indexOf(chatDayFilter) : -1;
+    toggle.textContent = chatDayFilter ? chatDayFilter.slice(5) : '全部日期';
+    toggle.setAttribute('aria-pressed', chatDayFilter ? 'true' : 'false');
+    toggle.setAttribute('aria-label', chatDayFilter ? `正在看 ${chatDayFilter}，点开换一天` : '按天查看问答记录');
+    if (prev) prev.disabled = !dates.length || (index === dates.length - 1);
+    // 「全部日期」已经在最新一端，再往后没有更晚的了。
+    if (next) next.disabled = !dates.length || index < 0;
+  }
+  function renderChat() {
     const log = $('#chat-log');
-    const baseRows = favoriteOnlyChats ? chats.filter(row => row.favorite === true) : chats;
-    const shown = baseRows.filter(row => chatMatches(row, chatQuery));
+    const shown = chatRowsInScope();
+    const dayRows = chatDayFilter ? shown.filter(row => String(row.date || '') === chatDayFilter) : shown;
     // No inline delete here: a long press opens copy / select / favourite / delete instead, so the
     // row keeps its width for the question, its tags, the date and a readable answer preview.
-    const ordered = [...shown].reverse();
+    const ordered = [...dayRows].reverse();
     const visible = ordered.slice(0, chatShownCount);
     const earlier = ordered.length - visible.length;
     const groups = groupChatsByDate(visible);
@@ -407,7 +448,8 @@
         + citationBlock(row)
         + `<div class="button-row row-actions"><button type="button" class="button subtle" data-chat-again="${esc(id)}">重新生成</button><button type="button" class="button subtle" data-chat-unhelpful="${esc(id)}">${unhelpfulChats.has(id) ? '已标记没用' : '这条没用'}</button></div>`
         + `</div></div>`;
-    }).join("")).join("") + moreButton : empty(chatQuery ? "没有匹配「" + chatQuery + "」的记录。" : (favoriteOnlyChats ? "还没有收藏的问答记录。长按一条记录即可收藏。" : "还没有问答记录。有疑问时，问一句。"));
+    }).join("")).join("") + moreButton : empty(chatQuery ? "没有匹配「" + chatQuery + "」的记录。" : (favoriteOnlyChats ? "还没有收藏的问答记录。长按一条记录即可收藏。" : (chatDayFilter ? chatDayFilter + " 没有问答记录。" : "还没有问答记录。有疑问时，问一句。")));
+    renderChatDayBar();
     const node = $('#chat-mode');
     if (node) {
       const base = state.settings.apiConfigured === true

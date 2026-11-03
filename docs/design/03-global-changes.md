@@ -126,5 +126,6 @@
 | 2026-11-03 | `tests/layout-four.test.mjs` | 「快速记录是 header 文字按钮」→「header 次按钮（`button subtle` + 复制图标）」；新增「餐次是弹窗内 chip 行、且不再有原生 select」断言 | 用户报「快速记录无法修改餐次」：WebView 把原生 `<select>` 的弹层画在遮罩之后，实机只剩一条取消条、选不中；餐次改四枚 44px chip（与「复制哪一餐」同一套弹窗内选择方案），并把文字链升级为带图标的次按钮，拉平与四格芯片的视觉权重 |
 | 2026-11-03 | `tests/layout-four.test.mjs`、`tests/records-panels.test.mjs` | 「低频设置折叠在 details 里」→「低频设置开自己的 sub-page」；顺带删掉 `.profile-more*` 死样式断言 | 用户要求「我的 → 数据、外观与说明」这一行与「模型连接」同步格式：同一个 `.subpage` 外壳、同样的 21px hub 图标与返回头，不再在列表里嵌第二层折叠 |
 | 2026-11-03 | `tests/meal-date-java.test.mjs` | `SUBPAGES` 增加 `appearance`；入口计数 5 → 6；`#subpage-appearance` 进入 id 清单 | 同上：低频块升级为第六个子页，路由与 back 行为跟其它子页一致 |
+| 2026-11-03 | `tests/meal-date-context.test.mjs` | 「收藏筛选写在 renderChat 里」→「收进 `chatRowsInScope()` 一个入口」；新增问答按天浏览的 7 条断言（chip、两侧箭头、`chatDayFilter` 状态、只走有记录的日期、「全部日期」在最新一端） | 问答记录加了按天翻页：过滤要对搜索、收藏、按天三种条件叠加生效，写在 renderChat 里会分叉；断言跟着改成单一出口，并锁住翻页边界（从最新一天再往后回到全部） |
 
 

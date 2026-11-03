@@ -1,6 +1,7 @@
 /* Fragment of assets/app.js -- assembled by tools/assemble-app.ps1 in filename order.
  * Edit this file, never the generated assets/app.js; tests/app-fragments.test.mjs fails on drift. */
   installSkinPicker();
+  installChatDayFilter();
 switchTab(restoreTab());render();connection();syncAnchors().catch(()=>{});
   readPermissionState().then(renderPermissionChecklist).catch(()=>{});
   refreshBackupStatus().then(maybeRemindBackup).catch(()=>{});
