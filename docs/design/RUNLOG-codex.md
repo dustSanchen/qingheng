@@ -150,3 +150,12 @@
 - 双皮肤：纸感 `build/v231-qr-open.png`、账本 `build/v231-ledger-qr.png`；chip 与按钮均随令牌适配，验证后皮肤已还原为 paper（`build/v231-restore2.png`）。
 - 断言变更登记在 `03-global-changes.md §5.1`（新增「餐次是 chip 行、无原生 select」守卫）。
 - 源码提交 `69cef26`；回滚：`git revert 69cef26`。
+
+## r41 · 2026-11-03 · 1.2.32（默认餐次按时间 + 我的低频块改子页）
+- 默认餐次：新增 `readMealWindow` / `saveMealWindow` / `defaultMealTypeFor`，按本机时钟给默认——早于 11:20 早餐、11:20 起午餐、22:00 起加餐；两个阈值可改，存 `qingheng.mealWindow`。快速记录打开时按规则选中；记录页「轻松记一餐」在用户没手动改过时同步。
+- 「我的 → 数据、外观与说明」不再在列表里展开 `<details>`，改为第六个 sub-page `#subpage-appearance`：与「模型连接」同一个 `.subpage` 外壳、同样的返回头与 21px hub 图标，窗口尺寸由同一套样式决定。外观皮肤、默认餐次、数据管理、关于轻衡、重新设置档案、问答说明都在这一页。
+- 新增「默认餐次」卡：午餐起 / 加餐起两个 `time` 输入 + 保存 + 恢复默认；保存后卡片标签（现在默认午餐/加餐）与我的页摘要立刻反映新阈值。
+- 删掉 `.profile-more` 一族死样式；判定断言同步（`layout-four`、`records-panels`、`meal-date-java`）。
+- 验收：`test-all` 56/56；`dev-loop.ps1 -Version 1.2.32 -VersionCode 232` 安装 + smoke 无 JS 错误；实机 20:33 打开快速记录默认「午餐」（`build/v232-qr-default.png`）；把加餐起改为 20:00 保存后默认「加餐」（`build/v232-qr-snack.png`），再恢复 11:20 / 22:00（`build/v232-reset-done.png`）；子页与「模型连接」同尺寸同返回头（`build/v232-appearance.png` vs `build/v232-model.png`）。
+- 断言变更登记在 `03-global-changes.md §5.1`。
+- 源码提交 `b3508d8`；回滚：`git revert b3508d8`。
