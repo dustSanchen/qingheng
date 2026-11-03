@@ -4753,19 +4753,18 @@ const values = points.length<=7 ? points.map((item,i) => {
  * 只映射已有资源，不新增文件；未知指标回退成空，保持排版不塌。
  */
 function metricIcon(label) {
-  // 四种宏量营养素靠轮廓区分：火焰（能量）/ 斜椭圆蛋（蛋白）/ 泪滴（脂肪）/ 麦穗（碳水）。
-  const stroke = 'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" aria-hidden="true"';
-  const icons = {
-    热量: `<g ${stroke}><path d="M12 3.2c2.6 3 3.9 5 3.9 6.9a3.9 3.9 0 0 1-7.8 0c0-1 .5-2.1 1.5-3.3"/><path d="M12 20.8a6.6 6.6 0 0 0 6.6-6.6c0-2.3-1.2-4.4-2.6-6.1"/></g>`,
-    蛋白质: `<g ${stroke}><ellipse cx="11.4" cy="12" rx="5.2" ry="7.2" transform="rotate(-18 11.4 12)"/><path d="M9.4 9.4a3.4 3.4 0 0 1 4.6 1.1"/></g>`,
-    脂肪: `<g ${stroke}><path d="M13.6 3.4c3.8 4.2 5.4 7 5.4 9.3a5.9 5.9 0 0 1-11.8 0c0-2.3 1.6-5.1 5.4-9.3Z"/><path d="M11.8 15.4a2.4 2.4 0 0 0 2.4 2.2"/></g>`,
-    碳水: `<g ${stroke}><path d="M12 21V9.4"/><path d="M12 12.4c-1.9 0-3.4-1.5-3.4-3.4 1.9 0 3.4 1.5 3.4 3.4Z"/><path d="M12 15.6c1.9 0 3.4-1.5 3.4-3.4-1.9 0-3.4 1.5-3.4 3.4Z"/><path d="M12 9.4c-1.6-.6-2.6-2.1-2.6-3.9 1.7.2 2.9 1.5 3 3.1"/></g>`,
-    训练: `<g ${stroke}><path d="M4 9.5v5M7 7.5v9M17 7.5v9M20 9.5v5"/><path d="M7 12h10"/></g>`,
-    睡眠: `<g ${stroke}><path d="M19.4 14.2A8 8 0 0 1 9.8 4.6a8.2 8.2 0 1 0 9.6 9.6Z"/><path d="M16.6 4.6l.5 1.6 1.6.5-1.6.5-.5 1.6-.5-1.6-1.6-.5 1.6-.5Z"/></g>`,
-    饮水: `<g ${stroke}><path d="M7 4.5h10l-1.1 13.2a2 2 0 0 1-2 1.8h-3.8a2 2 0 0 1-2-1.8Z"/><path d="M7.6 9.6c1.6.9 3.2-.6 4.4 0s2.8.9 4.4 0"/></g>`
+  // 路径取自 Tabler Icons（MIT，Paweł Kuna），按本项目口径统一 24 网格 + currentColor。
+  const paths = {
+    热量: 'M12 10.941c2.333 -3.308 .167 -7.823 -1 -8.941c0 3.395 -2.235 5.299 -3.667 6.706c-1.43 1.408 -2.333 3.294 -2.333 5.588c0 3.704 3.134 6.706 7 6.706c3.866 0 7 -3.002 7 -6.706c0 -1.712 -1.232 -4.403 -2.333 -5.588c-2.084 3.353 -3.257 3.353 -4.667 2.235',
+    蛋白质: 'M19 14.083c0 4.154 -2.966 6.74 -7 6.917c-4.2 0 -7 -2.763 -7 -6.917c0 -5.538 3.5 -11.09 7 -11.083c3.5 .007 7 5.545 7 11.083',
+    脂肪: 'M7.502 19.423c2.602 2.105 6.395 2.105 8.996 0c2.602 -2.105 3.262 -5.708 1.566 -8.546l-4.89 -7.26c-.42 -.625 -1.287 -.803 -1.936 -.397a1.376 1.376 0 0 0 -.41 .397l-4.893 7.26c-1.695 2.838 -1.035 6.441 1.567 8.546',
+    碳水: 'M12.014 21.514v-3.75M5.93 9.504l-.43 1.604c-.712 2.659 .866 5.391 3.524 6.105c.997 .268 1.993 .535 2.99 .801v-3.44c-.164 -2.105 -1.637 -3.879 -3.676 -4.426l-2.408 -.644M18.099 9.504l.43 1.604c.712 2.659 -.866 5.391 -3.525 6.105c-.997 .268 -1.994 .535 -2.99 .801v-3.44c.164 -2.105 1.637 -3.879 3.677 -4.426l2.408 -.644',
+    训练: 'M2 12h1M6 8h-2a1 1 0 0 0 -1 1v6a1 1 0 0 0 1 1h2M6 7v10a1 1 0 0 0 1 1h1a1 1 0 0 0 1 -1v-10a1 1 0 0 0 -1 -1h-1a1 1 0 0 0 -1 1M9 12h6M15 7v10a1 1 0 0 0 1 1h1a1 1 0 0 0 1 -1v-10a1 1 0 0 0 -1 -1h-1a1 1 0 0 0 -1 1M18 8h2a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-2M22 12h-1',
+    睡眠: 'M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454l0 .008M17 4a2 2 0 0 0 2 2a2 2 0 0 0 -2 2a2 2 0 0 0 -2 -2a2 2 0 0 0 2 -2M19 11h2m-1 -1v2',
+    饮水: 'M5 11h14v-3h-14l0 3M17.5 11l-1.5 10h-8l-1.5 -10M6 8v-1a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v1M15 5v-2'
   };
-  const markup = icons[label];
-  return markup ? `<svg viewBox="0 0 24 24" width="18" height="18">${markup}</svg>` : '';
+  const d = paths[label];
+  return d ? `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>` : '';
 }
 /* Fragment of assets/app.js -- assembled by tools/assemble-app.ps1 in filename order.
  * Edit this file, never the generated assets/app.js; tests/app-fragments.test.mjs fails on drift. */
@@ -4921,7 +4920,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.2.80';
+  const APP_VERSION = '1.2.81';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
