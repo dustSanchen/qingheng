@@ -55,6 +55,12 @@ import java.util.concurrent.Executors;
  * File input uses Android picker; JS can read returned image/JSON files using FileReader.
  */
     public final class MainActivity extends Activity implements cn.qingheng.health.bridge.MetaRoutes.Host, cn.qingheng.health.bridge.PushRoutes.Host, cn.qingheng.health.bridge.RecordsRoutes.Host {
+    // 非流式调用的输出上限：估算/建议/检索词都只有确定长度，放开写就是纯尾延迟。0 = 不设上限。
+    private static final int CAP_ESTIMATE = 900;
+    private static final int CAP_ADVICE = 320;
+    private static final int CAP_QUERY_REWRITE = 140;
+    private static final int CAP_SEARCH_KEYWORDS = 80;
+    private static final int CAP_CHAT_BUFFERED = 900;
     private static final String HOST = "app.qingheng.local";
     private static final int LIMIT = 8 * 1024 * 1024;
     private static final int PICK = 4101, SAVE = 4102, SAVE_TEXT = 4103, CAMERA = 4104, VOICE = 4105, REQUEST_CAMERA = 4202, REQUEST_VOICE = 4203, REQUEST_HEALTH = 4204;
@@ -2373,7 +2379,7 @@ import java.util.concurrent.Executors;
         }
         messages.put(new JSONObject().put("role", "user").put("content", userContent));
         String reply = sink == null
-                ? chat(c, model, messages).trim()
+                ? chat(c, model, messages, CAP_CHAT_BUFFERED).trim()
                 : ChatCompletion.stream(c, apiKey(c.optString("provider", provider())), model, messages, sink, think).trim();
         // A reply made only of JSON nulls must never reach the page or the log.
         if (ChatCompletion.isBlank(reply)) throw fail("模型这次没有给出回答内容（可能只返回了思考过程），请重新提问或换一个模型");
@@ -2414,7 +2420,7 @@ import java.util.concurrent.Executors;
                             + "[\"中文关键词\",\"包含具体品牌或菜名的查询\",\"英文术语（营养或训练类才需要）\"]。"
                             + "每条不超过 20 个字，保留品牌、菜名、数字；不要引号套引号，不要换行。"))
                     .put(new JSONObject().put("role", "user").put("content", question));
-            String raw = chat(c, model, messages).trim();
+            String raw = chat(c, model, messages, CAP_QUERY_REWRITE).trim();
             int start = raw.indexOf('['), end = raw.lastIndexOf(']');
             if (start < 0 || end <= start) return out;
             JSONArray parsed = new JSONArray(raw.substring(start, end + 1));
@@ -2490,7 +2496,7 @@ import java.util.concurrent.Executors;
                             "\u628a\u7528\u6237\u7684\u95ee\u9898\u6539\u5199\u6210\u7528\u4e8e\u7f51\u9875\u641c\u7d22\u7684 2 \u5230 6 \u4e2a\u4e2d\u6587\u5173\u952e\u8bcd\uff0c\u7528\u7a7a\u683c\u5206\u9694\uff0c\u4fdd\u7559\u54c1\u724c\u548c\u98df\u7269\u540d\u79f0\uff0c"
                             + "\u70ed\u91cf\u3001\u8425\u517b\u7c7b\u95ee\u9898\u52a0\u4e0a\u300c\u70ed\u91cf\u300d\u6216\u300c\u8425\u517b\u6210\u5206\u300d\u3002\u53ea\u8f93\u51fa\u5173\u952e\u8bcd\uff0c\u4e0d\u8981\u89e3\u91ca\u3001\u6807\u70b9\u6216\u5f15\u53f7\u3002"))
                     .put(new JSONObject().put("role", "user").put("content", question));
-            String words = chat(c, model, messages).trim().replaceAll("[\\r\\n]+", " ").replaceAll("[\"\u201c\u201d\u300c\u300d\u3002\uff0c,]", " ").replaceAll("\\s+", " ").trim();
+            String words = chat(c, model, messages, CAP_SEARCH_KEYWORDS).trim().replaceAll("[\\r\\n]+", " ").replaceAll("[\"\u201c\u201d\u300c\u300d\u3002\uff0c,]", " ").replaceAll("\\s+", " ").trim();
             if (words.length() < 2) return fallback;
             return words.length() > 60 ? words.substring(0, 60) : words;
         } catch (Exception e) {
@@ -3141,6 +3147,15 @@ import java.util.concurrent.Executors;
         return ChatCompletion.complete(c, apiKey(c.optString("provider", provider())), model, messages).getString("content");
     }
 
+    /**
+     * Same call with an output ceiling. Every non-streaming call in this app has a known maximum
+     * length (JSON estimate, 2-bullet advice, a keyword list), so the ceiling is a latency bound
+     * rather than a quality trade: it only cuts the model's room to ramble past the answer.
+     */
+    private String chat(JSONObject c, String model, JSONArray messages, int maxTokens) throws Exception {
+        return ChatCompletion.complete(c, apiKey(c.optString("provider", provider())), model, messages, maxTokens).getString("content");
+    }
+
     private JSONObject estimate(JSONObject b) throws Exception {
         JSONObject c = consent(b);
         String text = b.optString("text", b.optString("description", "")).trim();
@@ -3162,7 +3177,9 @@ import java.util.concurrent.Executors;
                 .put(new JSONObject().put("role", "system").put("content",
                         cn.qingheng.health.ai.Prompts.withAnchors(cn.qingheng.health.ai.Prompts.mealEstimate(), b.optString("anchors", ""))))
                 .put(new JSONObject().put("role", "user").put("content", content));
-        String response = chat(c, model, messages).trim();
+        long estimateStarted = System.currentTimeMillis();
+        String response = chat(c, model, messages, CAP_ESTIMATE).trim();
+        android.util.Log.i("qingheng", "estimate " + (System.currentTimeMillis() - estimateStarted) + "ms chars=" + response.length() + " cap=" + CAP_ESTIMATE);
         JSONObject parsed;
         try { parsed = new JSONObject(response); }
         catch (Exception e) { throw fail("API 未返回严格 JSON，未创建草稿"); }
@@ -3554,7 +3571,9 @@ import java.util.concurrent.Executors;
         JSONArray messages = new JSONArray()
                 .put(new JSONObject().put("role", "system").put("content", adviceSystemPrompt()))
                 .put(new JSONObject().put("role", "user").put("content", input.toString()));
-        String summary = chat(c, c.getString("model"), messages).trim();
+        long adviceStarted = System.currentTimeMillis();
+        String summary = chat(c, c.getString("model"), messages, CAP_ADVICE).trim();
+        android.util.Log.i("qingheng", "advice " + (System.currentTimeMillis() - adviceStarted) + "ms chars=" + summary.length() + " cap=" + CAP_ADVICE);
         if (summary.length() > 8000) throw fail("API 建议过长");
         JSONArray output = adviceMessages(summary);
         return new JSONObject().put("messages", output).put("source", "api").put("summary", summary);

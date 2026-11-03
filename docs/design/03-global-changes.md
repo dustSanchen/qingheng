@@ -128,6 +128,7 @@
 | 2026-11-03 | `tests/meal-date-java.test.mjs` | `SUBPAGES` 增加 `appearance`；入口计数 5 → 6；`#subpage-appearance` 进入 id 清单 | 同上：低频块升级为第六个子页，路由与 back 行为跟其它子页一致 |
 | 2026-11-03 | `tests/meal-date-context.test.mjs` | 「收藏筛选写在 renderChat 里」→「收进 `chatRowsInScope()` 一个入口」；新增问答按天浏览的 7 条断言（chip、两侧箭头、`chatDayFilter` 状态、只走有记录的日期、「全部日期」在最新一端） | 问答记录加了按天翻页：过滤要对搜索、收藏、按天三种条件叠加生效，写在 renderChat 里会分叉；断言跟着改成单一出口，并锁住翻页边界（从最新一天再往后回到全部） |
 | 2026-11-03 | `tests/chat-streaming.test.mjs`、`tests/stream-bubble.test.mjs` | 「逐 token 直接写 DOM」→「写进 `box.pending`，按帧 flush」；片段测试沙箱补 `nextFrame/cancelFrame` 同步桩 | 问答界面落地清单第 7 条：长回答逐 token 写 textContent 会让 WebView 抖，改成每帧最多一次；沙箱没有 rAF，用同步桩代替 |
+| 2026-11-03 | `tests/ci-and-versions.test.mjs`、`tests/modularization.test.mjs` | `PROMPT_VERSION = 3` → `= 4` | 提速轮改了两处提示词：删掉 dailyAdvice 开头串进来的估算字段行（死文本），锚点注入上限 4000 → 1200 字；按仓库规矩，提示词文本一改就升版本 |
 | 2026-11-03 | `tests/meal-date-context.test.mjs`、`tests/p1-answers-phase-collapse.test.mjs` | 「行内日期 + 行内 重新生成/这条没用」→「日期只在分组头、两个动作进长按菜单」；展开按钮断言改成 `row-toggle-inline` | 问答界面落地清单第 3、4、5 条：一屏 6 颗按钮压过了内容，改成结构减法；截断去掉渐变遮罩，展开改成文字链 |
 
 

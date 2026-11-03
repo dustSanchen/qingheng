@@ -31,7 +31,16 @@ public final class ChatCompletion {
      * Throws {@link PublicError} with user-facing Chinese text on every expected failure.
      */
     public static JSONObject complete(JSONObject config, String apiKey, String model, JSONArray messages) throws Exception {
-        return completeMessage(config, apiKey, model, messages, null);
+        return completeMessage(config, apiKey, model, messages, null, 0);
+    }
+
+    /**
+     * Same call with an explicit output ceiling. Estimates, advice and query rewrites have a known
+     * maximum length: letting the model decide how long to write is pure tail latency, and a runaway
+     * `notes`/prose field is the usual cause of a slow 估算预览.
+     */
+    public static JSONObject complete(JSONObject config, String apiKey, String model, JSONArray messages, int maxTokens) throws Exception {
+        return completeMessage(config, apiKey, model, messages, null, maxTokens);
     }
 
     /**
@@ -39,12 +48,17 @@ public final class ChatCompletion {
      * caller can run the tool loop. The API never executes a tool itself.
      */
     public static JSONObject completeMessage(JSONObject config, String apiKey, String model, JSONArray messages, JSONArray tools) throws Exception {
+        return completeMessage(config, apiKey, model, messages, tools, 0);
+    }
+
+    public static JSONObject completeMessage(JSONObject config, String apiKey, String model, JSONArray messages, JSONArray tools, int maxTokens) throws Exception {
         if (model == null || model.trim().isEmpty()) throw new PublicError("请配置文本或视觉模型名称");
         if (apiKey == null || apiKey.trim().isEmpty()) throw new PublicError("未配置 API 密钥，可使用前端离线估算");
         if (messages == null || messages.length() < 1) throw new PublicError("请提供对话内容");
         URL destination = endpoint(config.getString("baseUrl"));
         JSONObject payload = new JSONObject().put("model", model).put("temperature", 0.2)
                 .put("messages", messages).put("stream", false);
+        if (maxTokens > 0) payload.put("max_tokens", maxTokens);
         if (tools != null && tools.length() > 0) payload.put("tools", tools);
         HttpsURLConnection conn = null;
         try {
