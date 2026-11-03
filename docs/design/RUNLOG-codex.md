@@ -357,3 +357,11 @@
 - 断言：`habit-and-training-mode` 里「体检图标指向已发布资源」改成「体检图标为内联 SVG」，并登记 `03-global-changes §5.1`。
 - 验收：`test-all` 56/56；`dev-loop` 1.2.79/279 安装 + smoke 无 JS 错误；截图 `build/v279-hub.png`（我的八枚）、`build/v279-check2.png`（体检四项）。
 - 源码提交 `5e31bf8`；回滚：`git revert 5e31bf8`。
+
+## r65 · 2026-11-04 · 1.2.80（装绘画技能 + 重绘品牌标记）
+- 找插件：GitHub 上「绘画 / 插画」类高星来源里，选了官方的 `anthropics/skills`（仓库自带 skills 目录，全部是纯文本 + 字体）。按「下载仓库 → 只拷文本文件」的老规矩：`git clone --depth 1` 到 `D:\AI\build-skills`，只把 `skills/canvas-design/{SKILL.md,LICENSE.txt}` 复制到 `~/.dsh/skills/canvas-design/`；`canvas-fonts/` 里 20+ 个 ttf 属于二进制资产，没有装进技能目录，需要画字时从克隆目录按路径引用。没有跑任何 npx 安装器。
+- 用技能产出一件作品：按 canvas-design 的两步法先写哲学（`docs/design/art/light-ledger.md`，「轻盈档案 / Light Ledger：可测量的温柔」），再把哲学画到 1240×1650 的画布上（`docs/design/art/light-ledger.png`，生成脚本 `tools/art-light-ledger.py`，Pillow 直绘）。构成：纸面噪点 + 从下往上累积的账本横线 + 一束 26 层同形轮廓长出的叶子 + 中脉 + 左侧刻度 + 三处极简文字（标题、PLATE 编号与体重/睡眠、落款）。
+- 「重绘」落到产品：`app/src/main/assets/icon.svg` 重画成同源语言——纸底渐变、只在叶子下半部的账本横线、更尖的叶形与三条叶脉、右下角一枚苔绿点；顶部 28px 与启动器都用这一版。
+- 产出体积：PNG 1.3 MB，只进仓库文档目录，**不进 APK**（APK 仍 512 KB）。
+- 验收：`test-all` 56/56；`dev-loop` 1.2.80/280 安装 + smoke 无 JS 错误；截图 `build/v280-header.png`（页眉新标记）。
+- 源码提交 `6fa8f1e`；回滚：`git revert 6fa8f1e`。
