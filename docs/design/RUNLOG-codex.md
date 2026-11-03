@@ -185,3 +185,12 @@
 - 验收：`test-all` 56/56；`aesthetic-audit` OK；`dev-loop` 1.2.38（基准版）与 1.2.39 均安装 + smoke 无 JS 错误。基准版仅用于测量，未单独提交说明。
 - 断言变更登记在 `03-global-changes.md §5.1`（PROMPT_VERSION 3 → 4）。
 - 源码提交 `6394cb7`；回滚：`git revert 6394cb7`。
+
+## r45 · 2026-11-03 · 1.2.40 → 1.2.42（提速 A + C 落地）
+- A 减输出：估算 JSON 契约删掉 totals（服务端按 items + oilGrams 重算，模型抄一遍只是多写四个数字），解析改为 totals 可缺省；PROMPT_VERSION 4 → 5。
+- C 感知提速：新增 `/api/estimate/stream`（后台线程复用 `estimate()`，delta/done/error 三类事件推到 `window.__qinghengEstimate`），页面优先从 JSON 片段里抽 `"name"` 显示「正在识别：白米饭…」，服务商不发 delta 时用计时器兜底「已等 Ns」；流式失败自动回退 `/api/estimate`。
+- 实测（3cba2bdc，deepseek-flash，文字「rice」）：改前 24,180 ms / 507 字符；改后 2,808 ms / 188 字符、8,559 ms / 229 字符。等待期可见「正在识别…已等 3s」。
+- 教训：`adb shell input text` 在 WebView 里会卡在 IME 组词态，只有第一个词落地、空格变「跟」；测速要一个词一个词 `input text` + `keyevent 62`，或先切英文输入法。这一轮大半时间花在这上面。
+- 验收：`test-all` 56/56；`aesthetic-audit` OK；`dev-loop` 1.2.40 / 1.2.41 / 1.2.42 安装 + smoke 无 JS 错误。
+- 断言变更登记在 `03-global-changes.md §5.1`。
+- 源码提交 `fdd277d`；回滚：`git revert fdd277d`。
