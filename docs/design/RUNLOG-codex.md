@@ -321,3 +321,14 @@
 - 顺手：外观行的摘要不再写「外观与说明」，只留三个餐次时间。
 - 验收：`test-all` 56/56（子页断言 7→8、`layout-four` 改成检查两个子页 + html 标题；`$('#id')` 与 `$("#id")` 的引号差异把断言坑了一次，已改成不含引号的 `#subpage-more` 判定）；`dev-loop` 1.2.71/272 安装 + smoke 无 JS 错误；截图 `build/v271-hub.png`（6 行）、`build/v272-more.png`（更多页）、`build/v272-appearance.png`（外观页只剩两卡）。
 - 源码提交 `d2fd145`；回滚：`git revert d2fd145`。
+
+## r61 · 2026-11-03 · 1.2.73 → 1.2.75（重新设置归位、文案直白、建议入历史）
+- 重新设置档案：从「更多」卡片搬进 **身体档案与目标** 子页底部（新增 `#targets-restart-card` + `#targets-restart-slot`），与「按目标重新测算」同处一页，语义上是一类事。
+- 按钮文案改成一眼能看懂：健康档案与目标 → **身体档案与目标**；模型连接 → **AI 模型与密钥**；每日推送与建议 → **提醒与每日建议**；外观与默认餐次 → **外观与餐次时间**；更多 → **更多设置**（摘要「数据备份 · 关于与说明」）。子页标题同步。
+- 手动「获取建议」也写入历史建议：Java 新增 `saveAdviceHistory(day, messages, source)`，与推送共用 `adviceHistory`（slot=manual、id=`<日期>-manual`、同日覆盖、最多 60 条）；页面 `slotNames` 增加 `manual:'手动获取'`。
+- 说明不再进「更多」：`#view-chat .card-notes` 改为搬进 **关于轻衡**（`#about-notes-slot`），并把它自己的 summary 改成「问答说明」，避免关于页出现两个「说明」。
+- 顺手清掉「更多」里那张空壳的重新设置卡（按钮搬走后只剩空卡片）。
+- 踩坑：`saveAdviceHistory` 里的 `next.put(record)` 抛受检 JSONException 没被捕获，javac 报「未报告的异常」，构建失败；改成方法 `throws Exception`（`advice()` 本来就 throws）。
+- 验收：`test-all` 56/56；`dev-loop` 1.2.73/74/75 安装 + smoke 无 JS 错误；截图 `build/v273-hub.png`（新文案）、`build/v273-targets.png`（重新设置卡片在档案页）、`build/v275-more.png`（更多只剩两项）、`build/v275-about.png`（问答说明在关于页）。
+- 未验证：手动建议写入历史建议这条链路，需要先点一次「获取建议」再查历史；本轮没截到。
+- 源码提交 `1140f04`；回滚：`git revert 1140f04`。
