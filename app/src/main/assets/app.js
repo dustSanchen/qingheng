@@ -4753,9 +4753,19 @@ const values = points.length<=7 ? points.map((item,i) => {
  * 只映射已有资源，不新增文件；未知指标回退成空，保持排版不塌。
  */
 function metricIcon(label) {
-  const map = {'热量':'icon-energy','蛋白质':'icon-nutrient-protein','脂肪':'icon-nutrient-fat','碳水':'icon-nutrient-carb','训练':'icon-glyph-training','睡眠':'icon-habit-sleep','饮水':'icon-water'};
-  const file = map[label];
-  return file ? '<img src="./' + file + '.svg" alt="" width="16" height="16">' : '';
+  // 四种宏量营养素靠轮廓区分：火焰（能量）/ 斜椭圆蛋（蛋白）/ 泪滴（脂肪）/ 麦穗（碳水）。
+  const stroke = 'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" aria-hidden="true"';
+  const icons = {
+    热量: `<g ${stroke}><path d="M12 3.2c2.6 3 3.9 5 3.9 6.9a3.9 3.9 0 0 1-7.8 0c0-1 .5-2.1 1.5-3.3"/><path d="M12 20.8a6.6 6.6 0 0 0 6.6-6.6c0-2.3-1.2-4.4-2.6-6.1"/></g>`,
+    蛋白质: `<g ${stroke}><ellipse cx="11.4" cy="12" rx="5.2" ry="7.2" transform="rotate(-18 11.4 12)"/><path d="M9.4 9.4a3.4 3.4 0 0 1 4.6 1.1"/></g>`,
+    脂肪: `<g ${stroke}><path d="M13.6 3.4c3.8 4.2 5.4 7 5.4 9.3a5.9 5.9 0 0 1-11.8 0c0-2.3 1.6-5.1 5.4-9.3Z"/><path d="M11.8 15.4a2.4 2.4 0 0 0 2.4 2.2"/></g>`,
+    碳水: `<g ${stroke}><path d="M12 21V9.4"/><path d="M12 12.4c-1.9 0-3.4-1.5-3.4-3.4 1.9 0 3.4 1.5 3.4 3.4Z"/><path d="M12 15.6c1.9 0 3.4-1.5 3.4-3.4-1.9 0-3.4 1.5-3.4 3.4Z"/><path d="M12 9.4c-1.6-.6-2.6-2.1-2.6-3.9 1.7.2 2.9 1.5 3 3.1"/></g>`,
+    训练: `<g ${stroke}><path d="M4 9.5v5M7 7.5v9M17 7.5v9M20 9.5v5"/><path d="M7 12h10"/></g>`,
+    睡眠: `<g ${stroke}><path d="M19.4 14.2A8 8 0 0 1 9.8 4.6a8.2 8.2 0 1 0 9.6 9.6Z"/><path d="M16.6 4.6l.5 1.6 1.6.5-1.6.5-.5 1.6-.5-1.6-1.6-.5 1.6-.5Z"/></g>`,
+    饮水: `<g ${stroke}><path d="M7 4.5h10l-1.1 13.2a2 2 0 0 1-2 1.8h-3.8a2 2 0 0 1-2-1.8Z"/><path d="M7.6 9.6c1.6.9 3.2-.6 4.4 0s2.8.9 4.4 0"/></g>`
+  };
+  const markup = icons[label];
+  return markup ? `<svg viewBox="0 0 24 24" width="18" height="18">${markup}</svg>` : '';
 }
 /* Fragment of assets/app.js -- assembled by tools/assemble-app.ps1 in filename order.
  * Edit this file, never the generated assets/app.js; tests/app-fragments.test.mjs fails on drift. */
@@ -4911,7 +4921,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.2.78';
+  const APP_VERSION = '1.2.79';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -5752,17 +5762,20 @@ function metricIcon(label) {
   function installProfileMore() {
     const hub = $('#profile-hub');
     if (!hub) return;
-    [
-      ['targets', 'icon-nav-profile.svg'],
-      ['model', 'icon-glyph-chat.svg'],
-      ['push', 'icon-tip.svg'],
-      ['appearance', 'icon-copy.svg'],
-      ['more', 'icon-copy.svg'],
-      ['data', 'icon-copy.svg'],
-      ['about', 'icon-glyph-leaf.svg']
-    ].forEach(([id, icon]) => {
+    // 每个入口一枚专属图标：人像+靶心、AI 火花、铃铛、便签、皮肤半明暗、齿轮、数据库、叶子。
+    const PROFILE_ICONS = {
+      targets: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><g stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="3.2"/><path d="M5.5 20v-.6A4.9 4.9 0 0 1 10.4 14.5h3.2a4.9 4.9 0 0 1 4.9 4.9V20"/><circle cx="18.6" cy="6.4" r="2.4"/></g></svg>',
+      model: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><g stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="4.5" width="9" height="9" rx="2"/><path d="M17.6 3v4.2M15.5 5.1h4.2"/><path d="M16.8 14.6v1.8M15.9 15.5H14"/><rect x="10.5" y="10.5" width="9" height="9" rx="2"/></g></svg>',
+      push: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><g stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10a4 4 0 0 1 8 0c0 4 1.4 5.4 1.9 6H6.1C6.6 15.4 8 14 8 10Z"/><path d="M10.2 19a2 2 0 0 0 3.6 0"/></g></svg>',
+      prefs: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><g stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4.5h9a2 2 0 0 1 2 2V20l-4.5-3H6a2 2 0 0 1-2-2V6.5a2 2 0 0 1 2-2Z"/><path d="M8.5 8.5h5M8.5 11.5h3"/></g></svg>',
+      appearance: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><g stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor" stroke="none" opacity=".28"/><path d="M12 8.6v3.4l2.4 1.8"/></g></svg>',
+      more: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><g stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.1"/><path d="M12 3.4v2.2M12 18.4v2.2M4.4 12h2.2M17.4 12h2.2M6.6 6.6l1.6 1.6M15.8 15.8l1.6 1.6M17.4 6.6l-1.6 1.6M8.2 15.8l-1.6 1.6"/></g></svg>',
+      data: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><g stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6.4" rx="6.4" ry="2.6"/><path d="M5.6 6.4v11.2c0 1.4 2.9 2.6 6.4 2.6s6.4-1.2 6.4-2.6V6.4"/><path d="M5.6 12c0 1.4 2.9 2.6 6.4 2.6s6.4-1.2 6.4-2.6"/></g></svg>',
+      about: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><g stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5c.7 4.6 2.7 6.6 7.3 7.3-4.6.7-6.6 2.7-7.3 7.3-.7-4.6-2.7-6.6-7.3-7.3 4.6-.7 6.6-2.7 7.3-7.3Z"/><path d="M17.6 17.2c.3 1.5.9 2.2 2.4 2.4-1.5.3-2.2.9-2.4 2.4"/></g></svg>'
+    };
+    Object.entries(PROFILE_ICONS).forEach(([id, markup]) => {
       const node = hub.querySelector(`[data-subpage-open="${id}"] .hub-icon`);
-      if (node) node.innerHTML = iconMarkup(icon);
+      if (node && markup) node.innerHTML = markup;
     });
     const appearance = $("#subpage-appearance"), more = $("#subpage-more");
     if (!appearance || !more) return;

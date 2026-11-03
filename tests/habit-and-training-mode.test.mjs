@@ -25,7 +25,7 @@ for (const name of ['icon-glyph-training.svg', 'icon-habit-steps.svg', 'icon-hab
 }
 check('the tiles render images, not characters', app.includes("icon-habit-steps.svg") && !app.includes("['♧',"));
 check('the training tile reuses the main training glyph', app.includes("trainingEnabled() ? [['icon-glyph-training.svg'"));
-check('today metric icons resolve training and sleep to shipped assets', app.includes("'训练':'icon-glyph-training'") && app.includes("'睡眠':'icon-habit-sleep'"));
+check('today metric icons are inline glyphs for training and sleep', app.includes('function metricIcon') && app.includes('训练: `<g') && app.includes('睡眠: `<g') && app.includes('饮水: `<g'));
 
 // --- push carries one training line ---------------------------------------------------------------------
 check('the prompt asks for one training sentence', prompts.includes('另加一句健身提示') && prompts.includes('不超过 20 个汉字'));

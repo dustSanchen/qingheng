@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.2.78';
+  const APP_VERSION = '1.2.79';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -993,17 +993,20 @@
   function installProfileMore() {
     const hub = $('#profile-hub');
     if (!hub) return;
-    [
-      ['targets', 'icon-nav-profile.svg'],
-      ['model', 'icon-glyph-chat.svg'],
-      ['push', 'icon-tip.svg'],
-      ['appearance', 'icon-copy.svg'],
-      ['more', 'icon-copy.svg'],
-      ['data', 'icon-copy.svg'],
-      ['about', 'icon-glyph-leaf.svg']
-    ].forEach(([id, icon]) => {
+    // 每个入口一枚专属图标：人像+靶心、AI 火花、铃铛、便签、皮肤半明暗、齿轮、数据库、叶子。
+    const PROFILE_ICONS = {
+      targets: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><g stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="3.2"/><path d="M5.5 20v-.6A4.9 4.9 0 0 1 10.4 14.5h3.2a4.9 4.9 0 0 1 4.9 4.9V20"/><circle cx="18.6" cy="6.4" r="2.4"/></g></svg>',
+      model: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><g stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="4.5" width="9" height="9" rx="2"/><path d="M17.6 3v4.2M15.5 5.1h4.2"/><path d="M16.8 14.6v1.8M15.9 15.5H14"/><rect x="10.5" y="10.5" width="9" height="9" rx="2"/></g></svg>',
+      push: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><g stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10a4 4 0 0 1 8 0c0 4 1.4 5.4 1.9 6H6.1C6.6 15.4 8 14 8 10Z"/><path d="M10.2 19a2 2 0 0 0 3.6 0"/></g></svg>',
+      prefs: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><g stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4.5h9a2 2 0 0 1 2 2V20l-4.5-3H6a2 2 0 0 1-2-2V6.5a2 2 0 0 1 2-2Z"/><path d="M8.5 8.5h5M8.5 11.5h3"/></g></svg>',
+      appearance: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><g stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor" stroke="none" opacity=".28"/><path d="M12 8.6v3.4l2.4 1.8"/></g></svg>',
+      more: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><g stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.1"/><path d="M12 3.4v2.2M12 18.4v2.2M4.4 12h2.2M17.4 12h2.2M6.6 6.6l1.6 1.6M15.8 15.8l1.6 1.6M17.4 6.6l-1.6 1.6M8.2 15.8l-1.6 1.6"/></g></svg>',
+      data: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><g stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6.4" rx="6.4" ry="2.6"/><path d="M5.6 6.4v11.2c0 1.4 2.9 2.6 6.4 2.6s6.4-1.2 6.4-2.6V6.4"/><path d="M5.6 12c0 1.4 2.9 2.6 6.4 2.6s6.4-1.2 6.4-2.6"/></g></svg>',
+      about: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><g stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5c.7 4.6 2.7 6.6 7.3 7.3-4.6.7-6.6 2.7-7.3 7.3-.7-4.6-2.7-6.6-7.3-7.3 4.6-.7 6.6-2.7 7.3-7.3Z"/><path d="M17.6 17.2c.3 1.5.9 2.2 2.4 2.4-1.5.3-2.2.9-2.4 2.4"/></g></svg>'
+    };
+    Object.entries(PROFILE_ICONS).forEach(([id, markup]) => {
       const node = hub.querySelector(`[data-subpage-open="${id}"] .hub-icon`);
-      if (node) node.innerHTML = iconMarkup(icon);
+      if (node && markup) node.innerHTML = markup;
     });
     const appearance = $("#subpage-appearance"), more = $("#subpage-more");
     if (!appearance || !more) return;
