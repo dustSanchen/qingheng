@@ -432,3 +432,10 @@
 - 断言：`meal-recalc-collapse` 增加 `installDisclosureAnimation` / `.disclosure-body{grid-template-rows:0fr}` / `details[open]>.disclosure-body{1fr}` 三条。
 - 验收：`test-all` 56/56；`dev-loop` 1.3.04/304 安装 + smoke 无 JS 错误；截图 `build/v303-probe.png`（探测用，展开后状态）。
 - 源码提交见本轮 commit；回滚：`git revert`。
+
+## r72 · 2026-11-04 · 1.3.05（展开过渡放慢）
+- 用户反馈：1.3.04 的展开「过快，什么都看不清，不够美」。说明动画确实在跑（推翻了我上轮「无法证实」的结论），只是 0.28s + 线性感的缓动在手机上有「闪一下」的感觉。
+- 改法：新增 `--dur-disclose: .46s`，展开与收起**不对称**——展开 0.46s（`cubic-bezier(.22,.8,.3,1)`，先快后缓，收尾有停顿感），收起 0.32s（`cubic-bezier(.4,0,1,1)`，不拖泥带水）；内容再叠一层 `disclosureIn`：透明度 0→1 + 上移 6px，与高度过渡同一条曲线；箭头旋转从 `--dur-fast` 改为 `--dur-disclose`，避免「内容还在动、箭头已经翻完」。
+- 断言：`meal-recalc-collapse` 里关于 `details[open]>.disclosure-body{grid-template-rows:1fr...}` 的正则放宽为允许后续 `transition`（原来要求 `}` 紧跟，规则加了时长后失配）。
+- 验收：`test-all` 56/56；`aesthetic-audit` OK；dev-loop 1.3.05/305 安装成功，`dumpsys` 读到 `versionName=1.3.05`；截图 `build/v305-open.png`。
+- 源码提交 `d89fcc8`；回滚：`git revert d89fcc8`。
