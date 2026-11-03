@@ -124,19 +124,19 @@ check('the status states the authority and the window limit', main.includes('JSO
 check('the first load establishes a baseline mirror', main.includes('if (syncDatabase.lastMirroredAt() == 0L) mirrorToDatabase();'));
 
 // --- Profile hub with sub-pages -----------------------------------------------------------------
-for (const id of ['profile-hub', 'subpage-targets', 'subpage-model', 'subpage-push', 'subpage-data', 'subpage-about', 'storage-status', 'storage-refresh', 'storage-remirror', 'about-version']) {
+for (const id of ['profile-hub', 'subpage-targets', 'subpage-model', 'subpage-push', 'subpage-appearance', 'subpage-data', 'subpage-about', 'storage-status', 'storage-refresh', 'storage-remirror', 'about-version']) {
   check('the page defines #' + id, html.includes(`id="${id}"`));
 }
-check('all five entries are present', (html.match(/data-subpage-open=/g) || []).length === 5);
+check('all six entries are present', (html.match(/data-subpage-open=/g) || []).length === 6);
 check('moved cards keep their ids', ['profile-form', 'settings-form', 'push-form', 'export-data'].every(id => html.includes(`id="${id}"`)));
 check('the footer stays inside the profile view', html.indexOf('<footer class="page-footer">') > html.indexOf('id="view-profile"'));
-check('the router knows every sub-page', /const SUBPAGES = \['targets', 'model', 'push', 'data', 'about'\];/.test(app));
+check('the router knows every sub-page', /const SUBPAGES = \['targets', 'model', 'push', 'appearance', 'data', 'about'\];/.test(app));
 check('the hash is parsed as tab/sub', app.includes('function parseHash()') && app.includes("const sub = SUBPAGES.includes(parts[1]) ? parts[1] : '';"));
 check('entering a sub-page pushes history for the system back button', app.includes('history.pushState(null, \'\', `#profile/${id}`)'));
 check('restoring the tab ignores the sub-page', /function restoreTab\(\) \{\s*const fromHash = parseHash\(\)\.tab;/.test(app));
 check('hub summaries are refreshed from state', app.includes('function renderHub()') && app.includes('renderHub();'));
 check('the storage panel is driven by the new route', app.includes("api(remirror ? '/api/storage-remirror' : '/api/storage-status'"));
-check('the app version is a single constant', app.includes("const APP_VERSION = '1.2.31'"));
+check('the app version is a single constant', app.includes("const APP_VERSION = '1.2.32'"));
 check('the shown version matches the build script', (() => {
   const shown = /const APP_VERSION = '([0-9.]+)'/.exec(app);
   const built = /\$Version='([0-9.]+)'/.exec(fs.readFileSync('build.ps1', 'utf8'));

@@ -70,6 +70,37 @@
   // wall clock, then a time mentioned in the description, then the moment of recording.
   const clockPattern = /^([01]\d|2[0-3]):[0-5]\d$/;
   const mealSlotClock = {breakfast:'07:30', lunch:'12:30', dinner:'18:30', snack:'15:30'};
+  // ---- Default meal slot ----------------------------------------------------------------
+  // Which meal a new record starts on, by the clock: before lunchFrom it is breakfast, from
+  // lunchFrom lunch, from snackFrom a snack. Two wall-clock thresholds, editable in
+  // 我的 → 数据、外观与说明; dinner is never the guess because it has no stable hour.
+  const MEAL_WINDOW_KEY = 'qingheng.mealWindow';
+  const DEFAULT_MEAL_WINDOW = {lunchFrom:'11:20', snackFrom:'22:00'};
+  const MEAL_TYPE_LABEL = {breakfast:'早餐', lunch:'午餐', dinner:'晚餐', snack:'加餐'};
+  function readMealWindow() {
+    let raw = {};
+    try { raw = JSON.parse(localStorage.getItem(MEAL_WINDOW_KEY) || '{}') || {}; } catch { raw = {}; }
+    return {
+      lunchFrom: clockPattern.test(raw.lunchFrom) ? raw.lunchFrom : DEFAULT_MEAL_WINDOW.lunchFrom,
+      snackFrom: clockPattern.test(raw.snackFrom) ? raw.snackFrom : DEFAULT_MEAL_WINDOW.snackFrom
+    };
+  }
+  function saveMealWindow(spec) {
+    const next = {
+      lunchFrom: clockPattern.test(spec?.lunchFrom) ? spec.lunchFrom : DEFAULT_MEAL_WINDOW.lunchFrom,
+      snackFrom: clockPattern.test(spec?.snackFrom) ? spec.snackFrom : DEFAULT_MEAL_WINDOW.snackFrom
+    };
+    try { localStorage.setItem(MEAL_WINDOW_KEY, JSON.stringify(next)); } catch {}
+    return next;
+  }
+  /** `clock` defaults to now. Both thresholds are inclusive lower bounds. */
+  function defaultMealTypeFor(clock) {
+    const value = clockPattern.test(clock) ? clock : nowClock();
+    const {lunchFrom, snackFrom} = readMealWindow();
+    if (value >= snackFrom) return 'snack';
+    if (value >= lunchFrom) return 'lunch';
+    return 'breakfast';
+  }
   const nowClock = () => {const d = new Date(); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;};
   /** The wall clock written on the photo: an offset in the string is the camera's own zone. */
   function photoWallClock(meta) {
@@ -775,7 +806,7 @@
   // ---- Profile hub and its sub-pages -----------------------------------------------------------
   // "我的" is a list of entries; each one opens a sub-page under #profile/<name>. Everything stays
   // in the document, so forms, validation, collapse state and existing test anchors are untouched.
-  const SUBPAGES = ['targets', 'model', 'push', 'data', 'about'];
+  const SUBPAGES = ['targets', 'model', 'push', 'appearance', 'data', 'about'];
   function parseHash() {
     const parts = String(location.hash || '').replace(/^#/, '').split('/');
     const tab = ['today','records','chat','trends','profile'].includes(parts[0]) ? parts[0] : '';

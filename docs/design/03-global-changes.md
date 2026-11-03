@@ -124,5 +124,7 @@
 | 2026-10-31 | `tests/layout-four.test.mjs`、`tests/records-panels.test.mjs` | 新增 Today 单时间线、餐食 / 日常事件单底线、空态无内框、账本表格控件去重框和共享分段栏断言 | 2026-10-31 品牌审计落地：组件边界改为单一发丝线，保留现有数据字段、历史含义及账本表格布局；无新增 token |
 | 2026-10-31 | `tests/records-panels.test.mjs` | 新增纸感开放内容区、账本单层卡片框、导航行皮肤分工、折叠章节线与草稿虚线状态断言 | 纸感从闭合卡片改为留白与内容分隔，账本保留数据面板外框但去掉标题重复线；验证结构取舍而非新增令牌 |
 | 2026-11-03 | `tests/layout-four.test.mjs` | 「快速记录是 header 文字按钮」→「header 次按钮（`button subtle` + 复制图标）」；新增「餐次是弹窗内 chip 行、且不再有原生 select」断言 | 用户报「快速记录无法修改餐次」：WebView 把原生 `<select>` 的弹层画在遮罩之后，实机只剩一条取消条、选不中；餐次改四枚 44px chip（与「复制哪一餐」同一套弹窗内选择方案），并把文字链升级为带图标的次按钮，拉平与四格芯片的视觉权重 |
+| 2026-11-03 | `tests/layout-four.test.mjs`、`tests/records-panels.test.mjs` | 「低频设置折叠在 details 里」→「低频设置开自己的 sub-page」；顺带删掉 `.profile-more*` 死样式断言 | 用户要求「我的 → 数据、外观与说明」这一行与「模型连接」同步格式：同一个 `.subpage` 外壳、同样的 21px hub 图标与返回头，不再在列表里嵌第二层折叠 |
+| 2026-11-03 | `tests/meal-date-java.test.mjs` | `SUBPAGES` 增加 `appearance`；入口计数 5 → 6；`#subpage-appearance` 进入 id 清单 | 同上：低频块升级为第六个子页，路由与 back 行为跟其它子页一致 |
 
 

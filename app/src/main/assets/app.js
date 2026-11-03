@@ -70,6 +70,37 @@
   // wall clock, then a time mentioned in the description, then the moment of recording.
   const clockPattern = /^([01]\d|2[0-3]):[0-5]\d$/;
   const mealSlotClock = {breakfast:'07:30', lunch:'12:30', dinner:'18:30', snack:'15:30'};
+  // ---- Default meal slot ----------------------------------------------------------------
+  // Which meal a new record starts on, by the clock: before lunchFrom it is breakfast, from
+  // lunchFrom lunch, from snackFrom a snack. Two wall-clock thresholds, editable in
+  // 我的 → 数据、外观与说明; dinner is never the guess because it has no stable hour.
+  const MEAL_WINDOW_KEY = 'qingheng.mealWindow';
+  const DEFAULT_MEAL_WINDOW = {lunchFrom:'11:20', snackFrom:'22:00'};
+  const MEAL_TYPE_LABEL = {breakfast:'早餐', lunch:'午餐', dinner:'晚餐', snack:'加餐'};
+  function readMealWindow() {
+    let raw = {};
+    try { raw = JSON.parse(localStorage.getItem(MEAL_WINDOW_KEY) || '{}') || {}; } catch { raw = {}; }
+    return {
+      lunchFrom: clockPattern.test(raw.lunchFrom) ? raw.lunchFrom : DEFAULT_MEAL_WINDOW.lunchFrom,
+      snackFrom: clockPattern.test(raw.snackFrom) ? raw.snackFrom : DEFAULT_MEAL_WINDOW.snackFrom
+    };
+  }
+  function saveMealWindow(spec) {
+    const next = {
+      lunchFrom: clockPattern.test(spec?.lunchFrom) ? spec.lunchFrom : DEFAULT_MEAL_WINDOW.lunchFrom,
+      snackFrom: clockPattern.test(spec?.snackFrom) ? spec.snackFrom : DEFAULT_MEAL_WINDOW.snackFrom
+    };
+    try { localStorage.setItem(MEAL_WINDOW_KEY, JSON.stringify(next)); } catch {}
+    return next;
+  }
+  /** `clock` defaults to now. Both thresholds are inclusive lower bounds. */
+  function defaultMealTypeFor(clock) {
+    const value = clockPattern.test(clock) ? clock : nowClock();
+    const {lunchFrom, snackFrom} = readMealWindow();
+    if (value >= snackFrom) return 'snack';
+    if (value >= lunchFrom) return 'lunch';
+    return 'breakfast';
+  }
   const nowClock = () => {const d = new Date(); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;};
   /** The wall clock written on the photo: an offset in the string is the camera's own zone. */
   function photoWallClock(meta) {
@@ -775,7 +806,7 @@
   // ---- Profile hub and its sub-pages -----------------------------------------------------------
   // "我的" is a list of entries; each one opens a sub-page under #profile/<name>. Everything stays
   // in the document, so forms, validation, collapse state and existing test anchors are untouched.
-  const SUBPAGES = ['targets', 'model', 'push', 'data', 'about'];
+  const SUBPAGES = ['targets', 'model', 'push', 'appearance', 'data', 'about'];
   function parseHash() {
     const parts = String(location.hash || '').replace(/^#/, '').split('/');
     const tab = ['today','records','chat','trends','profile'].includes(parts[0]) ? parts[0] : '';
@@ -2006,7 +2037,7 @@ function intakeRangeForDate(date = activeDate) {
     }
     $('#quick-record-date').value = activeDate;
     const quickTime = $('#quick-record-time'); if (quickTime) quickTime.value = nowClock();
-    setQuickRecordType('snack');
+    setQuickRecordType(defaultMealTypeFor(nowClock()));
     $('#quick-record-scale').value = '1';
     $('#quick-record-text').value = '';
     feedback.textContent = quickRecordSources.length ? '' : '先记录一餐后，就可以在这里快速复制。';
@@ -4634,7 +4665,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.2.31';
+  const APP_VERSION = '1.2.32';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -5430,39 +5461,87 @@ function metricIcon(label) {
     question.after(chips);
     if (draft) chips.after(draft);
   }
+  /**
+   * 我的 is a list of entries, so the low-frequency block is one too: 数据、外观与说明 opens its own
+   * sub-page exactly like 模型连接 (same .subpage shell, same 21px hub icon, same back header)
+   * instead of unfolding a second-level details inside the list.
+   */
   function installProfileMore() {
     const hub = $('#profile-hub');
-    if (!hub || $('#profile-more')) return;
+    if (!hub) return;
     [
       ['targets', 'icon-nav-profile.svg'],
       ['model', 'icon-glyph-chat.svg'],
       ['push', 'icon-tip.svg'],
+      ['appearance', 'icon-copy.svg'],
       ['data', 'icon-copy.svg'],
       ['about', 'icon-glyph-leaf.svg']
     ].forEach(([id, icon]) => {
       const node = hub.querySelector(`[data-subpage-open="${id}"] .hub-icon`);
       if (node) node.innerHTML = iconMarkup(icon);
     });
-    const details = document.createElement('details');
-    details.className = 'profile-more';
-    details.id = 'profile-more';
-    const summary = document.createElement('summary');
-    summary.innerHTML = `<span class="inline-icon" aria-hidden="true">${iconMarkup('icon-copy.svg')}</span>数据、外观与说明`;
-    const content = document.createElement('div');
-    content.className = 'profile-more-content';
-    const lowFrequency = [
-      $('#skin-card'),
+    const panel = $('#subpage-appearance');
+    if (!panel) return;
+    // 外观皮肤 leads the page, then 默认餐次 (already in the markup), then the rows that used to
+    // hide under the fold: 数据管理, 关于轻衡, 重新设置档案, 问答说明.
+    const anchor = $('#meal-window-card');
+    const skin = $('#skin-card');
+    if (skin && anchor) panel.insertBefore(skin, anchor);
+    [
       hub.querySelector('[data-subpage-open="data"]'),
       hub.querySelector('[data-subpage-open="about"]'),
-      $('#restart-onboarding')
-    ].filter(Boolean);
-    if (!lowFrequency.length) return;
-    lowFrequency.forEach(node => content.append(node));
-    // 问答页的说明收进这里，问答卡只留提问本身。
-    const chatNotes = $('#view-chat .card-notes');
-    if (chatNotes) content.append(chatNotes);
-    details.append(summary, content);
-    hub.insertBefore(details, hub.querySelector('.page-footer'));
+      $('#restart-onboarding'),
+      $('#view-chat .card-notes')
+    ].filter(Boolean).forEach(node => panel.append(node));
+  }
+  function mealWindowSummaryText(spec) {
+    return `早于 ${spec.lunchFrom} 记早餐，${spec.lunchFrom} 起记午餐，${spec.snackFrom} 起记加餐。`;
+  }
+  function renderMealWindow() {
+    const spec = readMealWindow();
+    const lunch = $('#meal-window-lunch'), snack = $('#meal-window-snack');
+    if (lunch) lunch.value = spec.lunchFrom;
+    if (snack) snack.value = spec.snackFrom;
+    const summary = $('#meal-window-summary');
+    if (summary) summary.textContent = mealWindowSummaryText(spec);
+    const tag = $('#meal-window-tag');
+    if (tag) tag.textContent = `现在默认${MEAL_TYPE_LABEL[defaultMealTypeFor(nowClock())] || '加餐'}`;
+    const hubSummary = $('#hub-summary-appearance');
+    if (hubSummary) hubSummary.textContent = `${spec.lunchFrom} 午餐 · ${spec.snackFrom} 加餐 · 外观与说明`;
+  }
+  let mealTypeTouched = false;
+  /** The estimate form starts on the slot the clock implies, unless the user already picked one. */
+  function applyMealTypeDefault() {
+    const form = $('#estimate-form');
+    if (!form || mealTypeTouched) return;
+    const select = form.querySelector('select[name="mealType"]');
+    if (select) select.value = defaultMealTypeFor(nowClock());
+  }
+  function installMealWindow() {
+    const card = $('#meal-window-card');
+    if (!card || card.dataset.bound) return;
+    card.dataset.bound = '1';
+    renderMealWindow();
+    $('#meal-window-save').addEventListener('click', () => {
+      const feedback = $('#meal-window-feedback');
+      const lunch = $('#meal-window-lunch').value, snack = $('#meal-window-snack').value;
+      if (!clockPattern.test(lunch) || !clockPattern.test(snack)) {feedback.textContent = '请填写 24 小时制的时间。'; return;}
+      if (lunch >= snack) {feedback.textContent = '「午餐起」要早于「加餐起」。'; return;}
+      feedback.textContent = '';
+      saveMealWindow({lunchFrom:lunch, snackFrom:snack});
+      renderMealWindow();
+      applyMealTypeDefault();
+      notice('默认餐次已更新。');
+    });
+    $('#meal-window-reset').addEventListener('click', () => {
+      saveMealWindow(DEFAULT_MEAL_WINDOW);
+      renderMealWindow();
+      applyMealTypeDefault();
+      $('#meal-window-feedback').textContent = '';
+      notice('已恢复 11:20 / 22:00。');
+    });
+    $('#estimate-form select[name="mealType"]')?.addEventListener('change', () => {mealTypeTouched = true;});
+    applyMealTypeDefault();
   }
   /**
    * Trends also grew into one long column. Same segmented treatment, plus a diet card that the page
@@ -6269,6 +6348,7 @@ feedback(message,'数据已导入。'+report);
   installTodayQuickActions();
   installChatTaskOrder();
   installProfileMore();
+  installMealWindow();
   installRecordPanels();
   installTrendPanels();
   installProfileAutoRecalc();

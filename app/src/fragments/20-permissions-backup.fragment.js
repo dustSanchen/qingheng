@@ -240,7 +240,7 @@
     }
     $('#quick-record-date').value = activeDate;
     const quickTime = $('#quick-record-time'); if (quickTime) quickTime.value = nowClock();
-    setQuickRecordType('snack');
+    setQuickRecordType(defaultMealTypeFor(nowClock()));
     $('#quick-record-scale').value = '1';
     $('#quick-record-text').value = '';
     feedback.textContent = quickRecordSources.length ? '' : '先记录一餐后，就可以在这里快速复制。';

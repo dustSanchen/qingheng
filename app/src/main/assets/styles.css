@@ -1295,21 +1295,18 @@ textarea{resize:none}
 #chat-question{min-height:112px}
 #view-chat #chat-chips{margin:0 0 var(--space-3)}
 
-/* 我的页先放常用设置；低频数据、外观与说明折叠在一个行目标后。 */
-details.profile-more,details.panel-more{margin:var(--space-3) 0;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;padding:0}
-details.profile-more[open],details.panel-more[open]{background:transparent}
+/* 我的页是一条条目列表：低频的数据、外观与说明走 #subpage-appearance（与模型连接同一个
+   .subpage 外壳），不再在列表里嵌第二层折叠。下面只留记录页的 .panel-more。 */
+details.panel-more{margin:var(--space-3) 0;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;padding:0}
+details.panel-more[open]{background:transparent}
 .day-more{border-block:1px solid var(--line);background:transparent;padding:var(--space-3) 0}
 .day-more .card{margin:0;padding:var(--space-3) 0;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;box-shadow:none}
 .day-more .card:first-of-type{border-top:0}
-.profile-more>summary{display:flex;align-items:center;min-height:48px;padding:var(--space-2) 0;cursor:pointer;color:var(--muted);font-size:var(--text-sm)}
-.profile-more>summary .inline-icon{margin-right:var(--space-2)}
-.profile-more-content{display:flex;flex-direction:column;gap:8px;padding-bottom:var(--space-2)}
-.profile-more-content>.hub-row{min-height:56px}
 .hub-icon img{display:block;width:21px;height:21px}
 .hub-icon svg g{stroke-width:1.5}
 .panel-more>summary{display:flex;align-items:center;min-height:48px;padding:var(--space-2) 0;cursor:pointer;color:var(--muted);font-size:var(--text-sm)}
 .panel-more[open]>summary{margin-bottom:var(--space-2)}
-.panel-more>.card,.profile-more-content>.card{margin:var(--space-2) 0 0;padding:var(--space-2) 0;border:0;border-radius:0;background:transparent;box-shadow:none}
+.panel-more>.card{margin:var(--space-2) 0 0;padding:var(--space-2) 0;border:0;border-radius:0;background:transparent;box-shadow:none}
 .training-draft{border:1px dashed var(--accent-line);border-radius:var(--shape-card-radius);background:var(--accent-soft);padding:var(--space-3)}
 .meal-row{border-radius:0}
 
