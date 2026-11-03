@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.2.63';
+  const APP_VERSION = '1.2.65';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1469,7 +1469,7 @@
       text, photo:photoMeta(imageData?mealPhotoMeta:null)};
     estimateBusy=true;button.disabled=true;feedback(message,'正在生成预览，不会自动保存…');
 if (typeof showBusy === 'function') showBusy('正在计算热量…', 'estimate-busy');
-    const payload={text,allowExternal:externalConsent() && navigator.onLine,anchors:anchorSummary(),...(imageData?{image:imageData}:{})};
+    const payload={text,allowExternal:externalConsent() && navigator.onLine,anchors:anchorSummary(),preferences:readPreferences(),...(imageData?{image:imageData}:{})};
     // 流式估算：模型还在写 JSON 时就把已识别到的食物名显示出来，等待不再像卡死。
     let seen='';
     const startedAt=Date.now();
@@ -1546,7 +1546,7 @@ if (typeof showBusy === 'function') showBusy('正在计算热量…', 'estimate-
     if(button) button.disabled=true;
     feedback(message,'正在按名称与克重重算这一项…');
     try {
-      const data=await api('/api/estimate',{text:`${name} ${grams} g`,allowExternal:true,anchors:anchorSummary(),noDraft:true});
+      const data=await api('/api/estimate',{text:`${name} ${grams} g`,allowExternal:true,anchors:anchorSummary(),noDraft:true,preferences:readPreferences()});
       const item=(Array.isArray(data?.items)?data.items:[])[0];
       if(!item) throw new Error('模型没有返回这一项的数据，请稍后再试。');
       const returned=number(item.grams);
@@ -1696,7 +1696,7 @@ feedback(message,'数据已导入。'+report);
       const button = form.querySelector('button[type="submit"]');
       if (button) button.disabled = true;
       // 训练建议走流式，和问答页一样能看到「正在思考…」与逐字输出；不支持时退回一次性接口。
-      const payload = {question, focus: 'training', date: localDate(), allowExternal: true, anchors: anchorSummary(), webSearch: false, logToHistory: false};
+      const payload = {question, focus: 'training', date: localDate(), allowExternal: true, anchors: anchorSummary(), preferences: readPreferences(), webSearch: false, logToHistory: false};
       try {
         let data = null;
         if (answerBox) {answerBox.hidden = false; answerBox.innerHTML = '';}
@@ -1944,6 +1944,55 @@ feedback(message,'数据已导入。'+report);
   installTodayQuickActions();
   installChatTaskOrder();
   installProfileMore();
+  function renderPreferences() {
+    const list = readPreferences();
+    const box = $('#preference-list'), tag = $('#preference-count'), hub = $('#hub-summary-prefs');
+    if (tag) tag.textContent = list.length + ' 条';
+    if (hub) hub.textContent = list.length ? list.slice(0, 2).join(' · ') + (list.length > 2 ? '…' : '') : '让建议记住你的习惯';
+    if (!box) return;
+    box.innerHTML = list.length
+      ? list.map((item, index) => `<div class="hub-row preference-row" role="listitem"><span class="hub-text"><span class="hub-title">${esc(item)}</span></span><button type="button" class="icon-button danger" data-preference-remove="${index}" aria-label="删除这条偏好">×</button></div>`).join('')
+      : '<p class="empty-note">还没有偏好。写一句「不吃香菜」或「早餐固定两个鸡蛋加豆浆」，之后的估算与建议都会避开它。</p>';
+  }
+  function installPreferences() {
+    const add = $('#preference-add'), input = $('#preference-input'), feedback = $('#preference-feedback');
+    if (!add || !input || add.dataset.bound) return;
+    add.dataset.bound = '1';
+    const submit = () => {
+      const text = input.value.trim();
+      if (!text) {feedback.textContent = '写一句再记。'; return;}
+      const list = readPreferences();
+      if (list.includes(text)) {feedback.textContent = '这条已经记过了。'; return;}
+      if (list.length >= 20) {feedback.textContent = '最多 20 条，先删掉旧的再记。'; return;}
+      writePreferences([...list, text]);
+      input.value = '';
+      feedback.textContent = '已记住。';
+      renderPreferences();
+    };
+    add.addEventListener('click', submit);
+    input.addEventListener('keydown', event => {if (event.key === 'Enter') {event.preventDefault(); submit();}});
+    $('#preference-list')?.addEventListener('click', event => {
+      const remove = event.target.closest('[data-preference-remove]');
+      if (!remove) return;
+      const index = Number(remove.dataset.preferenceRemove);
+      const list = readPreferences();
+      list.splice(index, 1);
+      writePreferences(list);
+      renderPreferences();
+    });
+  }
+  function addPreferenceFromChat(record) {
+    const text = String(record?.question || record?.prompt || record?.answer || '').trim().slice(0, 80);
+    if (!text) {notice('这条记录没有可记的内容。', true); return;}
+    const list = readPreferences();
+    if (list.includes(text)) {notice('这条已经记过了。'); return;}
+    if (list.length >= 20) {notice('最多 20 条，先到「我的 → 偏好与记忆」删掉旧的。', true); return;}
+    writePreferences([...list, text]);
+    renderPreferences();
+    notice('已记为偏好，之后的估算与建议会带上它。');
+  }
+  renderPreferences();
+  installPreferences();
   installMealWindow();
   installRecordPanels();
   installTrendPanels();

@@ -57,7 +57,7 @@ import java.util.concurrent.Executors;
     public final class MainActivity extends Activity implements cn.qingheng.health.bridge.MetaRoutes.Host, cn.qingheng.health.bridge.PushRoutes.Host, cn.qingheng.health.bridge.RecordsRoutes.Host {
     // 非流式调用的输出上限：估算/建议/检索词都只有确定长度，放开写就是纯尾延迟。0 = 不设上限。
     private static final int CAP_ESTIMATE = 900;
-    private static final int CAP_ADVICE = 320;
+    private static final int CAP_ADVICE = 700;
     private static final int CAP_QUERY_REWRITE = 140;
     private static final int CAP_SEARCH_KEYWORDS = 80;
     private static final int CAP_CHAT_BUFFERED = 900;
@@ -3211,7 +3211,7 @@ import java.util.concurrent.Executors;
         }
         JSONArray messages = new JSONArray()
                 .put(new JSONObject().put("role", "system").put("content",
-                        cn.qingheng.health.ai.Prompts.withAnchors(cn.qingheng.health.ai.Prompts.mealEstimate(), b.optString("anchors", ""))))
+                        cn.qingheng.health.ai.Prompts.withAnchors(cn.qingheng.health.ai.Prompts.mealEstimate(), b.optString("anchors", "")) + preferenceSuffix(b)))
                 .put(new JSONObject().put("role", "user").put("content", content));
         long estimateStarted = System.currentTimeMillis();
         String response = sink == null
@@ -3602,6 +3602,19 @@ import java.util.concurrent.Executors;
                 .put("system", chatSystemPrompt()).put("user", new JSONObject(chatDataContext(day)));
     }
 
+    /** 长期偏好：来自「我的 → 偏好与记忆」，最多 20 条、每条截 60 字，总长封顶。 */
+    private static String preferenceSuffix(JSONObject body) {
+        JSONArray prefs = body == null ? null : body.optJSONArray("preferences");
+        if (prefs == null || prefs.length() == 0) return "";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < prefs.length() && sb.length() < 700; i++) {
+            String item = prefs.optString(i, "").trim();
+            if (item.isEmpty()) continue;
+            sb.append("\n- ").append(item.length() > 60 ? item.substring(0, 60) : item);
+        }
+        if (sb.length() == 0) return "";
+        return "\n\n用户长期偏好（遵守它们，不要给出冲突建议，也不要复述这份清单）：" + sb;
+    }
     private JSONObject advice(JSONObject b) throws Exception {
         if (!b.optBoolean("useAI", false)) return new JSONObject().put("messages", new JSONArray()).put("source", "local").put("summary", "请由前端离线适配器计算本地建议");
         String day = b.optString("date", b.optString("day", ""));
@@ -3609,10 +3622,17 @@ import java.util.concurrent.Executors;
         JSONObject c = consent(b);
         JSONObject input = adviceInput(day);
         JSONArray messages = new JSONArray()
-                .put(new JSONObject().put("role", "system").put("content", adviceSystemPrompt()))
+                .put(new JSONObject().put("role", "system").put("content", adviceSystemPrompt() + preferenceSuffix(b)))
                 .put(new JSONObject().put("role", "user").put("content", input.toString()));
         long adviceStarted = System.currentTimeMillis();
-        String summary = chat(c, c.getString("model"), messages, CAP_ADVICE).trim();
+        String summary;
+        try {
+            summary = chat(c, c.getString("model"), messages, CAP_ADVICE).trim();
+        } catch (Exception first) {
+            // 模型把预算全用在思考过程上时 content 会是空的：放宽上限重试一次，别让建议卡直接空着。
+            if (!"模型这次没有给出回答内容，请重新提问或换一个模型".equals(first.getMessage())) throw first;
+            summary = chat(c, c.getString("model"), messages, CAP_ADVICE * 4).trim();
+        }
         android.util.Log.i("qingheng", "advice " + (System.currentTimeMillis() - adviceStarted) + "ms chars=" + summary.length() + " cap=" + CAP_ADVICE);
         if (summary.length() > 8000) throw fail("API 建议过长");
         JSONArray output = adviceMessages(summary);

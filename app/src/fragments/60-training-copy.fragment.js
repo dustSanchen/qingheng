@@ -1063,8 +1063,16 @@
     button.disabled=true; container.textContent='正在整理已记录数据…'; container.removeAttribute('data-date');
     syncCalendarDay();
     const date=activeDate,useAI=externalConsent();
-    try {const data=await api('/api/advice',{date,...(useAI?{useAI:true,allowExternal:true}:{})}); if(date!==activeDate) return; if(!Array.isArray(data?.messages)) throw new Error('建议数据格式不正确。'); renderAdvice(data.messages,date);}
-    catch(error) {container.textContent=error.message;} finally {button.disabled=false;}
+    try {const data=await api('/api/advice',{date,preferences:readPreferences(),...(useAI?{useAI:true,allowExternal:true}:{})}); if(date!==activeDate) return; if(!Array.isArray(data?.messages)) throw new Error('建议数据格式不正确。'); renderAdvice(data.messages,date);}
+    catch(error) {
+      // 模型不可用时退回本地建议：这张卡空着比给一条本地结论更糟。
+      try {
+        const local=await api('/api/advice',{date});
+        if(date!==activeDate) return;
+        if(Array.isArray(local?.messages) && local.messages.length) {renderAdvice(local.messages,date); container.dataset.fallback='1'; container.setAttribute('data-note','模型暂时不可用，以下是本地建议。'); return;}
+      } catch {}
+      container.textContent=error.message;
+    }
   }
   function clearImage() {lastCaptureId='';mealPhotoMeta=photoMeta(null);imageVersion++;imageData=null;imageBusy=false;$('#meal-image').value='';$('#meal-gallery').value='';$('#image-preview').hidden=true;$('#meal-image-preview').removeAttribute('src');}
   async function compressImage(file) {

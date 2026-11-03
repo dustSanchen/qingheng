@@ -77,6 +77,16 @@
   const MEAL_WINDOW_KEY = 'qingheng.mealWindow';
   /** 今日三样当天是否已保存过（保存后收成摘要，要改先点「修改」）。 */
   const DAILY_THREE_KEY = date => `qingheng.dailyThree.${date}`;
+  /** 长期偏好：一句话一条，最多 20 条，注入估算/建议/训练的提示词。 */
+  const PREFERENCES_KEY = 'qingheng.preferences';
+  function readPreferences() {
+    try {const raw = localStorage.getItem(PREFERENCES_KEY); const list = raw ? JSON.parse(raw) : []; return Array.isArray(list) ? list.filter(item => typeof item === 'string' && item.trim()).slice(0, 20) : [];} catch {return [];}
+  }
+  function writePreferences(list) {
+    const clean = (Array.isArray(list) ? list : []).map(item => String(item || '').trim()).filter(Boolean).slice(0, 20);
+    try {localStorage.setItem(PREFERENCES_KEY, JSON.stringify(clean));} catch {}
+    return clean;
+  }
   const DEFAULT_MEAL_WINDOW = {lunchFrom:'11:20', dinnerFrom:'16:30', snackFrom:'22:00'};
   const MEAL_TYPE_LABEL = {breakfast:'早餐', lunch:'午餐', dinner:'晚餐', snack:'加餐'};
   function readMealWindow() {
@@ -535,6 +545,7 @@
       ? [
         {label: '重新生成', icon: 'icon-refresh.svg'},
         {label: unhelpfulChats.has(id) ? '已标记没用' : '这条没用', icon: 'icon-warn.svg'},
+        {label: '记为偏好', icon: 'icon-bookmark.svg'},
       ]
       : [];
     const options = [
@@ -555,6 +566,7 @@
     if (choice === 2) {await toggleFavorite(kind, record); return;}
     if (kind === 'chat' && choice === 3) {regenerateChat(id).catch(error => notice(error.message, true)); return;}
     if (kind === 'chat' && choice === 4) {markUnhelpful(id); return;}
+    if (kind === 'chat' && choice === 5) {addPreferenceFromChat(record); return;}
     if (choice === deleteIndex) {
       const label = kind === 'chat' ? '这条问答记录' : (record.name || '这条餐食记录');
       if (!await askConfirm(`删除${label}？此操作无法撤销。`, {title: '删除记录', ok: '删除', danger: true})) return;
@@ -826,7 +838,7 @@
   // ---- Profile hub and its sub-pages -----------------------------------------------------------
   // "我的" is a list of entries; each one opens a sub-page under #profile/<name>. Everything stays
   // in the document, so forms, validation, collapse state and existing test anchors are untouched.
-  const SUBPAGES = ['targets', 'model', 'push', 'appearance', 'data', 'about'];
+  const SUBPAGES = ['targets', 'model', 'push', 'appearance', 'prefs', 'data', 'about'];
   function parseHash() {
     const parts = String(location.hash || '').replace(/^#/, '').split('/');
     const tab = ['today','records','chat','trends','profile'].includes(parts[0]) ? parts[0] : '';
