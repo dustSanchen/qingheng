@@ -702,6 +702,29 @@ button,input,select,textarea{font-family:var(--font-ui);font-size:var(--text-md)
   }
 }
 
+/* ── 账本 · 训练栏（2026-11-03）：数据优先的表格感，而不是一堆等宽大方块 ──────────────
+   选择项按内容定宽、44px 命中区；每组一条发丝分隔；日期列固定宽度，数字对齐。 */
+[data-skin="ledger"] #training-log .pref-group,
+[data-skin="ledger"] .plan-prefs .pref-group{padding-top:10px;border-top:1px solid var(--line)}
+[data-skin="ledger"] #training-log .pref-group:first-of-type,
+[data-skin="ledger"] .plan-prefs .pref-group:first-of-type{padding-top:0;border-top:0}
+[data-skin="ledger"] #training-log .pref-label,
+[data-skin="ledger"] .plan-prefs .pref-label{font-size:var(--text-xs);letter-spacing:var(--tracking-label);color:var(--muted);margin-bottom:6px}
+[data-skin="ledger"] .pref-chips{display:flex;flex-wrap:wrap;gap:6px}
+[data-skin="ledger"] .pref-chip{flex:0 0 auto;min-height:44px;padding:8px 12px;font-size:var(--text-sm);font-variant-numeric:tabular-nums;white-space:nowrap}
+[data-skin="ledger"] .pref-chip[aria-pressed="true"]{box-shadow:inset 0 0 0 1px var(--accent)}
+[data-skin="ledger"] .plan-week li{gap:10px}
+[data-skin="ledger"] .plan-week li strong{flex:0 0 3.4em;margin-right:0;color:var(--ink-soft)}
+[data-skin="ledger"] .plan-week li.wk-today{padding-left:8px;box-shadow:inset 3px 0 0 var(--accent)}
+[data-skin="ledger"] .plan-week li.wk-today strong{color:var(--accent)}
+[data-skin="ledger"] .plan-sub{font-size:var(--text-xs);letter-spacing:var(--tracking-label);color:var(--muted);font-weight:var(--fw-semibold)}
+/* 训练行与偏好区在账本下收紧：输入框 40px、单元格内距 6/10，避免一格吃掉半屏。 */
+[data-skin="ledger"] .training-row>label{margin-bottom:6px}
+[data-skin="ledger"] .training-row .form-grid>label{padding:6px 10px}
+[data-skin="ledger"] .training-row input{min-height:40px;padding:8px 10px}
+[data-skin="ledger"] .training-row .form-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:0 1px}
+[data-skin="ledger"] #training-form select{min-height:44px;padding:8px 10px}
+[data-skin="ledger"] .plan-prefs{border-top:0;border-radius:0;padding-top:0;margin-top:0}
 [data-skin="ledger"] .card h2{letter-spacing:0}
 [data-skin="ledger"] .page-title,[data-skin="ledger"] .hero-title,[data-skin="ledger"] h1{letter-spacing:var(--tracking-display);font-weight:var(--fw-semibold)}
 
@@ -760,7 +783,12 @@ details[open]{background:var(--surface)}
 
 /* 「更多」折叠：把三张低频卡片收成一行，第一屏只留 5 张。 */
 .day-more{margin:0 0 var(--space-3);border-block:1px solid var(--line);border-radius:0;background:transparent;padding:12px 0}
-.day-more > summary{cursor:pointer;font-size:var(--text-sm);color:var(--muted)}
+.day-more > summary{display:flex;align-items:center;gap:8px;min-height:48px;padding:var(--space-2) 0;list-style:none;cursor:pointer;font-size:var(--text-sm);color:var(--muted)}
+.day-more > summary::-webkit-details-marker{display:none}
+.day-more > summary .more-caret{width:0;height:0;flex:0 0 auto;border-left:5px solid currentColor;border-top:4px solid transparent;border-bottom:4px solid transparent;transition:transform var(--dur-fast) var(--ease-out)}
+.day-more[open] > summary .more-caret{transform:rotate(90deg)}
+.day-more > summary .more-label{color:var(--ink-soft);font-weight:var(--fw-semibold);white-space:nowrap}
+.day-more > summary .more-rest{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .day-more[open] > summary{margin-bottom:var(--space-2)}
 .day-more .card{border:0;box-shadow:none;padding:var(--space-3) 0;margin:0;border-top:1px solid var(--line);border-radius:0}
 .day-more .card:first-of-type{border-top:0}
