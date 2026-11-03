@@ -75,6 +75,8 @@
   // from dinnerFrom dinner, from snackFrom a snack. Three thresholds, editable in
   // 我的 → 数据、外观与说明.
   const MEAL_WINDOW_KEY = 'qingheng.mealWindow';
+  /** 今日三样当天是否已保存过（保存后收成摘要，要改先点「修改」）。 */
+  const DAILY_THREE_KEY = date => `qingheng.dailyThree.${date}`;
   const DEFAULT_MEAL_WINDOW = {lunchFrom:'11:20', dinnerFrom:'16:30', snackFrom:'22:00'};
   const MEAL_TYPE_LABEL = {breakfast:'早餐', lunch:'午餐', dinner:'晚餐', snack:'加餐'};
   function readMealWindow() {

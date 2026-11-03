@@ -927,14 +927,16 @@
     const sleep = number(habit.sleep), weight = number(measurement.weight);
     const filled = [training !== '', sleep !== null, weight !== null].filter(Boolean).length;
     // 三样都记过就收成一列只读摘要：这张卡在首屏占地大，展开态最容易误触。
-    const collapsed = filled === 3 && dailyThreeEditing !== activeDate;
+    let savedThisDay = false;
+    try {savedThisDay = localStorage.getItem(DAILY_THREE_KEY(activeDate)) === '1';} catch {}
+    const collapsed = (savedThisDay || filled === 3) && dailyThreeEditing !== activeDate;
     const body = $('#daily-three-body'), summary = $('#daily-three-summary');
     if (body) body.hidden = collapsed;
     if (summary) {
       summary.hidden = !collapsed;
       if (collapsed) {
         const rows = [
-          ['训练', training === 'true' ? '已训练' : '休息'],
+          ['训练', training === 'true' ? '已训练' : training === 'false' ? '休息' : '未记录'],
           ['睡眠', sleep === null ? '—' : `${fmt(sleep)} 小时`],
           ['体重', weight === null ? '—' : `${fmt(weight)} kg`]
         ];

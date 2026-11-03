@@ -75,6 +75,8 @@
   // from dinnerFrom dinner, from snackFrom a snack. Three thresholds, editable in
   // 我的 → 数据、外观与说明.
   const MEAL_WINDOW_KEY = 'qingheng.mealWindow';
+  /** 今日三样当天是否已保存过（保存后收成摘要，要改先点「修改」）。 */
+  const DAILY_THREE_KEY = date => `qingheng.dailyThree.${date}`;
   const DEFAULT_MEAL_WINDOW = {lunchFrom:'11:20', dinnerFrom:'16:30', snackFrom:'22:00'};
   const MEAL_TYPE_LABEL = {breakfast:'早餐', lunch:'午餐', dinner:'晚餐', snack:'加餐'};
   function readMealWindow() {
@@ -4470,14 +4472,16 @@ const values = points.length<=7 ? points.map((item,i) => {
     const sleep = number(habit.sleep), weight = number(measurement.weight);
     const filled = [training !== '', sleep !== null, weight !== null].filter(Boolean).length;
     // 三样都记过就收成一列只读摘要：这张卡在首屏占地大，展开态最容易误触。
-    const collapsed = filled === 3 && dailyThreeEditing !== activeDate;
+    let savedThisDay = false;
+    try {savedThisDay = localStorage.getItem(DAILY_THREE_KEY(activeDate)) === '1';} catch {}
+    const collapsed = (savedThisDay || filled === 3) && dailyThreeEditing !== activeDate;
     const body = $('#daily-three-body'), summary = $('#daily-three-summary');
     if (body) body.hidden = collapsed;
     if (summary) {
       summary.hidden = !collapsed;
       if (collapsed) {
         const rows = [
-          ['训练', training === 'true' ? '已训练' : '休息'],
+          ['训练', training === 'true' ? '已训练' : training === 'false' ? '休息' : '未记录'],
           ['睡眠', sleep === null ? '—' : `${fmt(sleep)} 小时`],
           ['体重', weight === null ? '—' : `${fmt(weight)} kg`]
         ];
@@ -4838,7 +4842,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.2.53';
+  const APP_VERSION = '1.2.55';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -6079,6 +6083,8 @@ function metricIcon(label) {
         await api('/api/measurements', {date: activeDate, weight});
         saved.push('体重');
       }
+      // 记过一次就收起来：这张卡在首屏占地大，展开态最容易误触。
+      try {localStorage.setItem(DAILY_THREE_KEY(activeDate), '1');} catch {}
       await loadState({quiet: true});
       feedback(message, `已记录：${saved.join('、')}。`);
     } catch (error) {feedback(message, error.message, true);}
@@ -6439,6 +6445,7 @@ feedback(message,'数据已导入。'+report);
       while (card.firstChild) body.appendChild(card.removeChild(card.firstChild));
       details.appendChild(summary);
       details.appendChild(body);
+      details.open = false;
       card.appendChild(details);
       card.dataset.collapsed = '1';
     }
