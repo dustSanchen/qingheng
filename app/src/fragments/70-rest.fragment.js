@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.2.39';
+  const APP_VERSION = '1.2.42';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1459,8 +1459,34 @@
       text, photo:photoMeta(imageData?mealPhotoMeta:null)};
     estimateBusy=true;button.disabled=true;feedback(message,'正在生成预览，不会自动保存…');
 if (typeof showBusy === 'function') showBusy('正在计算热量…', 'estimate-busy');
-    try {const data=await api('/api/estimate',{text,allowExternal:externalConsent() && navigator.onLine,anchors:anchorSummary(),...(imageData?{image:imageData}:{})});previewDraft(data,submittedForm);feedback(message,'估算完成。请在下方修改并确认，才会保存。');}
-    catch(error){feedback(message,error.message,true);}finally{estimateBusy=false;button.disabled=false;if(typeof hideBusy==='function')hideBusy();}
+    const payload={text,allowExternal:externalConsent() && navigator.onLine,anchors:anchorSummary(),...(imageData?{image:imageData}:{})};
+    // 流式估算：模型还在写 JSON 时就把已识别到的食物名显示出来，等待不再像卡死。
+    let seen='';
+    const startedAt=Date.now();
+    const setBusyLine=line=>{
+      feedback(message,line);
+      const inline=document.querySelector('#estimate-busy .inline-busy-text');
+      if(inline) inline.textContent=line;
+    };
+    // 计时器兜底：即使服务商把 delta 攒着不发，用户也能看到「还在跑」。
+    const ticker=setInterval(()=>{
+      if(seen) return;
+      setBusyLine(`正在识别…已等 ${Math.round((Date.now()-startedAt)/1000)}s`);
+    },700);
+    window.QinghengEstimateStream={onDelta:chunk=>{
+      seen+=String(chunk||'');
+      const names=[...seen.matchAll(/"name"s*:s*"([^"]{1,24})"/g)].map(match=>match[1]);
+      const tail=names.slice(-3).join('、');
+      setBusyLine(tail ? `正在识别：${tail}…` : `正在识别…已收到 ${seen.length} 字`);
+    }};
+    try {
+      let data;
+      try {data=await api('/api/estimate/stream',payload);}
+      catch(streamError){data=await api('/api/estimate',payload);}
+      previewDraft(data,submittedForm);feedback(message,'估算完成。请在下方修改并确认，才会保存。');
+    }
+    catch(error){feedback(message,error.message,true);}
+    finally{clearInterval(ticker);window.QinghengEstimateStream=null;estimateBusy=false;button.disabled=false;if(typeof hideBusy==='function')hideBusy();}
   });
   $('#estimate-items').addEventListener('input',event=>{
     const input=event.target.closest('[data-item-field]');if(!input)return;

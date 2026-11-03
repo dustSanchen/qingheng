@@ -350,6 +350,48 @@
         }
         return response(localEstimate(body));
       }
+      if(path==='/api/estimate/stream') {
+        // 流式估算：模型还在写 JSON 时就把片段交给页面（显示识别到哪些食物），完成后再解析。
+        const config=await storageRequest('/api/settings','GET',undefined,options.signal);
+        if(!hasNative() || !config.apiConfigured || body?.allowExternal!==true)throw new Error('外部模型估算需要 APK、已配置的 API 与本次外发同意。');
+        if(body?.image && (!config.visionEnabled || !config.visionModel))throw new Error('照片需要已启用的视觉模型：请到「我的 → 模型连接」为所选服务商填写并启用支持图片的模型。');
+        const started=await nativeRequest('/api/estimate/stream','POST',{text:body?.text||'',allowExternal:true,anchors:typeof body?.anchors==='string'?body.anchors:'',...(body?.image?{image:body.image}:{})},options.signal);
+        const streamId=started?.streamId;
+        if(!streamId)throw new Error('流式估算未能启动，请重试。');
+        const final=await new Promise((resolve,reject)=>{
+          const previous=window.__qinghengEstimate;
+          let settled=false;
+          const timer=setTimeout(()=>{
+            if(settled)return;
+            settled=true;window.__qinghengEstimate=previous;
+            reject(new Error('估算超时，请重试。'));
+          },120000);
+          const finish=(fn,value)=>{
+            if(settled)return;
+            settled=true;clearTimeout(timer);window.__qinghengEstimate=previous;fn(value);
+          };
+          window.__qinghengEstimate=raw=>{
+            let event=null;
+            try{event=typeof raw==='string'?JSON.parse(raw):raw;}catch{return true;}
+            if(!event||event.streamId!==streamId)return true;
+            if(event.kind==='delta'){
+              const sink=window.QinghengEstimateStream;
+              if(sink && typeof sink.onDelta==='function'){try{sink.onDelta(event.text||'');}catch{}}
+              return true;
+            }
+            if(event.kind==='done'){
+              let draft=null;
+              try{draft=JSON.parse(event.text||'');}catch{draft=null;}
+              if(!draft)finish(reject,new Error('估算结果无法读取，请重试。'));
+              else finish(resolve,draft);
+              return true;
+            }
+            finish(reject,new Error(event.text||'估算失败，请稍后重试。'));
+            return true;
+          };
+        });
+        return response(window.QinghengFoods ? window.QinghengFoods.calibrateDraft(final) : final);
+      }
       if(path==='/api/advice') {
         if(body?.useAI===true) {
           if(!hasNative() || body.allowExternal!==true)throw new Error('AI 建议需要 APK、已配置 API 和本次外发同意。');

@@ -1614,6 +1614,7 @@ import java.util.concurrent.Executors;
             commit(next); drafts.clear(); confirmedDrafts.clear(); return snapshot();
         }
         if (post && path.equals("/api/estimate")) return estimate(b);
+        if (post && path.equals("/api/estimate/stream")) return startEstimateStream(b);
         if (post && path.equals("/api/advice")) return advice(b);
         if (path.equals("/api/drafts")) {
             if (get) return new JSONObject().put("drafts", storedDrafts());
@@ -2255,6 +2256,37 @@ import java.util.concurrent.Executors;
         worker.setDaemon(true);
         worker.start();
         return new JSONObject().put("started", true).put("streamId", id);
+    }
+
+    /** Streaming estimate: the page shows the partial JSON (food names) while the model writes. */
+    private JSONObject startEstimateStream(JSONObject b) throws Exception {
+        final String id = UUID.randomUUID().toString();
+        final JSONObject body = new JSONObject(b.toString());
+        Thread worker = new Thread(() -> {
+            try {
+                JSONObject draft = estimate(body, text -> pushEstimateEvent("delta", id, text));
+                pushEstimateEvent("done", id, draft.toString());
+            } catch (Exception e) {
+                String text = e instanceof PublicError ? e.getMessage() : "估算失败，请稍后重试";
+                pushEstimateEvent("error", id, text);
+            }
+        }, "qingheng-estimate-stream");
+        worker.setDaemon(true);
+        worker.start();
+        return new JSONObject().put("started", true).put("streamId", id);
+    }
+
+    /** One estimate event: kind is delta / done / error. Never carries keys or config. */
+    private void pushEstimateEvent(String kind, String id, String text) {
+        final String body = text == null ? "" : text;
+        runOnUiThread(() -> {
+            if (!alive || web == null || !pageReady) return;
+            try {
+                JSONObject payload = new JSONObject().put("streamId", id).put("kind", kind).put("text", body);
+                web.evaluateJavascript("window.__qinghengEstimate && window.__qinghengEstimate("
+                        + JSONObject.quote(payload.toString()) + ");", null);
+            } catch (Exception ignored) { }
+        });
     }
 
     /** Text that could not be delivered yet, kept per stream so nothing silently disappears. */
@@ -3157,6 +3189,10 @@ import java.util.concurrent.Executors;
     }
 
     private JSONObject estimate(JSONObject b) throws Exception {
+        return estimate(b, null);
+    }
+
+    private JSONObject estimate(JSONObject b, ChatCompletion.Delta sink) throws Exception {
         JSONObject c = consent(b);
         String text = b.optString("text", b.optString("description", "")).trim();
         if (text.length() > 4000) throw fail("餐食描述最多 4000 字符");
@@ -3178,14 +3214,16 @@ import java.util.concurrent.Executors;
                         cn.qingheng.health.ai.Prompts.withAnchors(cn.qingheng.health.ai.Prompts.mealEstimate(), b.optString("anchors", ""))))
                 .put(new JSONObject().put("role", "user").put("content", content));
         long estimateStarted = System.currentTimeMillis();
-        String response = chat(c, model, messages, CAP_ESTIMATE).trim();
+        String response = sink == null
+                ? chat(c, model, messages, CAP_ESTIMATE).trim()
+                : ChatCompletion.stream(c, apiKey(c.optString("provider", provider())), model, messages, sink).trim();
         android.util.Log.i("qingheng", "estimate " + (System.currentTimeMillis() - estimateStarted) + "ms chars=" + response.length() + " cap=" + CAP_ESTIMATE);
         JSONObject parsed;
         try { parsed = new JSONObject(response); }
         catch (Exception e) { throw fail("API 未返回严格 JSON，未创建草稿"); }
         JSONArray input = parsed.optJSONArray("items");
         JSONObject totals = parsed.optJSONObject("totals");
-        if (input == null || input.length() < 1 || input.length() > 100 || totals == null) throw fail("API 营养数据格式不正确");
+        if (input == null || input.length() < 1 || input.length() > 100) throw fail("API 营养数据格式不正确");
         JSONArray items = new JSONArray();
         for (int i = 0; i < input.length(); i++) {
             JSONObject item = input.optJSONObject(i);
@@ -3260,7 +3298,7 @@ import java.util.concurrent.Executors;
         String[] keys = {"calories", "protein", "carbs", "fat"};
         boolean mismatch = false;
         for (int i = 0; i < keys.length; i++) {
-            Double supplied = finite(totals, keys[i]);
+            Double supplied = totals == null ? null : finite(totals, keys[i]);
             if (supplied != null && cn.qingheng.health.store.NutritionMath.differs(supplied, derived[i])) mismatch = true;
         }
         double[] stored = cn.qingheng.health.store.NutritionMath.rounded(derived);

@@ -52,6 +52,9 @@ check('estimator prompt asks for the median, not a high bias', prompts.includes(
 check('estimator prompt explains why', prompts.includes('两者要抵消'));
 check('estimator returns oil separately', prompts.includes('\\"oilGrams\\":0') && main.includes('oilIncluded'));
 check('estimator returns an uncertainty', prompts.includes('\\"uncertaintyPercent\\":15'));
+check('the estimate contract no longer asks the model for totals', !prompts.includes('\\"totals\\":{') && prompts.includes('不要输出 totals'));
+check('estimates can stream and the page shows progress', main.includes('/api/estimate/stream') && main.includes('startEstimateStream') && app.includes("api('/api/estimate/stream'") && app.includes('正在识别'));
+check('a streaming estimate still falls back to the buffered route', app.includes("catch(streamError){data=await api('/api/estimate',payload);}"));
 check('interval bounds are computed for display', main.includes('draft.put(k + "Low"') && main.includes('draft.put(k + "High"'));
 check('an absurd uncertainty falls back to 15', main.includes('if (uncertainty <= 0 || uncertainty > 60) uncertainty = 15;'));
 check('oil is bounded', main.includes('if (oilGrams > 500) throw fail'));
