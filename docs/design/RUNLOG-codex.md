@@ -373,3 +373,12 @@
 - 断言：`habit-and-training-mode` 的图标断言从「`训练: \`<g`」这类手绘写法改成「路径表 + 具体 path 片段」。
 - 验收：`test-all` 56/56；`dev-loop` 1.2.81/281 安装 + smoke 无 JS 错误；截图 `build/v281-header.png`（体检四项已换 Tabler）、`build/v281-about.png`（品牌插画在关于页）。
 - 源码提交 `efa1b2d`；回滚：`git revert efa1b2d`。
+
+## r67 · 2026-11-04 · 1.2.82 → 1.2.83（图标统一到 Lucide）
+- 换图源：`tabler/tabler-icons` → `lucide-icons/lucide`（MIT，社区最大的一档，24 网格 / stroke 2 / round caps，两套图标风格一致）。同样用 `--depth 1 --filter=blob:none --sparse` + `sparse-checkout set icons`，只取需要的目录（4040 个 svg，不拉整仓的 png/sprite）。
+- 统一范围：「我的」八枚（user-round / bot / bell / notebook-pen / palette / settings / database / leaf）+ 今日体检七类（flame / drumstick / droplet / wheat / dumbbell / moon-star / glass-water）全部内联 Lucide 官方 path，24 网格、1.8（我的）/1.7（体检）描边、currentColor。
+- 差异化：蛋白质改用 **drumstick（鸡腿）**，脂肪保持 **droplet（水滴）**——两者轮廓彻底不同（原来蛋 vs 水滴在小尺寸下仍偏像）；热量火焰、睡眠月亮+星、碳水麦穗、训练哑铃、饮水水杯。
+- 踩坑：第一版内联 `<svg>` 没写 width/height，在 `.check-icon{height:16px}` 里被压成 0 高 → 图标整排消失（页面只剩文字）。修法是给 `.metric-glyph svg` 显式 16×16。另：脚本里 `[...arr.map(...).join()]` 会把字符串拆成单字符插进源码，已改成先 map 成行数组再 join 后作为单行写入。
+- 断言：`habit-and-training-mode` 的图标断言改为「`const glyphs` + Lucide + `metric-glyph`」。
+- 验收：`test-all` 56/56；`dev-loop` 1.2.82/283 安装 + smoke 无 JS 错误；真机截图 `build/v282-hub.png`（我的八枚）、`build/v283-metrics.png`（体检四项 + 鸡腿/水滴差异）。APK 548 KB 不变。
+- 源码提交 `285ec97`；回滚：`git revert 285ec97`。
