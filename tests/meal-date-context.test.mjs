@@ -279,6 +279,9 @@ assert.match(app, /const shown = chatRowsInScope\(\);/, 'renderChat reads the fi
 // --- 问答记录：按天查看 + 日期翻页 ------------------------------------------------------------
 assert.match(html, /id="chat-day-toggle" aria-pressed="false"/, 'the history has a day chip');
 assert.match(html, /id="chat-day-prev"[\s\S]{0,260}id="chat-day-next"/, 'the day chip is flanked by step buttons');
+assert.match(app, /DEFAULT_MEAL_WINDOW = {lunchFrom:'11:20', dinnerFrom:'16:30', snackFrom:'22:00'}/, 'the default meal window has lunch, dinner and snack turn-over points');
+assert.match(app, /if \(value >= dinnerFrom\) return 'dinner';/, 'the default slot reaches dinner before snack');
+assert.match(html, /id="meal-window-dinner"/, 'the appearance sub-page can edit the dinner turn-over');
 assert.match(app, /let chatDayFilter = '';/, 'the day filter keeps a session state');
 assert.match(app, /function chatDates\(\)/, 'the pager walks the dates that actually have records');
 assert.match(app, /const dayRows = chatDayFilter \? shown\.filter\(row => String\(row\.date \|\| ''\) === chatDayFilter\) : shown;/, 'renderChat honours the day filter');

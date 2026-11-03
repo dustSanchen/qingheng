@@ -71,23 +71,25 @@
   const clockPattern = /^([01]\d|2[0-3]):[0-5]\d$/;
   const mealSlotClock = {breakfast:'07:30', lunch:'12:30', dinner:'18:30', snack:'15:30'};
   // ---- Default meal slot ----------------------------------------------------------------
-  // Which meal a new record starts on, by the clock: before lunchFrom it is breakfast, from
-  // lunchFrom lunch, from snackFrom a snack. Two wall-clock thresholds, editable in
-  // 我的 → 数据、外观与说明; dinner is never the guess because it has no stable hour.
+  // Which meal a new record starts on, by the clock: before lunchFrom breakfast, then lunch,
+  // from dinnerFrom dinner, from snackFrom a snack. Three thresholds, editable in
+  // 我的 → 数据、外观与说明.
   const MEAL_WINDOW_KEY = 'qingheng.mealWindow';
-  const DEFAULT_MEAL_WINDOW = {lunchFrom:'11:20', snackFrom:'22:00'};
+  const DEFAULT_MEAL_WINDOW = {lunchFrom:'11:20', dinnerFrom:'16:30', snackFrom:'22:00'};
   const MEAL_TYPE_LABEL = {breakfast:'早餐', lunch:'午餐', dinner:'晚餐', snack:'加餐'};
   function readMealWindow() {
     let raw = {};
     try { raw = JSON.parse(localStorage.getItem(MEAL_WINDOW_KEY) || '{}') || {}; } catch { raw = {}; }
     return {
       lunchFrom: clockPattern.test(raw.lunchFrom) ? raw.lunchFrom : DEFAULT_MEAL_WINDOW.lunchFrom,
+      dinnerFrom: clockPattern.test(raw.dinnerFrom) ? raw.dinnerFrom : DEFAULT_MEAL_WINDOW.dinnerFrom,
       snackFrom: clockPattern.test(raw.snackFrom) ? raw.snackFrom : DEFAULT_MEAL_WINDOW.snackFrom
     };
   }
   function saveMealWindow(spec) {
     const next = {
       lunchFrom: clockPattern.test(spec?.lunchFrom) ? spec.lunchFrom : DEFAULT_MEAL_WINDOW.lunchFrom,
+      dinnerFrom: clockPattern.test(spec?.dinnerFrom) ? spec.dinnerFrom : DEFAULT_MEAL_WINDOW.dinnerFrom,
       snackFrom: clockPattern.test(spec?.snackFrom) ? spec.snackFrom : DEFAULT_MEAL_WINDOW.snackFrom
     };
     try { localStorage.setItem(MEAL_WINDOW_KEY, JSON.stringify(next)); } catch {}
@@ -96,8 +98,9 @@
   /** `clock` defaults to now. Both thresholds are inclusive lower bounds. */
   function defaultMealTypeFor(clock) {
     const value = clockPattern.test(clock) ? clock : nowClock();
-    const {lunchFrom, snackFrom} = readMealWindow();
+    const {lunchFrom, dinnerFrom, snackFrom} = readMealWindow();
     if (value >= snackFrom) return 'snack';
+    if (value >= dinnerFrom) return 'dinner';
     if (value >= lunchFrom) return 'lunch';
     return 'breakfast';
   }

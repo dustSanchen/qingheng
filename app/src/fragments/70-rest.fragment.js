@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.2.45';
+  const APP_VERSION = '1.2.46';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1019,19 +1019,20 @@
     ].filter(Boolean).forEach(node => panel.append(node));
   }
   function mealWindowSummaryText(spec) {
-    return `早于 ${spec.lunchFrom} 记早餐，${spec.lunchFrom} 起记午餐，${spec.snackFrom} 起记加餐。`;
+    return `早于 ${spec.lunchFrom} 记早餐，${spec.lunchFrom} 起记午餐，${spec.dinnerFrom} 起记晚餐，${spec.snackFrom} 起记加餐。`;
   }
   function renderMealWindow() {
     const spec = readMealWindow();
-    const lunch = $('#meal-window-lunch'), snack = $('#meal-window-snack');
+    const lunch = $('#meal-window-lunch'), dinner = $('#meal-window-dinner'), snack = $('#meal-window-snack');
     if (lunch) lunch.value = spec.lunchFrom;
+    if (dinner) dinner.value = spec.dinnerFrom;
     if (snack) snack.value = spec.snackFrom;
     const summary = $('#meal-window-summary');
     if (summary) summary.textContent = mealWindowSummaryText(spec);
     const tag = $('#meal-window-tag');
     if (tag) tag.textContent = `现在默认${MEAL_TYPE_LABEL[defaultMealTypeFor(nowClock())] || '加餐'}`;
     const hubSummary = $('#hub-summary-appearance');
-    if (hubSummary) hubSummary.textContent = `${spec.lunchFrom} 午餐 · ${spec.snackFrom} 加餐 · 外观与说明`;
+    if (hubSummary) hubSummary.textContent = `${spec.lunchFrom} 午餐 · ${spec.dinnerFrom} 晚餐 · ${spec.snackFrom} 加餐 · 外观与说明`;
   }
   let mealTypeTouched = false;
   /** The estimate form starts on the slot the clock implies, unless the user already picked one. */
@@ -1048,11 +1049,11 @@
     renderMealWindow();
     $('#meal-window-save').addEventListener('click', () => {
       const feedback = $('#meal-window-feedback');
-      const lunch = $('#meal-window-lunch').value, snack = $('#meal-window-snack').value;
-      if (!clockPattern.test(lunch) || !clockPattern.test(snack)) {feedback.textContent = '请填写 24 小时制的时间。'; return;}
-      if (lunch >= snack) {feedback.textContent = '「午餐起」要早于「加餐起」。'; return;}
+      const lunch = $('#meal-window-lunch').value, dinner = $('#meal-window-dinner').value, snack = $('#meal-window-snack').value;
+      if (!clockPattern.test(lunch) || !clockPattern.test(dinner) || !clockPattern.test(snack)) {feedback.textContent = '请填写 24 小时制的时间。'; return;}
+      if (!(lunch < dinner && dinner < snack)) {feedback.textContent = '午餐起、晚餐起、加餐起要依次更晚。'; return;}
       feedback.textContent = '';
-      saveMealWindow({lunchFrom:lunch, snackFrom:snack});
+      saveMealWindow({lunchFrom:lunch, dinnerFrom:dinner, snackFrom:snack});
       renderMealWindow();
       applyMealTypeDefault();
       notice('默认餐次已更新。');
@@ -1062,7 +1063,7 @@
       renderMealWindow();
       applyMealTypeDefault();
       $('#meal-window-feedback').textContent = '';
-      notice('已恢复 11:20 / 22:00。');
+      notice('已恢复 11:20 / 16:30 / 22:00。');
     });
     $('#estimate-form select[name="mealType"]')?.addEventListener('change', () => {mealTypeTouched = true;});
     applyMealTypeDefault();
