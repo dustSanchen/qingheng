@@ -79,7 +79,7 @@ adb shell dumpsys package cn.qingheng.health | Select-String 'versionName'
 
 - `app.js` 是生成物，永远不要手改；改 `app/src/fragments/*` 后必须跑 assemble。
 - 不引入依赖 / CSS 框架 / 构建步骤。
-- 文案：不出现第三方品牌名；不写「加油」「坚持！」；热量下限 2,000 kcal 是硬底线；不诊断、不开处方。
+- 文案：不出现第三方品牌名；不写「加油」「坚持！」；不诊断、不开处方。热量区间只由目标预设与缺口上限决定，低于女 1200 / 男 1500 kcal 只提示不抬数（2026-10-30 起取消 2000 kcal 硬地板，勿加回）。
 - 单轮输出别整份读 `styles.css`；用 `grep` 定位或读 `docs/design/02-color-groups.csv`。
 
 ## 文档索引

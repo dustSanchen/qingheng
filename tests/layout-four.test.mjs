@@ -62,8 +62,11 @@ check('the timeline reads weight from the same-day measurement record', app.incl
 check('today and historical meals share one bottom separator per row', /#today-meals \.meal-row,#record-meals \.meal-row\{[^}]*border-top:0;[^}]*border-bottom:1px solid var\(--record-separator\)/s.test(css) &&
   css.includes('#today-meals > :last-child,#record-meals .meal-day > .meal-row:last-child{border-bottom:0}') &&
   css.includes('.day-event{padding:var(--space-2) 0;border:0;border-bottom:1px solid var(--line)}'));
-check('quick copy is a header action rather than a second full-width button', app.includes("button.className = 'text-button quick-record-action'") &&
+check('quick copy is a header action rather than a second full-width button', app.includes("button.className = 'button subtle quick-record-action'") &&
   app.includes('heading.appendChild(button)') && !html.includes('id="energy-actions"'));
+check('quick record meal type is an in-dialog chip row, not a native select', app.includes('id="quick-record-type" role="radiogroup"') &&
+  !app.includes('<select id="quick-record-type"') && app.includes('setQuickRecordType(') &&
+  app.includes("mealType:quickRecordType") && css.includes('.quick-type-chip{min-height:44px'));
 check('today records empty state does not add a dashed inner frame', css.includes('#today-records-card .empty-state.is-empty{border:0;border-radius:0}'));
 
 // --- styles ---------------------------------------------------------------------------------------------
