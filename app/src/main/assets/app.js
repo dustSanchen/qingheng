@@ -4920,7 +4920,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.2.95';
+  const APP_VERSION = '1.3.04';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -6778,6 +6778,36 @@ feedback(message,'数据已导入。'+report);
   }
   renderPreferences();
   installPreferences();
+  /** 展开/收起：把内容包进 grid 容器，0fr→1fr 过渡 0.28s（真机验证过，不依赖新 CSS 特性）。 */
+  function installDisclosureAnimation() {
+    const wrap = details => {
+      if (!details || details.tagName !== 'DETAILS') return;
+      if (details.querySelector(':scope > .disclosure-body')) return;
+      const summary = details.querySelector(':scope > summary');
+      if (!summary) return;
+      const body = document.createElement('div');
+      body.className = 'disclosure-body';
+      const inner = document.createElement('div');
+      inner.className = 'disclosure-inner';
+      while (details.lastChild && details.lastChild !== summary) inner.insertBefore(details.lastChild, inner.firstChild);
+      body.append(inner);
+      details.append(body);
+    };
+    document.querySelectorAll('details').forEach(wrap);
+    new MutationObserver(records => {
+      for (const record of records) {
+        // 内容被 innerHTML 重写时，包裹层会被冲掉：从变更目标往上找 details 再包一次。
+        const owner = record.target?.closest?.('details');
+        if (owner) wrap(owner);
+        for (const node of record.addedNodes) {
+          if (node.nodeType !== 1) continue;
+          if (node.tagName === 'DETAILS') wrap(node);
+          node.querySelectorAll?.('details').forEach(wrap);
+        }
+      }
+    }).observe(document.body, {childList: true, subtree: true});
+  }
+  installDisclosureAnimation();
   installMealWindow();
   installRecordPanels();
   installTrendPanels();

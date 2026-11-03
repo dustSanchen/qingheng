@@ -57,7 +57,10 @@ assert(!/anchor:'#estimate-form'|anchor:'#push-form'/.test(app), 'core meal and 
 // 箭头统一到通用规则：方块 + 旋转 + 展开内容过渡（2026-11-04）
 assert.match(css, /details:not\(\.day-more\)>summary::after\{[^}]*border-radius:8px/);
 assert.match(css, /details:not\(\.day-more\)\[open\]>summary::after\{transform:rotate\(180deg\)\}/);
-assert.match(css, /details::details-content\{[^}]*transition:height/);
 assert.match(css, /\.collapse-toggle/);
 
+// 展开/收起动画：内容包进 grid 容器，0fr→1fr 过渡（2026-11-04）
+assert.match(app, /function installDisclosureAnimation\(\)/);
+assert.match(css, /\.disclosure-body\{[^}]*grid-template-rows:0fr/);
+assert.match(css, /details\[open\]>\.disclosure-body\{grid-template-rows:1fr\}/);
 console.log('PASS meal recalc/collapse: stable proportional scaling, per-100g dialog, totals refresh, and reversible arrow disclosures.');
