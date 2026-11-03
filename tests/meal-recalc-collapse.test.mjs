@@ -54,8 +54,10 @@ assert.match(app, /anchor:'#settings-form'/);
 assert.match(app, /anchor:'#push-history'/);
 assert.match(app, /anchor:'#export-data'/);
 assert(!/anchor:'#estimate-form'|anchor:'#push-form'/.test(app), 'core meal and push forms are not hidden by default');
-assert.match(css, /details\.advanced summary::after\{content:'▾'/);
-assert.match(css, /details\.advanced\[open\] summary::after\{content:'▴'/);
+// 箭头统一到通用规则：方块 + 旋转 + 展开内容过渡（2026-11-04）
+assert.match(css, /details:not\(\.day-more\)>summary::after\{[^}]*border-radius:8px/);
+assert.match(css, /details:not\(\.day-more\)\[open\]>summary::after\{transform:rotate\(180deg\)\}/);
+assert.match(css, /details::details-content\{[^}]*transition:height/);
 assert.match(css, /\.collapse-toggle/);
 
 console.log('PASS meal recalc/collapse: stable proportional scaling, per-100g dialog, totals refresh, and reversible arrow disclosures.');
