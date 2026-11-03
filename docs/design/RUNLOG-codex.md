@@ -141,3 +141,12 @@
 - `.quick-chip-primary .quick-chip-icon` 补 `color:var(--on-accent)`：主芯片（记一餐）图标在深绿底上原先继承墨色，与右侧三格不同构。
 - 验收：`node tools/test-all.mjs` 56/56；`aesthetic-audit.mjs` 返回 `OK（无阻塞项）`（67 色值 / 7 卡片阴影 / 11 强调色警告沿用 r38 基线）；`dev-loop` 重装 1.2.30（versionCode 230，2026-11-03 19:21），smoke 无 JS 错误，实机截图 `build/verify-1.2.30.png`。
 - APK 与源码一致性：解包 `dist/qingheng-1.2.30.apk` 内 `assets/app.js`、`styles.css`、`index.html` 与工作区逐字节 SHA-256 相同，说明装机版本就是当前源码。
+
+## r40 · 2026-11-03 · 1.2.31（快速记录：餐次可选、入口升级）
+- 用户报「快速记录无法修改餐次」。复现：打开快速记录点「餐次」，实机只弹出一条底部「取消」，四个选项一个都不出现——WebView 把原生 `<select>` 的弹层画在 `.app-dialog` 遮罩之后。改成弹窗内四枚 44px chip（`role="radiogroup"` + `aria-checked`），与「复制哪一餐」同一套自绘选择；提交时 `mealType` 读 `quickRecordType`，不再读 DOM 里的 select。
+- 入口视觉加重：`#quick-record` 从 header 绿色文字链改为 `button subtle quick-record-action` + 复制图标，44px 高、`--space-3` 内距，与左侧四格 `.quick-chip` 同一层权重，仍低于「记一餐」主芯片。
+- AGENTS.md 硬约束删掉「热量下限 2,000 kcal 是硬底线」，替换为 1.2.15 之后的真实口径（区间由目标预设与缺口上限决定，低于女 1200 / 男 1500 只提示不抬数），避免下一轮把地板加回来。
+- 验收：`test-all.mjs` 56/56；`dev-loop.ps1 -Version 1.2.31 -VersionCode 231` 安装 + smoke 无 JS 错误；实机把餐次从默认「加餐」改为「午餐」保存后，记录标为「午餐」（`build/v231-records2.png`），随后删除该测试记录（`build/v231-after-delete.png`），当日热量回到 1,807 kcal。
+- 双皮肤：纸感 `build/v231-qr-open.png`、账本 `build/v231-ledger-qr.png`；chip 与按钮均随令牌适配，验证后皮肤已还原为 paper（`build/v231-restore2.png`）。
+- 断言变更登记在 `03-global-changes.md §5.1`（新增「餐次是 chip 行、无原生 select」守卫）。
+- 源码提交 `69cef26`；回滚：`git revert 69cef26`。
