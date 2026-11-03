@@ -127,6 +127,7 @@
 | 2026-11-03 | `tests/layout-four.test.mjs`、`tests/records-panels.test.mjs` | 「低频设置折叠在 details 里」→「低频设置开自己的 sub-page」；顺带删掉 `.profile-more*` 死样式断言 | 用户要求「我的 → 数据、外观与说明」这一行与「模型连接」同步格式：同一个 `.subpage` 外壳、同样的 21px hub 图标与返回头，不再在列表里嵌第二层折叠 |
 | 2026-11-03 | `tests/meal-date-java.test.mjs` | `SUBPAGES` 增加 `appearance`；入口计数 5 → 6；`#subpage-appearance` 进入 id 清单 | 同上：低频块升级为第六个子页，路由与 back 行为跟其它子页一致 |
 | 2026-11-04 | `tests/habit-and-training-mode.test.mjs` | 「体检图标指向已发布资源」改为「体检图标为内联 SVG」 | 图标从 `<img src=icon-*.svg>` 改成内联 SVG（提高区分度），原断言锁的是文件名 |
+| 2026-11-04 | `tests/habit-and-training-mode.test.mjs` | 图标断言认「`const glyphs` + Lucide + metric-glyph」；同期登记 `20-audit-visual.md` 的图标规格（24/1.5/微型记号） | 图标先换 Lucide 再按规格收口，断言与文档一起更新 |
 | 2026-11-04 | `tests/meal-recalc-collapse.test.mjs` | 箭头断言从 `.advanced summary::after{content:'▾'}` 改为通用规则 `details:not(.day-more)>summary::after` + `[open] rotate(180deg)` + `details::details-content` 高度过渡 | 旧规则用换字符（▾/▴）实现展开态，抵消了新加的旋转动画，用户报「箭头没有过渡」；统一后断言锁住新写法 |
 | 2026-11-03 | `tests/meal-date-context.test.mjs` | 「收藏筛选写在 renderChat 里」→「收进 `chatRowsInScope()` 一个入口」；新增问答按天浏览的 7 条断言（chip、两侧箭头、`chatDayFilter` 状态、只走有记录的日期、「全部日期」在最新一端） | 问答记录加了按天翻页：过滤要对搜索、收藏、按天三种条件叠加生效，写在 renderChat 里会分叉；断言跟着改成单一出口，并锁住翻页边界（从最新一天再往后回到全部） |
 | 2026-11-03 | `tests/chat-streaming.test.mjs`、`tests/stream-bubble.test.mjs` | 「逐 token 直接写 DOM」→「写进 `box.pending`，按帧 flush」；片段测试沙箱补 `nextFrame/cancelFrame` 同步桩 | 问答界面落地清单第 7 条：长回答逐 token 写 textContent 会让 WebView 抖，改成每帧最多一次；沙箱没有 rAF，用同步桩代替 |
