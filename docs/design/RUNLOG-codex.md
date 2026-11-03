@@ -203,3 +203,12 @@
 - 验收：`test-all` 56/56；`dev-loop` 1.2.43/44/45 安装 + smoke 无 JS 错误；实机截图 `build/v245-result.png`。
 - 断言新增（`tests/anchors-oil.test.mjs`）：按名称+克重重估、noDraft、离线手算兜底三条。
 - 源码提交 `eab1c77`；回滚：`git revert eab1c77`。
+
+## r47 · 2026-11-03 · 1.2.46（默认餐次加晚餐档）
+- 用户要求：默认餐次加晚餐时间段，16:30 起算晚餐。现在四档：< 11:20 早餐 → 11:20 午餐 → 16:30 晚餐 → 22:00 加餐。
+- 落点：`DEFAULT_MEAL_WINDOW` 加 `dinnerFrom:'16:30'`；`readMealWindow`/`saveMealWindow` 与 `defaultMealTypeFor` 同步；「我的 → 数据、外观与说明 → 默认餐次」加第三个 `time` 输入，校验改成「午餐起 < 晚餐起 < 加餐起」，重置语与摘要文案一起更新。
+- 旧用户兼容：localStorage 里只有 lunchFrom/snackFrom 的旧值，dinnerFrom 缺省时回落到 16:30，不会丢设置。
+- 验收：实机 21:56 打开快速记录默认「晚餐」；设置页显示三个阈值与「现在默认晚餐」。`test-all` 56/56（新增三条：默认窗口含晚餐、规则先判晚餐、页面有该输入）；`dev-loop` 1.2.46/246 安装 + smoke 无 JS 错误。
+- 交付：`dist/qingheng-1.2.46.apk`（511,004 字节，sha256 404f4fab…031a）。
+- 断言变更登记在 `03-global-changes.md §5.1`。
+- 源码提交 `78b1867`；回滚：`git revert 78b1867`。
