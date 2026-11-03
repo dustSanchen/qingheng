@@ -63,6 +63,10 @@ check('the timeline reads weight from the same-day measurement record', app.incl
 check('today and historical meals share one bottom separator per row', /#today-meals \.meal-row,#record-meals \.meal-row\{[^}]*border-top:0;[^}]*border-bottom:1px solid var\(--record-separator\)/s.test(css) &&
   css.includes('#today-meals > :last-child,#record-meals .meal-day > .meal-row:last-child{border-bottom:0}') &&
   css.includes('.day-event{padding:var(--space-2) 0;border:0;border-bottom:1px solid var(--line)}'));
+check('daily three collapses into a summary once all three are recorded', html.includes('id="daily-three-summary"') && html.includes('id="daily-three-body"') &&
+  app.includes('dailyThreeEditing') && app.includes('body.hidden = collapsed') && app.includes('data-daily-three-edit'));
+check('the folded more section keeps habits and advice inside it', html.indexOf('今天的小习惯') > html.indexOf('id="day-more"') &&
+  html.indexOf('给今天的一点建议') > html.indexOf('id="day-more"') && html.indexOf('给今天的一点建议') < html.indexOf('id="today-records-card"'));
 check('quick copy is a header action rather than a second full-width button', app.includes("button.className = 'button subtle quick-record-action'") &&
   app.includes('heading.appendChild(button)') && !html.includes('id="energy-actions"'));
 check('quick record meal type is an in-dialog chip row, not a native select', app.includes('id="quick-record-type" role="radiogroup"') &&

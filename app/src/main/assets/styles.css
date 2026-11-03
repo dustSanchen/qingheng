@@ -801,6 +801,13 @@ details[open]{background:var(--surface)}
 .stat-when{grid-column:1/-1;margin:0;padding-top:6px;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
 /* 折进「更多」以后，建议卡不再用整块浅绿抢注意力，靠分隔线分组。 */
 .day-more .advice-card{background:transparent}
+/* ── 今日三样（2026-11-03）：记满三样就收成一列只读摘要，展开态才占地 ──────────────── */
+.daily-three-summary{display:flex;flex-direction:column;gap:0}
+.daily-three-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);font-size:var(--text-sm)}
+.daily-three-row:last-of-type{border-bottom:0}
+.daily-three-row span{color:var(--muted)}
+.daily-three-row b{font-weight:var(--fw-semibold);font-variant-numeric:tabular-nums}
+.daily-three-summary>.text-button{align-self:flex-start;margin-top:2px;min-height:36px;padding:0}
 
 /* Non-meal entries share the meal list's single hairline rhythm without pretending to have a time. */
 .day-event{padding:var(--space-2) 0;border:0;border-bottom:1px solid var(--line)}

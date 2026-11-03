@@ -913,6 +913,7 @@
     box.innerHTML = annotateTerms(notes.map(note => `<p class="warn-line">${esc(note)}</p>`).join(''));
   }
 
+  let dailyThreeEditing = '';
   function renderDailyThree() {
     const form = $('#daily-three-form');
     if (!form) return;
@@ -923,9 +924,32 @@
     if (document.activeElement !== form.elements.training) form.elements.training.value = training;
     if (document.activeElement !== form.elements.sleep) form.elements.sleep.value = number(habit.sleep) ?? '';
     if (document.activeElement !== form.elements.weight) form.elements.weight.value = number(measurement.weight) ?? '';
-    const filled = [training !== '', number(habit.sleep) !== null, number(measurement.weight) !== null].filter(Boolean).length;
+    const sleep = number(habit.sleep), weight = number(measurement.weight);
+    const filled = [training !== '', sleep !== null, weight !== null].filter(Boolean).length;
+    // 三样都记过就收成一列只读摘要：这张卡在首屏占地大，展开态最容易误触。
+    const collapsed = filled === 3 && dailyThreeEditing !== activeDate;
+    const body = $('#daily-three-body'), summary = $('#daily-three-summary');
+    if (body) body.hidden = collapsed;
+    if (summary) {
+      summary.hidden = !collapsed;
+      if (collapsed) {
+        const rows = [
+          ['训练', training === 'true' ? '已训练' : '休息'],
+          ['睡眠', sleep === null ? '—' : `${fmt(sleep)} 小时`],
+          ['体重', weight === null ? '—' : `${fmt(weight)} kg`]
+        ];
+        summary.innerHTML = rows.map(([label, value]) => `<div class="daily-three-row"><span>${label}</span><b>${esc(value)}</b></div>`).join('')
+          + '<button type="button" class="text-button" data-daily-three-edit>修改</button>';
+      }
+    }
     if (tag) tag.textContent = filled === 0 ? '待记录' : filled === 3 ? '已记录三样' : `已记录 ${filled}/3`;
   }
+  document.addEventListener('click', event => {
+    const edit = event.target.closest?.('[data-daily-three-edit]');
+    if (!edit) return;
+    dailyThreeEditing = activeDate;
+    renderDailyThree();
+  });
   /** One-tap copies: yesterday's meals first, then the most recent ones. */
   function copyCandidates() {
     const rows = (state.meals || []).filter(row => row && validDate(row.date) && !row.needsDate);
