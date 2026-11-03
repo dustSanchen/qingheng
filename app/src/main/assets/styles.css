@@ -471,6 +471,7 @@ label.sheet-option{flex-direction:row;margin:0;cursor:pointer}
 
 /* Daily check: five compact metrics, the weakest one highlighted by colour. */
 .check-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px}
+.metric-glyph{display:inline-flex;align-items:center;justify-content:center;line-height:0}.metric-glyph svg{display:block;width:16px;height:16px}
 .check-item{display:flex;flex-direction:column;gap:2px;padding:8px 6px;border:1px solid var(--line);border-radius:12px;background:var(--paper);text-align:center}
 .check-item.ok{border-color:var(--ok-line);background:var(--ok-soft)}
 /* 三档判定：区间内绿、接近青、差得多淡红。青色是新令牌 --near，纸感/账本/夜间三处同名。 */

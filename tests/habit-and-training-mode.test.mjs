@@ -25,7 +25,7 @@ for (const name of ['icon-glyph-training.svg', 'icon-habit-steps.svg', 'icon-hab
 }
 check('the tiles render images, not characters', app.includes("icon-habit-steps.svg") && !app.includes("['♧',"));
 check('the training tile reuses the main training glyph', app.includes("trainingEnabled() ? [['icon-glyph-training.svg'"));
-check('today metric icons come from the inline path table', app.includes('function metricIcon') && app.includes('const paths = {') && app.includes('M9 12h6') && app.includes('M12.014 21.514v-3.75'));
+check('today metric icons come from the inline lucide table', app.includes('function metricIcon') && app.includes('const glyphs = {') && app.includes('Lucide') && app.includes('metric-glyph'));
 
 // --- push carries one training line ---------------------------------------------------------------------
 check('the prompt asks for one training sentence', prompts.includes('另加一句健身提示') && prompts.includes('不超过 20 个汉字'));
