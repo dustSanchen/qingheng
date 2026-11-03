@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.2.34';
+  const APP_VERSION = '1.2.37';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -738,6 +738,19 @@
     return skin;
   }
   let chatSearchTimer = 0;
+  /** 输入区一聚焦，把「提问」滚进可视区：键盘弹起后按钮不会被压在键盘下面。 */
+  function installChatFocusReveal() {
+    const box = $('#chat-question'), bar = $('.chat-send-bar'), trainingInput = $('#training-advice-input');
+    if (!box || !bar || bar.dataset.wired) return;
+    bar.dataset.wired = '1';
+    box.addEventListener('focus', () => setTimeout(() => {
+      if (bar.isConnected) bar.scrollIntoView({block: 'nearest', behavior: 'smooth'});
+    }, 320));
+    if (trainingInput) trainingInput.addEventListener('focus', () => {
+      const submit = trainingInput.closest('form')?.querySelector('button[type="submit"]');
+      if (submit) setTimeout(() => submit.scrollIntoView({block: 'nearest', behavior: 'smooth'}), 320);
+    });
+  }
   /** 问答记录的按天浏览：日期 chip 打开原生日历，两侧箭头在「有记录的日期」之间翻页。 */
   function installChatDayFilter() {
     const toggle = $('#chat-day-toggle'), input = $('#chat-day-input');
@@ -854,15 +867,21 @@
   document.addEventListener('click', event => {
     const more = event.target.closest('[data-chat-more]');
     if (more) {event.preventDefault(); showEarlierChats(); return;}
-    const again = event.target.closest('[data-chat-again]');
-    if (again) {event.preventDefault(); regenerateChat(again.dataset.chatAgain).catch(error => notice(error.message, true)); return;}
-    const unhelpful = event.target.closest('[data-chat-unhelpful]');
-    if (unhelpful) {event.preventDefault(); markUnhelpful(unhelpful.dataset.chatUnhelpful); return;}
     const toggle = event.target.closest('[data-chat-toggle]');
     if (!toggle) return;
     const id = toggle.dataset.chatToggle;
-    if (expandedChats.has(id)) expandedChats.delete(id); else expandedChats.add(id);
-    renderChat();
+    const answer = toggle.closest('.row-body')?.querySelector('.answer');
+    const expanding = !expandedChats.has(id);
+    if (expanding) expandedChats.add(id); else expandedChats.delete(id);
+    toggle.textContent = expanding ? '收起' : '展开全文';
+    toggle.setAttribute('aria-expanded', expanding ? 'true' : 'false');
+    if (!answer) return;
+    // 先把当前高度写成内联值，max-height 才有起点可过渡；展开后放开为 none，收起再回落。
+    answer.style.maxHeight = answer.scrollHeight + 'px';
+    nextFrame(() => {
+      if (expanding) {answer.classList.remove('is-clamped'); answer.style.maxHeight = 'none';}
+      else {answer.classList.add('is-clamped'); answer.style.maxHeight = '';}
+    });
   });
   document.addEventListener('click',async event=>{
     const restore=event.target.closest('[data-draft-restore]');
@@ -1614,8 +1633,17 @@ feedback(message,'数据已导入。'+report);
       feedback(feedbackBox, '正在生成…');
       const button = form.querySelector('button[type="submit"]');
       if (button) button.disabled = true;
+      // 训练建议走流式，和问答页一样能看到「正在思考…」与逐字输出；不支持时退回一次性接口。
+      const payload = {question, focus: 'training', date: localDate(), allowExternal: true, anchors: anchorSummary(), webSearch: false, logToHistory: false};
       try {
-        const data = await api('/api/chat', {question, focus: 'training', date: localDate(), allowExternal: true, anchors: anchorSummary(), webSearch: false, logToHistory: false});
+        let data = null;
+        if (answerBox) {answerBox.hidden = false; answerBox.innerHTML = '';}
+        try {
+          data = await streamInto(answerBox, payload);
+        } catch (streamError) {
+          feedback(feedbackBox, '流式输出不可用，正在一次性生成…');
+          data = await api('/api/chat', payload);
+        }
         const reply = String(data && data.reply || '').trim();
         if (!reply) throw new Error('模型没有返回可读的回答，请重试。');
         if (answerBox) {
@@ -1625,6 +1653,7 @@ feedback(message,'数据已导入。'+report);
           lastTrainingReply = reply;
           if (typeof saveLastTrainingAdvice === 'function') saveLastTrainingAdvice(question, reply);
           if (typeof renderLastChat === 'function') renderLastChat();
+          nextFrame(() => {if (answerBox.isConnected) answerBox.scrollIntoView({block: 'start', behavior: 'smooth'});});
           const addButton = $("#training-advice-add");
           if (addButton) addButton.addEventListener("click", async () => {
             const parsed = parseExercisesFromText(lastTrainingReply);

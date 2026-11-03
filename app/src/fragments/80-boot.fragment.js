@@ -2,6 +2,7 @@
  * Edit this file, never the generated assets/app.js; tests/app-fragments.test.mjs fails on drift. */
   installSkinPicker();
   installChatDayFilter();
+  installChatFocusReveal();
 switchTab(restoreTab());render();connection();syncAnchors().catch(()=>{});
   readPermissionState().then(renderPermissionChecklist).catch(()=>{});
   refreshBackupStatus().then(maybeRemindBackup).catch(()=>{});

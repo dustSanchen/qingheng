@@ -65,6 +65,10 @@ const sandbox = {
   esc: value => String(value ?? ''),
   setTimeout: () => 0,
   clearTimeout: () => {},
+  // 片段里用 nextFrame/cancelFrame 把逐 token 的写入合批；这里用同步桩（返回 0 表示「已在下一帧刷过」），
+  // 于是每个 delta 立刻落到 DOM，测试断言看到的始终是累积后的文本。
+  nextFrame: fn => {fn(); return 0;},
+  cancelFrame: () => {},
   Math, String, Array, Boolean, RegExp, Number,
 };
 vm.createContext(sandbox);

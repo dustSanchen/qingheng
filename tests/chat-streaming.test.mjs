@@ -42,7 +42,7 @@ check('the page handler is restored after the stream', streamBlock.includes('win
 
 // --- page: progressive rendering and fallback ------------------------------------------------------
 check('a streaming bubble is created up front', app.includes('function beginChatStream(question, hasImage)'));
-check('delta text is appended as it arrives', app.includes('function pushChatStream(box, chunk)') && app.includes('box.body.textContent = box.text;'));
+check('delta text is appended and flushed once per frame', app.includes('function pushChatStream(box, chunk)') && app.includes('box.pending = box.text;') && app.includes('box.frame = nextFrame(() => {'));
 check('the bubble is removed once the saved record renders', app.includes('function endChatStream(box)'));
 check('the page passes a delta sink through a global', app.includes('window.QinghengStream = {onDelta: text => pushChatStream(box, text)'));
 check('streaming is tried first', app.includes('data = await streamChat(payload);'));

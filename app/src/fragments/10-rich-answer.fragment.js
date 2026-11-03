@@ -271,7 +271,9 @@
       + '<div class="answer stream-answer"><div class="stream-think" hidden></div><span class="stream-text"></span><span class="stream-caret" aria-hidden="true">▍</span></div></div>';
     $('strong', box).textContent = question || '（照片提问）';
     log.prepend(box);
-    const state = {box, text: '', thinking: '', body: $('.stream-text', box), caret: $('.stream-caret', box), think: $('.stream-think', box), started: false};
+    // 回答长在页面下方：把气泡滚进视野，否则点了「提问」像没反应。
+    nextFrame(() => {if (box.isConnected) box.scrollIntoView({block: 'start', behavior: 'smooth'});});
+    const state = {box, text: '', thinking: '', body: $('.stream-text', box), caret: $('.stream-caret', box), think: $('.stream-think', box), started: false, frame: 0, pending: ''};
     // A reasoning model can think for a while before the first fragment; say so instead of showing an
     // empty bubble, and drop the hint as soon as real text arrives.
     state.body.textContent = '模型正在思考…';
@@ -291,8 +293,16 @@
       }
     }
     box.text += chunk;
-    box.body.textContent = box.text;
-    box.caret.hidden = false;
+    box.pending = box.text;
+    // 每个 token 写一次 DOM 会让长回答在 WebView 上抖；合批到一帧只写一次。
+    if (!box.frame) {
+      box.frame = nextFrame(() => {
+        box.frame = 0;
+        if (!box.body) return;
+        box.body.textContent = box.pending;
+        box.caret.hidden = false;
+      });
+    }
   }
   /** Reasoning fragments from a reasoning model: shown, never merged into the answer. */
   function pushChatThinking(box, chunk) {
@@ -304,7 +314,49 @@
   }
   function endChatStream(box) {
     if (box?.hint) clearTimeout(box.hint);
+    if (box?.frame) {cancelFrame(box.frame); box.frame = 0;}
     if (box?.box?.parentNode) box.box.parentNode.removeChild(box.box);
+  }
+  /**
+   * 把流式回答写进任意容器（今天页的训练建议卡也要有「正在思考」这一段）。
+   * 返回 /api/chat/stream 的最终 data；不支持流式时抛错，交给调用方退回一次性接口。
+   */
+  async function streamInto(container, payload, placeholder = '模型正在思考…') {
+    if (!container) throw new Error('缺少输出位置');
+    if (!window.QinghengAdapter?.hasNative?.() || !navigator.onLine) throw new Error('当前环境不支持流式输出');
+    container.hidden = false;
+    container.innerHTML = '<div class="stream-think" hidden></div><span class="stream-text"></span><span class="stream-caret" aria-hidden="true">▍</span>';
+    const think = $('.stream-think', container), text = $('.stream-text', container), caret = $('.stream-caret', container);
+    text.textContent = placeholder;
+    let thinking = '', buffer = '', pending = '', frame = 0, started = false;
+    const flush = () => {frame = 0; if (text) text.textContent = pending; if (caret) caret.hidden = false;};
+    window.QinghengStream = {
+      onThink: chunk => {
+        if (started || !chunk || !think) return;
+        thinking += chunk;
+        think.hidden = false;
+        think.textContent = thinking.length > 600 ? '…' + thinking.slice(-600) : thinking;
+      },
+      onDelta: chunk => {
+        if (!chunk) return;
+        if (!started) {
+          started = true;
+          if (think) {
+            think.hidden = !thinking;
+            if (thinking) {think.textContent = `已思考 ${thinking.length} 字（点击展开）`; think.classList.add('is-summary');}
+          }
+        }
+        buffer += chunk; pending = buffer;
+        if (!frame) frame = nextFrame(flush);
+      },
+    };
+    try {
+      return await api('/api/chat/stream', payload);
+    } finally {
+      window.QinghengStream = null;
+      if (frame) cancelFrame(frame);
+      if (caret) caret.remove();
+    }
   }
   /** Streams the answer through the adapter; throws when streaming is unavailable so the caller can fall back. */
   async function streamChat(payload) {
@@ -438,15 +490,16 @@
         .concat(/联网检索|参考来源|来源（联网/.test(answer) ? ['联网检索'] : [])
         .concat(row.source === 'api' ? [] : [])
         .join('');
+      // 日期只在分组标题出现一次；行内不再重复。操作收进长按菜单，行里只留「展开全文」这个
+      // 读的动作，所以一屏能多看一条记录。
       return `<div class="meal-row list-row" role="listitem" data-long-press="chat:${esc(id)}"><div class="row-body">`
         + `<div class="row-head"><strong>${esc(row.question || '')}</strong>`
         + `${row.favorite === true ? `<span class="fav-badge" aria-label="已收藏"><span class="inline-icon" aria-hidden="true">${SVG_ICONS['icon-bookmark.svg']}</span></span>` : ''}`
         + `${tags ? `<span class="row-tag">${esc(tags)}</span>` : ''}`
-        + `<span class="row-date">${esc(row.date || '')}</span></div>`
+        + `</div>`
         + `<div class="answer${long && !expanded ? ' is-clamped' : ''}">${answerHtml(answer)}</div>`
-        + `${long ? `<button type="button" class="row-toggle" data-chat-toggle="${esc(id)}" aria-expanded="${expanded ? 'true' : 'false'}">${expanded ? '收起' : '展开全文'}</button>` : ''}`
+        + `${long ? `<button type="button" class="row-toggle-inline" data-chat-toggle="${esc(id)}" aria-expanded="${expanded ? 'true' : 'false'}">${expanded ? '收起' : '展开全文'}</button>` : ''}`
         + citationBlock(row)
-        + `<div class="button-row row-actions"><button type="button" class="button subtle" data-chat-again="${esc(id)}">重新生成</button><button type="button" class="button subtle" data-chat-unhelpful="${esc(id)}">${unhelpfulChats.has(id) ? '已标记没用' : '这条没用'}</button></div>`
         + `</div></div>`;
     }).join("")).join("") + moreButton : empty(chatQuery ? "没有匹配「" + chatQuery + "」的记录。" : (favoriteOnlyChats ? "还没有收藏的问答记录。长按一条记录即可收藏。" : (chatDayFilter ? chatDayFilter + " 没有问答记录。" : "还没有问答记录。有疑问时，问一句。")));
     renderChatDayBar();
@@ -615,7 +668,19 @@
       const stored = submittedImage ? `［含照片］${question}`.slice(0,2000) : question;
       feedback(message, data?.webSearch ? (data.webSearch.connected ? '已收到回答，已联网检索（' + data.webSearch.via + '，检索词：' + (data.webSearch.query || '') + '）。' : '已收到回答，但本次未能联网检索。') : (tier === 'fast' ? '已收到回答（快速档：不联网、只带最近三天数据）。' : '已收到回答。'));
       $('#chat-question').value = ''; acceptConsent('chat'); clearChatImage();
-      try {await loadState({quiet:true});} catch {state.chats = [...(Array.isArray(state.chats) ? state.chats : []),{date:localDate(),question:stored,answer:withSources}]; renderChat(); notice('回答已显示，但保存到手机失败，请勿重复提问。',true);}
+      // 键盘收起会改视口高度、Chrome 还爱把焦点元素拉回视野，所以滚两次：立刻一次，260ms 后再校正。
+      const revealAnswer = () => {
+        const first = $('#chat-log .list-row');
+        if (!first) return;
+        const jump = () => {
+          if (!first.isConnected) return;
+          const top = first.getBoundingClientRect().top + window.scrollY - 12;
+          window.scrollTo({top: Math.max(0, top), behavior: 'smooth'});
+        };
+        jump();
+        setTimeout(jump, 260);
+      };
+      try {await loadState({quiet:true}); revealAnswer();} catch {state.chats = [...(Array.isArray(state.chats) ? state.chats : []),{date:localDate(),question:stored,answer:withSources}]; renderChat(); revealAnswer(); notice('回答已显示，但保存到手机失败，请勿重复提问。',true);}
     } catch (error) {feedback(message,error.message,true);} finally {button.disabled = false;}
   }
   async function savePush(form) {

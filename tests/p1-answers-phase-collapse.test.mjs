@@ -20,7 +20,7 @@ check('feedback is stored on the row', main.includes('feedback.equals("unhelpful
 check('the stream path saves citations', adapter.includes('sources:final?.webSearch?.sources||[]'));
 check('the buffered path saves citations', adapter.includes('sources:reply?.sources||[]'));
 check('rows render citations', app.includes('function citationBlock(row)') && app.includes('来源 ${sources.length} 条'));
-check('rows offer regenerate and unhelpful', app.includes('data-chat-again') && app.includes('data-chat-unhelpful'));
+check('rows offer regenerate and unhelpful from the long-press sheet', app.includes("{label: '重新生成'") && app.includes("'这条没用'") && app.includes("if (kind === 'chat' && choice === 3)"));
 check('regenerate refills the question', app.includes('async function regenerateChat(id)') && app.includes("box.value = String(row.question || '')"));
 check('regenerate respects the shared consent', app.includes("typeof externalConsent === 'function' && externalConsent()"));
 check('unhelpful state is remembered', app.includes('localStorage.setItem(CHAT_UNHELPFUL_KEY'));

@@ -102,6 +102,9 @@
     return 'breakfast';
   }
   const nowClock = () => {const d = new Date(); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;};
+  // 浏览器/WebView 有 rAF；node 里的片段测试没有，退回 setTimeout 才跑得起来。
+  const nextFrame = fn => (typeof requestAnimationFrame === 'function' ? requestAnimationFrame(fn) : setTimeout(fn, 16));
+  const cancelFrame = id => {if (!id) return; if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(id); else clearTimeout(id);};
   /** The wall clock written on the photo: an offset in the string is the camera's own zone. */
   function photoWallClock(meta) {
     const iso = meta?.photoTakenAt;
@@ -522,20 +525,32 @@
       : (state.meals || []).find(item => String(item.id) === id);
     if (!record) return;
     const favorite = record.favorite === true;
+    // 问答的两个动作原本常驻在每条记录下面，一屏六颗按钮；现在只在长按菜单里出现一次。
+    const chatExtras = kind === 'chat'
+      ? [
+        {label: '重新生成', icon: 'icon-refresh.svg'},
+        {label: unhelpfulChats.has(id) ? '已标记没用' : '这条没用', icon: 'icon-warn.svg'},
+      ]
+      : [];
+    const options = [
+      {label: '复制文本', icon: 'icon-copy.svg'},
+      {label: '选择文字', icon: 'icon-select.svg'},
+      {label: favorite ? '取消收藏' : '收藏', icon: 'icon-bookmark.svg'},
+      ...chatExtras,
+      {label: '删除', icon: 'icon-trash.svg', danger: true},
+    ];
+    const deleteIndex = options.length - 1;
     const choice = await openSheet({
       title: kind === 'chat' ? '问答记录' : (record.name || '餐食记录'),
-      options: [
-        {label: '复制文本', icon: 'icon-copy.svg'},
-        {label: '选择文字', icon: 'icon-select.svg'},
-        {label: favorite ? '取消收藏' : '收藏', icon: 'icon-bookmark.svg'},
-        {label: '删除', icon: 'icon-trash.svg', danger: true},
-      ],
+      options,
     });
     if (choice === null) return;
     if (choice === 0) {copyText(kind === 'chat' ? chatRecordText(record) : mealRecordText(record)); return;}
     if (choice === 1) {selectRowText(row); return;}
     if (choice === 2) {await toggleFavorite(kind, record); return;}
-    if (choice === 3) {
+    if (kind === 'chat' && choice === 3) {regenerateChat(id).catch(error => notice(error.message, true)); return;}
+    if (kind === 'chat' && choice === 4) {markUnhelpful(id); return;}
+    if (choice === deleteIndex) {
       const label = kind === 'chat' ? '这条问答记录' : (record.name || '这条餐食记录');
       if (!await askConfirm(`删除${label}？此操作无法撤销。`, {title: '删除记录', ok: '删除', danger: true})) return;
       try {

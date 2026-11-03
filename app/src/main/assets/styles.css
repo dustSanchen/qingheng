@@ -44,6 +44,9 @@
   --dur-fast:.15s;
   --dur-base:.22s;
   --dur-spin:.8s;
+  --rise-1:4px;
+  --rise-2:8px;
+  --rise-3:12px;
   --ease-out:cubic-bezier(.22,.8,.3,1);
   --tone-protein:#8a5a2b;
   --tone-carb:#6b6191;
@@ -197,8 +200,12 @@ button.food-result.list-row:hover,button.food-result.list-row:active{background:
 .row-date{margin-left:auto;font-size:var(--text-xs);color:var(--muted);white-space:nowrap}
 .row-tag.subtle-tag{background:transparent;border:1px solid var(--line);color:var(--muted)}
 .row-toggle{align-self:flex-start;margin-top:6px;border:1px solid var(--line);background:var(--paper);color:var(--accent);font-size:var(--text-xs);font-weight:var(--fw-semibold);border-radius:20px;padding:4px 12px;min-height:32px}
-.answer.is-clamped{max-height:5.4em;overflow:hidden;position:relative}
-.answer.is-clamped::after{content:'';position:absolute;left:0;right:0;bottom:0;height:1.8em;background:linear-gradient(180deg,transparent,var(--paper))}
+/* 展开/收起是一个读的动作，不是卡片按钮：文字链贴在段落下方，去掉描边与内边距。 */
+.row-toggle-inline{align-self:flex-start;margin:2px 0 0;padding:0;border:0;background:none;color:var(--accent);font-size:var(--text-xs);font-weight:var(--fw-semibold);min-height:32px}
+.row-toggle-inline:active{background:transparent;text-decoration:underline}
+/* 截断不再用渐变遮罩盖住半行字；只裁切高度，展开时靠 max-height 过渡。 */
+.answer{transition:max-height var(--dur-base) var(--ease-out,ease-out)}
+.answer.is-clamped{max-height:5.4em;overflow:hidden}
 .row-side{display:flex;align-items:center;gap:8px;flex:0 0 auto;padding-top:2px}
 .row-kcal{font-weight:var(--fw-semibold);font-size:13px;white-space:nowrap}
 .row-kcal small{font-size:var(--text-xs);font-weight:var(--fw-regular);color:var(--muted)}
@@ -407,14 +414,15 @@ label.sheet-option{flex-direction:row;margin:0;cursor:pointer}
 .habit-symbol svg{width:22px;height:22px;display:block}
 .bottom-nav button:not([aria-current=page]) .nav-icon img{opacity:.55;transition:opacity var(--dur-fast)}
 /* ---- 2026-10-19: motion — tab switch is direction-aware; dialogs, collapsibles and result lists enter smoothly.
-   Transform/opacity only, so everything runs on the compositor at full frame rate. ---- */
-@keyframes viewIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+   Transform/opacity only, so everything runs on the compositor at full frame rate.
+   位移只有三档（--rise-1/2/3），页面内不再出现第四种距离。 ---- */
+@keyframes viewIn{from{opacity:0;transform:translateY(var(--rise-2))}to{opacity:1;transform:none}}
 @keyframes viewInRight{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}
 @keyframes viewInLeft{from{opacity:0;transform:translateX(-18px)}to{opacity:1;transform:none}}
 .app-dialog{animation:scrimIn var(--dur-base) ease-out}
 .app-dialog-panel{animation:dialogRise var(--dur-slow) cubic-bezier(.22,.8,.3,1)}
 @keyframes scrimIn{from{opacity:0}to{opacity:1}}
-@keyframes dialogRise{from{opacity:0;transform:translateY(26px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes dialogRise{from{opacity:0;transform:translateY(var(--rise-3)) scale(.98)}to{opacity:1;transform:none}}
 .collapsible-body{animation:unfoldIn var(--dur-base) ease-out}
 @keyframes unfoldIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 .food-result{animation:rowIn var(--dur-base) ease-out both}
@@ -724,6 +732,12 @@ details[open]{background:var(--surface)}
 .chat-day-bar .icon-button:disabled{color:var(--muted);background:var(--surface-soft);border-color:var(--line);opacity:1}
 .chat-day-bar .chip-toggle{flex:1 1 auto;display:flex;align-items:center;justify-content:center;min-height:44px;font-size:var(--text-sm);font-weight:var(--fw-semibold);color:var(--ink-soft);font-variant-numeric:tabular-nums}
 .chat-day-bar .chip-toggle[aria-pressed="true"]{color:var(--accent)}
+/* 问题卡的工具栏：分析日期与联网检索都是「这次问题带什么」，放在同一行，别让开关落在主按钮前。 */
+.chat-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 var(--space-3)}
+.chat-toolbar .chip-toggle{min-height:36px}
+/* 主行动跟输入框同一条视线：输入区一聚焦就把「提问」滚进可视区（见 installChatFocusReveal），
+   position:fixed/sticky 在键盘弹起时都压不住，改滚动更稳。 */
+.chat-send-bar{margin-top:var(--space-2);padding:10px 0 6px;background:var(--paper)}
 .chat-day span{color:var(--muted);font-size:var(--text-xs)}
 .chat-day:first-child{border-top:0;padding-top:0;margin-top:0}
 
@@ -1342,7 +1356,7 @@ details.panel-more[open]{background:transparent}
 
 /* 1. 切换视图：淡入 + 4px 上浮，不做横向滑动（横向会晕） */
 .view:not([hidden]){animation:viewIn var(--dur-base) cubic-bezier(.22,.61,.36,1) both}
-@keyframes viewIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes viewIn{from{opacity:0;transform:translateY(var(--rise-1))}to{opacity:1;transform:none}}
 
 /* 2. 能量环：进度变化时角度平滑过渡，而不是瞬间跳 */
 .energy-ring{transition:--progress var(--dur-slow) var(--ease-out,ease-out),--over var(--dur-slow) var(--ease-out,ease-out)}
@@ -1357,7 +1371,7 @@ details.panel-more[open]{background:transparent}
 
 /* 5. 提示条：从底部 8px 滑入，只播一次 */
 .notice,.slot-hint{animation:noticeIn var(--dur-base) cubic-bezier(.22,.61,.36,1) both}
-@keyframes noticeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes noticeIn{from{opacity:0;transform:translateY(var(--rise-2))}to{opacity:1;transform:none}}
 
 /* 6. 数值更新：数字变化时轻微高亮，不闪烁 */
 #calorie-value,#calorie-target{transition:color var(--dur-fast) ease-out}

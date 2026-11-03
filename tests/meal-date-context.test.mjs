@@ -187,12 +187,13 @@ assert.match(app, /class="icon-button danger row-delete" data-delete-meal=/, 'th
 assert.match(app, /class="row-side"><span class="row-kcal">/, 'the calorie column holds only the number now');
 assert(!app.includes('data-delete-chat'), 'the chat list no longer carries an inline delete control');
 assert.match(app, /data-long-press="chat:\$\{esc\(id\)\}"/, 'a chat row is deleted from its long-press sheet instead');
-assert.match(app, /<span class="row-date">\$\{esc\(row\.date \|\| ''\)\}<\/span>/, 'the chat date shares the head line instead of taking its own');
+assert(!/data-long-press="chat:[\s\S]{0,700}?row-date/.test(app), 'the chat date is no longer repeated inside every row');
+assert.match(app, /class="row-toggle-inline" data-chat-toggle=/, 'a long answer offers an inline 展开全文');
 assert.match(app, /row\.question \|\| ''\)\.includes\('含照片'\) \? \['含照片'\]/, 'a photo question is tagged on the head line');
 assert.match(app, /联网检索\|参考来源\|来源（联网\/\.test\(answer\) \? \['联网检索'\]/, 'a searched answer is tagged as well');
 assert.match(app, /const expandedChats = new Set\(\);/, 'an expanded answer is remembered per record');
 assert.match(app, /answer\.length > 140/, 'only long answers get a preview and a toggle');
-assert.match(app, /class="row-toggle" data-chat-toggle=/, 'a long answer offers 展开全文');
+assert.match(app, /class="row-toggle-inline" data-chat-toggle=/, 'a long answer offers 展开全文');
 assert.match(css, /\.answer\.is-clamped\{max-height:5\.4em;overflow:hidden/, 'the preview is clamped to a few lines');
 assert.match(css, /\.row-date\{margin-left:auto/, 'the date is pushed to the end of the head line');
 assert.match(app, /<span class="row-tag subtle-tag">\$\{esc\(source\)\}<\/span>/, 'meal source and item count are head-line tags, keeping the number line short');
