@@ -275,3 +275,14 @@
 - 导航坑：今天页这一行是运行时渲染的，初始 `$$('[data-go]')` 绑定抓不到，改为 document 上代理 `[data-habit-jump]`。
 - 验收：`test-all` 56/56；`dev-loop` 1.2.60/61/62/63 安装 + smoke 无 JS 错误；截图 `build/v263-b.png`（更多区留白 + 一行习惯 + 文字链）、`build/v263-jump.png`（跳转落到日常习惯、键盘未弹起）、`build/v263-records.png`（习惯卡恢复展开）。
 - 源码提交 `af1a28a`；回滚：`git revert af1a28a`。
+
+## r56 · 2026-11-03 · 1.2.64 → 1.2.65（建议卡修复 + 偏好与记忆）
+- 建议卡「无法给出答复」根因：`CAP_ADVICE=320` 是输出上限，模型把预算花在思考过程上时 `content` 为空，客户端按「模型这次没有给出回答内容」抛出。修法三层：①上限提到 700；②`advice()` 捕获这条特定错误后放宽到 4 倍重试一次；③页面兜底——AI 路径失败时用本地规则建议顶上并标注「模型暂时不可用，以下是本地建议」。实机 23:08 拿到两条建议（补蛋白 12 g / 按趋势校准），耗时约 30 s。
+- 偏好与记忆（原待办项落地）：
+  - 存储：`qingheng.preferences`（`PREFERENCES_KEY`），一句话一条、去重、最多 20 条，读写走 `readPreferences()` / `writePreferences()`。
+  - 入口：「我的」新增第 5 行「偏好与记忆」→ `#subpage-prefs`（SUBPAGES 增加 `prefs`，共 7 个子页）：列表 + 删除、输入框 + 「记住这条」、空态说明。
+  - 长按问答行菜单新增「记为偏好」，把问题前 80 字存进去。
+  - 注入：页面在 `/api/advice`、`/api/estimate`、`/api/estimate/stream`、训练问答的请求里带 `preferences`；Java `preferenceSuffix(body)` 拼到估算与建议的 system 提示词末尾（总长封顶 700 字，每条截 60 字）。
+- 验收：`test-all` 56/56（meal-date-java 的两条断言从「六个子页」改到七个并登记）；`dev-loop` 1.2.64/265 安装 + smoke 无 JS 错误；截图 `build/v264-advice2.png`（建议正常）、`build/v265-prefs7.png`（偏好新增成功）、`build/v265-clean.png`（测试条目已删，0 条）。
+- 遗留：「已记住。」这句反馈在删空后不会自己消失；训练问答目前只带偏好、未在 Java 侧单独拼（chat 走 prompt 内嵌，未验证是否生效）。
+- 源码提交 `c0ab1cb`；回滚：`git revert c0ab1cb`。
