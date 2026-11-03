@@ -349,3 +349,11 @@
 - 断言：`tests/meal-recalc-collapse.test.mjs` 原本钉着旧的换字符规则（等于把 bug 固化成契约），改成断言新规则（方块 + rotate + details-content 过渡），并按规矩登记到 `03-global-changes.md §5.1`。
 - 验收：`test-all` 56/56；`aesthetic-audit` OK；`dev-loop` 1.2.78/278 安装 + smoke 无 JS 错误；截图 `build/v278-open2.png`（展开后箭头朝上、内容出现）。
 - 源码提交 `30d7bdb`；回滚：`git revert 30d7bdb`。
+
+## r64 · 2026-11-04 · 1.2.79（图标重绘）
+- 问题：「我的」里 appearance / more / data 三行共用 `icon-copy.svg`，看上去像同一个功能；其余几个是早期的通用图形。
+- 「我的」八枚图标改成按功能画的内联 SVG（描边 1.8、currentColor）：身体档案 = 人像 + 靶心；AI 模型 = 双圆角方块 + 火花；提醒 = 铃铛；偏好与记忆 = 便签 + 两行字；外观与餐次 = 半明暗圆 + 时钟指针；更多设置 = 齿轮；数据管理 = 数据库圆柱；关于 = 叶子 + 小星。实现上把 `installProfileMore()` 里的 `[id, icon 文件名]` 映射换成 `PROFILE_ICONS` 内联 SVG 表，不再依赖 icon-*.svg 文件。
+- 今日体检四项改内联 SVG（18px、描边 1.6）：热量 = 火焰 + 外弧、蛋白质 = 斜置蛋 + 高光弧、脂肪 = 水滴 + 反光、睡眠 = 月亮 + 星、训练 = 哑铃、饮水 = 杯子 + 水位线。原来 蛋白质 是纯椭圆、脂肪 是水滴，两者在 16px 下轮廓接近。
+- 断言：`habit-and-training-mode` 里「体检图标指向已发布资源」改成「体检图标为内联 SVG」，并登记 `03-global-changes §5.1`。
+- 验收：`test-all` 56/56；`dev-loop` 1.2.79/279 安装 + smoke 无 JS 错误；截图 `build/v279-hub.png`（我的八枚）、`build/v279-check2.png`（体检四项）。
+- 源码提交 `5e31bf8`；回滚：`git revert 5e31bf8`。
