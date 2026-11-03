@@ -266,3 +266,12 @@
 - 评价改成口语：「今天整体还不错：脂肪在区间内，睡眠只有 5 小时（建议 7 小时以上），先补这一项。」档位词换成「整体到位 / 整体还不错 / 有几项没跟上 / 缺口比较大」，缺项补一句「还有 N 项没记录，记了才评得准」。
 - 验收：`test-all` 56/56（新增三档类名断言，verdict 断言改为「含数字 + 口语词」）；`aesthetic-audit` OK；`dev-loop` 1.2.58/259 安装 + smoke 无 JS 错误。实机截图 `build/v259-check.png`：脂肪绿、热量与蛋白青、睡眠淡红。
 - 源码提交 `0ac49a6`；回滚：`git revert 0ac49a6`。
+
+## r55 · 2026-11-03 · 1.2.60 → 1.2.63（今天-更多内边距、小习惯合成一行、取消习惯收纳）
+- 账本「更多」里卡片内容贴着侧边：`.day-more` 只有上下发丝线，左右内距是 0，卡片自己又是 `padding: 12px 0`。加 `[data-skin="ledger"] .day-more{padding-inline:14px}`，文字不再压着边框。
+- 「记录身体数据」原来是 `.button subtle`（浅绿大按钮），在折叠区里太抢眼。改成 `text-button body-record-link`：右对齐、muted、36px 命中区，附 `data-no-keyboard`。
+- 「今天的小习惯」四个格子合成一行：`#habit-summary` 从 `.habit-grid`（两列网格）改成 `.habit-list`，渲染成一行 `hub-row`（日常习惯 / 已记录的项 / ›）；未记录的不再逐个列，全部为空时显示「点这里补步数、睡眠、饮水」。点它跳「记录 → 身体 → 日常习惯」，用 `revealField(id, {focus:false})` 只滚动不聚焦，实测 `mInputShown=false`。
+- 取消「日常习惯」的收纳：从 `installCardCollapse` 的分组里删掉 `#habit-form` 一项，记录页里恢复为默认展开。
+- 导航坑：今天页这一行是运行时渲染的，初始 `$$('[data-go]')` 绑定抓不到，改为 document 上代理 `[data-habit-jump]`。
+- 验收：`test-all` 56/56；`dev-loop` 1.2.60/61/62/63 安装 + smoke 无 JS 错误；截图 `build/v263-b.png`（更多区留白 + 一行习惯 + 文字链）、`build/v263-jump.png`（跳转落到日常习惯、键盘未弹起）、`build/v263-records.png`（习惯卡恢复展开）。
+- 源码提交 `af1a28a`；回滚：`git revert af1a28a`。
