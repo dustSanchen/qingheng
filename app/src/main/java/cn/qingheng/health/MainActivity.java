@@ -3636,9 +3636,44 @@ import java.util.concurrent.Executors;
         android.util.Log.i("qingheng", "advice " + (System.currentTimeMillis() - adviceStarted) + "ms chars=" + summary.length() + " cap=" + CAP_ADVICE);
         if (summary.length() > 8000) throw fail("API 建议过长");
         JSONArray output = adviceMessages(summary);
+        saveAdviceHistory(day, output, "api");
         return new JSONObject().put("messages", output).put("source", "api").put("summary", summary);
     }
 
+    /** 手动获取的建议也进「历史建议」，与推送共用 adviceHistory（slot=manual，同一日期覆盖）。 */
+    private void saveAdviceHistory(String day, JSONArray messages, String source) throws Exception {
+        if (messages == null || messages.length() == 0) return;
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < messages.length(); i++) {
+            String line = messages.optString(i, "").trim();
+            if (line.isEmpty()) continue;
+            if (sb.length() > 0) sb.append("\n");
+            sb.append(line);
+        }
+        if (sb.length() == 0) return;
+        SharedPreferences prefs = AlarmScheduler.prefs(this);
+        JSONArray history = new JSONArray();
+        try {
+            String saved = prefs.getString("adviceHistory", "");
+            if (!saved.isEmpty()) history = new JSONArray(saved);
+        } catch (Exception ignored) { history = new JSONArray(); }
+        String id = day + "-manual";
+        JSONObject record = new JSONObject();
+        record.put("id", id).put("date", day).put("slot", "manual")
+                .put("createdAt", System.currentTimeMillis()).put("source", source).put("message", sb.toString());
+        JSONArray next = new JSONArray();
+        boolean replaced = false;
+        for (int i = 0; i < history.length(); i++) {
+            JSONObject old = history.optJSONObject(i);
+            if (old == null) continue;
+            if (id.equals(old.optString("id"))) { next.put(record); replaced = true; } else { next.put(old); }
+        }
+        if (!replaced) next.put(record);
+        int start = Math.max(0, next.length() - 60);
+        JSONArray capped = new JSONArray();
+        for (int i = start; i < next.length(); i++) capped.put(next.get(i));
+        prefs.edit().putString("adviceHistory", capped.toString()).apply();
+    }
     private static String adviceSystemPrompt() {
         // 顺序按用户要求：先看身材目标执行情况与今天摄入，再参考偏好，最后给动作。
         return "按这个顺序判断：先看用户的身材目标与目标区间执行得怎样，再看今天已记录的摄入与区间的关系，最后参考用户长期偏好（不能推荐与偏好冲突的食材）。"

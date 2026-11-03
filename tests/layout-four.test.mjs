@@ -30,7 +30,7 @@ check('chips route to the right segment', app.includes('switchRecordPanel(record
 check('the photo chip opens the camera tile', app.includes("$('#view-records label[for=\"meal-image\"]')?.click();"));
 check('the training chip scrolls without focusing', app.includes("flashTarget(form.closest('.card'))") && app.includes("revealField(focus, {focus: false, block: 'start'});"));
 check('chat input and quick prompts lead the composer', app.includes('function installChatTaskOrder()') && app.includes('question.after(chips)'));
-check('low-frequency profile settings open their own sub-page', app.includes('function installProfileMore()') && html.includes('外观与默认餐次') && app.includes("iconMarkup('icon-copy.svg')") &&
+check('low-frequency profile settings open their own sub-page', app.includes('function installProfileMore()') && html.includes('外观与餐次时间') && app.includes("iconMarkup('icon-copy.svg')") &&
   app.includes('#subpage-appearance') && app.includes('#subpage-more') && !app.includes("details.id = 'profile-more'"));
 
 // --- 2. trends segments + diet trend ------------------------------------------------------------------

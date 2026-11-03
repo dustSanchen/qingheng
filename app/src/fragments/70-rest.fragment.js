@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.2.72';
+  const APP_VERSION = '1.2.75';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1013,14 +1013,19 @@
     if (skin && anchor) appearance.insertBefore(skin, anchor);
     // 不常用的三件事合并到「更多」：数据管理、关于轻衡、重新设置档案。
     const list = $('#more-hub');
-    const restart = $('#more-restart-slot');
-    const notes = $('#more-notes-slot');
+    const restart = $('#targets-restart-slot');
+    const notes = $('#about-notes-slot');
     [hub.querySelector('[data-subpage-open="data"]'), hub.querySelector('[data-subpage-open="about"]')]
       .filter(Boolean).forEach(node => {if (list) list.append(node);});
     const restartButton = $('#restart-onboarding');
     if (restartButton && restart) restart.append(restartButton);
     const chatNotes = $('#view-chat .card-notes');
-    if (chatNotes && notes) notes.append(chatNotes);
+    if (chatNotes && notes) {
+      // 关于页里已经有一个「说明」，搬过来的问答说明要自己标明是哪一份。
+      const summary = chatNotes.querySelector('summary');
+      if (summary) summary.textContent = '问答说明';
+      notes.append(chatNotes);
+    }
   }
   function mealWindowSummaryText(spec) {
     return `早于 ${spec.lunchFrom} 记早餐，${spec.lunchFrom} 起记午餐，${spec.dinnerFrom} 起记晚餐，${spec.snackFrom} 起记加餐。`;
@@ -1608,7 +1613,7 @@ feedback(message,'数据已导入。'+report);
     const box = $('#push-history'); if (!box) return;
     const start = $('#push-history-start').value, end = $('#push-history-end').value;
     const data = await api('/api/push-history');
-    const slotNames = {morning:'白天', evening:'晚上'};
+    const slotNames = {morning:'白天', evening:'晚上', manual:'手动获取'};
     const rows = (Array.isArray(data && data.records) ? data.records : [])
       .filter(row => row && (!useRange || ((!validDate(start) || String(row.date) >= start) && (!validDate(end) || String(row.date) <= end))))
       .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
