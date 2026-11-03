@@ -421,3 +421,14 @@
 - 关于页同步换成 `brand-field.webp`（无文字版，做背景更干净）；两张图都压过：`brand-field` 25 KB、`brand-plate` 47 KB，APK 从 662 KB 回到 **597 KB**。
 - 验收：`test-all` 56/56；`dev-loop` 1.2.87–1.2.95 多次安装 + smoke 无 JS 错误；截图 `build/v293-more.png`、`build/v294-more.png`（最终版：档案板 + 两行设置首屏可见）。
 - 源码提交 `e686e8b`；回滚：`git revert e686e8b`。
+
+## r71 · 2026-11-04 · 1.2.96 → 1.3.04（删插画 + 展开过渡 0.28s）
+- 删除关于轻衡里的插画：去掉 `<figure class="brand-art">`、`.brand-art` 三条样式、以及不再引用的 `assets/brand-field.webp`（-53 KB）。APK 597 → 572 KB。
+- 展开过渡：试了三种实现，全部走过真机——
+  1. CSS `::details-content` + `interpolate-size`（1.2.78 起）：真机无过渡，判定该 WebView 不支持；
+  2. `summary` 上 `preventDefault` + WAAPI 动 `details` 高度：真机仍瞬开，怀疑内容被 innerHTML 重写后包裹/动画失效；
+  3. 最终版：`installDisclosureAnimation()` 把每个 details 的内容包进 `.disclosure-body > .disclosure-inner`，靠 `grid-template-rows: 0fr → 1fr` 过渡（`--dur-slow` = 0.28s），并用 MutationObserver 在 innerHTML 重写后重新包裹（从变更目标往上找 details）。
+- **验证局限（必须说清）**：没能抓到动画中间帧。`adb screencap` 从点击到出图约 0.4–0.6 s，比 0.28 s 长；把过渡临时调到 1.2 s 后再抓，截图仍是完全展开——说明要么包裹没生效，要么抓图时机仍晚于动画；试图用 `screenrecord` 取证，设备上录出的 mp4 只有 28 KB、ffmpeg 抽帧为 0。**结论：代码改到位，但“手感”未经我证实，需要手指验证。**
+- 断言：`meal-recalc-collapse` 增加 `installDisclosureAnimation` / `.disclosure-body{grid-template-rows:0fr}` / `details[open]>.disclosure-body{1fr}` 三条。
+- 验收：`test-all` 56/56；`dev-loop` 1.3.04/304 安装 + smoke 无 JS 错误；截图 `build/v303-probe.png`（探测用，展开后状态）。
+- 源码提交见本轮 commit；回滚：`git revert`。
