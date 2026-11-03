@@ -227,3 +227,10 @@
 - 顺手：折进「更多」以后建议卡不再用整块浅绿底，改由发丝分隔线分组（两套皮肤一致）。
 - 验收：`test-all` 56/56；`dev-loop` 1.2.50/51 安装 + smoke 无 JS 错误。截图 `build/v250-more2.png`（折叠：小习惯/建议不再外露）、`build/v251-stats.png`（展开：变化量 + 单日期）。
 - 源码提交 `31ace34`；回滚：`git revert 31ace34`。
+
+## r50 · 2026-11-03 · 1.2.52（回退折叠嵌套）
+- 用户判定：1.2.51 把「小习惯」「建议」折进 `#day-more` 之后，纸感皮肤又变成「框套框」。按要求回退。
+- 做两件事：① `index.html` 还原结构——details 只包身体近况，`</div>` 回到 details 之前，两张卡恢复成并列卡片；② 同时拍平 details 自身的框：全局 `details{border:1px solid var(--line)}` 会给 `#day-more` 留下左右两条竖线，`.day-more` 只写了 `border-block` 没清左右，现在改成 `border:0;border-block:1px solid`，并让折叠内的 `.card` 背景透明（去掉 soft-card 底色叠出来的第二层框）。
+- 保留 1.2.51 的内容改进：身体近况仍是「数值 + 较上次变化 + 单行最近测量」。
+- 验收：`test-all` 56/56；`dev-loop` 1.2.52/252 安装 + smoke 无 JS 错误；纸感截图 `build/v252-paper2.png`（三块之间只剩发丝线，没有外框）。
+- 源码提交 `c37bd92`；回滚：`git revert c37bd92`。
