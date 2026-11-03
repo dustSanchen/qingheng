@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.2.42';
+  const APP_VERSION = '1.2.45';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1501,25 +1501,51 @@ if (typeof showBusy === 'function') showBusy('正在计算热量…', 'estimate-
   });
   $('#item-recalc-cancel').addEventListener('click',closeItemRecalc);
   $('#item-recalc-dialog').addEventListener('click',event=>{if(event.target.id==='item-recalc-dialog')closeItemRecalc();});
-  $('#item-recalc-form').addEventListener('submit',event=>{
+  $('#item-recalc-form').addEventListener('submit',async event=>{
     event.preventDefault();
     const root=$('#item-recalc-dialog'),rows=$$('.estimate-item'),row=rows[Number(root.dataset.itemIndex)],message=$('#item-recalc-feedback');
+    const button=event.currentTarget.querySelector('button[type=submit]');
     if(!row){message.textContent='找不到对应食品，请关闭后重试。';return;}
+    const name=$('#item-recalc-name').value.trim();
+    if(!name){message.textContent='请填写食品名称。';return;}
     const grams=number($('#item-recalc-grams').value);
     if(grams===null||grams<=0){message.textContent='请输入大于 0 的克重。';return;}
     const per100=Object.fromEntries(nutritionKeys.map(key=>[key,number($(`#item-recalc-${key}`).value)]));
     const filled=nutritionKeys.filter(key=>per100[key]!==null);
     if(filled.length && filled.length!==nutritionKeys.length){message.textContent='每 100g 的热量、蛋白质、脂肪和碳水要一起填写，或全部留空。';return;}
     if(filled.some(key=>per100[key]<0)){message.textContent='每 100g 营养值不能为负数。';return;}
+    $('[data-item-field="name"]',row).value=name;
     $('[data-item-field="grams"]',row).value=grams;
-    if(filled.length===nutritionKeys.length) {
-      for(const key of nutritionKeys){const value=nutritionPrecision(per100[key]*grams/100);$(`[data-item-field="${key}"]`,row).value=value;}
-    } else scaleEstimateItem(row,grams);
-    row.dataset.baseGrams=grams;
-    for(const key of nutritionKeys){const input=$(`[data-item-field="${key}"]`,row);input.dataset.baseValue=number(input.value);}
-    updatePreviewTotals();
-    feedback(message,'已按新的克重重算这项食品。');
-    setTimeout(closeItemRecalc,350);
+    const apply=values=>{
+      for(const key of nutritionKeys){$(`[data-item-field="${key}"]`,row).value=values[key];}
+      row.dataset.baseGrams=grams;
+      for(const key of nutritionKeys){const input=$(`[data-item-field="${key}"]`,row);input.dataset.baseValue=number(input.value);}
+      updatePreviewTotals();
+    };
+    if(filled.length===nutritionKeys.length){
+      apply(Object.fromEntries(nutritionKeys.map(key=>[key,nutritionPrecision(per100[key]*grams/100)])));
+      feedback(message,'已按补充的每 100g 数值换算。');
+      setTimeout(closeItemRecalc,350);
+      return;
+    }
+    // 没填每 100g：按「名称 + 克重」让模型重算这一项，而不是拿旧比例缩放。
+    if(!externalConsent() || !navigator.onLine){
+      message.textContent='离线或未授权外部模型：请填上每 100g 四项数值，或保留原值。';
+      return;
+    }
+    if(button) button.disabled=true;
+    feedback(message,'正在按名称与克重重算这一项…');
+    try {
+      const data=await api('/api/estimate',{text:`${name} ${grams} g`,allowExternal:true,anchors:anchorSummary(),noDraft:true});
+      const item=(Array.isArray(data?.items)?data.items:[])[0];
+      if(!item) throw new Error('模型没有返回这一项的数据，请稍后再试。');
+      const returned=number(item.grams);
+      const ratio=returned>0?grams/returned:1;
+      apply(Object.fromEntries(nutritionKeys.map(key=>[key,nutritionPrecision((number(item[key])||0)*ratio)])));
+      feedback(message,'已按名称与克重重算，核对后再保存。');
+      setTimeout(closeItemRecalc,450);
+    } catch(error) { message.textContent=error.message; }
+    finally { if(button) button.disabled=false; }
   });
   $('#confirm-estimate').addEventListener('click',confirmDraft);$('#cancel-estimate').addEventListener('click',discardDraft);
   document.addEventListener('click',async event=>{const button=event.target.closest('[data-delete-meal]');if(!button || button.disabled)return;if(!await askConfirm('确定删除这条餐食记录吗？此操作无法撤销。',{title:'删除餐食',ok:'删除',danger:true}))return;button.disabled=true;try{await api(`/api/meals/${encodeURIComponent(button.dataset.deleteMeal)}`,undefined,'DELETE');try{await loadState({quiet:true});notice('餐食已删除。');}catch{notice('删除成功，但刷新失败。请重新加载检查记录。',true);}}catch(error){notice(error.message,true);button.disabled=false;}});

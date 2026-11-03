@@ -1028,16 +1028,18 @@
     const root = $('#item-recalc-dialog'), grams = number($('[data-item-field="grams"]', row)?.value), baseGrams = number(row.dataset.baseGrams);
     if (!(grams > 0) || !(baseGrams > 0)) return;
     $('#item-recalc-summary').textContent = `${$('[data-item-field="name"]', row)?.value || '这项食品'}：当前 ${fmt(grams)}g。`;
+    $('#item-recalc-name').value = $('[data-item-field="name"]', row)?.value || '';
     $('#item-recalc-grams').value = grams;
     for (const key of nutritionKeys) {
       const input = $(`[data-item-field="${key}"]`, row), base = number(input?.dataset.baseValue);
-      $(`#item-recalc-${key}`).value = base === null ? '' : nutritionPrecision(base / baseGrams * 100);
+    // 默认动作是按「名称 + 克重」请模型重算，所以每 100g 一律留空；只有用户主动填四项才走手算。
+      $(`#item-recalc-${key}`).value = '';
     }
     $('#item-recalc-feedback').textContent = '';
     root.dataset.itemIndex = String($$('.estimate-item').indexOf(row));
     root.hidden = false;
-    $('#item-recalc-grams').focus();
-    $('#item-recalc-grams').select();
+    $('#item-recalc-name').focus();
+    $('#item-recalc-name').select();
   }
   function closeItemRecalc() {
     const root = $('#item-recalc-dialog');

@@ -3310,9 +3310,11 @@ import java.util.concurrent.Executors;
             if (uncertainty <= 0 || uncertainty > 60) uncertainty = 15;
         }
         String id = UUID.randomUUID().toString();
-        if (drafts.size() >= 1000) drafts.clear();
-        drafts.add(id);
-        // Say it plainly instead of failing: the numbers come from the detail, which the user can edit.
+        // 单项重算（noDraft）只为拿回数值，不该在草稿队列里留下一条没人确认的预览。
+        if (!b.optBoolean("noDraft", false)) {
+            if (drafts.size() >= 1000) drafts.clear();
+            drafts.add(id);
+        }
         if (mismatch) notes = notes + "；" + cn.qingheng.health.store.NutritionMath.mismatchNote(oilGrams);
         if (carbsInferred) notes = notes + "；有食物没给碳水，已按剩余热量反推";
         if (energyReconciled) notes = notes + "；有食物的热量与三大营养素对不上，已按 4/4/9 重算";
