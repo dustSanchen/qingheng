@@ -53,7 +53,8 @@ const checkLow = api.dailyCheck({meals: [{totals: {calories: 1500, protein: 90, 
 check('four metrics are scored', checkLow.items.length === 4, checkLow.items.map(i => i.key).join(','));
 check('training is not scored any more', !checkLow.items.some(i => i.key === 'training'), checkLow.items.map(i => i.key).join(','));
 check('weights favour energy and protein', JSON.stringify(checkLow.weights) === JSON.stringify({calories: 30, protein: 30, fat: 20, sleep: 20}), JSON.stringify(checkLow.weights));
-check('the verdict names a band and a weak spot', /总体/.test(checkLow.verdict) && checkLow.verdict.length > 8, checkLow.verdict);
+check('the verdict is plain language with a concrete gap', /今天|先补|没跟上/.test(checkLow.verdict) && /[0-9]/.test(checkLow.verdict), checkLow.verdict);
+check('the check card uses the three-colour judgement classes', app.includes("'near'") && app.includes("score >= 0.6 ? 'near' : 'off'"), 'near/off levels');
 check('protein is the flagged gap or calories', ['protein', 'calories', 'fatt'].includes(checkLow.worst.key) || true);
 check('an action is produced', typeof checkLow.action === 'string' && checkLow.action.length > 4, checkLow.action);
 check('low calories gives a "eat more" action', /还差|加一份/.test(checkLow.action), checkLow.action);

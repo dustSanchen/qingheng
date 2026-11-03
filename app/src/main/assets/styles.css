@@ -24,6 +24,9 @@
   --ok:#4f7a52;
   --ok-soft:#eef4ea;
   --ok-line:#cfe0cb;
+  --near:#3d7d84;
+  --near-soft:#eef7f7;
+  --near-line:#c9e2e2;
   --ink-soft:#506053;
   --line-strong:#858e83;
   --accent-soft:#eef4ea;
@@ -468,7 +471,11 @@ label.sheet-option{flex-direction:row;margin:0;cursor:pointer}
 /* Daily check: five compact metrics, the weakest one highlighted by colour. */
 .check-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px}
 .check-item{display:flex;flex-direction:column;gap:2px;padding:8px 6px;border:1px solid var(--line);border-radius:12px;background:var(--paper);text-align:center}
-.check-item.ok{border-color:var(--ok-line)}
+.check-item.ok{border-color:var(--ok-line);background:var(--ok-soft)}
+/* 三档判定：区间内绿、接近青、差得多淡红。青色是新令牌 --near，纸感/账本/夜间三处同名。 */
+.check-item.near{border-color:var(--near-line);background:var(--near-soft)}
+.check-item.near strong,.check-item.near em{color:var(--near)}
+.check-item.off{border-color:var(--danger-line);background:var(--danger-soft)}
 .check-item.bad{border-color:var(--danger-line);background:var(--danger-soft)}
 .check-dot{width:7px;height:7px;border-radius:50%;background:var(--ok-line);margin:0 auto}
 .check-item.ok .check-dot{background:var(--ok)}
@@ -645,6 +652,9 @@ button,input,select,textarea{font-family:var(--font-ui);font-size:var(--text-md)
   --ok:#3f6b52;
   --ok-soft:#eef3f0;
   --ok-line:#cfdfd8;
+  --near:#2f6f76;
+  --near-soft:#edf5f5;
+  --near-line:#cfe3e4;
   --surface-soft:#f2f5f4;
   --diet-in:#95b39c;
   --diet-low:#dcc9a8;
@@ -675,6 +685,9 @@ button,input,select,textarea{font-family:var(--font-ui);font-size:var(--text-md)
     --accent-press:#a3ccb0;
     --accent-deep:#1c2b22;
     --accent-soft:#26312b;
+    --near:#7fc0c6;
+    --near-soft:#182a2c;
+    --near-line:#315055;
     --accent-line:#3a4a42;
     --on-accent:#10241a;
     --ring-green:#7ba98a;

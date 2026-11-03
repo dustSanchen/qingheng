@@ -3733,23 +3733,30 @@ const values = points.length<=7 ? points.map((item,i) => {
       if (!worst || item.score < worst.score) worst = item;
       if (!best || item.score > best.score) best = item;
     }
-    // 一句评价：总体档位 + 最强项 + 最短的板，不给形容词堆。
-    let verdict = '还没有可评的记录：先记一餐和睡眠。';
+    // 一句评价：先给结论，再说哪一项差多少，最后给一句人话。不用「明显偏了」这类判断词。
+    let verdict = '还没有可评的记录：先记一餐和睡眠，我再帮你算。';
     if (score !== null) {
-      const band = score >= 85 ? '基本达标' : score >= 70 ? '大体在轨' : score >= 50 ? '略有偏差' : '明显偏了';
+      const band = score >= 85 ? '今天整体到位' : score >= 70 ? '今天整体还不错' : score >= 50 ? '今天有几项没跟上' : '今天缺口比较大';
       const gapOf = item => {
-        if (item.key === 'calories' && range) return item.value < range.min ? `低于区间 ${Math.round(range.min - item.value)} kcal` : `超出区间 ${Math.round(item.value - range.max)} kcal`;
-        if (item.key === 'protein') return `差 ${Math.max(0, Math.round((src.proteinMin || 0) - item.value))} g`;
-        if (item.key === 'fat') return item.value > (src.fatMax || 0) ? `超 ${Math.round(item.value - (src.fatMax || 0))} g` : `低于下限 ${Math.round((src.fatMin || 0) - item.value)} g`;
-        if (item.key === 'sleep') return `只有 ${item.value}，偏短`;
-        return `未达标`;
+        if (item.key === 'calories' && range) return item.value < range.min
+          ? `热量还差 ${Math.round(range.min - item.value)} kcal`
+          : `热量超了 ${Math.round(item.value - range.max)} kcal`;
+        if (item.key === 'protein') return `蛋白还差 ${Math.max(0, Math.round((src.proteinMin || 0) - item.value))} g`;
+        if (item.key === 'fat') return item.value > (src.fatMax || 0)
+          ? `脂肪超了 ${Math.round(item.value - (src.fatMax || 0))} g`
+          : `脂肪少了 ${Math.round((src.fatMin || 0) - item.value)} g`;
+        if (item.key === 'sleep') return `睡眠只有 ${item.value}（建议 7 小时以上）`;
+        return `${item.label}还差一点`;
       };
-      const bestPart = best && best.ok ? `${best.label}已到位` : best ? `${best.label}相对最好` : '';
-      const worstPart = worst && !worst.ok ? `${worst.label}${gapOf(worst)}` : '四项都在区间内';
-      verdict = `总体${band}：${bestPart}${worstPart === '四项都在区间内' ? '，四项都在区间内' : '，但' + worstPart}。`;
-      if (coverage < 100) verdict += `（已评 ${scored.length}/${items.length} 项，缺的项不计分）`;
+      const good = scored.filter(item => item.ok).map(item => item.label);
+      const goodPart = good.length ? `${good.slice(0, 2).join('和')}在区间内` : '还没有一项完全在区间内';
+      const worstPart = worst && !worst.ok ? gapOf(worst) : '';
+      verdict = worstPart
+        ? `${band}：${goodPart}，${worstPart}，先补这一项。`
+        : `${band}：${goodPart}。`;
+      const missing = items.length - scored.length;
+      if (missing > 0) verdict += `还有 ${missing} 项没记录，记了才评得准。`;
     }
-
     let action = '今天的记录都在区间内，保持就好。';
     if (worst) {
       const proteinGap = Math.max(0, Math.round((src.proteinMin || 0) - sum.protein));
@@ -4061,8 +4068,11 @@ const values = points.length<=7 ? points.map((item,i) => {
       proteinMin: number(profile.proteinMin), proteinMax: number(profile.proteinMax),
       fatMin: number(profile.fatMin), fatMax: number(profile.fatMax)});
     if (tag) tag.textContent = check.score === null ? '待记录' : '达标 ' + check.score + '/100 · 已评 ' + check.items.filter(item => item.evaluated).length + '/' + check.items.length;
-    box.innerHTML = '<div class="check-grid">' + check.items.map(item =>
-      `<div class="check-item ${item.state || (item.ok ? 'ok' : 'bad')}"><span class="check-icon" aria-hidden="true">${metricIcon(item.label)}</span><small>${esc(item.label)}</small><strong>${esc(String(item.value))}</strong><em>${esc(item.target)}</em></div>`).join('') + '</div>'
+    box.innerHTML = '<div class="check-grid">' + check.items.map(item => {
+      // 区间内绿、接近青、差得多淡红；没记录的保持中性。
+      const level = !item.evaluated ? 'idle' : item.ok || item.score >= 0.95 ? 'ok' : item.score >= 0.6 ? 'near' : 'off';
+      return `<div class="check-item ${level}"><span class="check-icon" aria-hidden="true">${metricIcon(item.label)}</span><small>${esc(item.label)}</small><strong>${esc(String(item.value))}</strong><em>${esc(item.target)}</em></div>`;
+    }).join('') + '</div>'
       + `<p class="check-verdict">${esc(check.verdict)}</p>`
       + `<p class="check-action"><strong>今天优先：</strong>${esc(check.action)}</p>`
       + (() => {const rule = libraryRuleForMetric(check.worst && check.worst.key); return rule
@@ -4877,7 +4887,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.2.57';
+  const APP_VERSION = '1.2.59';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}

@@ -31,6 +31,7 @@
 > 会断言「每个颜色令牌都在本表出现」，补登记是由该断言逼出来的。
 
 | `--ok` / `--ok-soft` / `--ok-line`（补登记，1.1.61） | #4f7a52 / #eef4ea / #cfe0cb | #3f6b52 / #eef3f0 / #cfdfd8 | 达标态；`-soft` 做底、`-line` 做描边 |
+| `--near` / `--near-soft` / `--near-line`（1.2.58） | #3d7d84 / #eef7f7 / #c9e2e2 | #2f6f76 / #edf5f5 / #cfe3e4 | 「接近区间」态；夜间为 #7fc0c6 / #182a2c / #315055 |
 | `--warn-soft` / `--warn-line`（补登记，1.1.61） | #f6efe3 / #e4d5bf | #f4f1ea / #e2dccf | 警示态浅底与描边，配 `--warn` 文字用 |
 | `--danger-soft` / `--danger-line`（补登记，1.1.61） | #f9ede7 / #ecd8ce | #f7eeec / #e8d6d2 | 错误态浅底与描边，配 `--danger` 文字用 |
 | `--diet-band-line`（补登记，1.1.61） | #dbe4d2 | #d8e2dc | 饮食带宽环的描边 |
