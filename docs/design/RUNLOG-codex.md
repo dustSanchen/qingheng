@@ -332,3 +332,11 @@
 - 验收：`test-all` 56/56；`dev-loop` 1.2.73/74/75 安装 + smoke 无 JS 错误；截图 `build/v273-hub.png`（新文案）、`build/v273-targets.png`（重新设置卡片在档案页）、`build/v275-more.png`（更多只剩两项）、`build/v275-about.png`（问答说明在关于页）。
 - 未验证：手动建议写入历史建议这条链路，需要先点一次「获取建议」再查历史；本轮没截到。
 - 源码提交 `1140f04`；回滚：`git revert 1140f04`。
+
+## r62 · 2026-11-04 · 1.2.76 → 1.2.77（统一展开按钮 + 去蓝色点击高亮）
+- 展开按钮统一：把「模型连接」右侧那枚 32×32 圆角方块箭头抽成通用规则 `details:not(.day-more) > summary::after`——accent-soft 底色、1px 线、展开时 `rotate(180deg)` 过渡、按下 `scale(.92)` + 底色加深。`口径与手动调整`、`说明`、`技术细节`、`参考与致谢`、`问答说明`、`为什么这样排` 等全部跟着变；`.day-more` 保留自己的左侧小三角，避免和「更多」那行打架。
+- 蓝色长条点击效果：Android WebView 的 tap highlight。处理两处——`html{-webkit-tap-highlight-color:transparent}` 全局关掉；`summary` 额外加 `-webkit-user-select:none`，长按不再出现文字选中蓝条（之前长按「更多」出现过一次）。`:focus-visible` 焦点环保留。
+- 统一了 `summary::-webkit-details-marker{display:none}`，避免个别浏览器再画一个原生小三角。
+- 验收：`test-all` 56/56；`aesthetic-audit` OK；`dev-loop` 1.2.76/277 安装 + smoke 无 JS 错误；截图 `build/v276-model.png`（AI 模型页方块箭头）、`build/v276-targets.png`（口径与手动调整同款）。
+- 未验证：其他几处（关于页四个折叠、训练页「为什么这样排」）只做了静态推断，没逐个点开截图；蓝色高亮是否彻底消失要看真机点击手感。
+- 源码提交 `227c23f`；回滚：`git revert 227c23f`。
