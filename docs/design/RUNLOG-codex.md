@@ -311,3 +311,13 @@
 - 动手时又踩了「按 trim()==='}' 找函数结尾」的老坑（旧函数体残留 15 行），已按 lesson 里的做法改用精确缩进 `'  }'` 截断。
 - 验收：`test-all` 56/56；`dev-loop` 1.2.70/270 安装 + smoke 无 JS 错误；截图 `build/v270-records3.png`（标签为「5 餐」）、`build/v270-records.png`（列表末尾停在最后一餐）。
 - 源码提交 `8015d54`；回滚：`git revert 8015d54`。
+
+## r60 · 2026-11-03 · 1.2.71 → 1.2.72（我的页拆分与合并）
+- 现状问题：`installProfileMore()` 把「数据管理」「关于轻衡」两行、`#restart-onboarding` 按钮和「问答说明」全部塞进 `#subpage-appearance`，于是「数据、外观与说明」越堆越长，标题也就越写越泛。
+- 拆法（用户要求：拆出来 + 不常用的合并到同一选项）：
+  - 「数据、外观与说明」→ 改名 **外观与默认餐次**（`#subpage-appearance`），只留外观皮肤卡 + 默认餐次卡。
+  - 新增 **更多**（hub 第 6 行 → `#subpage-more`）：数据管理行、关于轻衡行（两行从 hub 移到 `#more-hub` 列表）、重新设置档案（进 `#more-restart-slot` 卡片，附「谨慎操作」标签与说明）、问答说明（`#view-chat .card-notes` 进 `#more-notes-slot`）。
+  - hub 终态 6 行：健康档案与目标 / 模型连接 / 每日推送与建议 / 偏好与记忆 / 外观与默认餐次 / 更多。
+- 顺手：外观行的摘要不再写「外观与说明」，只留三个餐次时间。
+- 验收：`test-all` 56/56（子页断言 7→8、`layout-four` 改成检查两个子页 + html 标题；`$('#id')` 与 `$("#id")` 的引号差异把断言坑了一次，已改成不含引号的 `#subpage-more` 判定）；`dev-loop` 1.2.71/272 安装 + smoke 无 JS 错误；截图 `build/v271-hub.png`（6 行）、`build/v272-more.png`（更多页）、`build/v272-appearance.png`（外观页只剩两卡）。
+- 源码提交 `d2fd145`；回滚：`git revert d2fd145`。
