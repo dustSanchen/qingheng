@@ -134,3 +134,10 @@
 - 验收：三轮 `dev-loop.ps1` 均 56/56、APK 安装成功、smoke `js errors : none`；最终 `aesthetic-audit.mjs` 无阻塞，67 色值 / 7 卡片阴影 / 11 强调色警告保留。
 - 实机截图：纸感 `artifacts/border-after-paper-today.png`、`artifacts/border-after-paper-records.png`；账本 `artifacts/border-after-ledger-today.png`、`artifacts/border-after-ledger-records.png`；夜间 `artifacts/border-after-night-profile.png`。最终皮肤恢复 ledger。
 - 源码提交 `bb41ef2`；回滚：`git revert bb41ef2c56a7b2a7bb1b581969b43eb2818c0a30`。
+
+## r39 · 2026-11-03 · 1.2.30（美术审批三条阻断项收尾）
+- 记录页与问答页删除「勾选本次同意」残留文案（`estimate-mode` 说明、照片就绪提示）：1.2.20 外发授权集中到 `qingheng.consent.external` 后，这两句指向的勾选框已不存在，属于死文案。改后 `app.js` 中该短语出现次数为 0。
+- 账本皮肤数字族从等宽 `ui-monospace` 改为 `var(--font-ui)`：等宽字体的逗号与单位缝隙在「2,088」「129.7 g」上被读成断裂，改后数字跟随 UI 字族，仍靠 `font-variant-numeric:tabular-nums` 保持列对齐。
+- `.quick-chip-primary .quick-chip-icon` 补 `color:var(--on-accent)`：主芯片（记一餐）图标在深绿底上原先继承墨色，与右侧三格不同构。
+- 验收：`node tools/test-all.mjs` 56/56；`aesthetic-audit.mjs` 返回 `OK（无阻塞项）`（67 色值 / 7 卡片阴影 / 11 强调色警告沿用 r38 基线）；`dev-loop` 重装 1.2.30（versionCode 230，2026-11-03 19:21），smoke 无 JS 错误，实机截图 `build/verify-1.2.30.png`。
+- APK 与源码一致性：解包 `dist/qingheng-1.2.30.apk` 内 `assets/app.js`、`styles.css`、`index.html` 与工作区逐字节 SHA-256 相同，说明装机版本就是当前源码。

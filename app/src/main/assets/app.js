@@ -1403,7 +1403,7 @@ function intakeRangeForDate(date = activeDate) {
     renderTodayTimeline($('#today-meals'), meals);
     renderRecordMeals(favoriteOnlyMeals ? recordMeals.filter(row => row.favorite === true) : recordMeals);
     $('#settings-status').textContent = state.settings.apiConfigured === true ? '已配置 · 密钥不回传' : settingsKnown ? '未配置外部 API' : '配置状态未知';
-    $('#estimate-mode').textContent = state.settings.apiConfigured === true ? '已配置外部文字模型；勾选本次同意才调用外部 API。不勾选时按明确克重离线估算；照片还需已启用视觉模型。' : settingsKnown ? '当前使用本地估算，不发送给外部模型；结果仍需手动检查确认。' : '尚未加载手机配置，请稍后重试。';
+    $('#estimate-mode').textContent = state.settings.apiConfigured === true ? '照片还需已启用视觉模型。' : settingsKnown ? '当前使用本地估算，不发送给外部模型；结果仍需手动检查确认。' : '尚未加载手机配置，请稍后重试。';
     renderChat();
     renderTrainingInsights();
     renderDailyCheck();
@@ -1677,7 +1677,7 @@ function intakeRangeForDate(date = activeDate) {
       chatImageVersion++; chatImageBusy = false; chatImage = parsed.data; chatPhotoMeta=photoMeta(parsed); showPhotoTime('chat',chatPhotoMeta);
       $('#chat-image-view').src = parsed.data; $('#chat-image-preview').hidden = false;
       switchTab('chat');
-      feedback($('#chat-feedback'),'照片已就绪，已压缩并移除元数据。勾选本次同意后即可提问。');
+      feedback($('#chat-feedback'),'照片已就绪，已压缩并移除元数据。');
       $('#chat-image-preview').scrollIntoView({block:'nearest',behavior:'auto'});
     } else {
       syncCalendarDay(); imageVersion++; imageBusy = false; imageData = parsed.data; mealPhotoMeta=photoMeta(parsed); showPhotoTime('meal',mealPhotoMeta);
