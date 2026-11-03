@@ -365,3 +365,11 @@
 - 产出体积：PNG 1.3 MB，只进仓库文档目录，**不进 APK**（APK 仍 512 KB）。
 - 验收：`test-all` 56/56；`dev-loop` 1.2.80/280 安装 + smoke 无 JS 错误；截图 `build/v280-header.png`（页眉新标记）。
 - 源码提交 `6fa8f1e`；回滚：`git revert 6fa8f1e`。
+
+## r66 · 2026-11-04 · 1.2.80 → 1.2.81（换回 logo、插画入库、体检图标换 Tabler）
+- 换回 logo：`git show 3ce54e6:app/src/main/assets/icon.svg` 取回 1.2.79 那一版（用户判定 1.2.80 的新标记太丑），1.2.80 的图标文件作废。
+- 插画作为品牌插图进产品：`docs/design/art/light-ledger.png`（1.3 MB）缩到 760×1012、WEBP q82 → `assets/art-light-ledger.webp` **23 KB**；放在「关于轻衡」页，配 `.brand-art` 样式（max-width 340px、1px 边框、lazy）与图注「轻盈档案 · Light Ledger」。APK 从 512 KB 涨到 548 KB，换来一张品牌插图。
+- 体检图标换专业图源：`git clone --depth 1 --filter=blob:none --sparse https://github.com/tabler/tabler-icons`（MIT，Paweł Kuna），`sparse-checkout` 只拉 `icons/outline`；把 flame / egg / droplet / wheat / barbell / moon-stars / cup 的官方 path 内联进 `metricIcon()`，统一 24 网格、`stroke-width 1.7`、`currentColor`；关于页「参考与致谢」补一条图标来源。
+- 断言：`habit-and-training-mode` 的图标断言从「`训练: \`<g`」这类手绘写法改成「路径表 + 具体 path 片段」。
+- 验收：`test-all` 56/56；`dev-loop` 1.2.81/281 安装 + smoke 无 JS 错误；截图 `build/v281-header.png`（体检四项已换 Tabler）、`build/v281-about.png`（品牌插画在关于页）。
+- 源码提交 `efa1b2d`；回滚：`git revert efa1b2d`。
