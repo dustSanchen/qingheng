@@ -340,3 +340,12 @@
 - 验收：`test-all` 56/56；`aesthetic-audit` OK；`dev-loop` 1.2.76/277 安装 + smoke 无 JS 错误；截图 `build/v276-model.png`（AI 模型页方块箭头）、`build/v276-targets.png`（口径与手动调整同款）。
 - 未验证：其他几处（关于页四个折叠、训练页「为什么这样排」）只做了静态推断，没逐个点开截图；蓝色高亮是否彻底消失要看真机点击手感。
 - 源码提交 `227c23f`；回滚：`git revert 227c23f`。
+
+## r63 · 2026-11-04 · 1.2.78（展开动画真正生效）
+- 用户反馈：箭头没有过渡，点一下内容瞬间全出来。
+- 根因两条：
+  1. **箭头**：旧规则 `details.advanced[open] summary::after{content:'▴'}` 在展开时把字符从 ▾ 换成 ▴，而我上一版加的 `[open]{transform:rotate(180deg)}` 又把 ▴ 转回 ▾——两者互相抵消，看起来完全没动。修法：删掉换字符那两条规则，只保留旋转。
+  2. **内容**：`<details>` 展开时高度是瞬间跳变的，浏览器默认没有任何过渡。修法：`html{interpolate-size:allow-keywords}` + `@supports` 下用 `details::details-content{height:0→auto; opacity; content-visibility:allow-discrete}` 做高度过渡；不支持的内核退回 `details[open]>:not(summary)` 淡入上移。
+- 断言：`tests/meal-recalc-collapse.test.mjs` 原本钉着旧的换字符规则（等于把 bug 固化成契约），改成断言新规则（方块 + rotate + details-content 过渡），并按规矩登记到 `03-global-changes.md §5.1`。
+- 验收：`test-all` 56/56；`aesthetic-audit` OK；`dev-loop` 1.2.78/278 安装 + smoke 无 JS 错误；截图 `build/v278-open2.png`（展开后箭头朝上、内容出现）。
+- 源码提交 `30d7bdb`；回滚：`git revert 30d7bdb`。
