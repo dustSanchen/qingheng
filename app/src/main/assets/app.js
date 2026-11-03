@@ -4622,11 +4622,25 @@ const values = points.length<=7 ? points.map((item,i) => {
       if (path === '/api/settings') await refreshSettings();
     } catch (error) {feedback(message,error.message,true);} finally {button.disabled=false;}
   }
+  let adviceTicker = 0, adviceStartedAt = 0;
+  function adviceBusy(container) {
+    const count = readPreferences().length;
+    container.innerHTML = '<div class="inline-busy"><span class="busy-ring" aria-hidden="true"></span>'
+      + '<span class="inline-busy-text" data-advice-wait>正在读今天的记录…</span></div>'
+      + `<p class="fine-print advice-pref-note">${count ? `已带上 ${count} 条偏好` : '在「我的 → 偏好与记忆」写一条，建议会更贴合你的习惯'}</p>`;
+  }
   async function refreshAdvice() {
     const button=$('#refresh-advice'), container=$('#advice-content');
-    button.disabled=true; container.textContent='正在整理已记录数据…'; container.removeAttribute('data-date');
+    button.disabled=true; container.removeAttribute('data-date');
     syncCalendarDay();
     const date=activeDate,useAI=externalConsent();
+    adviceBusy(container);
+    adviceStartedAt=Date.now();
+    clearInterval(adviceTicker);
+    adviceTicker=setInterval(() => {
+      const line=container.querySelector('[data-advice-wait]');
+      if (line) line.textContent=`正在读今天的记录…已等 ${Math.round((Date.now()-adviceStartedAt)/1000)}s`;
+    },800);
     try {const data=await api('/api/advice',{date,preferences:readPreferences(),...(useAI?{useAI:true,allowExternal:true}:{})}); if(date!==activeDate) return; if(!Array.isArray(data?.messages)) throw new Error('建议数据格式不正确。'); renderAdvice(data.messages,date);}
     catch(error) {
       // 模型不可用时退回本地建议：这张卡空着比给一条本地结论更糟。
@@ -4637,6 +4651,7 @@ const values = points.length<=7 ? points.map((item,i) => {
       } catch {}
       container.textContent=error.message;
     }
+    finally {clearInterval(adviceTicker); button.disabled=false;}
   }
   function clearImage() {lastCaptureId='';mealPhotoMeta=photoMeta(null);imageVersion++;imageData=null;imageBusy=false;$('#meal-image').value='';$('#meal-gallery').value='';$('#image-preview').hidden=true;$('#meal-image-preview').removeAttribute('src');}
   async function compressImage(file) {
@@ -4914,7 +4929,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.2.65';
+  const APP_VERSION = '1.2.67';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}

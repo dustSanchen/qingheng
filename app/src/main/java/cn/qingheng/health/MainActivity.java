@@ -3640,12 +3640,19 @@ import java.util.concurrent.Executors;
     }
 
     private static String adviceSystemPrompt() {
-        return "用中文给出温和、有效、具体、可执行的饮食动作。只依据用户提供的数字；缺失数据明确指出，不能当作 0。"
-                + "结合身高、年龄、最近体重和体重变化，但不要根据 BMI 或单次体脂下诊断。"
-                + "优先回答今天还能做什么、明天怎么调整；蛋白质不足时给约 20~30g 蛋白质的食物选项，脂肪或热量偏高时给明天减少油炸、烹调油和高脂零食的具体做法。"
-                + "不诊断、不处方、不推荐极端节食或运动。每条以动作开头，允许用 **粗体** 标出关键动作。"
-                + "需要对比多天数值时用 Markdown 管道表格（| 表头 | … | 每行一条记录），其余内容用短句。"
-                + "直接输出建议正文，不要开场白、来源、免责声明、Markdown 标题、代码块或列表符号。";
+        // 旧版要求复述数字与来源，结果和界面看到的一样；现在只许给动作，并明令不重复界面数字。
+        return "只给 1~2 条今天或明天能立刻执行的动作，每条一句话、40 字以内，以动词开头。"
+                + "不要复述用户界面上已经显示的热量、蛋白质、脂肪数字——他正在看着，直接说吃什么、换掉什么、怎么做。"
+                + "两条要针对不同方面，不要两条都说同一件事。数据缺失就直说缺什么，不要当成 0；不诊断、不处方、不推荐极端节食或断食。"
+                + "只输出这几条短句，不要开场白、标题、免责声明、编号或 Markdown 列表符号。";
+    }
+
+    /** Keep the advice prompt small: only the newest N rows travel, the rest is summarised by recentDailyNutrition. */
+    private static JSONArray cappedWindow(JSONArray rows, int limit) throws Exception {
+        if (rows == null || rows.length() <= limit) return rows == null ? new JSONArray() : rows;
+        JSONArray out = new JSONArray();
+        for (int i = 0; i < limit; i++) out.put(rows.get(i));
+        return out;
     }
 
     /** The exact advice payload for one day; the preview route shows it without any provider call. */
@@ -3667,7 +3674,7 @@ import java.util.concurrent.Executors;
             Double value = completeNutrition(day, key);
             if (value != null) dailyTotals.put(key, value);
         }
-        String from = dayOffsetFrom(day, -13);
+        String from = dayOffsetFrom(day, -6);
         return new JSONObject()
                 .put("date", day).put("selectedDate", day).put("today", dayOffset(0))
                 .put("timezone", java.util.TimeZone.getDefault().getID()).put("mealCount", mealCount(day))
@@ -3676,7 +3683,7 @@ import java.util.concurrent.Executors;
                 .put("targets", targets)
                 .put("dayTotals", dailyTotals)
                 .put("recentDailyNutrition", dailyNutrition(from, day))
-                .put("recentMeals", numericWindow("meals", from, day))
+                .put("recentMeals", cappedWindow(numericWindow("meals", from, day), 25))
                 .put("meals", minimal);
     }
 
