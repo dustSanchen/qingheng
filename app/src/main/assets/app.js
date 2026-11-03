@@ -3127,36 +3127,18 @@ function intakeRangeForDate(date = activeDate) {
   }
   function renderTodayTimeline(container, meals) {
     if (!container) return;
+    // 只列餐食。睡眠/体重/训练曾经被当成「事件」塞在末尾，看起来像误记进今日记录；
+    // 它们在「今日三样」的摘要和「身体近况」里各自有位置，这里不再重复。
     const entries = meals.map((meal, index) => {
       const time = String(meal.mealTime || '');
       const timed = clockPattern.test(time);
       return {priority: timed ? 0 : 1, time: timed ? time : '', order: index, html: mealRowsHtml([meal], false)};
     });
-    const habit = (state.habits || []).find(row => row && row.date === activeDate) || {};
-    const addEvent = (kind, text, priority) => entries.push({
-      priority,
-      time: '',
-      order: entries.length,
-      html: `<div class="day-event" role="listitem"><div class="row-head"><strong>${esc(kind)}</strong><span class="row-tag">已记录</span></div><p class="muted">${esc(text)}</p></div>`
-    });
-    if (habit.training === true || habit.training === 'true') {
-      const count = Array.isArray(habit.exercises) ? habit.exercises.length : 0;
-      addEvent('训练', count ? `${count} 个动作` : '已标记训练', 2);
-    }
-    if (Number(habit.sleep) > 0) addEvent('睡眠', `${Number(habit.sleep)} 小时`, 3);
-    const measurement = (state.measurements || []).find(row => row && row.date === activeDate);
-    const weight = number(measurement?.weight);
-    if (weight > 0) addEvent('体重', `${fmt(weight)} kg`, 4);
     entries.sort((a, b) => a.priority - b.priority || a.time.localeCompare(b.time) || a.order - b.order);
-    const activities = entries.length - meals.length;
-    const count = [
-      meals.length ? `${meals.length} 餐` : '',
-      activities ? `${activities} 项` : ''
-    ].filter(Boolean).join(' · ');
-    $('#today-record-count').textContent = count || '暂无';
+    $('#today-record-count').textContent = meals.length ? `${meals.length} 餐` : '暂无';
     container.innerHTML = entries.length
       ? entries.map(entry => entry.html).join('')
-      : empty('今天还没有记录', '记下一餐或一项日常数据，这里会汇总当天的变化。');
+      : '<p class="empty-note">今天还没有记录。记一餐，时间轴就会出现在这里。</p>';
   }
   /**
    * The record list is grouped by day (the way 薄荷健康 shows 按天卡片) and capped at five meals until
@@ -4929,7 +4911,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.2.69';
+  const APP_VERSION = '1.2.70';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
