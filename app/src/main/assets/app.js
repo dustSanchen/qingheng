@@ -838,7 +838,7 @@
   // ---- Profile hub and its sub-pages -----------------------------------------------------------
   // "我的" is a list of entries; each one opens a sub-page under #profile/<name>. Everything stays
   // in the document, so forms, validation, collapse state and existing test anchors are untouched.
-  const SUBPAGES = ['targets', 'model', 'push', 'appearance', 'prefs', 'data', 'about'];
+  const SUBPAGES = ['targets', 'model', 'push', 'appearance', 'prefs', 'more', 'data', 'about'];
   function parseHash() {
     const parts = String(location.hash || '').replace(/^#/, '').split('/');
     const tab = ['today','records','chat','trends','profile'].includes(parts[0]) ? parts[0] : '';
@@ -4911,7 +4911,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.2.70';
+  const APP_VERSION = '1.2.72';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -5757,25 +5757,29 @@ function metricIcon(label) {
       ['model', 'icon-glyph-chat.svg'],
       ['push', 'icon-tip.svg'],
       ['appearance', 'icon-copy.svg'],
+      ['more', 'icon-copy.svg'],
       ['data', 'icon-copy.svg'],
       ['about', 'icon-glyph-leaf.svg']
     ].forEach(([id, icon]) => {
       const node = hub.querySelector(`[data-subpage-open="${id}"] .hub-icon`);
       if (node) node.innerHTML = iconMarkup(icon);
     });
-    const panel = $('#subpage-appearance');
-    if (!panel) return;
-    // 外观皮肤 leads the page, then 默认餐次 (already in the markup), then the rows that used to
-    // hide under the fold: 数据管理, 关于轻衡, 重新设置档案, 问答说明.
+    const appearance = $("#subpage-appearance"), more = $("#subpage-more");
+    if (!appearance || !more) return;
+    // 外观页只留「查看相关」的东西：外观皮肤 + 默认餐次 + 问答说明。
     const anchor = $('#meal-window-card');
     const skin = $('#skin-card');
-    if (skin && anchor) panel.insertBefore(skin, anchor);
-    [
-      hub.querySelector('[data-subpage-open="data"]'),
-      hub.querySelector('[data-subpage-open="about"]'),
-      $('#restart-onboarding'),
-      $('#view-chat .card-notes')
-    ].filter(Boolean).forEach(node => panel.append(node));
+    if (skin && anchor) appearance.insertBefore(skin, anchor);
+    // 不常用的三件事合并到「更多」：数据管理、关于轻衡、重新设置档案。
+    const list = $('#more-hub');
+    const restart = $('#more-restart-slot');
+    const notes = $('#more-notes-slot');
+    [hub.querySelector('[data-subpage-open="data"]'), hub.querySelector('[data-subpage-open="about"]')]
+      .filter(Boolean).forEach(node => {if (list) list.append(node);});
+    const restartButton = $('#restart-onboarding');
+    if (restartButton && restart) restart.append(restartButton);
+    const chatNotes = $('#view-chat .card-notes');
+    if (chatNotes && notes) notes.append(chatNotes);
   }
   function mealWindowSummaryText(spec) {
     return `早于 ${spec.lunchFrom} 记早餐，${spec.lunchFrom} 起记午餐，${spec.dinnerFrom} 起记晚餐，${spec.snackFrom} 起记加餐。`;
@@ -5791,7 +5795,7 @@ function metricIcon(label) {
     const tag = $('#meal-window-tag');
     if (tag) tag.textContent = `现在默认${MEAL_TYPE_LABEL[defaultMealTypeFor(nowClock())] || '加餐'}`;
     const hubSummary = $('#hub-summary-appearance');
-    if (hubSummary) hubSummary.textContent = `${spec.lunchFrom} 午餐 · ${spec.dinnerFrom} 晚餐 · ${spec.snackFrom} 加餐 · 外观与说明`;
+    if (hubSummary) hubSummary.textContent = `${spec.lunchFrom} 午餐 · ${spec.dinnerFrom} 晚餐 · ${spec.snackFrom} 加餐`;
   }
   let mealTypeTouched = false;
   /** The estimate form starts on the slot the clock implies, unless the user already picked one. */
