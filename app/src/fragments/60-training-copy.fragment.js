@@ -127,9 +127,13 @@
   }
 
   /**
-   * Five daily metrics -> score, worst item and exactly one local action.
+   * 每日体检评分（2026-11-03 重构）：训练不再计分，按证据强度给四项加权。
+   * 热量 30（总摄入是体重管理的主变量）、蛋白质 30（保肌的第一优先级）、
+   * 脂肪 20（最容易超的一项）、睡眠 20（恢复与食欲调节）。
+   * 未记录的项不计入分母——缺数据不等于差，只报「已评 n/4」，避免半天空表也算低分。
    * Inputs are passed in so the rule engine can be tested without the app.
    */
+  const DAILY_CHECK_WEIGHTS = {calories: 30, protein: 30, fat: 20, sleep: 20};
   function dailyCheck(input) {
     const src = input || {};
     const meals = src.meals || [], habit = src.habit || {}, range = src.range || null;
@@ -140,48 +144,78 @@
     }, {calories: 0, protein: 0, fat: 0, carbs: 0});
     const items = [];
     const clamp01 = value => Math.max(0, Math.min(1, value));
+    const hasMeals = sum.calories > 0;
     if (range && Number.isFinite(range.min) && Number.isFinite(range.max)) {
-      const width = Math.max(200, range.max - range.min);
       const distance = sum.calories < range.min ? range.min - sum.calories : sum.calories > range.max ? sum.calories - range.max : 0;
+      // 按偏离目标的百分比给分：≤3% 满分，5% 0.9，10% 0.75，20% 0.5，35% 0.25，再远 0。
+      const reference = Math.max(1, sum.calories > range.max ? range.max : range.min);
+      const deviation = distance / reference;
+      const calScore = deviation === 0 ? 1 : deviation <= 0.03 ? 1 : deviation <= 0.05 ? 0.9 : deviation <= 0.1 ? 0.75 : deviation <= 0.2 ? 0.5 : deviation <= 0.35 ? 0.25 : 0;
       items.push({key: 'calories', label: '热量', value: Math.round(sum.calories), target: range.min + '~' + range.max,
-        ok: distance === 0, score: distance === 0 ? 1 : clamp01(1 - distance / width), state: sum.calories === 0 ? 'idle' : (sum.calories < range.min ? 'low' : sum.calories > range.max ? 'high' : undefined)});
+        weight: DAILY_CHECK_WEIGHTS.calories, evaluated: hasMeals,
+        ok: distance === 0, score: calScore,
+        state: !hasMeals ? 'idle' : (sum.calories < range.min ? 'low' : sum.calories > range.max ? 'high' : undefined)});
     }
     if (Number.isFinite(src.proteinMin) && src.proteinMin > 0) {
       items.push({key: 'protein', label: '蛋白质', value: Math.round(sum.protein), target: Math.round(src.proteinMin) + 'g 起',
-        ok: sum.protein >= src.proteinMin, score: clamp01(sum.protein / src.proteinMin), state: sum.calories === 0 ? 'idle' : (sum.protein < src.proteinMin ? 'low' : undefined)});
+        weight: DAILY_CHECK_WEIGHTS.protein, evaluated: hasMeals,
+        ok: sum.protein >= src.proteinMin, score: clamp01(sum.protein / src.proteinMin),
+        state: !hasMeals ? 'idle' : (sum.protein < src.proteinMin ? 'low' : undefined)});
     }
     if (Number.isFinite(src.fatMin) && Number.isFinite(src.fatMax)) {
       const distance = sum.fat < src.fatMin ? src.fatMin - sum.fat : sum.fat > src.fatMax ? sum.fat - src.fatMax : 0;
+      const span = sum.fat > src.fatMax ? Math.max(10, src.fatMax) : Math.max(10, src.fatMin || 10);
       items.push({key: 'fat', label: '脂肪', value: Math.round(sum.fat), target: Math.round(src.fatMin) + '~' + Math.round(src.fatMax) + 'g',
-        ok: distance === 0, score: distance === 0 ? 1 : clamp01(1 - distance / Math.max(10, src.fatMax)), state: sum.calories === 0 ? 'idle' : (sum.fat > src.fatMax ? 'high' : sum.fat < src.fatMin ? 'low' : undefined)});
+        weight: DAILY_CHECK_WEIGHTS.fat, evaluated: hasMeals,
+        ok: distance === 0, score: distance === 0 ? 1 : clamp01(1 - distance / span),
+        state: !hasMeals ? 'idle' : (sum.fat > src.fatMax ? 'high' : sum.fat < src.fatMin ? 'low' : undefined)});
     }
-    const trained = habit.training === true || habit.training === 'true' || (Array.isArray(habit.exercises) && habit.exercises.length > 0);
-    items.push({key: 'training', label: '训练', value: trained ? '已记录' : (habit.training === false || habit.training === 'false' ? '休息' : '未记录'),
-      target: '每天记一次', ok: trained || habit.training === false || habit.training === 'false',
-      score: trained || habit.training === false || habit.training === 'false' ? 1 : 0.4, state: trained || habit.training === false || habit.training === 'false' ? undefined : 'idle'});
+    // 睡眠：7 小时满档；6–7 线性 0.7→1；4–6 线性 0.25→0.7；4 以下 0.1。未记录不计分。
     const sleep = Number(habit.sleep);
-    items.push({key: 'sleep', label: '睡眠', value: Number.isFinite(sleep) && sleep > 0 ? sleep + ' 小时' : '未记录',
-      target: '7 小时起', ok: Number.isFinite(sleep) && sleep >= 7,
-      score: Number.isFinite(sleep) && sleep > 0 ? clamp01(sleep / 7) : 0.4, state: Number.isFinite(sleep) && sleep > 0 ? undefined : 'idle'});
+    const sleepKnown = Number.isFinite(sleep) && sleep > 0;
+    const sleepScore = !sleepKnown ? 0 : sleep >= 7 ? 1 : sleep >= 6 ? 0.7 + (sleep - 6) * 0.3 : sleep >= 4 ? 0.25 + (sleep - 4) * 0.225 : 0.1;
+    items.push({key: 'sleep', label: '睡眠', value: sleepKnown ? sleep + ' 小时' : '未记录', target: '7 小时起',
+      weight: DAILY_CHECK_WEIGHTS.sleep, evaluated: sleepKnown,
+      ok: sleepKnown && sleep >= 7, score: sleepScore, state: sleepKnown ? undefined : 'idle'});
 
-    let worst = null;
-    for (const item of items) if (!worst || item.score < worst.score) worst = item;
+    const scored = items.filter(item => item.evaluated);
+    const weightSum = scored.reduce((acc, item) => acc + item.weight, 0);
+    const score = weightSum > 0 ? Math.round(scored.reduce((acc, item) => acc + item.score * item.weight, 0) / weightSum * 100) : null;
+    const coverage = Math.round(weightSum / Object.values(DAILY_CHECK_WEIGHTS).reduce((a, b) => a + b, 0) * 100);
+
+    let worst = null, best = null;
+    for (const item of scored) {
+      if (!worst || item.score < worst.score) worst = item;
+      if (!best || item.score > best.score) best = item;
+    }
+    // 一句评价：总体档位 + 最强项 + 最短的板，不给形容词堆。
+    let verdict = '还没有可评的记录：先记一餐和睡眠。';
+    if (score !== null) {
+      const band = score >= 85 ? '基本达标' : score >= 70 ? '大体在轨' : score >= 50 ? '略有偏差' : '明显偏了';
+      const gapOf = item => {
+        if (item.key === 'calories' && range) return item.value < range.min ? `低于区间 ${Math.round(range.min - item.value)} kcal` : `超出区间 ${Math.round(item.value - range.max)} kcal`;
+        if (item.key === 'protein') return `差 ${Math.max(0, Math.round((src.proteinMin || 0) - item.value))} g`;
+        if (item.key === 'fat') return item.value > (src.fatMax || 0) ? `超 ${Math.round(item.value - (src.fatMax || 0))} g` : `低于下限 ${Math.round((src.fatMin || 0) - item.value)} g`;
+        if (item.key === 'sleep') return `只有 ${item.value}，偏短`;
+        return `未达标`;
+      };
+      const bestPart = best && best.ok ? `${best.label}已到位` : best ? `${best.label}相对最好` : '';
+      const worstPart = worst && !worst.ok ? `${worst.label}${gapOf(worst)}` : '四项都在区间内';
+      verdict = `总体${band}：${bestPart}${worstPart === '四项都在区间内' ? '，四项都在区间内' : '，但' + worstPart}。`;
+      if (coverage < 100) verdict += `（已评 ${scored.length}/${items.length} 项，缺的项不计分）`;
+    }
+
     let action = '今天的记录都在区间内，保持就好。';
     if (worst) {
-      const gap = worst.key === 'calories' ? Math.abs(sum.calories - (sum.calories > (range ? range.max : 0) ? range.max : range.min))
-        : worst.key === 'protein' ? Math.max(0, Math.round((src.proteinMin || 0) - sum.protein))
-          : 0;
+      const proteinGap = Math.max(0, Math.round((src.proteinMin || 0) - sum.protein));
       if (worst.key === 'calories' && range && sum.calories > range.max) action = '热量超上限 ' + Math.round(sum.calories - range.max) + ' kcal：晚餐只吃蛋白 + 蔬菜，不再加主食。';
       else if (worst.key === 'calories' && range && sum.calories < range.min) action = '还差 ' + Math.round(range.min - sum.calories) + ' kcal：加一份主食配一个蛋白来源。';
-      else if (worst.key === 'protein') action = '蛋白还差 ' + gap + ' g ≈ 鸡胸 ' + Math.round(gap / 0.31) + ' g 或蛋白粉 ' + Math.max(1, Math.round(gap / 24)) + ' 勺。';
+      else if (worst.key === 'protein') action = '优先补蛋白：还差 ' + proteinGap + ' g，下一餐先吃蛋白质。';
       else if (worst.key === 'fat' && src.fatMax) action = '脂肪超 ' + Math.round(Math.max(0, sum.fat - src.fatMax)) + ' g：之后改白灼/清蒸，少油。';
-      else if (worst.key === 'training') action = '今天还没记训练：练一次推/拉，或 20 分钟快走也算。';
       else if (worst.key === 'sleep') action = '睡眠 ' + (worst.value === '未记录' ? '没记录' : worst.value) + '：今天训练强度降 10%，别加组。';
     }
-    const score = items.length ? Math.round(items.reduce((acc, item) => acc + item.score, 0) / items.length * 100) : 0;
-    return {items, worst, action, score, totals: {calories: Math.round(sum.calories), protein: Math.round(sum.protein), fat: Math.round(sum.fat), carbs: Math.round(sum.carbs)}};
+    return {items, worst, best, action, verdict, score, coverage, weights: DAILY_CHECK_WEIGHTS, totals: {calories: Math.round(sum.calories), protein: Math.round(sum.protein), fat: Math.round(sum.fat), carbs: Math.round(sum.carbs)}};
   }
-
   /**
    * Acute:chronic workload ratio from daily loads. ratio > 1.5 = spike, < 0.8 = detraining.
    * loads: [{date:'YYYY-MM-DD', load:number}] (load = 组×次×负重, or run minutes×6).
@@ -481,9 +515,10 @@
     const check = dailyCheck({meals, habit, range,
       proteinMin: number(profile.proteinMin), proteinMax: number(profile.proteinMax),
       fatMin: number(profile.fatMin), fatMax: number(profile.fatMax)});
-    if (tag) tag.textContent = '达标 ' + check.score + '/100';
+    if (tag) tag.textContent = check.score === null ? '待记录' : '达标 ' + check.score + '/100 · 已评 ' + check.items.filter(item => item.evaluated).length + '/' + check.items.length;
     box.innerHTML = '<div class="check-grid">' + check.items.map(item =>
       `<div class="check-item ${item.state || (item.ok ? 'ok' : 'bad')}"><span class="check-icon" aria-hidden="true">${metricIcon(item.label)}</span><small>${esc(item.label)}</small><strong>${esc(String(item.value))}</strong><em>${esc(item.target)}</em></div>`).join('') + '</div>'
+      + `<p class="check-verdict">${esc(check.verdict)}</p>`
       + `<p class="check-action"><strong>今天优先：</strong>${esc(check.action)}</p>`
       + (() => {const rule = libraryRuleForMetric(check.worst && check.worst.key); return rule
         ? '' : '';})();

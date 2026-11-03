@@ -50,7 +50,10 @@ check('food question makes no draft', api.parseDraft('我这两天蛋白质够�
 // --- 每日体检 -----------------------------------------------------------------------------------
 const range = {min: 2160, max: 2314};
 const checkLow = api.dailyCheck({meals: [{totals: {calories: 1500, protein: 90, fat: 40}}], habit: {training: true, sleep: 5}, range, proteinMin: 142, proteinMax: 155, fatMin: 55, fatMax: 70});
-check('five metrics are scored', checkLow.items.length === 5, checkLow.items.map(i => i.key).join(','));
+check('four metrics are scored', checkLow.items.length === 4, checkLow.items.map(i => i.key).join(','));
+check('training is not scored any more', !checkLow.items.some(i => i.key === 'training'), checkLow.items.map(i => i.key).join(','));
+check('weights favour energy and protein', JSON.stringify(checkLow.weights) === JSON.stringify({calories: 30, protein: 30, fat: 20, sleep: 20}), JSON.stringify(checkLow.weights));
+check('the verdict names a band and a weak spot', /总体/.test(checkLow.verdict) && checkLow.verdict.length > 8, checkLow.verdict);
 check('protein is the flagged gap or calories', ['protein', 'calories', 'fatt'].includes(checkLow.worst.key) || true);
 check('an action is produced', typeof checkLow.action === 'string' && checkLow.action.length > 4, checkLow.action);
 check('low calories gives a "eat more" action', /还差|加一份/.test(checkLow.action), checkLow.action);
@@ -59,6 +62,10 @@ check('over-target calories is flagged', checkHigh.items.find(i => i.key === 'ca
 check('over-target action mentions the gap', /超上限|脂肪超/.test(checkHigh.action), checkHigh.action);
 const checkFine = api.dailyCheck({meals: [{totals: {calories: 2200, protein: 150, fat: 60}}], habit: {training: true, sleep: 8}, range, proteinMin: 142, proteinMax: 155, fatMin: 55, fatMax: 70});
 check('a good day scores 100', checkFine.score === 100 && checkFine.items.every(i => i.ok), String(checkFine.score));
+const noSleep = api.dailyCheck({meals: [{totals: {calories: 2200, protein: 150, fat: 60}}], habit: {}, range, proteinMin: 142, proteinMax: 155, fatMin: 55, fatMax: 70});
+check('missing sleep is excluded from the score instead of penalised', noSleep.score === 100 && noSleep.coverage === 80 && noSleep.items.find(i => i.key === 'sleep').evaluated === false, `score=${noSleep.score} coverage=${noSleep.coverage}`);
+const empty = api.dailyCheck({meals: [], habit: {}, range, proteinMin: 142, proteinMax: 155, fatMin: 55, fatMax: 70});
+check('a day without records has no score at all', empty.score === null && /先记一餐/.test(empty.verdict), String(empty.score));
 check('a good day keeps a calm action', /保持/.test(checkFine.action), checkFine.action);
 
 // --- ACWR ---------------------------------------------------------------------------------------
