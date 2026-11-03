@@ -1214,11 +1214,15 @@ summary::-webkit-details-marker{display:none}
 details:not(.day-more)>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px}
 /* 展开内容也要有过渡：Chrome 131+ 用 ::details-content 做高度动画，老内核退回淡入上移。 */
 /* 展开/收起：grid 行高 0fr→1fr，0.28s。比 ::details-content 兼容性稳。 */
-.disclosure-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows var(--dur-slow) var(--ease-out)}
-details[open]>.disclosure-body{grid-template-rows:1fr}
+.disclosure-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .32s cubic-bezier(.4,0,1,1)}
+details[open]>.disclosure-body{grid-template-rows:1fr;transition:grid-template-rows var(--dur-disclose) cubic-bezier(.22,.8,.3,1)}
 .disclosure-inner{overflow:hidden;min-height:0}
+details[open]>.disclosure-body>.disclosure-inner{animation:disclosureIn var(--dur-disclose) cubic-bezier(.22,.8,.3,1) both}
+@keyframes disclosureIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){.disclosure-body{transition:none}details[open]>.disclosure-body>.disclosure-inner{animation:none}}
+
 @media (prefers-reduced-motion: reduce){.disclosure-body{transition:none}}
-details:not(.day-more)>summary::after{content:"\25BE";display:grid;place-items:center;flex:0 0 auto;width:32px;height:32px;border:1px solid var(--line);border-radius:8px;background:var(--accent-soft);color:var(--accent);font-size:17px;line-height:1;transition:transform var(--dur-fast) var(--ease-out),background var(--dur-fast),border-color var(--dur-fast)}
+details:not(.day-more)>summary::after{content:"\25BE";display:grid;place-items:center;flex:0 0 auto;width:32px;height:32px;border:1px solid var(--line);border-radius:8px;background:var(--accent-soft);color:var(--accent);font-size:17px;line-height:1;transition:transform var(--dur-disclose) cubic-bezier(.22,.8,.3,1),background var(--dur-fast),border-color var(--dur-fast)}
 details:not(.day-more)[open]>summary::after{transform:rotate(180deg)}
 details:not(.day-more)>summary:active::after{background:var(--accent-line);border-color:var(--line-strong);transform:scale(.92)}
 details:not(.day-more)[open]>summary:active::after{transform:rotate(180deg) scale(.92)}
@@ -1239,7 +1243,7 @@ details:not(.day-more)[open]>summary:active::after{transform:rotate(180deg) scal
 :root{--space-0:2px;--icon-xl:28px;--dur-slow:.28s;--dur-pulse:1.6s;--ease-inout:ease-in-out;--fw-regular:400;--fw-bold:700;--fw-display:600;--tracking-display:-.01em;--tracking-caps:.12em;--ring-focus-color-soft:#a9c6b3;--ring-select:0 0 0 2px #44755d22;--flash-ring:0 0 0 3px var(--diet-in);--accent-line:#cfded2;--accent-deep:#2f5340;}
 
 /* 底部安全区：固定 tab bar 上方留出可点击空间，最后一屏的同意勾选不再被压住。 */
-:root{--tabbar-safe:96px}
+:root{--tabbar-safe:96px;--dur-disclose:.46s}
 .app-shell{padding-bottom:calc(var(--tabbar-safe) + env(safe-area-inset-bottom))}
 .check-label,.ai-plan,.plan-prefs{scroll-margin-bottom:calc(var(--tabbar-safe) + 12px)}
 /* 健身偏好用芯片而不是下拉：点一下就看到全部可选项，改完立刻重排，不用先展开下拉再选。 */

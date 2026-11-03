@@ -62,5 +62,5 @@ assert.match(css, /\.collapse-toggle/);
 // 展开/收起动画：内容包进 grid 容器，0fr→1fr 过渡（2026-11-04）
 assert.match(app, /function installDisclosureAnimation\(\)/);
 assert.match(css, /\.disclosure-body\{[^}]*grid-template-rows:0fr/);
-assert.match(css, /details\[open\]>\.disclosure-body\{grid-template-rows:1fr\}/);
+assert.match(css, /details\[open\]>\.disclosure-body\{grid-template-rows:1fr[^}]*var\(--dur-disclose\)/);
 console.log('PASS meal recalc/collapse: stable proportional scaling, per-100g dialog, totals refresh, and reversible arrow disclosures.');
