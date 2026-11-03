@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.2.59';
+  const APP_VERSION = '1.2.63';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1316,6 +1316,13 @@
     field.focus({preventScroll: true});
   }
   $$('[data-go]').forEach(button=>button.addEventListener('click',()=>{switchTab(button.dataset.go,true);if(button.dataset.focus) setTimeout(() => revealField(button.dataset.focus), 60);}));
+  // 运行时渲染的「日常习惯」行不在初始 [data-go] 绑定里；进记录页只滚动、不聚焦（不弹键盘）。
+  document.addEventListener('click', event => {
+    const jump = event.target.closest?.('[data-habit-jump]');
+    if (!jump) return;
+    switchTab('records', true);
+    setTimeout(() => revealField('habit-steps', {focus: false}), 60);
+  });
   window.addEventListener('hashchange',()=>{const {tab,sub}=parseHash();switchTab(tab||'today',false,sub);});
   $('#trend-range').addEventListener('change',renderTrends);$('#refresh-advice').addEventListener('click',refreshAdvice);
   $('#measurement-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/measurements',form=>{const values=numericForm(form,['weight','waist','bodyFat','muscle','visceralFat','bmr']);if(Object.values(values).every(value=>value===null)) throw new Error('请至少填写一项测量数据。');return {date:form.elements.date.value,...values};});});
@@ -1738,7 +1745,6 @@ feedback(message,'数据已导入。'+report);
    */
   function installCardCollapse() {
     const groups = [
-      ['#habit-form', '日常习惯（步数 · 睡眠 · 饮水，可选）'],
       ['#food-search', '食品热量参考库（本地，不消耗 token）'],
       ['#manual-meal-form', '手动记录餐食（已知营养数据）']
     ];

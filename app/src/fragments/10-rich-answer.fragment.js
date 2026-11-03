@@ -259,7 +259,14 @@
       ['icon-habit-sleep.svg', number(habit.sleep) === null ? '未记录' : `${fmt(habit.sleep)} 小时`, '睡眠'],
       ['icon-water.svg', number(habit.water) === null ? '未记录' : `${fmt(habit.water,0)} ml`, '饮水']
     ];
-    $('#habit-summary').innerHTML = tiles.map(([icon, value, label]) => `<div class="habit-tile"><span class="habit-symbol" aria-hidden="true">${iconMarkup(icon)}</span><div><strong>${esc(value)}</strong><small>${label}</small></div></div>`).join('');
+    // 四个格子改成一行：今天页只交代「记了什么」，改去记录页改，且进去不弹输入法。
+    $('#habit-summary').innerHTML = '<button type="button" class="hub-row habit-jump" data-habit-jump>'
+      + '<span class="hub-text"><span class="hub-title">日常习惯</span><span class="hub-summary">'
+      + esc((() => {
+        const parts = tiles.filter(([, value]) => !String(value).includes('未记录')).map(([, value, label]) => `${label} ${value}`);
+        return parts.length ? parts.join(' · ') : '点这里补步数、睡眠、饮水';
+      })())
+      + '</span></span><span class="hub-arrow" aria-hidden="true">›</span></button>';
     const recordMeals=[...state.meals].sort((a,b) => String(b.date).localeCompare(String(a.date)));
     renderTodayTimeline($('#today-meals'), meals);
     renderRecordMeals(favoriteOnlyMeals ? recordMeals.filter(row => row.favorite === true) : recordMeals);
