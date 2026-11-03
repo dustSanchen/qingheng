@@ -242,3 +242,10 @@
 - 验收：`test-all` 56/56（新增三条断言：摘要块与 body 包裹存在、折叠判断在 app 里、小习惯/建议在 day-more 区间内）；`dev-loop` 1.2.53/253 安装 + smoke 无 JS 错误；纸感截图 `build/v253-fold.png`（折叠、无框）。
 - 未验证：三样记满后的折叠态没有实机截图——当天只记了体重，要凑满三样就得往用户数据里写训练/睡眠，没敢写。
 - 源码提交 `2dfc310`；回滚：`git revert 2dfc310`。
+
+## r52 · 2026-11-03 · 1.2.54 → 1.2.55（今日三样保存即收纳 + 日常习惯默认折叠）
+- 今日三样：原来只有「三样都记满」才折叠，用户填了两样就以为该收起来——判断条件改成「当天保存过一次（localStorage 标记 `qingheng.dailyThree.<日期>`，走 `DAILY_THREE_KEY(date)` 常量）**或** 三样齐全」即折叠；「修改」仍可展开。顺带修了摘要里「训练」未填时显示成「休息」的错标，改为「未记录」。
+- 记录-身体的「日常习惯」：`installCardCollapse()` 创建 details 时没有显式关闭，实机上是展开态。加 `details.open = false` 后默认折叠，只剩一行「▶ 日常习惯（步数 · 睡眠 · 饮水，可选）」。
+- 存储键规矩：`tests/adapter.test.mjs` 要求除 `qingheng.tab` 外所有 localStorage 键必须是常量调用，新键第一次写死字面量时测试立刻红——改为 `const DAILY_THREE_KEY = date => \`qingheng.dailyThree.${date}\``。
+- 验收：`test-all` 56/56；`dev-loop` 1.2.54/254、1.2.55/255 安装 + smoke 无 JS 错误；实机截图 `build/v255-collapsed3.png`（保存后收成「训练 未记录 / 睡眠 5 小时 / 体重 64.5 kg / 修改」）、`build/v254-body.png`（日常习惯默认折叠）。保存用的是当天已有的相同数值，未写入新数据。
+- 源码提交 `1fa02cc`；回滚：`git revert 1fa02cc`。
