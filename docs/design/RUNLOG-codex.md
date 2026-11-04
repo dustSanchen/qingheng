@@ -439,3 +439,14 @@
 - 断言：`meal-recalc-collapse` 里关于 `details[open]>.disclosure-body{grid-template-rows:1fr...}` 的正则放宽为允许后续 `transition`（原来要求 `}` 紧跟，规则加了时长后失配）。
 - 验收：`test-all` 56/56；`aesthetic-audit` OK；dev-loop 1.3.05/305 安装成功，`dumpsys` 读到 `versionName=1.3.05`；截图 `build/v305-open.png`。
 - 源码提交 `d89fcc8`；回滚：`git revert d89fcc8`。
+
+## r73 · 2026-11-04 · 1.3.06（放松日）
+- 需求：按每日记录判断「本周有一天热量/脂肪远高于目标」，把那天当作放松日——不判失败、给鼓励，并让后续饮食与训练安排知道这件事。
+- 判据（纯推导，不落库）：当日 ≥2 餐、热量 ≥ 区间上限 ×1.12 或脂肪 ≥ 上限 ×1.2，且不是吃太少（热量 ≥ 下限）；同一自然周（周一~周日）只认一天——更早已有符合日，则今天算第二次超量，不享受放松日。
+  - 用 `relaxDayInfoFor(date)` 实现，排在 `dailyCheck` 之前；周起点用 `shiftDay(date, -((weekdayIndex(date)+6)%7))`。
+- 表现：今日体检标签变成「放松日 · 本周 1/1」（`.tag.is-relax`，ok-soft 底 + ok 字），四格转中性（不再红/青判定），评价固定为「今天是本周的放松日：吃得比目标多一些，属于计划内，不算失败。」，优先行动改成「明后两天照常吃就行，不要用少吃或加练去『补回来』」。
+- 建议链路：页面请求带 `relaxDay:true`；Java 在 system 提示词后追加「今天是用户本周的放松日……不要说教、不要建议第二天节食或加练去补偿」。
+- 兼容：`dailyCheck({relax:true})` 只放宽热量与脂肪两项的 state 与话术，其余（蛋白/睡眠）照常评分，所以「放松日」不等于「这天不看体检」。
+- 验收：`test-all` 56/56（新增 4 条断言：放松日不被说教、行动不提补偿、检测函数存在、`is-relax` 样式）；`aesthetic-audit` OK；dev-loop 1.3.06/306 安装，dumpsys 读到 1.3.06；截图 `build/v306-check.png`（当日 1769 kcal 未达放松日阈值 → 仍按常规评分，属预期）。
+- 踩坑：把 Java 字符串里的 `\n\n` 直接写成了真实换行，javac 报「未结束的字符串字面量/非法字符」，已改为显式转义。
+- 源码提交 `400f8b2`；回滚：`git revert 400f8b2`。
