@@ -3680,9 +3680,56 @@ const values = points.length<=7 ? points.map((item,i) => {
    * Inputs are passed in so the rule engine can be tested without the app.
    */
   const DAILY_CHECK_WEIGHTS = {calories: 30, protein: 30, fat: 20, sleep: 20};
+  /**
+   * 放松日判定（不落库，纯推导）：
+   * 热量超区间上限 12% 或脂肪超上限 20%，且当天至少两餐、不是吃太少；
+   * 同一自然周只认一天——更早已经有放松日，今天就算第二次超量，不再享受。
+   */
+  const RELAX_TAG = 'qingheng.relaxDay';
+  function relaxDayInfoFor(date) {
+    const meals = (state.meals || []).filter(row => row && row.date === date);
+    const range = intakeRangeForDate(date);
+    const profile = effectiveProfileForDate(date);
+    const fatMax = number(profile.fatMax);
+    let calories = 0, fat = 0;
+    for (const meal of meals) {
+      const totals = meal && meal.totals ? meal.totals : meal;
+      calories += Number(totals?.calories ?? 0) || 0;
+      fat += Number(totals?.fat ?? 0) || 0;
+    }
+    const overKcal = range && number(range.max) ? calories - Number(range.max) : 0;
+    const overFat = fatMax ? fat - fatMax : 0;
+    const bigKcal = range && number(range.max) && calories >= Number(range.max) * 1.12;
+    const bigFat = fatMax && fat >= fatMax * 1.2;
+    const qualifies = meals.length >= 2 && !!(bigKcal || bigFat) && !(range && calories < Number(range.min || 0));
+    if (!qualifies) return {relax: false, calories, fat, overKcal: Math.max(0, overKcal), overFat: Math.max(0, overFat)};
+    // 本周（周一~周日）里比这天更早的符合条件日：有则说明本周额度已用掉。
+    const start = shiftDay(date, -((weekdayIndex(date) + 6) % 7));
+    const earlier = [];
+    for (let i = 0; i < 7; i++) {
+      const day = shiftDay(start, i);
+      if (day >= date) break;
+      const rows = (state.meals || []).filter(row => row && row.date === day);
+      if (rows.length < 2) continue;
+      const r = intakeRangeForDate(day);
+      const pf = effectiveProfileForDate(day);
+      const fm = number(pf.fatMax);
+      let c = 0, f = 0;
+      for (const meal of rows) {
+        const t = meal && meal.totals ? meal.totals : meal;
+        c += Number(t?.calories ?? 0) || 0;
+        f += Number(t?.fat ?? 0) || 0;
+      }
+      if (r && number(r.max) && c >= Number(r.max) * 1.12 && c >= Number(r.min || 0)) earlier.push(day);
+      else if (fm && f >= fm * 1.2 && r && number(r.max) && c >= Number(r.min || 0)) earlier.push(day);
+    }
+    const used = earlier.length > 0;
+    return {relax: !used, used, earlier, calories, fat, overKcal: Math.max(0, overKcal), overFat: Math.max(0, overFat)};
+  }
   function dailyCheck(input) {
     const src = input || {};
     const meals = src.meals || [], habit = src.habit || {}, range = src.range || null;
+    const relax = src.relax === true;
     const sum = meals.reduce((acc, meal) => {
       const totals = meal && meal.totals ? meal.totals : (meal || {});
       for (const key of ['calories', 'protein', 'fat', 'carbs']) acc[key] += Number(totals[key] ?? 0) || 0;
@@ -3700,7 +3747,7 @@ const values = points.length<=7 ? points.map((item,i) => {
       items.push({key: 'calories', label: '热量', value: Math.round(sum.calories), target: range.min + '~' + range.max,
         weight: DAILY_CHECK_WEIGHTS.calories, evaluated: hasMeals,
         ok: distance === 0, score: calScore,
-        state: !hasMeals ? 'idle' : (sum.calories < range.min ? 'low' : sum.calories > range.max ? 'high' : undefined)});
+        state: relax || !hasMeals ? 'idle' : (sum.calories < range.min ? 'low' : sum.calories > range.max ? 'high' : undefined)});
     }
     if (Number.isFinite(src.proteinMin) && src.proteinMin > 0) {
       items.push({key: 'protein', label: '蛋白质', value: Math.round(sum.protein), target: Math.round(src.proteinMin) + 'g 起',
@@ -3714,7 +3761,7 @@ const values = points.length<=7 ? points.map((item,i) => {
       items.push({key: 'fat', label: '脂肪', value: Math.round(sum.fat), target: Math.round(src.fatMin) + '~' + Math.round(src.fatMax) + 'g',
         weight: DAILY_CHECK_WEIGHTS.fat, evaluated: hasMeals,
         ok: distance === 0, score: distance === 0 ? 1 : clamp01(1 - distance / span),
-        state: !hasMeals ? 'idle' : (sum.fat > src.fatMax ? 'high' : sum.fat < src.fatMin ? 'low' : undefined)});
+        state: relax || !hasMeals ? 'idle' : (sum.fat > src.fatMax ? 'high' : sum.fat < src.fatMin ? 'low' : undefined)});
     }
     // 睡眠：7 小时满档；6–7 线性 0.7→1；4–6 线性 0.25→0.7；4 以下 0.1。未记录不计分。
     const sleep = Number(habit.sleep);
@@ -3767,7 +3814,11 @@ const values = points.length<=7 ? points.map((item,i) => {
       else if (worst.key === 'fat' && src.fatMax) action = '脂肪超 ' + Math.round(Math.max(0, sum.fat - src.fatMax)) + ' g：之后改白灼/清蒸，少油。';
       else if (worst.key === 'sleep') action = '睡眠 ' + (worst.value === '未记录' ? '没记录' : worst.value) + '：今天训练强度降 10%，别加组。';
     }
-    return {items, worst, best, action, verdict, score, coverage, weights: DAILY_CHECK_WEIGHTS, totals: {calories: Math.round(sum.calories), protein: Math.round(sum.protein), fat: Math.round(sum.fat), carbs: Math.round(sum.carbs)}};
+    if (relax) {
+      verdict = '今天是本周的放松日：吃得比目标多一些，属于计划内，不算失败。';
+      action = '明后两天照常吃就行，不要用少吃或加练去「补回来」——那样更容易在周末反弹。';
+    }
+    return {items, worst, best, action, verdict, score, coverage, relax, weights: DAILY_CHECK_WEIGHTS, totals: {calories: Math.round(sum.calories), protein: Math.round(sum.protein), fat: Math.round(sum.fat), carbs: Math.round(sum.carbs)}};
   }
   /**
    * Acute:chronic workload ratio from daily loads. ratio > 1.5 = spike, < 0.8 = detraining.
@@ -4068,10 +4119,13 @@ const values = points.length<=7 ? points.map((item,i) => {
     const check = dailyCheck({meals, habit, range,
       proteinMin: number(profile.proteinMin), proteinMax: number(profile.proteinMax),
       fatMin: number(profile.fatMin), fatMax: number(profile.fatMax)});
-    if (tag) tag.textContent = check.score === null ? '待记录' : '达标 ' + check.score + '/100 · 已评 ' + check.items.filter(item => item.evaluated).length + '/' + check.items.length;
+    if (tag) {
+      tag.textContent = check.relax ? '放松日 · 本周 1/1' : check.score === null ? '待记录' : '达标 ' + check.score + '/100 · 已评 ' + check.items.filter(item => item.evaluated).length + '/' + check.items.length;
+      tag.classList.toggle('is-relax', !!check.relax);
+    }
     box.innerHTML = '<div class="check-grid">' + check.items.map(item => {
       // 区间内绿、接近青、差得多淡红；没记录的保持中性。
-      const level = !item.evaluated ? 'idle' : item.ok || item.score >= 0.95 ? 'ok' : item.score >= 0.6 ? 'near' : 'off';
+      const level = check.relax ? 'idle' : !item.evaluated ? 'idle' : item.ok || item.score >= 0.95 ? 'ok' : item.score >= 0.6 ? 'near' : 'off';
       return `<div class="check-item ${level}"><span class="check-icon" aria-hidden="true">${metricIcon(item.label)}</span><small>${esc(item.label)}</small><strong>${esc(String(item.value))}</strong><em>${esc(item.target)}</em></div>`;
     }).join('') + '</div>'
       + `<p class="check-verdict">${esc(check.verdict)}</p>`
@@ -4623,7 +4677,7 @@ const values = points.length<=7 ? points.map((item,i) => {
       const line=container.querySelector('[data-advice-wait]');
       if (line) line.textContent=`正在读今天的记录…已等 ${Math.round((Date.now()-adviceStartedAt)/1000)}s`;
     },800);
-    try {const data=await api('/api/advice',{date,preferences:readPreferences(),...(useAI?{useAI:true,allowExternal:true}:{})}); if(date!==activeDate) return; if(!Array.isArray(data?.messages)) throw new Error('建议数据格式不正确。'); renderAdvice(data.messages,date);}
+    try {const relax=relaxDayInfoFor(date); const data=await api('/api/advice',{date,relaxDay:!!relax.relax,preferences:readPreferences(),...(useAI?{useAI:true,allowExternal:true}:{})}); if(date!==activeDate) return; if(!Array.isArray(data?.messages)) throw new Error('建议数据格式不正确。'); renderAdvice(data.messages,date);}
     catch(error) {
       // 模型不可用时退回本地建议：这张卡空着比给一条本地结论更糟。
       try {
@@ -4920,7 +4974,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.05';
+  const APP_VERSION = '1.3.06';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}

@@ -67,6 +67,10 @@ const noSleep = api.dailyCheck({meals: [{totals: {calories: 2200, protein: 150, 
 check('missing sleep is excluded from the score instead of penalised', noSleep.score === 100 && noSleep.coverage === 80 && noSleep.items.find(i => i.key === 'sleep').evaluated === false, `score=${noSleep.score} coverage=${noSleep.coverage}`);
 const empty = api.dailyCheck({meals: [], habit: {}, range, proteinMin: 142, proteinMax: 155, fatMin: 55, fatMax: 70});
 check('a day without records has no score at all', empty.score === null && /先记一餐/.test(empty.verdict), String(empty.score));
+const relaxed = api.dailyCheck({meals: [{totals: {calories: 2600, protein: 150, fat: 90}}], habit: {sleep: 8}, range, proteinMin: 142, proteinMax: 155, fatMin: 55, fatMax: 70, relax: true});
+check('a relax day is not scolded', relaxed.relax === true && /放松日/.test(relaxed.verdict), relaxed.verdict);
+check('a relax day asks for no compensation', /不要用少吃|照常/.test(relaxed.action), relaxed.action);
+check('relax detection exists in the page', app.includes('function relaxDayInfoFor') && app.includes('is-relax'));
 check('a good day keeps a calm action', /保持/.test(checkFine.action), checkFine.action);
 
 // --- ACWR ---------------------------------------------------------------------------------------

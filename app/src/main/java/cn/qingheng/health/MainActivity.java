@@ -3622,7 +3622,7 @@ import java.util.concurrent.Executors;
         JSONObject c = consent(b);
         JSONObject input = adviceInput(day);
         JSONArray messages = new JSONArray()
-                .put(new JSONObject().put("role", "system").put("content", adviceSystemPrompt() + preferenceSuffix(b)))
+                .put(new JSONObject().put("role", "system").put("content", adviceSystemPrompt() + (b.optBoolean("relaxDay", false) ? "\n\n今天是用户本周的放松日：吃得比目标多是计划内的，不要说教、不要建议第二天节食或加练去补偿。" : "") + preferenceSuffix(b)))
                 .put(new JSONObject().put("role", "user").put("content", input.toString()));
         long adviceStarted = System.currentTimeMillis();
         String summary;
