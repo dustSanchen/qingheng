@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.07';
+  const APP_VERSION = '1.3.08';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1473,6 +1473,26 @@
   $('#settings-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/settings',form=>{const provider=form.elements.provider.value,baseUrl=form.elements.baseUrl.value.trim(),model=form.elements.model.value.trim(),visionModel=form.elements.visionModel.value.trim(),visionEnabled=form.elements.visionEnabled.checked,key=form.elements.apiKey.value.trim(),clear=form.elements.clearKey.checked;if(key && clear)throw new Error('请不要同时填写新密钥并清除密钥。');if(key && !window.QinghengAdapter.hasNative()){form.elements.apiKey.value='';throw new Error('浏览器演示不保存 API Key；请在 APK 中配置。');}if(!/^https:\/\//i.test(baseUrl))throw new Error('API 地址必须使用 https://。');if(visionEnabled && !visionModel)throw new Error('启用图片需要填写已验证支持图片的视觉模型。');return {provider,baseUrl,model,visionModel,visionEnabled,allowExternal:form.elements.allowExternal.checked,...(key?{apiKey:key}:{}),...(clear?{clearKey:true}:{})};});});
   $('#meal-image').addEventListener('change',async event=>{const file=event.target.files[0];if(!file){feedback($('#estimate-feedback'),'没有选择照片，原来的内容没动。');return;}const revision=++imageVersion;imageData=null;imageBusy=true;feedback($('#estimate-feedback'),'正在本地压缩图片…');try{const result=await compressImage(file);if(revision!==imageVersion)return;imageData=result;mealPhotoMeta=photoMeta(null);showPhotoTime('meal',mealPhotoMeta);$('#meal-image-preview').src=result;$('#image-preview').hidden=false;feedback($('#estimate-feedback'),'图片已压缩为 JPEG，原始元数据不会上传。');}catch(error){if(revision===imageVersion){clearImage();feedback($('#estimate-feedback'),error.message,true);}}finally{if(revision===imageVersion)imageBusy=false;}});
   $('#remove-image').addEventListener('click',clearImage);
+  function estimateInputNames(value) {
+    return String(value||'').split(/[，,、；;\n+]+/).map(part=>part.trim()).filter(Boolean).map(part=>part
+      .replace(/(?:约|大约)?\s*\d+(?:\.\d+)?\s*(?:千克|公斤|kg|克|g|毫升|ml|个|碗|份|片|根|块|勺|杯)\s*$/i,'')
+      .replace(/^\d+(?:\.\d+)?\s*(?:千克|公斤|kg|克|g|毫升|ml|个|碗|份|片|根|块|勺|杯)\s*/i,'')
+      .replace(/^(?:吃了|还有|另外|加了)\s*/,'').trim())
+      .filter(name=>name && name.length<=48);
+  }
+  function estimateStreamNames(value) {
+    const names=[];
+    for(const match of String(value||'').matchAll(/"name"\s*:\s*"((?:\\.|[^"\\]){1,240})"/g)){
+      try{const name=JSON.parse(`"${match[1]}"`).trim();if(name)names.push(name);}catch{}
+    }
+    return names;
+  }
+  const estimateRetry=document.createElement('button');
+  estimateRetry.id='estimate-retry';estimateRetry.type='button';estimateRetry.className='button subtle full-width';
+  estimateRetry.textContent='重试估算';estimateRetry.hidden=true;
+  $('#estimate-feedback').after(estimateRetry);
+  estimateRetry.addEventListener('click',()=>$('#estimate-form').requestSubmit());
+  $('#estimate-form').addEventListener('input',()=>{estimateRetry.hidden=true;});
   $('#estimate-form').addEventListener('submit',async event=>{
     event.preventDefault();const form=event.currentTarget,button=$('button[type=submit]',form),message=$('#estimate-feedback');if(estimateBusy || savingDraft || !form.reportValidity())return;
     if(imageBusy){feedback(message,'图片仍在压缩，请稍等。',true);return;}
@@ -1484,36 +1504,68 @@
     if(draft && !await askConfirm('新估算会替换当前未保存的预览，继续吗？', {title:'替换预览'}))return;
     const submittedForm={elements:{date:{value:form.elements.date.value},mealType:{value:form.elements.mealType.value}},
       text, photo:photoMeta(imageData?mealPhotoMeta:null)};
-    estimateBusy=true;button.disabled=true;feedback(message,'正在生成预览，不会自动保存…');
-if (typeof showBusy === 'function') showBusy('正在计算热量…', 'estimate-busy');
+    estimateBusy=true;button.disabled=true;feedback(message,'正在准备估算…');
     const payload={text,allowExternal:externalConsent() && navigator.onLine,anchors:anchorSummary(),preferences:readPreferences(),...(imageData?{image:imageData}:{})};
-    // 流式估算：模型还在写 JSON 时就把已识别到的食物名显示出来，等待不再像卡死。
-    let seen='';
-    const startedAt=Date.now();
-    const setBusyLine=line=>{
-      feedback(message,line);
-      const inline=document.querySelector('#estimate-busy .inline-busy-text');
-      if(inline) inline.textContent=line;
+    // Render the first useful frame before settings, transport, or model latency can delay it.
+    const busy=$('#estimate-busy'),busyText=$('.inline-busy-text',busy);
+    const retry=$('#estimate-retry');retry.hidden=true;
+    busy.hidden=false;busy.classList.add('estimate-progress');
+    let progressList=$('.estimate-progress-list',busy);
+    if(!progressList){
+      progressList=document.createElement('div');progressList.className='estimate-progress-list';
+      for(let i=0;i<3;i++){
+        const row=document.createElement('div');row.className='estimate-progress-row';
+        const name=document.createElement('span');name.className='estimate-progress-name';
+        const skeleton=document.createElement('span');skeleton.className='estimate-progress-skeleton';
+        row.append(name,skeleton);progressList.appendChild(row);
+      }
+      busy.appendChild(progressList);
+    }
+    const paintProgress=(names,index)=>{
+      const visible=Math.max(3,Math.min(names.length,4));
+      while(progressList.children.length<visible){
+        const row=document.createElement('div');row.className='estimate-progress-row';
+        const name=document.createElement('span');name.className='estimate-progress-name';
+        const skeleton=document.createElement('span');skeleton.className='estimate-progress-skeleton';
+        row.append(name,skeleton);progressList.appendChild(row);
+      }
+      Array.from(progressList.children).forEach((row,i)=>{
+        row.hidden=i>=visible;
+        row.classList.toggle('is-active',i===index);
+        $('.estimate-progress-name',row).textContent=names[i]||'';
+      });
     };
-    // 计时器兜底：即使服务商把 delta 攒着不发，用户也能看到「还在跑」。
-    const ticker=setInterval(()=>{
-      if(seen) return;
-      setBusyLine(`正在识别…已等 ${Math.round((Date.now()-startedAt)/1000)}s`);
-    },700);
+    let progressNames=estimateInputNames(text),progressIndex=0;
+    const startedAt=Date.now();
+    const idleActions=imageData
+      ? ['正在识别照片中的食物','正在匹配份量','正在核对营养与调味']
+      : ['正在拆分食物','正在匹配份量','正在核对油、酱料与糖'];
+    const setBusyLine=()=>{
+      if(progressNames.length && progressIndex<progressNames.length)busyText.textContent=`正在核算 ${progressNames[progressIndex]}…`;
+      else if(progressNames.length)busyText.textContent='正在核对份量与油、酱料和糖…';
+      else busyText.textContent=idleActions[Math.min(Math.floor((Date.now()-startedAt)/1800),idleActions.length-1)]+'…';
+      paintProgress(progressNames,progressIndex);
+    };
+    setBusyLine();
+    let seen='';
     window.QinghengEstimateStream={onDelta:chunk=>{
       seen+=String(chunk||'');
-      const names=[...seen.matchAll(/"name"s*:s*"([^"]{1,24})"/g)].map(match=>match[1]);
-      const tail=names.slice(-3).join('、');
-      setBusyLine(tail ? `正在识别：${tail}…` : `正在识别…已收到 ${seen.length} 字`);
+      const names=estimateStreamNames(seen);
+      if(names.length){progressNames=names;progressIndex=Math.min(progressIndex,names.length-1);}
+      setBusyLine();
     }};
+    const ticker=setInterval(()=>{
+      if(progressNames.length && progressIndex<progressNames.length)progressIndex++;
+      setBusyLine();
+    },1400);
     try {
       let data;
       try {data=await api('/api/estimate/stream',payload);}
       catch(streamError){data=await api('/api/estimate',payload);}
       previewDraft(data,submittedForm);feedback(message,'估算完成。请在下方修改并确认，才会保存。');
     }
-    catch(error){feedback(message,error.message,true);}
-    finally{clearInterval(ticker);window.QinghengEstimateStream=null;estimateBusy=false;button.disabled=false;if(typeof hideBusy==='function')hideBusy();}
+    catch(error){feedback(message,error.message,true);retry.hidden=false;}
+    finally{clearInterval(ticker);window.QinghengEstimateStream=null;busy.hidden=true;busy.classList.remove('estimate-progress');estimateBusy=false;button.disabled=false;}
   });
   $('#estimate-items').addEventListener('input',event=>{
     const input=event.target.closest('[data-item-field]');if(!input)return;

@@ -41,11 +41,13 @@ check('the adapter rejects on a streamed error', streamBlock.includes("else fini
 check('the page handler is restored after the stream', streamBlock.includes('window.__qinghengChat=previous;'));
 
 // --- page: progressive rendering and fallback ------------------------------------------------------
-check('a streaming bubble is created up front', app.includes('function beginChatStream(question, hasImage)'));
-check('delta text is appended and flushed once per frame', app.includes('function pushChatStream(box, chunk)') && app.includes('box.pending = box.text;') && app.includes('box.frame = nextFrame(() => {'));
-check('the bubble is removed once the saved record renders', app.includes('function endChatStream(box)'));
+check('a streaming bubble and date header are created up front', app.includes('function beginChatStream(question, hasImage, date)') && app.includes('stream-chat-day'));
+check('delta text is appended and flushed once per frame', app.includes('function pushChatStream(box, chunk)') && app.includes('box.text += chunk;') && app.includes('flushChatStream(box);'));
+check('the saved record adopts the live row instead of replacing its answer', app.includes("slot.replaceWith(streamExpandedAnswer.box.box)") && app.includes('stream.adopted = true;'));
+check('structured blocks fill their existing placeholder node', app.includes("node.className = 'stream-block stream-block-ready';") && app.includes('node.innerHTML = answerHtml(raw);'));
+check('the completion path does not re-scroll a long answer', !app.includes('setTimeout(jump, 260)') && app.includes('if (streamExpandedAnswer) streamExpandedAnswer=null;'));
 check('the page passes a delta sink through a global', app.includes('window.QinghengStream = {onDelta: text => pushChatStream(box, text)'));
-check('streaming is tried first', app.includes('data = await streamChat(payload);'));
+check('streaming is tried first', app.includes('const streamed = await streamChat(payload);') && app.includes('data = streamed.data; liveStream = streamed.box;'));
 check('the buffered route is the fallback', app.includes("data = await api('/api/chat', payload);"));
 check('the fallback is explained to the user', app.includes('流式输出不可用，已改用一次性返回…'));
 check('an unsupported environment is detected before sending', app.includes("if (!window.QinghengAdapter?.hasNative?.() || !navigator.onLine) throw new Error('当前环境不支持流式输出');"));

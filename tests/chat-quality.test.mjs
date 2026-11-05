@@ -13,6 +13,7 @@ const prompts = read('app/src/main/java/cn/qingheng/health/ai/Prompts.java');
 const main = read('app/src/main/java/cn/qingheng/health/MainActivity.java');
 const app = read('app/src/main/assets/app.js');
 const adapter = read('app/src/main/assets/native-adapter.js');
+const deepSeekSearch = read('app/src/main/java/cn/qingheng/health/DeepSeekWebSearch.java');
 const css = read('app/src/main/assets/styles.css');
 
 // --- answer first, never refuse ---------------------------------------------------------------------
@@ -52,11 +53,33 @@ check('weekly means group by Monday', main.includes('previousOrSame(java.time.Da
 check('a relevance filter exists', main.includes('private static JSONArray relevantResults(JSONArray results, String question, String keywords)'));
 check('results are scored against the question', main.includes('questionTerms(question + " " + keywords)') && main.includes('if (text.contains(term)) score += terms.optInt(term, 1);'));
 check('unrelated results are removed', main.includes('if (score >= 2) kept.put(row);'));
-check('the filter runs before the model sees anything', main.includes('JSONArray kept = relevantResults(web.optJSONArray("results"), question, searchWords);'));
+check('the generic relevance filter runs before the model sees anything',
+  main.includes(': relevantResults(web.optJSONArray("results"), question, searchWords)'));
 check('an empty filtered set is treated as no lookup', main.includes('web.put("connected", web.optBoolean("connected") && kept.length() > 0);'));
 check('the model is told unrelated hits were dropped', main.includes('检索返回的条目与问题不相关，已全部剔除'));
 check('the prompt ignores irrelevant entries instead of changing topic', prompts.includes('若某条与问题无关就忽略它，不要为了用上检索结果而改变话题'));
 check('a failed lookup is not mentioned to the user', prompts.includes('检索为空时就用常识与用户记录回答，不要提及检索失败'));
+check('DeepSeek questions use its first-party Search API without an extra query rewrite', main.includes('DeepSeekWebSearch.search(c,') && main.includes('DeepSeekWebSearch.queryFor(question)'));
+check('DeepSeek Search requests fetched page content and original question context',
+  deepSeekSearch.includes('"need_content", true') && deepSeekSearch.includes('"ori_question"'));
+check('DeepSeek Search results preserve summary, content, rank, date and authority',
+  ['"summary"', '"content"', '"rerankScore"', '"date"', '"authority"'].every(field => deepSeekSearch.includes(field)));
+check('DeepSeek results prefer high-rank authoritative sources and flag weaker sets',
+  deepSeekSearch.includes('rerankScore", -1) >= 1.5') && deepSeekSearch.includes('authority", -1) >= 3')
+    && deepSeekSearch.includes('"authorityLimited", !authoritativeFound'));
+check('DeepSeek Fetch is used only for a small number of content gaps',
+  deepSeekSearch.includes('FETCH_FALLBACKS = 2') && deepSeekSearch.includes('postToolApi(config, apiKey, "fetch"'));
+check('DeepSeek Fetch rejects local hosts, private IPv4 and credentialed URLs',
+  deepSeekSearch.includes('localHost(host) || privateIpv4(host)') && deepSeekSearch.includes('uri.getRawUserInfo() != null')
+    && deepSeekSearch.includes('port == 443') && deepSeekSearch.includes('port == 80'));
+check('DeepSeek search failures fall back to the existing search path',
+  main.includes('DeepSeek Search unavailable; using existing lookup') && main.includes('web = searchAll(queries, question);'));
+check('the answer context gives the model fetched text while treating pages as untrusted',
+  main.includes('row.optString("content"') && main.includes('\\u5ffd\\u7565'));
+check('low-authority web results are disclosed to the user and the answer model',
+  main.includes('"authorityLimited", web.optBoolean("authorityLimited")')
+    && main.includes('web.optBoolean("authorityLimited", false)')
+    && app.includes('未找到高权威来源，具体数值请核对'));
 
 // --- streaming can no longer break the answer --------------------------------------------------------
 check('any streaming failure falls back to the buffered call', app.includes('data = await api(\'/api/chat\', payload);') && app.includes('已改用一次性返回'));
@@ -69,6 +92,11 @@ check('a long answer is truncated rather than dropped', main.includes('answer = 
 const completion = read('app/src/main/java/cn/qingheng/health/ChatCompletion.java');
 const completionText = completion;
 check('a null-safe string reader exists', completion.includes('public static String text(JSONObject object, String key)'));
+check('DeepSeek Search and Fetch use fixed HTTPS paths with the key in the header',
+  completion.includes('static JSONObject postToolApi') && completion.includes('"/v1/tools/" + tool')
+    && completion.includes('if (!"search".equals(tool) && !"fetch".equals(tool))')
+    && completion.includes('conn.setInstanceFollowRedirects(false)')
+    && completion.includes('setRequestProperty("Authorization", "Bearer " + apiKey)'));
 check('it treats JSON null as absent', completion.includes('if (raw == null || raw == JSONObject.NULL) return "";'));
 check('blank detection recognises org.json nulls', completion.includes('public static boolean isBlank(String value)') && completion.includes('value.replace("null", "")'));
 check('streamed deltas are read null-safely', completion.includes('delta = text(piece, "content");'));

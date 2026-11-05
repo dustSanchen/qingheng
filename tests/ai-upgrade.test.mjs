@@ -33,7 +33,9 @@ check('a failed rewrite falls back to the question', main.includes('return out;'
 check('each query is searched', main.includes('private JSONObject searchAll(JSONArray queries, String question)'));
 check('hits are de-duplicated by url', main.includes('if (url.isEmpty() || !seen.add(url)) continue;'));
 check('the merged set is reported', main.includes('.put("queries", queries)'));
-check('relevance filtering still runs afterwards', main.includes('JSONArray kept = relevantResults(web.optJSONArray("results"), question, searchWords);'));
+check('generic results keep local relevance filtering while DeepSeek uses its API rerank',
+  main.includes(': relevantResults(web.optJSONArray("results"), question, searchWords);')
+    && main.includes('web.optBoolean("deepseekSearchApi", false)'));
 
 // --- answer shape ------------------------------------------------------------------------------------
 check('answers must lead with the conclusion', prompts.includes('【回答形状】把答案放在第一句'));

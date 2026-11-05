@@ -17,6 +17,7 @@ const main = fs.readFileSync('app/src/main/java/cn/qingheng/health/MainActivity.
 const prompts = fs.readFileSync('app/src/main/java/cn/qingheng/health/ai/Prompts.java', 'utf8');
 const routes = fs.readFileSync('app/src/main/java/cn/qingheng/health/bridge/MetaRoutes.java', 'utf8');
 const alarm = fs.readFileSync('app/src/main/java/cn/qingheng/health/AlarmReceiver.java', 'utf8');
+const estimatePage = fs.readFileSync('app/src/fragments/70-rest.fragment.js', 'utf8').replace(/\r\n/g, '\n');
 
 // --- the generated asset actually works -----------------------------------------------------------
 const ctx = {self: undefined, module: undefined};
@@ -58,6 +59,22 @@ check('a recalc that only wants numbers leaves no draft behind', main.includes('
 check('recalc still offers the manual per-100g path offline', app.includes('离线或未授权外部模型：请填上每 100g 四项数值'));
 check('estimates can stream and the page shows progress', main.includes('/api/estimate/stream') && main.includes('startEstimateStream') && app.includes("api('/api/estimate/stream'") && app.includes('正在识别'));
 check('a streaming estimate still falls back to the buffered route', app.includes("catch(streamError){data=await api('/api/estimate',payload);}"));
+const progressStart = estimatePage.indexOf('  function estimateInputNames(');
+const progressEnd = estimatePage.indexOf('  const estimateRetry=', progressStart);
+const progressSandbox = {};
+vm.createContext(progressSandbox);
+vm.runInContext(estimatePage.slice(progressStart, progressEnd)
+  + '\nthis.inputNames=estimateInputNames;this.streamNames=estimateStreamNames;', progressSandbox);
+check('estimate progress lists the food names supplied by the user',
+  JSON.stringify(progressSandbox.inputNames('米饭 100g、鸡胸肉 150克、米饭 50g')) === JSON.stringify(['米饭','鸡胸肉','米饭']));
+check('estimate stream names appear only after a complete JSON name arrives',
+  progressSandbox.streamNames('{"items":[{"na').length === 0
+    && JSON.stringify(progressSandbox.streamNames('{"items":[{"name":"米饭"},{"name":"鸡胸肉"}]')) === JSON.stringify(['米饭','鸡胸肉']));
+check('estimate progress is painted before the request starts',
+  estimatePage.indexOf('setBusyLine();', estimatePage.indexOf('estimateBusy=true')) < estimatePage.indexOf("api('/api/estimate/stream'"));
+check('estimate failures retain a dedicated retry button', estimatePage.includes("retry.hidden=false;") && estimatePage.includes("requestSubmit()"));
+check('estimate progress uses actions instead of a seconds ticker',
+  !estimatePage.includes('已等 ${') && !estimatePage.includes('已收到 ${seen.length}'));
 check('interval bounds are computed for display', main.includes('draft.put(k + "Low"') && main.includes('draft.put(k + "High"'));
 check('an absurd uncertainty falls back to 15', main.includes('if (uncertainty <= 0 || uncertainty > 60) uncertainty = 15;'));
 check('oil is bounded', main.includes('if (oilGrams > 500) throw fail'));

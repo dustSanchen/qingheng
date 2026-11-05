@@ -1512,33 +1512,98 @@ function intakeRangeForDate(date = activeDate) {
     renderUndatedMeals();
     renderHub();
   }
-  /** Progressive answer bubble; removed again once the saved record is rendered. */
-  function beginChatStream(question, hasImage) {
+  /** Creates the live row once; complete answer blocks keep their DOM nodes as later text arrives. */
+  function beginChatStream(question, hasImage, date) {
     const log = $('#chat-log');
     if (!log) return null;
+    const dayHeader = document.createElement('p');
+    dayHeader.className = 'chat-day stream-chat-day';
+    dayHeader.textContent = String(date || '');
+    const dayCount = document.createElement('span'); dayCount.textContent = '正在回答';
+    dayHeader.appendChild(dayCount);
     const box = document.createElement('div');
     box.className = 'meal-row list-row stream-row';
     box.setAttribute('role', 'listitem');
     box.innerHTML = '<div class="row-body"><div class="row-head"><strong></strong>'
       + `${hasImage ? '<span class="row-tag">含照片</span>' : ''}<span class="row-tag">正在回答</span></div>`
-      + '<div class="answer stream-answer"><div class="stream-think" hidden></div><span class="stream-text"></span><span class="stream-caret" aria-hidden="true">▍</span></div></div>';
+      + '<div class="answer stream-answer"><div class="stream-think" hidden></div>'
+      + '<div class="stream-status">模型正在思考…</div><div class="stream-text"></div>'
+      + '<span class="stream-caret" aria-hidden="true">▍</span></div></div>';
     $('strong', box).textContent = question || '（照片提问）';
     log.prepend(box);
-    // 回答长在页面下方：把气泡滚进视野，否则点了「提问」像没反应。
-    nextFrame(() => {if (box.isConnected) box.scrollIntoView({block: 'start', behavior: 'smooth'});});
-    const state = {box, text: '', thinking: '', body: $('.stream-text', box), caret: $('.stream-caret', box), think: $('.stream-think', box), started: false, frame: 0, pending: ''};
-    // A reasoning model can think for a while before the first fragment; say so instead of showing an
-    // empty bubble, and drop the hint as soon as real text arrives.
-    state.body.textContent = '模型正在思考…';
-    state.hint = setTimeout(() => {if (!state.started && state.body) state.body.textContent = '模型正在思考…（推理模型会先思考再作答）';}, 4000);
+    log.prepend(dayHeader);
+    // 回答长在页面下方：把日期行和气泡滚进视野，否则点了「提问」像没反应。
+    nextFrame(() => {if (dayHeader.isConnected) dayHeader.scrollIntoView({block: 'start', behavior: 'smooth'});});
+    const state = {box, dayHeader, text: '', renderedLength: 0, thinking: '', body: $('.stream-text', box),
+      status: $('.stream-status', box), caret: $('.stream-caret', box), think: $('.stream-think', box),
+      activeBlock: null, activeKind: '', started: false, frame: 0};
+    if (state.status) state.status.textContent = '模型正在思考…';
+    state.hint = setTimeout(() => {
+      if (!state.started && state.status) state.status.textContent = '推理模型正在整理思路…';
+    }, 4000);
     return state;
+  }
+  function streamBlockKind(value) {
+    const block = String(value || '').trimStart();
+    if (/^\|/.test(block)) return 'table';
+    if (/^(?:#{1,6}\s|【|\*\*|[一二三四五六七八九十]+[、.]\s)/.test(block)) return 'section';
+    if (/^(?:[-*•·]\s+|\d+[.)]\s+)/.test(block)) return 'list';
+    return 'text';
+  }
+  function renderStreamBlock(box, value, complete) {
+    const raw = String(value || '');
+    if (!raw.trim()) return;
+    let node = box.activeBlock;
+    if (!node) {
+      node = document.createElement('div');
+      box.body.appendChild(node);
+      box.activeBlock = node;
+      box.activeKind = '';
+    }
+    const kind = streamBlockKind(raw);
+    if (kind !== 'text' && box.activeKind !== kind) {
+      node.className = `stream-block stream-block-pending stream-block-pending--${kind}`;
+      node.innerHTML = kind === 'table'
+        ? '<span class="stream-placeholder-line"></span><span class="stream-placeholder-line"></span><span class="stream-placeholder-line"></span>'
+        : '<span class="stream-placeholder-line stream-placeholder-line--heading"></span>';
+      box.activeKind = kind;
+      box.activePlaceholderCount = kind === 'table' ? 3 : 1;
+    }
+    if (kind === 'text' && !box.activeKind) box.activeKind = 'text';
+    if (kind === 'table' || kind === 'list') {
+      const lines = raw.split('\n').filter(line => line.trim()).length;
+      const rows = kind === 'table' ? Math.max(3, Math.min(lines, 9)) : Math.max(1, Math.min(lines, 8));
+      while (box.activePlaceholderCount < rows) {
+        const skeleton = document.createElement('span'); skeleton.className = 'stream-placeholder-line';
+        node.appendChild(skeleton); box.activePlaceholderCount++;
+      }
+    }
+    if (!complete) {
+      if (box.activeKind === 'text') {node.className = 'stream-block'; node.textContent = raw;}
+      return;
+    }
+    node.innerHTML = answerHtml(raw);
+    node.className = 'stream-block stream-block-ready';
+    box.activeBlock = null; box.activeKind = ''; box.activePlaceholderCount = 0;
+  }
+  function flushChatStream(box, complete = false) {
+    if (!box?.body) return;
+    let rest = box.text.slice(box.renderedLength);
+    let boundary;
+    while ((boundary = /\n[ \t]*\n/.exec(rest))) {
+      renderStreamBlock(box, rest.slice(0, boundary.index), true);
+      box.renderedLength += boundary.index + boundary[0].length;
+      rest = box.text.slice(box.renderedLength);
+    }
+    renderStreamBlock(box, rest, complete);
+    if (complete) box.renderedLength = box.text.length;
   }
   function pushChatStream(box, chunk) {
     if (!box || !chunk) return;
     if (!box.started) {
       box.started = true;
-      box.text = '';
       clearTimeout(box.hint);
+      if (box.status) box.status.hidden = true;
       // Keep the reasoning visible but small once the answer starts: a one-line summary, tappable.
       if (box.thinking && box.think) {
         box.think.textContent = `已思考 ${box.thinking.length} 字（点击展开）`;
@@ -1546,13 +1611,11 @@ function intakeRangeForDate(date = activeDate) {
       }
     }
     box.text += chunk;
-    box.pending = box.text;
     // 每个 token 写一次 DOM 会让长回答在 WebView 上抖；合批到一帧只写一次。
     if (!box.frame) {
       box.frame = nextFrame(() => {
         box.frame = 0;
-        if (!box.body) return;
-        box.body.textContent = box.pending;
+        flushChatStream(box);
         box.caret.hidden = false;
       });
     }
@@ -1568,7 +1631,32 @@ function intakeRangeForDate(date = activeDate) {
   function endChatStream(box) {
     if (box?.hint) clearTimeout(box.hint);
     if (box?.frame) {cancelFrame(box.frame); box.frame = 0;}
-    if (box?.box?.parentNode) box.box.parentNode.removeChild(box.box);
+    if (!box?.adopted && box?.box?.parentNode) box.box.parentNode.removeChild(box.box);
+    if (!box?.adopted && box?.dayHeader?.parentNode) box.dayHeader.parentNode.removeChild(box.dayHeader);
+  }
+  function finishChatStream(box, answer) {
+    if (!box) return;
+    const final = String(answer || '').trim(), received = box.text.trimEnd();
+    if (!final.startsWith(received)) {
+      if (!received || !final.endsWith(received)) throw new Error('流式内容与最终回答不一致，请重试。');
+      if (box.frame) {cancelFrame(box.frame); box.frame = 0;}
+      flushChatStream(box, true);
+      const prefix = final.slice(0, final.length - received.length);
+      if (prefix.trim()) {
+        const node = document.createElement('div');
+        node.className = 'stream-block stream-block-ready';
+        node.innerHTML = answerHtml(prefix);
+        box.body.insertBefore(node, box.body.firstChild);
+      }
+    } else {
+      if (box.frame) {cancelFrame(box.frame); box.frame = 0;}
+      box.text = final;
+      flushChatStream(box, true);
+    }
+    clearTimeout(box.hint);
+    if (box.status) box.status.hidden = true;
+    if (box.caret) box.caret.hidden = true;
+    box.finished = true;
   }
   /**
    * 把流式回答写进任意容器（今天页的训练建议卡也要有「正在思考」这一段）。
@@ -1614,13 +1702,18 @@ function intakeRangeForDate(date = activeDate) {
   /** Streams the answer through the adapter; throws when streaming is unavailable so the caller can fall back. */
   async function streamChat(payload) {
     if (!window.QinghengAdapter?.hasNative?.() || !navigator.onLine) throw new Error('当前环境不支持流式输出');
-    const box = beginChatStream(payload.question, Boolean(payload.image));
+    const box = beginChatStream(payload.question, Boolean(payload.image), payload.date);
+    if (!box) throw new Error('问答记录区域不可用，请重新打开页面后重试。');
     window.QinghengStream = {onDelta: text => pushChatStream(box, text), onThink: text => pushChatThinking(box, text)};
     try {
-      return await api('/api/chat/stream', payload);
+      const data = await api('/api/chat/stream', payload);
+      finishChatStream(box, data?.reply);
+      return {data, box};
+    } catch (error) {
+      endChatStream(box);
+      throw error;
     } finally {
       window.QinghengStream = null;
-      endChatStream(box);
     }
   }
   /** Citations for a saved answer: real https links only, collapsed by default. */
@@ -1671,6 +1764,7 @@ function intakeRangeForDate(date = activeDate) {
   /** 问答记录分页：默认只渲染最新 30 条，历史长了也不卡。 */
   let chatShownCount = 30;
   const CHAT_PAGE_SIZE = 30;
+  let streamExpandedAnswer = null;
   function resetChatPaging() { chatShownCount = CHAT_PAGE_SIZE; }
   function showEarlierChats() { chatShownCount += CHAT_PAGE_SIZE; renderChat(); }
   // ---- 按天查看 ------------------------------------------------------------------------------
@@ -1715,6 +1809,42 @@ function intakeRangeForDate(date = activeDate) {
     // 「全部日期」已经在最新一端，再往后没有更晚的了。
     if (next) next.disabled = !dates.length || index < 0;
   }
+  function adoptStreamChatRow(stream, row) {
+    const live = stream?.box;
+    if (!live || !row) return false;
+    const id = String(row.id ?? ''), question = String(row.question || ''), answerText = String(row.answer || '');
+    live.className = 'meal-row list-row';
+    live.setAttribute('data-long-press', `chat:${id}`);
+    const head = $('.row-head', live), title = $('strong', live), answer = $('.stream-answer', live);
+    if (!head || !title || !answer) return false;
+    title.textContent = question;
+    Array.from(head.querySelectorAll('.row-tag,.fav-badge')).forEach(tag => tag.remove());
+    const addTag = text => {const tag = document.createElement('span'); tag.className = 'row-tag'; tag.textContent = text; head.appendChild(tag);};
+    if (question.includes('含照片')) addTag('含照片');
+    if (/联网检索|参考来源|来源（联网/.test(answerText)) addTag('联网检索');
+    if (row.favorite === true) {
+      const badge = document.createElement('span'); badge.className = 'fav-badge'; badge.setAttribute('aria-label', '已收藏');
+      const icon = document.createElement('span'); icon.className = 'inline-icon'; icon.setAttribute('aria-hidden', 'true');
+      icon.innerHTML = SVG_ICONS['icon-bookmark.svg']; badge.appendChild(icon); head.appendChild(badge);
+    }
+    answer.className = 'answer';
+    for (const selector of ['.stream-think','.stream-status','.stream-caret']) {
+      const child = $(selector, answer); if (child?.parentNode) child.parentNode.removeChild(child);
+    }
+    if (answerText.length > 140) {
+      const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'row-toggle-inline';
+      toggle.dataset.chatToggle = id; toggle.setAttribute('aria-expanded', 'true'); toggle.textContent = '收起';
+      answer.parentNode.insertBefore(toggle, answer.nextSibling);
+      expandedChats.add(id);
+    }
+    const sources = citationBlock(row);
+    if (sources) {
+      const holder = document.createElement('div'); holder.innerHTML = sources;
+      while (holder.firstChild) answer.parentNode.appendChild(holder.firstChild);
+    }
+    stream.adopted = true;
+    return true;
+  }
   function renderChat() {
     const log = $('#chat-log');
     const shown = chatRowsInScope();
@@ -1735,6 +1865,10 @@ function intakeRangeForDate(date = activeDate) {
       const answer = /^(?:[\s\u200b-\u200f\u2060\ufeff]*null){3,}/i.test(raw)
         ? '这次回答没有正确返回（模型只返回了思考过程，没有输出内容）。请重新提问；如果反复出现，请在「我的 → 模型连接」换一个非推理模型。'
         : raw;
+      if (streamExpandedAnswer && row.question === streamExpandedAnswer.question && answer === streamExpandedAnswer.answer) {
+        streamExpandedAnswer.row = row;
+        return '<div class="stream-slot" aria-hidden="true"></div>';
+      }
       const id = String(row.id ?? '');
       const expanded = expandedChats.has(id);
       const long = answer.length > 140;
@@ -1755,6 +1889,11 @@ function intakeRangeForDate(date = activeDate) {
         + citationBlock(row)
         + `</div></div>`;
     }).join("")).join("") + moreButton : empty(chatQuery ? "没有匹配「" + chatQuery + "」的记录。" : (favoriteOnlyChats ? "还没有收藏的问答记录。长按一条记录即可收藏。" : (chatDayFilter ? chatDayFilter + " 没有问答记录。" : "还没有问答记录。有疑问时，问一句。")));
+    if (log && streamExpandedAnswer?.row) {
+      const slot = $('.stream-slot', log);
+      if (slot && adoptStreamChatRow(streamExpandedAnswer.box, streamExpandedAnswer.row)) slot.replaceWith(streamExpandedAnswer.box.box);
+      streamExpandedAnswer = null;
+    }
     renderChatDayBar();
     const node = $('#chat-mode');
     if (node) {
@@ -1894,6 +2033,7 @@ function intakeRangeForDate(date = activeDate) {
     syncCalendarDay();
     const submittedImage = chatImage, submittedPhotoMeta = photoMeta(chatPhotoMeta), submittedDate = activeDate;
     button.disabled = true; feedback(message, submittedImage ? '正在上传照片并思考，请稍候…' : '正在思考，请稍候…');
+    let liveStream = null;
     try {
       const history = (Array.isArray(state.chats) ? state.chats : []).slice(-5).flatMap(row => [{role:'user',content:String(row.question || '').slice(0,4000)},{role:'assistant',content:String(row.answer || '').slice(0,4000)}]);
       // Routing rule: a short question with no lookup intent is answered in the fast tier.
@@ -1902,7 +2042,8 @@ function intakeRangeForDate(date = activeDate) {
       const payload = {question,history,date:submittedDate,allowExternal:true,anchors:anchorSummary(),tier,library:(libraryLookup(question, 8) || librarySummary(6)),webSearch:$('#chat-web').checked && navigator.onLine && tier === 'deep',...(submittedImage?{image:submittedImage,...submittedPhotoMeta}:{})};
       let data = null;
       try {
-        data = await streamChat(payload);
+        const streamed = await streamChat(payload);
+        data = streamed.data; liveStream = streamed.box;
       } catch (streamError) {
         // Streaming is only a nicety: whatever went wrong (a provider without SSE support, a proxy that
         // buffers, a mid-stream error, a timeout), the question still gets answered through the normal
@@ -1919,22 +2060,20 @@ function intakeRangeForDate(date = activeDate) {
       const sourceUrls = Array.isArray(data?.sources) ? data.sources.map(row => row && row.url).filter(url => typeof url === 'string' && /^https:\/\//.test(url)) : [];
       const withSources = reply;
       const stored = submittedImage ? `［含照片］${question}`.slice(0,2000) : question;
-      feedback(message, data?.webSearch ? (data.webSearch.connected ? '已收到回答，已联网检索（' + data.webSearch.via + '，检索词：' + (data.webSearch.query || '') + '）。' : '已收到回答，但本次未能联网检索。') : (tier === 'fast' ? '已收到回答（快速档：不联网、只带最近三天数据）。' : '已收到回答。'));
+      let receivedMessage = data?.webSearch
+        ? (data.webSearch.connected ? '已收到回答，已联网检索（' + data.webSearch.via + '，检索词：' + (data.webSearch.query || '') + '）。' : '已收到回答，但本次未能联网检索。')
+        : (tier === 'fast' ? '已收到回答（快速档：不联网、只带最近三天数据）。' : '已收到回答。');
+      if (data?.webSearch?.authorityLimited) receivedMessage += ' 未找到高权威来源，具体数值请核对。';
+      feedback(message, receivedMessage);
       $('#chat-question').value = ''; acceptConsent('chat'); clearChatImage();
-      // 键盘收起会改视口高度、Chrome 还爱把焦点元素拉回视野，所以滚两次：立刻一次，260ms 后再校正。
-      const revealAnswer = () => {
-        const first = $('#chat-log .list-row');
-        if (!first) return;
-        const jump = () => {
-          if (!first.isConnected) return;
-          const top = first.getBoundingClientRect().top + window.scrollY - 12;
-          window.scrollTo({top: Math.max(0, top), behavior: 'smooth'});
-        };
-        jump();
-        setTimeout(jump, 260);
-      };
-      try {await loadState({quiet:true}); revealAnswer();} catch {state.chats = [...(Array.isArray(state.chats) ? state.chats : []),{date:localDate(),question:stored,answer:withSources}]; renderChat(); revealAnswer(); notice('回答已显示，但保存到手机失败，请勿重复提问。',true);}
-    } catch (error) {feedback(message,error.message,true);} finally {button.disabled = false;}
+      if (liveStream) streamExpandedAnswer={question:stored,answer:withSources,box:liveStream};
+      try {await loadState({quiet:true});} catch {state.chats = [...(Array.isArray(state.chats) ? state.chats : []),{date:localDate(),question:stored,answer:withSources}]; renderChat(); notice('回答已显示，但保存到手机失败，请勿重复提问。',true);}
+      if (streamExpandedAnswer) streamExpandedAnswer=null;
+    } catch (error) {
+      if (liveStream) endChatStream(liveStream);
+      streamExpandedAnswer=null;
+      feedback(message,error.message,true);
+    } finally {if(liveStream)endChatStream(liveStream);button.disabled = false;}
   }
   async function savePush(form) {
     const button = $('button[type=submit]',form), message = $('#push-feedback');
@@ -4974,7 +5113,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.07';
+  const APP_VERSION = '1.3.08';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -6295,6 +6434,26 @@ function metricIcon(label) {
   $('#settings-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/settings',form=>{const provider=form.elements.provider.value,baseUrl=form.elements.baseUrl.value.trim(),model=form.elements.model.value.trim(),visionModel=form.elements.visionModel.value.trim(),visionEnabled=form.elements.visionEnabled.checked,key=form.elements.apiKey.value.trim(),clear=form.elements.clearKey.checked;if(key && clear)throw new Error('请不要同时填写新密钥并清除密钥。');if(key && !window.QinghengAdapter.hasNative()){form.elements.apiKey.value='';throw new Error('浏览器演示不保存 API Key；请在 APK 中配置。');}if(!/^https:\/\//i.test(baseUrl))throw new Error('API 地址必须使用 https://。');if(visionEnabled && !visionModel)throw new Error('启用图片需要填写已验证支持图片的视觉模型。');return {provider,baseUrl,model,visionModel,visionEnabled,allowExternal:form.elements.allowExternal.checked,...(key?{apiKey:key}:{}),...(clear?{clearKey:true}:{})};});});
   $('#meal-image').addEventListener('change',async event=>{const file=event.target.files[0];if(!file){feedback($('#estimate-feedback'),'没有选择照片，原来的内容没动。');return;}const revision=++imageVersion;imageData=null;imageBusy=true;feedback($('#estimate-feedback'),'正在本地压缩图片…');try{const result=await compressImage(file);if(revision!==imageVersion)return;imageData=result;mealPhotoMeta=photoMeta(null);showPhotoTime('meal',mealPhotoMeta);$('#meal-image-preview').src=result;$('#image-preview').hidden=false;feedback($('#estimate-feedback'),'图片已压缩为 JPEG，原始元数据不会上传。');}catch(error){if(revision===imageVersion){clearImage();feedback($('#estimate-feedback'),error.message,true);}}finally{if(revision===imageVersion)imageBusy=false;}});
   $('#remove-image').addEventListener('click',clearImage);
+  function estimateInputNames(value) {
+    return String(value||'').split(/[，,、；;\n+]+/).map(part=>part.trim()).filter(Boolean).map(part=>part
+      .replace(/(?:约|大约)?\s*\d+(?:\.\d+)?\s*(?:千克|公斤|kg|克|g|毫升|ml|个|碗|份|片|根|块|勺|杯)\s*$/i,'')
+      .replace(/^\d+(?:\.\d+)?\s*(?:千克|公斤|kg|克|g|毫升|ml|个|碗|份|片|根|块|勺|杯)\s*/i,'')
+      .replace(/^(?:吃了|还有|另外|加了)\s*/,'').trim())
+      .filter(name=>name && name.length<=48);
+  }
+  function estimateStreamNames(value) {
+    const names=[];
+    for(const match of String(value||'').matchAll(/"name"\s*:\s*"((?:\\.|[^"\\]){1,240})"/g)){
+      try{const name=JSON.parse(`"${match[1]}"`).trim();if(name)names.push(name);}catch{}
+    }
+    return names;
+  }
+  const estimateRetry=document.createElement('button');
+  estimateRetry.id='estimate-retry';estimateRetry.type='button';estimateRetry.className='button subtle full-width';
+  estimateRetry.textContent='重试估算';estimateRetry.hidden=true;
+  $('#estimate-feedback').after(estimateRetry);
+  estimateRetry.addEventListener('click',()=>$('#estimate-form').requestSubmit());
+  $('#estimate-form').addEventListener('input',()=>{estimateRetry.hidden=true;});
   $('#estimate-form').addEventListener('submit',async event=>{
     event.preventDefault();const form=event.currentTarget,button=$('button[type=submit]',form),message=$('#estimate-feedback');if(estimateBusy || savingDraft || !form.reportValidity())return;
     if(imageBusy){feedback(message,'图片仍在压缩，请稍等。',true);return;}
@@ -6306,36 +6465,68 @@ function metricIcon(label) {
     if(draft && !await askConfirm('新估算会替换当前未保存的预览，继续吗？', {title:'替换预览'}))return;
     const submittedForm={elements:{date:{value:form.elements.date.value},mealType:{value:form.elements.mealType.value}},
       text, photo:photoMeta(imageData?mealPhotoMeta:null)};
-    estimateBusy=true;button.disabled=true;feedback(message,'正在生成预览，不会自动保存…');
-if (typeof showBusy === 'function') showBusy('正在计算热量…', 'estimate-busy');
+    estimateBusy=true;button.disabled=true;feedback(message,'正在准备估算…');
     const payload={text,allowExternal:externalConsent() && navigator.onLine,anchors:anchorSummary(),preferences:readPreferences(),...(imageData?{image:imageData}:{})};
-    // 流式估算：模型还在写 JSON 时就把已识别到的食物名显示出来，等待不再像卡死。
-    let seen='';
-    const startedAt=Date.now();
-    const setBusyLine=line=>{
-      feedback(message,line);
-      const inline=document.querySelector('#estimate-busy .inline-busy-text');
-      if(inline) inline.textContent=line;
+    // Render the first useful frame before settings, transport, or model latency can delay it.
+    const busy=$('#estimate-busy'),busyText=$('.inline-busy-text',busy);
+    const retry=$('#estimate-retry');retry.hidden=true;
+    busy.hidden=false;busy.classList.add('estimate-progress');
+    let progressList=$('.estimate-progress-list',busy);
+    if(!progressList){
+      progressList=document.createElement('div');progressList.className='estimate-progress-list';
+      for(let i=0;i<3;i++){
+        const row=document.createElement('div');row.className='estimate-progress-row';
+        const name=document.createElement('span');name.className='estimate-progress-name';
+        const skeleton=document.createElement('span');skeleton.className='estimate-progress-skeleton';
+        row.append(name,skeleton);progressList.appendChild(row);
+      }
+      busy.appendChild(progressList);
+    }
+    const paintProgress=(names,index)=>{
+      const visible=Math.max(3,Math.min(names.length,4));
+      while(progressList.children.length<visible){
+        const row=document.createElement('div');row.className='estimate-progress-row';
+        const name=document.createElement('span');name.className='estimate-progress-name';
+        const skeleton=document.createElement('span');skeleton.className='estimate-progress-skeleton';
+        row.append(name,skeleton);progressList.appendChild(row);
+      }
+      Array.from(progressList.children).forEach((row,i)=>{
+        row.hidden=i>=visible;
+        row.classList.toggle('is-active',i===index);
+        $('.estimate-progress-name',row).textContent=names[i]||'';
+      });
     };
-    // 计时器兜底：即使服务商把 delta 攒着不发，用户也能看到「还在跑」。
-    const ticker=setInterval(()=>{
-      if(seen) return;
-      setBusyLine(`正在识别…已等 ${Math.round((Date.now()-startedAt)/1000)}s`);
-    },700);
+    let progressNames=estimateInputNames(text),progressIndex=0;
+    const startedAt=Date.now();
+    const idleActions=imageData
+      ? ['正在识别照片中的食物','正在匹配份量','正在核对营养与调味']
+      : ['正在拆分食物','正在匹配份量','正在核对油、酱料与糖'];
+    const setBusyLine=()=>{
+      if(progressNames.length && progressIndex<progressNames.length)busyText.textContent=`正在核算 ${progressNames[progressIndex]}…`;
+      else if(progressNames.length)busyText.textContent='正在核对份量与油、酱料和糖…';
+      else busyText.textContent=idleActions[Math.min(Math.floor((Date.now()-startedAt)/1800),idleActions.length-1)]+'…';
+      paintProgress(progressNames,progressIndex);
+    };
+    setBusyLine();
+    let seen='';
     window.QinghengEstimateStream={onDelta:chunk=>{
       seen+=String(chunk||'');
-      const names=[...seen.matchAll(/"name"s*:s*"([^"]{1,24})"/g)].map(match=>match[1]);
-      const tail=names.slice(-3).join('、');
-      setBusyLine(tail ? `正在识别：${tail}…` : `正在识别…已收到 ${seen.length} 字`);
+      const names=estimateStreamNames(seen);
+      if(names.length){progressNames=names;progressIndex=Math.min(progressIndex,names.length-1);}
+      setBusyLine();
     }};
+    const ticker=setInterval(()=>{
+      if(progressNames.length && progressIndex<progressNames.length)progressIndex++;
+      setBusyLine();
+    },1400);
     try {
       let data;
       try {data=await api('/api/estimate/stream',payload);}
       catch(streamError){data=await api('/api/estimate',payload);}
       previewDraft(data,submittedForm);feedback(message,'估算完成。请在下方修改并确认，才会保存。');
     }
-    catch(error){feedback(message,error.message,true);}
-    finally{clearInterval(ticker);window.QinghengEstimateStream=null;estimateBusy=false;button.disabled=false;if(typeof hideBusy==='function')hideBusy();}
+    catch(error){feedback(message,error.message,true);retry.hidden=false;}
+    finally{clearInterval(ticker);window.QinghengEstimateStream=null;busy.hidden=true;busy.classList.remove('estimate-progress');estimateBusy=false;button.disabled=false;}
   });
   $('#estimate-items').addEventListener('input',event=>{
     const input=event.target.closest('[data-item-field]');if(!input)return;

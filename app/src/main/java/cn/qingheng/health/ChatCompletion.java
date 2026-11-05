@@ -92,6 +92,34 @@ public final class ChatCompletion {
         }
     }
 
+    /** DeepSeek's Search / Fetch endpoints share the configured host and bearer key. */
+    static JSONObject postToolApi(JSONObject config, String apiKey, String tool, JSONObject body) throws Exception {
+        if (!"search".equals(tool) && !"fetch".equals(tool))
+            throw new PublicError("不支持的 DeepSeek 工具接口");
+        if (apiKey == null || apiKey.trim().isEmpty()) throw new PublicError("未配置 API 密钥");
+        URL chat = endpoint(config.getString("baseUrl"));
+        URL destination = new URL(chat.getProtocol(), chat.getHost(), chat.getPort(), "/v1/tools/" + tool);
+        HttpsURLConnection conn = null;
+        try {
+            conn = (HttpsURLConnection)destination.openConnection();
+            conn.setConnectTimeout(15000); conn.setReadTimeout(45000); conn.setInstanceFollowRedirects(false);
+            conn.setRequestMethod("POST"); conn.setDoOutput(true);
+            conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+            conn.setRequestProperty("Authorization", "Bearer " + apiKey);
+            byte[] bytes = body.toString().getBytes(StandardCharsets.UTF_8);
+            conn.setFixedLengthStreamingMode(bytes.length);
+            try (OutputStream out = conn.getOutputStream()) { out.write(bytes); }
+            checkStatus(conn.getResponseCode());
+            try (InputStream in = conn.getInputStream()) { return new JSONObject(readText(in, LIMIT)); }
+        } catch (PublicError e) {
+            throw e;
+        } catch (Exception e) {
+            throw new PublicError("DeepSeek 搜索或抓取失败，请稍后重试");
+        } finally {
+            if (conn != null) conn.disconnect();
+        }
+    }
+
     /**
      * Streaming variant: POST with {@code stream:true} and hand every text delta to {@code onDelta}
      * as it arrives, so the answer can be typed out in the UI instead of appearing all at once.

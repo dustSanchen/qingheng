@@ -29,15 +29,22 @@ class El {
     this.tag = tag;
     this.className = className || '';
     this.children = [];
-    this.textContent = '';
+    this._text = '';
     this.hidden = false;
     this.attrs = {};
     this.parentNode = null;
     this.classList = {add: name => { this.className = `${this.className} ${name}`.trim(); }};
     this._html = '';
   }
+  get textContent() {
+    if (this.children.length) return this.children.map(row => row.textContent).join('');
+    if (this._html) return this._html.replace(/<[^>]*>/g, '');
+    return this._text;
+  }
+  set textContent(value) { this._text = String(value ?? ''); this._html = ''; this.children = []; }
   set innerHTML(value) {
     this._html = value;
+    this._text = '';
     this.children = [];
     for (const match of value.matchAll(CLASS_RE)) {
       const child = new El('span', match[1]);
@@ -45,11 +52,12 @@ class El {
       if (/\bhidden\b/.test(match[2] || '')) child.hidden = true;
       this.children.push(child);
     }
-    if (value.includes('<strong>')) this.children.push(new El('strong'));
+    if (value.includes('<strong>')) {const strong = new El('strong'); strong._text = ' '; this.children.push(strong);}
   }
   get innerHTML() { return this._html; }
   setAttribute(key, value) { this.attrs[key] = value; }
   appendChild(child) { child.parentNode = this; this.children.push(child); return child; }
+  insertBefore(child, before) {child.parentNode = this; const index = this.children.indexOf(before); this.children.splice(index < 0 ? 0 : index, 0, child); return child;}
   prepend(child) { child.parentNode = this; this.children.unshift(child); return child; }
   removeChild(child) { this.children = this.children.filter(row => row !== child); child.parentNode = null; }
   querySelector(selector) {
@@ -63,6 +71,7 @@ const sandbox = {
   document: {createElement: tag => new El(tag)},
   $: (selector, root) => selector === '#chat-log' ? log : (root ? root.querySelector(selector) : null),
   esc: value => String(value ?? ''),
+  answerHtml: value => /^\s*\|/.test(String(value)) ? '<div class="answer-table-wrap"><table class="answer-table"></table></div>' : `<p>${String(value)}</p>`,
   setTimeout: () => 0,
   clearTimeout: () => {},
   // 片段里用 nextFrame/cancelFrame 把逐 token 的写入合批；这里用同步桩（返回 0 表示「已在下一帧刷过」），
@@ -72,31 +81,31 @@ const sandbox = {
   Math, String, Array, Boolean, RegExp, Number,
 };
 vm.createContext(sandbox);
-vm.runInContext(code + '\nthis.beginChatStream = beginChatStream; this.pushChatStream = pushChatStream; this.pushChatThinking = pushChatThinking; this.endChatStream = endChatStream;', sandbox);
-const {beginChatStream, pushChatStream, pushChatThinking, endChatStream} = sandbox;
+vm.runInContext(code + '\nthis.beginChatStream = beginChatStream; this.pushChatStream = pushChatStream; this.pushChatThinking = pushChatThinking; this.endChatStream = endChatStream; this.finishChatStream = finishChatStream;', sandbox);
+const {beginChatStream, pushChatStream, pushChatThinking, endChatStream, finishChatStream} = sandbox;
 
 // --- the sequence ------------------------------------------------------------------------------------
-const box = beginChatStream('汉堡王的大皇堡多少热量', false);
-check('a bubble is created and prepended', log.children.length === 1 && box.box.parentNode === log);
+const box = beginChatStream('汉堡王的大皇堡多少热量', false, '2026-11-06');
+check('a bubble and its day header are created together', log.children.length === 2 && log.children[0] === box.dayHeader && box.box.parentNode === log);
 check('it shows the question', box.box.querySelector('strong').textContent === '汉堡王的大皇堡多少热量');
-check('it starts with the thinking hint', box.body.textContent.includes('模型正在思考'));
+check('it starts with the thinking hint', box.status.textContent.includes('模型正在思考'));
 check('the thinking block starts hidden', box.think.hidden === true);
 
 pushChatThinking(box, '先看品牌营养表');
 check('thinking becomes visible', box.think.hidden === false);
 check('thinking text is shown as-is', box.think.textContent === '先看品牌营养表', box.think.textContent);
-check('the hint is still the answer area', box.body.textContent.includes('模型正在思考'));
+check('the hint stays separate from answer content', box.status.textContent.includes('模型正在思考') && box.body.textContent === '');
 
 pushChatThinking(box, '，一份皇堡约 660 kcal');
 check('thinking accumulates', box.think.textContent.length > 6);
 
 pushChatStream(box, '约 660');
-check('the answer starts filling the answer area', box.body.textContent === '约 660');
+check('the answer starts filling the answer area', box.body.children[0]?.textContent === '约 660');
 check('thinking collapses to a one-line summary', box.think.textContent.startsWith('已思考 ') && box.think.textContent.includes('字（点击展开）'), box.think.textContent);
 check('thinking is NOT merged into the answer', !box.body.textContent.includes('品牌营养表') && !box.body.textContent.includes('已思考'));
 
 pushChatStream(box, ' kcal（±15%）');
-check('the answer accumulates', box.body.textContent === '约 660 kcal（±15%）', box.body.textContent);
+check('the answer accumulates', box.body.children[0]?.textContent === '约 660 kcal（±15%）', JSON.stringify(box.body.children[0]?.textContent));
 
 pushChatThinking(box, '迟到的思考片段');
 check('late thinking is ignored once the answer started', !box.think.textContent.includes('迟到的思考片段'), box.think.textContent);
@@ -110,6 +119,34 @@ pushChatThinking(second, 'x'.repeat(900));
 check('very long thinking is truncated to the tail', second.think.textContent.length <= 601 && second.think.textContent.startsWith('…'), String(second.think.textContent.length));
 endChatStream(second);
 check('the log is empty again', log.children.length === 0);
+
+// --- completed blocks retain their node while later text and structured output arrive -----------------
+const structured = beginChatStream('表格问题', false);
+pushChatStream(structured, '先给结论。');
+const firstBlock = structured.body.children[0];
+pushChatStream(structured, '\n\n| 食物 | 克重 |\n| --- | --- |\n| 米饭 | 100 |');
+const tableBlock = structured.body.children[1];
+check('the completed paragraph remains the same DOM node', structured.body.children[0] === firstBlock);
+check('a table occupies a placeholder before it is complete', tableBlock.className.includes('stream-block-pending--table'));
+check('later deltas do not rewrite completed text', firstBlock.textContent === '先给结论。');
+pushChatStream(structured, '\n\n下一段继续。');
+check('the table placeholder is filled in place as a whole block', structured.body.children[1] === tableBlock && tableBlock.className === 'stream-block stream-block-ready');
+check('text after the table is appended as a separate block', structured.body.children.length === 3 && structured.body.children[2].textContent === '下一段继续。', JSON.stringify(structured.body.children[2]?.textContent));
+finishChatStream(structured, '先给结论。\n\n| 食物 | 克重 |\n| --- | --- |\n| 米饭 | 100 |\n\n下一段继续。');
+check('completion keeps the same block nodes and hides the caret', structured.body.children[0] === firstBlock && structured.body.children[1] === tableBlock && structured.caret.hidden);
+endChatStream(structured);
+
+const repeated = [];
+for (let i = 0; i < 10; i++) {
+  const row = beginChatStream(`第 ${i + 1} 次`, false);
+  const answer = `回答 ${i + 1}。\n\n第二段。`;
+  pushChatStream(row, answer);
+  finishChatStream(row, answer);
+  repeated.push(row.body.textContent);
+  endChatStream(row);
+}
+check('ten consecutive streams keep each answer complete', repeated.length === 10 && repeated.every((answer, i) => answer.includes(`回答 ${i + 1}`) && answer.includes('第二段')));
+check('no live rows remain after ten completions', log.children.length === 0);
 
 console.log('\nFAIL total: ' + fail);
 process.exitCode = fail ? 1 : 0;

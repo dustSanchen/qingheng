@@ -303,8 +303,24 @@ label.sheet-option{flex-direction:row;margin:0;cursor:pointer}
 .subpage h3{font-size:13px;font-weight:var(--fw-semibold);margin:16px 0 6px}
 #storage-status{background:var(--accent-soft);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:var(--text-xs)}
 
-/* Streaming answer bubble: text arrives progressively, with a caret while the model is talking. */
+/* Streaming answer blocks stay in place; structured output fills its original placeholder. */
 .stream-row .stream-answer{white-space:pre-wrap;word-break:break-word}
+.stream-status{color:var(--muted);font-size:var(--text-sm);margin:0 0 6px}
+.stream-think{padding:6px 8px;margin:0 0 8px;border-left:2px solid var(--line);color:var(--muted);font-size:var(--text-xs);white-space:pre-wrap;overflow-wrap:anywhere}
+.stream-think.is-summary{max-height:2.2em;overflow:hidden}
+.stream-text{display:contents}
+.stream-block{display:contents;white-space:pre-wrap;overflow-wrap:anywhere}
+.stream-block-pending{display:grid;gap:6px;min-height:32px;margin:8px 0;padding:8px;border:1px dashed var(--line);border-radius:6px}
+.stream-block-pending--table{grid-template-columns:minmax(0,1fr);min-height:84px}
+.stream-block-pending--table .stream-placeholder-line{height:24px}
+.stream-block-pending--list{gap:5px}
+.stream-block-pending--list .stream-placeholder-line{height:22px}
+.stream-block-pending--section{min-height:40px;align-content:center}
+.stream-placeholder-line{display:block;width:82%;height:7px;align-self:center;border-radius:4px;background:var(--line);opacity:.65}
+.stream-placeholder-line:nth-child(2n){width:60%}
+.stream-placeholder-line--heading{width:min(180px,64%);height:10px}
+.stream-block-ready p{margin:0}
+.stream-slot{min-height:1px}
 .stream-caret{display:inline-block;margin-left:2px;color:currentColor;animation:stream-blink var(--dur-pulse) steps(2,start) infinite}
 @keyframes stream-blink{to{visibility:hidden}}
 @media (prefers-reduced-motion: reduce){.stream-caret{animation:none}}
@@ -1233,6 +1249,13 @@ details:not(.day-more)[open]>summary:active::after{transform:rotate(180deg) scal
 .inline-busy::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);transform:translateX(-100%);animation:busy-sheen var(--dur-pulse) ease-in-out infinite}
 .busy-ring{width:16px;height:16px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--accent);animation:busy-spin var(--dur-spin) linear infinite;flex:0 0 auto}
 .inline-busy-text{font-size:var(--text-sm);color:var(--body-text);letter-spacing:var(--tracking-label)}
+.inline-busy.estimate-progress{display:block;border-radius:8px;padding:11px 13px}
+.inline-busy.estimate-progress::after{display:none}
+.estimate-progress-list{display:grid;gap:6px;margin-top:8px}
+.estimate-progress-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:12px}
+.estimate-progress-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--body-text);font-size:var(--text-xs)}
+.estimate-progress-row.is-active .estimate-progress-name{font-weight:var(--fw-semibold);color:var(--accent)}
+.estimate-progress-skeleton{display:block;width:clamp(64px,22%,150px);height:6px;flex:0 0 auto;border-radius:4px;background:var(--line);opacity:.7}
 @keyframes busy-sheen{0%{transform:translateX(-100%)}60%,100%{transform:translateX(100%)}}
 @media (prefers-reduced-motion: reduce){.inline-busy::after{animation:none}.busy-ring{animation:none}}
 
