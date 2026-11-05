@@ -3232,6 +3232,11 @@ import java.util.concurrent.Executors;
             JSONObject clean = new JSONObject().put("name", item.getString("name"));
             clean.put("grams", number(item, "grams"));
             for (String k : new String[]{"calories", "protein", "carbs", "fat"}) clean.put(k, number(item, k));
+            // Fiber is optional. Keeping it on the item is what makes the 2 kcal/g reconciliation live:
+            // without this the prompt's fiber field would be dropped and NutritionMath would only see 4/4/9.
+            Double fiberField = finite(item, "fiber");
+            if (fiberField != null && fiberField > 0)
+                clean.put("fiber", Math.min(Math.max(0, Math.round(fiberField * 10) / 10.0), clean.optDouble("carbs", 0)));
             items.put(clean);
         }
         Object notes = parsed.opt("notes");
