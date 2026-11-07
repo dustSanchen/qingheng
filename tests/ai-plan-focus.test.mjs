@@ -16,12 +16,12 @@ const main = read('app/src/main/java/cn/qingheng/health/MainActivity.java');
 // --- client: one dedicated request -------------------------------------------------------------------
 // 窗口而不是 indexOf('\n  }\n')：检出时是 CRLF，按 LF 切片会把函数切空。
 const planBody = rest.slice(rest.indexOf('async function askAiPlan'));
-const planFn = planBody.slice(0, 4000);
+const planFn = planBody.slice(0, 6000);
 check('the plan asks the chat route for plan focus', planFn.includes('focus: "plan"'));
 check('the plan no longer sets the conflicting fast tier', !planFn.includes('tier: "fast"'));
 check('the busy layer is raised before any prompt work can throw',
-  planFn.indexOf('showBusy("正在排今天的动作顺序…")') > 0
-  && planFn.indexOf('showBusy("正在排今天的动作顺序…")') < planFn.indexOf('const prefs = typeof planPrefs'));
+  planFn.indexOf('showBusy("正在排今天的动作顺序…", "plan-busy")') > 0
+  && planFn.indexOf('showBusy("正在排今天的动作顺序…", "plan-busy")') < planFn.indexOf('const prefs = typeof planPrefs'));
 check('the button is restored in finally', planFn.includes('} finally {') && planFn.includes('button.disabled = false;'));
 // 只钉语义（慢时要说明还在等模型 + 12s 兜底提示），不钉整句文案——文案会改，断言不该跟着改。
 check('a slow call says what it is waiting for', planFn.includes('模型还在排') && planFn.includes('setTimeout(() => showBusy("模型还在排') && planFn.includes('12000'));
@@ -32,7 +32,7 @@ check('fenced replies are stripped', rest.includes('function parseAiPlanReply') 
 check('the array is found by bracket balance, not lastIndexOf', rest.includes('if (ch === "[") depth += 1;') && rest.includes('if (!depth) { end = i; break; }'));
 check('trailing commas are tolerated', rest.includes('.replace(/,\\s*([\\]}])/g, "$1")'));
 check('an unparsable reply yields no plan instead of throwing', /try \{ rows = JSON\.parse\(slice\); \} catch \{ return \[\]; \}/.test(rest));
-check('the plan is capped like the editor cap', rest.includes('.slice(0, 12).map(row => ({'));
+check('the plan is capped like the editor cap', rest.includes('.slice(0, 12).map(planItemFromRow)'));
 
 // --- native: separate prompt and budget ---------------------------------------------------------------
 check('the native side knows the plan focus', main.includes('boolean planFocus = "plan".equals(b.optString("focus", ""))'));

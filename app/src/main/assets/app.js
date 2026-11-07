@@ -5597,7 +5597,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.15';
+  const APP_VERSION = '1.3.17';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -5759,6 +5759,7 @@ function metricIcon(label) {
     if (busyTimer) { clearTimeout(busyTimer); busyTimer = null; }
     const layer = $("#busy-layer"); if (layer) layer.hidden = true;
     const inline = document.getElementById("estimate-busy"); if (inline) inline.hidden = true;
+    const planInline = document.getElementById("plan-busy"); if (planInline) planInline.hidden = true;
   }
 
   /** 用模型按顺序排今天的训练：需要勾选同意，失败就明确报错，不伪造计划。 */
@@ -5884,9 +5885,10 @@ function metricIcon(label) {
       // 名字、建议、组数同一栏：建议再长也只在自己的列里换行，不会把名字挤成一列，
       // 组数落在建议下方，和「做什么、为什么、做多少」的阅读顺序一致。
       // 名字本身是按钮：点开看这个动作练什么、要点是什么；勾选框仍是「已做完」。
-      return "<div class=\"ai-plan-row\" role=\"listitem\"><label class=\"ai-plan-main\"><input type=\"checkbox\" data-ai-done=\"" + index + "\"" + (item.done ? " checked" : "") + "><span class=\"ai-plan-text\"><button type=\"button\" class=\"ai-plan-name\" data-ai-guide=\"" + index + "\" aria-haspopup=\"dialog\" aria-label=\"查看动作说明：" + esc(item.name) + "\">" + esc(item.name) + "<span class=\"ai-plan-name-mark\" aria-hidden=\"true\">?</span></button>"
-        + (item.reason ? "<span class=\"ai-plan-reason\">" + esc(item.reason) + "</span>" : "")
+      return "<div class=\"ai-plan-row\" role=\"listitem\"><label class=\"ai-plan-main\"><input type=\"checkbox\" data-ai-done=\"" + index + "\"" + (item.done ? " checked" : "") + "><span class=\"ai-plan-text\"><span class=\"ai-plan-head\"><button type=\"button\" class=\"ai-plan-name\" data-ai-guide=\"" + index + "\" aria-haspopup=\"dialog\" aria-label=\"查看动作说明：" + esc(item.name) + "\">" + esc(item.name) + "<span class=\"ai-plan-name-mark\" aria-hidden=\"true\">?</span></button>"
         + (dose ? "<span class=\"ai-plan-dose\">" + esc(dose) + "</span>" : "")
+        + "</span>"
+        + (item.reason ? "<span class=\"ai-plan-reason\">" + esc(item.reason) + "</span>" : "")
         + "</span></label></div>";
     }
     const num = (name, value, attrs, label) => "<input class=\"ai-plan-input\" data-ai-field=\"" + name + "\" type=\"number\" inputmode=\"decimal\" " + attrs + " value=\"" + (value == null ? "" : value) + "\" aria-label=\"" + label + "\">";
@@ -5940,6 +5942,50 @@ function metricIcon(label) {
       ? '<div class="ai-plan-append"><button type="button" class="button subtle" data-ai-append>添加一个动作</button></div>'
       : "");
   }
+  /** 一行模型返回 → 计划条目；完整解析与流式预览共用同一套字段裁剪。 */
+  function planItemFromRow(row) {
+    return {
+      name: String(row.name).trim().slice(0, 24),
+      sets: Number(row.sets) > 0 ? Math.round(Number(row.sets)) : 0,
+      reps: Number(row.reps) > 0 ? Math.round(Number(row.reps)) : 0,
+      weight: Number(row.weight) > 0 ? Number(row.weight) : null,
+      distanceKm: Number(row.distanceKm) > 0 ? Number(row.distanceKm) : null,
+      durationMin: Number(row.durationMin) > 0 ? Number(row.durationMin) : null,
+      reason: String(row.reason || "").slice(0, 60),
+      source: "ai",
+      done: false
+    };
+  }
+  /** 流式期间只认已经闭合的 {...}，先画出来；最后仍以完整数组为准。 */
+  function partialPlanRows(text) {
+    const source = String(text || "");
+    const start = source.indexOf("[");
+    if (start < 0) return [];
+    const rows = [];
+    let depth = 0, objStart = -1, inString = false, escaped = false;
+    for (let i = start; i < source.length; i++) {
+      const ch = source.charAt(i);
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (ch === "\\") escaped = true;
+        else if (ch === '"') inString = false;
+        continue;
+      }
+      if (ch === '"') { inString = true; continue; }
+      if (ch === "{") { if (depth === 0) objStart = i; depth += 1; }
+      else if (ch === "}") {
+        depth -= 1;
+        if (depth === 0 && objStart >= 0) {
+          try {
+            const row = JSON.parse(source.slice(objStart, i + 1));
+            if (row && String(row.name || "").trim()) rows.push(row);
+          } catch { }
+          objStart = -1;
+        }
+      }
+    }
+    return rows;
+  }
   /** 模型偶尔会裹 ```json、末尾多一个逗号、或先寒暄两句：按括号配对取数组，再宽松解析。 */
   function parseAiPlanReply(reply) {
     const text = String(reply || "").replace(/```[a-zA-Z]*/g, "").trim();
@@ -5964,17 +6010,7 @@ function metricIcon(label) {
     try { rows = JSON.parse(slice); } catch { return []; }
     if (!Array.isArray(rows)) return [];
     // 组数与有氧距离都为空的行仍是合法动作（用户随后自己填），不在这里删。
-    return rows.filter(row => row && String(row.name || "").trim()).slice(0, 12).map(row => ({
-      name: String(row.name).trim().slice(0, 24),
-      sets: Number(row.sets) > 0 ? Math.round(Number(row.sets)) : 0,
-      reps: Number(row.reps) > 0 ? Math.round(Number(row.reps)) : 0,
-      weight: Number(row.weight) > 0 ? Number(row.weight) : null,
-      distanceKm: Number(row.distanceKm) > 0 ? Number(row.distanceKm) : null,
-      durationMin: Number(row.durationMin) > 0 ? Number(row.durationMin) : null,
-      reason: String(row.reason || "").slice(0, 60),
-      source: "ai",
-      done: false
-    }));
+    return rows.filter(row => row && String(row.name || "").trim()).slice(0, 12).map(planItemFromRow);
   }
   async function askAiPlan(button) {
     if (!button) return;
@@ -5982,9 +6018,10 @@ function metricIcon(label) {
     button.disabled = true;
     const original = button.textContent;
     button.textContent = "正在排…";
-    showBusy("正在排今天的动作顺序…");
+    showBusy("正在排今天的动作顺序…", "plan-busy");
     // 慢的时候要说清还在等模型，别让按钮无声地停在「正在排…」。
-    const slowTimer = setTimeout(() => showBusy("模型还在排，一般要半分钟左右，请再等一会儿…"), 12000);
+    const slowTimer = setTimeout(() => showBusy("模型还在排，一般要半分钟左右，请再等一会儿…", "plan-busy"), 12000);
+    const planBefore = aiPlanStore(activeDate) || [];
     try {
       // 素材也放在 try 里：任何一步抛错都要落进 catch，不能让按钮卡死在「正在排…」。
       const prefs = typeof planPrefs === "function" ? planPrefs() : null;
@@ -5992,9 +6029,9 @@ function metricIcon(label) {
       const done = exercisesFor(activeDate).filter(item => item && item.name).map(item => item.name + " " + (item.sets || "") + "x" + (item.reps || ""));
       // 喂给模型与本地规则引擎同一份素材：上周基线 + 训练库规则，输出质量才对得起「渐进」。
       const baselines = typeof recentExerciseBaselines === "function" ? recentExerciseBaselines(14) : {};
-      const baselineText = Object.entries(baselines).slice(0, 8).map(([name, row]) =>
+      const baselineText = Object.entries(baselines).slice(0, 6).map(([name, row]) =>
         name + " " + row.sets + "x" + row.reps + (row.weight ? " " + row.weight + "kg" : "")).join("；");
-      const library = typeof librarySummary === "function" ? librarySummary(6) : "";
+      const library = typeof librarySummary === "function" ? librarySummary(4) : "";
       const prompt = [
         "请为今天排一个按顺序执行的训练清单。",
         "信息：目标=" + (GOAL_LABEL[profile.goal] || "未填") + "；体重=" + (profile.weight || "未填") + "kg；每周练=" + (prefs && prefs.days ? prefs.days : (plannedSessions() || "未填")) + "；分化=" + (prefs ? prefs.split : "未填") + "；器械=" + (prefs ? (typeof GEAR_LABELS === "object" && GEAR_LABELS[prefs.gear] ? GEAR_LABELS[prefs.gear] : prefs.gear) : "未填")
@@ -6003,12 +6040,43 @@ function metricIcon(label) {
         baselineText ? "上周最近记录（供渐进参考，不要盲目加量）：" + baselineText + "。" : "",
         library ? "训练规则（必须遵守）：\n" + library : "",
         done.length ? ("今天已记录：" + done.join("；") + "。") : "今天还没有训练记录。",
+        "每个动作的 reason 只写一句、不超过 12 个字，写为什么排它。",
         "只输出 JSON 数组，第一个字符是 [，不要解释、不要代码块标记。"
       ].filter(Boolean).join("\n");
       // focus:"plan" 走后端专用的「只出 JSON」提示词；tier:"fast" 会追加「最多 3 句」，与 JSON 直接冲突。
-      const data = await api("/api/chat", {question: prompt, date: activeDate, webSearch: false, focus: "plan", allowExternal: true, logToHistory: false});
+      const payload = {question: prompt, date: activeDate, webSearch: false, focus: "plan", allowExternal: true, logToHistory: false};
+      let data;
+      try {
+        // 边流边画：模型每吐完一个动作就先出现在列表里，不用盯着空列表等整段结束。
+        let streamed = "", shown = 0;
+        window.QinghengStream = {onDelta: chunk => {
+          if (!chunk) return;
+          streamed += chunk;
+          const rows = partialPlanRows(streamed);
+          if (rows.length > shown) {
+            shown = rows.length;
+            aiPlanStore(activeDate, rows.slice(0, 12).map(planItemFromRow));
+            renderAiPlan();
+            showBusy("已排好 " + shown + " 个动作，继续中…", "plan-busy");
+          }
+        }};
+        data = await api("/api/chat/stream", payload);
+      } catch (streamError) {
+        // 流式不可用（浏览器演示、断网、服务商不支持）：退回一次性接口，行为与旧版一致。
+        aiPlanStore(activeDate, planBefore);
+        renderAiPlan();
+        showBusy("模型还在排，请再等一会儿…", "plan-busy");
+        data = await api("/api/chat", payload);
+      } finally {
+        window.QinghengStream = null;
+      }
       const plan = parseAiPlanReply(String(data && data.reply ? data.reply : ""));
-      if (!plan.length) throw new Error("模型这次没有给出清单，原清单已保留；请再点一次重试。");
+      if (!plan.length) {
+        // 一份都没解析出来：把原来的清单放回去，别让用户白等还丢计划。
+        aiPlanStore(activeDate, planBefore);
+        renderAiPlan();
+        throw new Error("模型这次没有给出清单，原清单已保留；请再点一次重试。");
+      }
       aiPlanStore(activeDate, plan);
       renderAiPlan();
       // 今日页的「今日清单」读的是同一份数据，排完必须一起刷，否则两个页面各说各话。

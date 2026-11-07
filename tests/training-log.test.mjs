@@ -59,14 +59,14 @@ check('the today list mirrors the AI plan with done checkboxes', app.includes('d
 check('an empty day offers two generators', /data-today-plan=\\?"ai\\?"/.test(app) && /data-today-plan=\\?"week\\?"/.test(app));
 check('AI plan rows carry the model reason', app.includes('ai-plan-reason') && main.includes('一句话为什么排它'));
 check('the plan row keeps name, advice and dose in one text column', app.includes('ai-plan-text') && css.includes('.ai-plan-text{display:flex;flex-direction:column'));
-check('the dose sits below the model advice', /ai-plan-reason[\s\S]{0,120}ai-plan-dose/.test(app));
+check('the dose sits beside the name', /ai-plan-head[\s\S]{0,700}ai-plan-dose[\s\S]{0,300}ai-plan-reason/.test(app));
 check('a checked row strikes the name inside the text column', css.includes('.ai-plan-row input:checked ~ .ai-plan-text .ai-plan-name'));
 check('edit rows label their inputs in Chinese', app.includes('组数') && app.includes('负重公斤') && !app.includes('aria-label="sets"'));
 check('edit mode can add a blank row and keeps the reason visible', app.includes('data-ai-append') && app.includes('ai-plan-edit-reason') && app.includes('一份清单最多 12 个动作'));
 check('only the checkbox uses order:-1 so edit inputs keep their grid slot', css.includes('.ai-plan-row input[type=checkbox]{order:-1') && !css.includes('.ai-plan-row input{order:-1'));
 check('removing a row names it from the edit input too', app.includes('已移除这个动作') && app.includes('nameField.value'));
 check('askAiPlan sees the same baselines as the rule engine', app.includes('function recentExerciseBaselines') && app.includes('上周最近记录（供渐进参考'));
-check('askAiPlan follows the training library', /askAiPlan[\s\S]{0,3400}librarySummary\(6\)/.test(app));
+check('askAiPlan follows the training library', /askAiPlan[\s\S]{0,4200}librarySummary\(4\)/.test(app));
 check('run km/minutes inherit by name, not by row index', app.includes('runsByName') && !app.includes('exercisesFor(activeDate)[index]'));
 
 console.log('\nFAIL total: ' + fail);

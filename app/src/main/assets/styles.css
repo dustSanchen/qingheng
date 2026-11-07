@@ -1183,7 +1183,7 @@ body.no-training #training-advice-order{display:none !important}
 .ai-plan{margin:var(--space-3) 0 0;padding-top:var(--space-3);border-top:1px solid var(--line)}
 .ai-plan .card-heading h3{margin:0;font-size:var(--text-sm);color:var(--muted);font-weight:var(--fw-medium)}
 #ai-plan-list{counter-reset:ai-step}
-.ai-plan-row{display:flex;flex-direction:row;align-items:flex-start;gap:var(--space-2);margin:0;min-height:48px;padding:var(--space-2) 0;border-bottom:1px solid var(--line);font-size:var(--text-md)}
+.ai-plan-row{display:flex;flex-direction:row;align-items:flex-start;gap:var(--space-2);margin:0;min-height:44px;padding:var(--space-1) 0;border-bottom:1px solid var(--line);font-size:var(--text-md)}
 .ai-plan-row input[type=checkbox]{order:-1;flex:0 0 auto;width:18px;height:18px;margin:2px 0 0;accent-color:var(--accent)}
 .ai-plan-row::before{counter-increment:ai-step;content:counter(ai-step);flex:0 0 1.5em;color:var(--muted);font-size:var(--text-sm);font-variant-numeric:tabular-nums}
 .ai-plan-row:last-child{border-bottom:0}
@@ -1200,6 +1200,9 @@ body.no-training #training-advice-order{display:none !important}
 .ai-plan-summary-note{flex:0 1 auto;color:var(--muted)}
 .ai-plan-summary .text-button{flex:0 0 auto;min-height:0;padding:0 2px;font-size:var(--text-xs)}
 .ai-plan-dose{flex:0 0 auto;white-space:nowrap;color:var(--muted);font-size:var(--text-sm);font-variant-numeric:tabular-nums}
+/* 名字与剂量同一行：宽屏左右分开，窄屏自动换到下一行，不写死宽度。 */
+.ai-plan-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:2px 8px;min-width:0}
+.ai-plan-head .ai-plan-dose{margin-left:auto}
 .ai-plan-row input:checked ~ .ai-plan-text .ai-plan-name{color:var(--muted);text-decoration:line-through}
 
 /* 等待层：半透明遮罩 + 旋转环 + 一行说明，轻量、不抢焦点。 */

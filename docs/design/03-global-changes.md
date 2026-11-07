@@ -142,5 +142,7 @@
 | 2026-11-07 | `tests/training-library.test.mjs` | 标题「整理图参考处方」→「参考处方」 | 同上：标题里不再点明来源；断言跟随新文案 |
 | 2026-11-07 | `tests/training-library.test.mjs` | 「卡片显示参考处方」→「参考处方块已删除」 | 用户判定该行对使用没帮助、只会带来疑问；1.3.14 整块移除，断言改为守着它不再回来 |
 | 2026-11-07 | `tests/training-library.test.mjs` | 「参考处方渲染 day.cues」→「day.cues 仍作为数据存在、不再上屏」 | 块删除后，日模板要点只在数据层供计划生成使用，断言改为检查数据仍在、UI 不再渲染 |
+| 2026-11-07 | `tests/ai-plan-focus.test.mjs` ×3、`tests/training-log.test.mjs` | 快照窗口 4000→6000；`showBusy(...)` → `showBusy(..., "plan-busy")`；`slice(0,12).map(row=>...)` → `map(planItemFromRow)`；计划提示的 `librarySummary(6)` → `(4)` | 1.3.16 把排程改成流式逐条渲染并压短 reason，函数变长、提示词体量下调，断言跟随现役实现 |
+| 2026-11-07 | `tests/training-log.test.mjs` | 「剂量在建议下方」→「剂量与名字同一行」 | 1.3.17 把剂量挪进 `.ai-plan-head` 与名字同行，窄屏自动换行，减少每行一行高度 |
 
 
