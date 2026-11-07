@@ -131,7 +131,7 @@ check('the digest rules exist', ['push-day-template','pull-day-template','legs-d
 check('the generator uses the day templates', app.includes('libraryDayTemplate(template)') && app.includes('function libraryDayTemplate(template)'));
 check('plan items show RPE', app.includes("' · RPE ' + item.rpe"));
 
-check('the card shows the reference prescriptions', app.includes('<summary>参考处方</summary>') && app.includes('plan.days.some(day => day.suggested)'));
+check('the reference prescriptions block is gone', !app.includes('参考处方') && !app.includes('plan-ref'));
 
 // --- ASR 口述级规则（A 级） ---------------------------------------------------------------
 check('asr transcript rules', lib.sources.some(s => s.id === 'asr-transcript'));
@@ -185,7 +185,8 @@ check('the push cue mentions the elbow angle', lib.dayTemplates.push.cues.some(c
 check('the pull cue mentions horizontal flare', lib.dayTemplates.pull.cues.some(c => c.includes('水平开肘')));
 check('the legs cue mentions the six-move warmup', lib.dayTemplates.legs.cues.some(c => c.includes('45 秒')));
 check('the card shows the body-part hints', app.includes('function bodyPartHints') && app.includes('按部位查解剖要点'));
-check('the reference block shows the cues', app.includes('day.cues.map(cue => esc(cue))'));
+check('day-template cues stay as data, not UI', !app.includes('day.cues.map') && !!lib.dayTemplates
+  && Object.values(lib.dayTemplates).some(day => Array.isArray(day.cues) && day.cues.length));
 
 const rich = fs.readFileSync('app/src/fragments/10-rich-answer.fragment.js', 'utf8');
 const carbStart = rich.indexOf('function carbCap');

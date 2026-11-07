@@ -940,23 +940,9 @@
       if (!stats || !Number.isFinite(stats.ratio)) return '';
       const level = stats.flag === 'high' ? 'high' : stats.flag === 'low' ? 'low' : 'ok';
       const verdict = level === 'high' ? '偏高 · 本周减载' : level === 'low' ? '偏低 · 按记录安排' : '维持';
-      return '<div class="plan-load is-' + level + '"><span class="plan-load-label">急慢性负荷比</span>'
+      return '<p class="plan-label">训练负荷</p><div class="plan-load is-' + level + '"><span class="plan-load-label">急慢性负荷比</span>'
         + '<span class="plan-load-value">' + stats.ratio.toFixed(2) + '</span>'
         + '<span class="plan-load-verdict">' + verdict + '</span></div>';
-    })();
-    const reference = (() => {
-      const lib = trainingLibrary();
-      if (!lib || !lib.dayTemplates) return '';
-      const names = ['push', 'pull', 'legs'];
-      const rows = names.map(key => {
-        const day = lib.dayTemplates[key];
-        if (!day || !day.exercises) return '';
-        const list = day.exercises.map(item => esc(item.name) + ' ' + item.sets + '×' + item.reps + (item.rpe ? ' RPE' + item.rpe : '')).join(' · ');
-        const dayCues = Array.isArray(day.cues) && day.cues.length
-          ? '<br><small>' + day.cues.map(cue => esc(cue)).join('；') + '</small>' : '';
-        return '<p><strong>' + esc(day.label) + '</strong><br>' + list + dayCues + '</p>';
-      }).join('');
-      return rows ? '<details class="plan-ref"><summary>参考处方</summary>' + rows + '</details>' : '';
     })();
     const suggestedNote = plan.days.some(day => day.suggested) ? '<p class="fine-print">带「建议」的动作来自训练库（该模板你还没有记录），先按 3 组建立基线。</p>' : '';
     // 依据与说明沉到默认折叠的 details 里：首屏只留数据。
@@ -1014,7 +1000,7 @@
       }
       thisWeekHtml = "<h3 class=\"plan-sub\">本周安排 · " + esc(weekStart.slice(5)) + " 起 · 每周 " + prefs.days + " 练</h3><ul class=\"plan-week\">" + rows.join("") + "</ul>";
     }
-    const stateHtml = '<div class="plan-state">' + stateRows.map(row =>
+    const stateHtml = '<p class="plan-label">今天的状态</p><div class="plan-state">' + stateRows.map(row =>
       '<div class="plan-state-row"><span>' + esc(row[0]) + '</span><b>' + esc(row[1]) + '</b></div>').join('') + '</div>';
     const driftHtml = drifted ? '<p class="fine-print">记录有更新，本周安排已按最新数据重算。</p>' : '';
     // 采纳入口：今天有安排且今日清单还空着时，一键把它变成今日清单——否则用户要自己把
@@ -1023,7 +1009,7 @@
     const adoptHtml = (!hasTodayList && todayPlan && todayPlan.exercises.length)
       ? '<button type="button" class="button subtle full-width" data-adopt-today>把今天这节采纳到今日清单</button>'
       : '';
-    box.innerHTML = annotateTerms(thisWeekHtml + cueHtml + stateHtml + acwrHtml + driftHtml + adoptHtml + suggestedNote + why + reference);
+    box.innerHTML = annotateTerms(thisWeekHtml + cueHtml + stateHtml + acwrHtml + driftHtml + adoptHtml + suggestedNote + why);
       + '<div class="plan-days">' + plan.days.map(day =>
         `<div class="plan-day"><div class="plan-day-head"><strong>${esc(day.date.slice(5))}</strong><span>${esc(TRAINING_TEMPLATES[day.template] || day.template)}</span></div>`
         + (day.exercises.length ? day.exercises.map(item =>

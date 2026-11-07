@@ -560,10 +560,10 @@ label{font-size:var(--text-sm)}
 .diet-audit p:first-child{color:var(--ink)}
 
 /* Reference prescriptions from the community digest: collapsed, never overrides real history. */
-.plan-ref{margin:8px 0 0;border-top:1px dashed var(--line);padding-top:8px}
-.plan-ref summary{cursor:pointer;font-size:13px;color:var(--muted)}
-.plan-ref p{margin:8px 0;font-size:var(--text-sm);line-height:1.6;color:var(--ink)}
-.plan-ref p strong{font-size:13px}
+.plan-sub{margin:var(--space-2) 0 var(--space-1);font-size:var(--text-sm);color:var(--muted);font-weight:var(--fw-medium)}
+/* 训练计划里的分区小标题：让「本周安排 / 今天的状态 / 训练负荷 / 要点」各成一节。 */
+.plan-label{margin:var(--space-3) 0 2px;font-size:var(--text-xs);letter-spacing:var(--tracking-label);color:var(--muted);font-weight:var(--fw-medium)}
+.plan-label:first-child{margin-top:0}
 
 /* Two actionable cues from the transcript-level library, above the "what to train today" line. */
 .plan-cue{margin:0 0 8px;padding:7px 10px;border-radius:8px;background:var(--surface-soft);color:var(--body-text);font-size:var(--text-sm);line-height:1.55}
@@ -1191,6 +1191,7 @@ body.no-training #training-advice-order{display:none !important}
 .ai-plan-name{display:inline-flex;align-items:center;gap:6px;min-width:0;padding:0;border:0;background:none;color:var(--ink);font:inherit;text-align:left;overflow-wrap:anywhere;cursor:pointer}
 .ai-plan-name-mark{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:16px;height:16px;border:1px solid var(--line-strong);border-radius:50%;color:var(--muted);font-size:var(--text-xs);line-height:1}
 .ai-plan-name:active .ai-plan-name-mark{color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft)}
+.guide-how{margin:10px 0 0;font-size:var(--text-sm);color:var(--ink);line-height:1.7}
 .guide-points{margin:var(--space-2) 0 0;padding-left:1.1em;font-size:var(--text-sm);color:var(--ink);line-height:1.7}
 .guide-points li{margin:4px 0}
 /* 汇总条：组数 + 按组数算出的时长；差异大时给一个改时长的入口。 */
@@ -1517,6 +1518,6 @@ details.panel-more[open]{background:transparent}
 .plan-load{border:0;border-block:1px solid var(--line);border-radius:0;background:transparent;padding:8px 0;margin:0 0 var(--space-2)}
 .plan-load.is-high{border:0;border-block:1px solid var(--warn-line);background:transparent}
 .plan-cue{background:transparent;padding:0;border-radius:0;margin:0}
-details.plan-why,details.plan-ref,details.plan-cue-block{border:0;border-block:1px solid var(--line);border-radius:0;background:transparent;margin:8px 0 0;padding:4px 0}
-details.plan-why>summary,details.plan-ref>summary,details.plan-cue-block>summary{min-height:40px}
-details.plan-why>summary::after,details.plan-ref>summary::after,details.plan-cue-block>summary::after{width:auto;height:auto;border:0;border-radius:0;background:none;font-size:14px;color:var(--muted)}
+details.plan-why,details.plan-cue-block{border:0;border-block:1px solid var(--line);border-radius:0;background:transparent;margin:8px 0 0;padding:4px 0}
+details.plan-why>summary,details.plan-cue-block>summary{min-height:40px}
+details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto;height:auto;border:0;border-radius:0;background:none;font-size:14px;color:var(--muted)}

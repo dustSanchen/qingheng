@@ -934,7 +934,14 @@
     "渐进超负荷": {full: "Progressive Overload", meaning: "让训练刺激逐步变大：加重、加次数、加组，一次只动一个变量。", caution: "同时加重又加量是最常见的过载方式，也是最先崩的方式。"},
     "力竭": {full: "Muscular Failure", meaning: "这一组再也做不出一次标准动作。单关节动作可以接近力竭，复合主项不建议。", caution: "大重量复合动作做到力竭，恢复成本很高，容易影响接下来几天。"},
     "负重": {full: "Training Load，这一组用的重量", meaning: "按总重量记：杠铃 = 杆重 + 两侧片重（15 kg/侧 + 20 kg 杆 = 50 kg）；哑铃按单只记；器械按配重片标示。", caution: "同一动作前后口径必须一致，否则容量、ACWR 与进步曲线都会失真。"},
-    "离心": {full: "Eccentric，下放阶段", meaning: "肌肉被拉长的阶段，比如卧推下放。离心能承受更大张力，也更容易酸痛。", caution: "离心放慢到 3 秒以上会显著增加酸痛，训练日之间要留够间隔。"}
+    "离心": {full: "Eccentric，下放阶段", meaning: "肌肉被拉长的阶段，比如卧推下放。离心能承受更大张力，也更容易酸痛。", caution: "离心放慢到 3 秒以上会显著增加酸痛，训练日之间要留够间隔。"},
+    "分化": {full: "Training Split，训练分化", meaning: "把一周的训练拆成不同部位或模式，比如推拉腿、上下肢、全身。", caution: "分化不是越细越好；每个部位一周能练到几次，比花样更重要。"},
+    "推拉腿": {full: "Push / Pull / Legs", meaning: "按动作方向分三天：推（胸肩三头）、拉（背二头）、腿（下肢核心）。", caution: "漏练一天就少一个部位，先保证每周都轮得到。"},
+    "急慢性负荷比": {full: "Acute:Chronic Workload Ratio", meaning: "最近 7 天训练量 ÷ 最近 28 天周均训练量，用来看负荷涨得快不快。", caution: "它只是提示，不是判决；换动作、换计划都会让它短暂失真。"},
+    "复合动作": {full: "Compound Movement", meaning: "一次带动多个关节与肌群的动作，比如深蹲、卧推、硬拉、划船。", caution: "复合动作恢复成本高，别每天都练到力竭。"},
+    "孤立动作": {full: "Isolation Movement", meaning: "只针对一个关节或肌群的动作，比如弯举、侧平举、腿屈伸。", caution: "孤立动作放在复合动作之后，别把顺序倒过来。"},
+    "容量": {full: "Training Volume", meaning: "训练容量 = 组数 × 次数 × 负重（或总次数），用来衡量一次训练做了多少。", caution: "容量涨得比重量快，更容易累积疲劳。"},
+    "组间休息": {full: "Rest Interval", meaning: "两组之间的休息时间：复合大重量 2~3 分钟，孤立动作 60~90 秒。", caution: "休息太短，下一组的动作容易变形。"}
   };
   /** 把已知术语包成可点击的按钮；只处理纯文本，避免破坏已有标签。 */
   function annotateTerms(html) {
@@ -4625,23 +4632,9 @@ const values = points.length<=7 ? points.map((item,i) => {
       if (!stats || !Number.isFinite(stats.ratio)) return '';
       const level = stats.flag === 'high' ? 'high' : stats.flag === 'low' ? 'low' : 'ok';
       const verdict = level === 'high' ? '偏高 · 本周减载' : level === 'low' ? '偏低 · 按记录安排' : '维持';
-      return '<div class="plan-load is-' + level + '"><span class="plan-load-label">急慢性负荷比</span>'
+      return '<p class="plan-label">训练负荷</p><div class="plan-load is-' + level + '"><span class="plan-load-label">急慢性负荷比</span>'
         + '<span class="plan-load-value">' + stats.ratio.toFixed(2) + '</span>'
         + '<span class="plan-load-verdict">' + verdict + '</span></div>';
-    })();
-    const reference = (() => {
-      const lib = trainingLibrary();
-      if (!lib || !lib.dayTemplates) return '';
-      const names = ['push', 'pull', 'legs'];
-      const rows = names.map(key => {
-        const day = lib.dayTemplates[key];
-        if (!day || !day.exercises) return '';
-        const list = day.exercises.map(item => esc(item.name) + ' ' + item.sets + '×' + item.reps + (item.rpe ? ' RPE' + item.rpe : '')).join(' · ');
-        const dayCues = Array.isArray(day.cues) && day.cues.length
-          ? '<br><small>' + day.cues.map(cue => esc(cue)).join('；') + '</small>' : '';
-        return '<p><strong>' + esc(day.label) + '</strong><br>' + list + dayCues + '</p>';
-      }).join('');
-      return rows ? '<details class="plan-ref"><summary>参考处方</summary>' + rows + '</details>' : '';
     })();
     const suggestedNote = plan.days.some(day => day.suggested) ? '<p class="fine-print">带「建议」的动作来自训练库（该模板你还没有记录），先按 3 组建立基线。</p>' : '';
     // 依据与说明沉到默认折叠的 details 里：首屏只留数据。
@@ -4699,7 +4692,7 @@ const values = points.length<=7 ? points.map((item,i) => {
       }
       thisWeekHtml = "<h3 class=\"plan-sub\">本周安排 · " + esc(weekStart.slice(5)) + " 起 · 每周 " + prefs.days + " 练</h3><ul class=\"plan-week\">" + rows.join("") + "</ul>";
     }
-    const stateHtml = '<div class="plan-state">' + stateRows.map(row =>
+    const stateHtml = '<p class="plan-label">今天的状态</p><div class="plan-state">' + stateRows.map(row =>
       '<div class="plan-state-row"><span>' + esc(row[0]) + '</span><b>' + esc(row[1]) + '</b></div>').join('') + '</div>';
     const driftHtml = drifted ? '<p class="fine-print">记录有更新，本周安排已按最新数据重算。</p>' : '';
     // 采纳入口：今天有安排且今日清单还空着时，一键把它变成今日清单——否则用户要自己把
@@ -4708,7 +4701,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     const adoptHtml = (!hasTodayList && todayPlan && todayPlan.exercises.length)
       ? '<button type="button" class="button subtle full-width" data-adopt-today>把今天这节采纳到今日清单</button>'
       : '';
-    box.innerHTML = annotateTerms(thisWeekHtml + cueHtml + stateHtml + acwrHtml + driftHtml + adoptHtml + suggestedNote + why + reference);
+    box.innerHTML = annotateTerms(thisWeekHtml + cueHtml + stateHtml + acwrHtml + driftHtml + adoptHtml + suggestedNote + why);
       + '<div class="plan-days">' + plan.days.map(day =>
         `<div class="plan-day"><div class="plan-day-head"><strong>${esc(day.date.slice(5))}</strong><span>${esc(TRAINING_TEMPLATES[day.template] || day.template)}</span></div>`
         + (day.exercises.length ? day.exercises.map(item =>
@@ -5186,6 +5179,100 @@ function metricIcon(label) {
       points: ['背对绳索，绳从胯下穿过。', '先髋后移，再顶髋站直。', '别用手臂拉，也别弓腰。']}
   ];
 
+  /** 新手向的一句话「怎么做」：只描述动作过程，不讲训练安排。 */
+  const EXERCISE_HOW = {
+    '颈前深蹲': '杠放锁骨前、肘抬高，直上直下蹲起。',
+    '高脚杯深蹲': '抱哑铃贴胸，屈髋下蹲再站起。',
+    '保加利亚分腿蹲': '后脚搭凳，前腿屈膝下蹲再站起。',
+    '深蹲': '双脚与肩同宽，屈髋下蹲再站起。',
+    '罗马尼亚硬拉': '膝微屈，髋后移把杠下放再顶髋。',
+    '硬拉': '杠贴小腿，蹬地顶髋把杠拉起。',
+    '腿举': '坐靠垫，双脚蹬板伸腿再屈膝。',
+    '提踵': '前脚掌踩高，脚跟抬起再落下。',
+    '上斜卧推': '凳调 30~45°，把杠从胸上方推起。',
+    '哑铃卧推': '仰卧，两只哑铃从胸侧推起。',
+    '卧推': '仰卧，杠从乳线推到手臂伸直。',
+    '哑铃肩推': '坐姿，哑铃从耳侧推到头顶。',
+    '侧平举': '双臂微屈，从体侧抬到肩高。',
+    '绳索下压': '站绳索前，肘固定，把绳往下压到伸直。',
+    '双杠臂屈伸': '撑双杠，屈肘下放再撑起。',
+    '俯卧撑': '手撑地，身体一条线，屈肘下放再撑起。',
+    '引体向上': '握杠悬垂，把身体拉到下巴过杠。',
+    '高位下拉': '坐姿，把横杆拉到锁骨前。',
+    '杠铃划船': '俯身握杠，把杠拉向肚脐。',
+    '坐姿划船': '坐姿拉把手到腹部，先收肩胛。',
+    '面拉': '把绳拉向眉心，肘高于手。',
+    '哑铃弯举': '站姿，屈肘把哑铃举到肩前。',
+    '直臂下压': '手臂近直，以肩为轴把杆压向大腿。',
+    '平板支撑': '肘撑地，身体一条线保持不动。',
+    '卷腹': '仰卧屈膝，肩胛离地卷起上背。',
+    '农夫行走': '两手提重物，小步走稳。',
+    '壶铃摇摆': '屈髋后摆，再顶髋把壶铃甩到胸前。',
+    '跑步': '保持步频，落地在重心下方。',
+    '有氧': '快走、骑车或椭圆机，持续 15~30 分钟。',
+    '拉伸': '把肌肉拉到有牵拉感，停 20~30 秒。',
+    '杠铃肩推': '站姿把杠从锁骨推到头顶。',
+    '阿诺德推举': '掌心朝内起推，推到顶转成掌心朝前。',
+    '俯身飞鸟': '俯身，双臂向两侧打开再合。',
+    '前平举': '手臂伸直，把哑铃抬到肩高。',
+    '绳索夹胸': '站龙门架中间，双臂向前合拢。',
+    '坐姿推胸': '坐器械前，把把手推到手臂近直。',
+    '单臂哑铃划船': '一手撑凳，另一手把哑铃拉向髋。',
+    'T 杠划船': '俯身握 T 杠，拉向胸腹。',
+    '直腿硬拉': '膝近直，髋后移把杠下放。',
+    '臀桥 / 臀推': '上背靠地或凳，顶髋把臀收紧。',
+    '腿弯举': '俯卧或坐姿，屈膝把垫子勾起。',
+    '腿屈伸': '坐器械，伸膝把小腿抬起。',
+    '箭步蹲': '向前跨一步，双膝弯曲下蹲再起。',
+    '侧弓步': '向侧跨大步，屈髋下蹲再回。',
+    '台阶': '单脚踩上台阶，蹬起再退下。',
+    '悬垂举腿': '悬垂，屈髋把腿抬向胸口。',
+    '俄罗斯转体': '坐姿后仰，胸廓左右转。',
+    '死虫': '仰卧，对侧手脚缓慢伸直再收回。',
+    '鸟狗': '四点支撑，对侧手脚伸直保持。',
+    '侧平板': '侧撑，髋抬起让身体成一条线。',
+    '山羊挺身': '俯卧器械，屈髋下放再挺身。',
+    '锤式弯举': '掌心相对，屈肘举起哑铃。',
+    '窄距卧推': '窄握杠，屈肘下放到下胸再推起。',
+    '上斜飞鸟': '上斜凳，双臂打开再合拢。',
+    '波比跳': '下蹲撑地跳成平板，再收腿跳起。',
+    '开合跳': '跳起分腿同时双手上举，再并回。',
+    '跳绳': '手腕摇绳，前脚掌轻跳。',
+    '划船机': '腿蹬、髋伸、手拉，回程反过来。',
+    '椭圆机': '双脚踩踏板，手脚同步前后摆。',
+    '动感单车': '坐稳蹬踏，保持 70~90 转/分。',
+    '游泳': '在水中用自由泳或蛙泳连续游。',
+    '史密斯机深蹲': '杠在轨道上，屈髋下蹲再站起。',
+    '史密斯机卧推': '仰卧，把杠沿轨道推到顶。',
+    '髋内收': '坐器械，双腿从外向内合拢。',
+    '坐姿绳索划船': '坐姿把绳索把手拉向腹部。',
+    '反手引体向上': '反握杠，把身体拉到下巴过杠。',
+    '坐姿提踵': '坐姿膝上压垫，脚跟抬起再落下。',
+    '早安式': '杠放斜方，屈髋前倾再起身。',
+    '集中弯举': '肘抵大腿，单手屈肘举起。',
+    '斜托弯举': '腋下贴斜托，屈肘举起再放下。',
+    '仰卧臂屈伸': '仰卧，屈肘把杠下放到额头再伸直。',
+    '反向飞鸟': '俯身，双臂向两侧打开。',
+    '耸肩': '站直，把肩膀耸到耳旁再落下。',
+    '腕弯举': '前臂固定，只动手腕卷起重量。',
+    '仰卧举腿': '仰卧，双腿伸直抬到垂直再慢落。',
+    '空中自行车': '仰卧，对侧肘膝相碰，交替蹬腿。',
+    '反向卷腹': '仰卧，屈膝把骨盆卷向胸口。',
+    '绳索卷腹': '跪姿握绳，卷腹把肘拉向膝。',
+    '登山跑': '平板撑，双膝交替向胸口收。',
+    '跳箱': '屈膝摆臂跳上箱，再轻落。',
+    '药球砸地': '举球过顶，用力向地面砸。',
+    '器械夹胸': '坐蝴蝶机，双臂向中间合拢。',
+    '绳索弯举': '站绳索前，屈肘把绳拉起。',
+    '直臂下拉': '站高位下拉前，手臂伸直往下压。',
+    '相扑硬拉': '宽站距，蹬地顶髋拉起杠。',
+    '泽奇深蹲': '杠抱肘弯，屈髋下蹲再站起。',
+    '单腿臀桥': '单脚踩地，顶髋把臀抬起。',
+    '反向划船': '握低杠，身体后仰把胸拉向杠。',
+    '杠铃臀推': '上背靠凳，杠压髋部顶起。',
+    '器械推肩': '坐器械，把把手从肩高推到头顶。',
+    '绳索拉臀': '背对绳索，髋后移再顶髋。'
+  };
   /** 去掉空白与括号补充，名字里常见的「（器械版）」不影响匹配。 */
   function normalizeExerciseName(value) {
     return String(value || '').replace(/\s+/g, '').replace(/[（(][^）)]*[）)]/g, '');
@@ -5220,6 +5307,10 @@ function metricIcon(label) {
     const guide = exerciseGuideFor(name);
     $('#exercise-guide-title').textContent = guide.name;
     $('#exercise-guide-role').textContent = guide.role;
+    // 新手先看「怎么做」，再看要点；没有收录时这行不出现，不留空白。
+    const how = EXERCISE_HOW[guide.name] || '';
+    const howNode = $('#exercise-guide-how');
+    if (howNode) { howNode.hidden = !how; howNode.textContent = how ? '怎么做：' + how : ''; }
     $('#exercise-guide-points').innerHTML = guide.points.map(point => '<li>' + esc(point) + '</li>').join('');
     root.hidden = false;
     const ok = $('#exercise-guide-ok');
@@ -5390,7 +5481,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.13';
+  const APP_VERSION = '1.3.14';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
