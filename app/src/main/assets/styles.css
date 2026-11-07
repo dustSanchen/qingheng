@@ -1000,6 +1000,10 @@ details[open] .preview-panel, .data-preview-panel{border:1px solid var(--line);b
 
 /* 训练偏好：两行两列，与应用表单同一套节奏。 */
 .plan-prefs{margin:var(--space-3) 0 0;padding-top:var(--space-3);border-top:1px solid var(--line)}
+/* 定过的安排收成一行：摘要 + 修改；展开后摘要让位给选项。 */
+.plan-prefs-bar{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-2);margin:var(--space-3) 0 0;min-height:24px}
+.plan-prefs-summary{margin:0;font-size:var(--text-sm);color:var(--muted);overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.plan-prefs-bar .text-button{flex:0 0 auto;min-height:0;padding:0 2px;font-size:var(--text-sm)}
 .pref-row{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2)}
 .pref-row label{font-size:var(--text-sm);color:var(--muted)}
 .pref-row select{width:100%;margin-top:4px}
@@ -1182,7 +1186,12 @@ body.no-training #training-advice-order{display:none !important}
 .ai-plan-row input[type=checkbox]{order:-1;flex:0 0 auto;width:18px;height:18px;margin:2px 0 0;accent-color:var(--accent)}
 .ai-plan-row::before{counter-increment:ai-step;content:counter(ai-step);flex:0 0 1.5em;color:var(--muted);font-size:var(--text-sm);font-variant-numeric:tabular-nums}
 .ai-plan-row:last-child{border-bottom:0}
-.ai-plan-name{min-width:0;overflow-wrap:anywhere;color:var(--ink)}
+/* 动作名是按钮：点开看「练什么、要点」，右侧的问号只是提示它可点。 */
+.ai-plan-name{display:inline-flex;align-items:center;gap:6px;min-width:0;padding:0;border:0;background:none;color:var(--ink);font:inherit;text-align:left;overflow-wrap:anywhere;cursor:pointer}
+.ai-plan-name-mark{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:16px;height:16px;border:1px solid var(--line-strong);border-radius:50%;color:var(--muted);font-size:var(--text-xs);line-height:1}
+.ai-plan-name:active .ai-plan-name-mark{color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft)}
+.guide-points{margin:var(--space-2) 0 0;padding-left:1.1em;font-size:var(--text-sm);color:var(--ink);line-height:1.7}
+.guide-points li{margin:4px 0}
 /* 汇总条：组数 + 按组数算出的时长；差异大时给一个改时长的入口。 */
 .ai-plan-summary{display:flex;flex-direction:row;flex-wrap:wrap;align-items:baseline;gap:var(--space-1) var(--space-2);margin:var(--space-2) 0 0;font-size:var(--text-xs);color:var(--muted);font-variant-numeric:tabular-nums}
 .ai-plan-summary-text{flex:0 1 auto}

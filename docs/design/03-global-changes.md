@@ -135,5 +135,6 @@
 | 2026-11-03 | `tests/ci-and-versions.test.mjs`、`tests/modularization.test.mjs`、`tests/anchors-oil.test.mjs` | `PROMPT_VERSION = 4` → `= 5`；新增「估算契约不再要 totals」「估算可流式且失败回退」「页面显示识别进度」三条断言 | 提速 A/C：估算 JSON 去掉 totals（服务端按明细+油重算），并新增 `/api/estimate/stream` 让等待期显示「正在识别…已等 Ns」；提示词一改即升版本 |
 | 2026-11-03 | `tests/ci-and-versions.test.mjs`、`tests/modularization.test.mjs` | `PROMPT_VERSION = 3` → `= 4` | 提速轮改了两处提示词：删掉 dailyAdvice 开头串进来的估算字段行（死文本），锚点注入上限 4000 → 1200 字；按仓库规矩，提示词文本一改就升版本 |
 | 2026-11-03 | `tests/meal-date-context.test.mjs`、`tests/p1-answers-phase-collapse.test.mjs` | 「行内日期 + 行内 重新生成/这条没用」→「日期只在分组头、两个动作进长按菜单」；展开按钮断言改成 `row-toggle-inline` | 问答界面落地清单第 3、4、5 条：一屏 6 颗按钮压过了内容，改成结构减法；截断去掉渐变遮罩，展开改成文字链 |
+| 2026-11-07 | `tests/records-panels.test.mjs` | 「训练日志先于训练计划」→「训练计划先于训练日志」 | 记录→训练原先先看到录入表单，训练计划与今日顺序掉到下方；1.3.10 把计划卡提到日志卡前面，断言跟随新的阅读顺序 |
 
 

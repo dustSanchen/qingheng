@@ -612,6 +612,18 @@
     return ["推", "拉", "腿"];
   }
 
+  /** 已保存的训练安排压成一行：折叠后仍要知道「每周几天、怎么分、用什么器械、每次多久」。 */
+  const PLAN_SPLIT_LABELS = {ppl: "推拉腿", ul: "上下肢", fb: "全身"};
+  const PLAN_GEAR_LABELS = {mixed: "综合", barbell: "杠铃", dumbbell: "哑铃", machine: "固定器械", body: "自重"};
+  function planPrefsSummary(prefs) {
+    if (!prefs) return "";
+    const days = Number(prefs.days) > 0 ? Number(prefs.days) : 3;
+    const split = PLAN_SPLIT_LABELS[prefs.split] || "推拉腿";
+    const gear = PLAN_GEAR_LABELS[prefs.gear] || "综合";
+    const minutes = Number(prefs.minutes) > 0 ? Number(prefs.minutes) : 45;
+    return "每周 " + days + " 天 · " + split + " · " + gear + " · 每次 " + minutes + " 分钟";
+  }
+
   function installPlanPrefs() {
     const box = $("#plan-prefs");
     if (!box) return;
@@ -636,6 +648,28 @@
         chip.addEventListener("click", () => mark(name, chip.dataset.value));
       });
     }
+    // 已经定过的安排默认收起：首屏只留一行摘要，要看或改再展开。
+    const summary = $("#plan-prefs-summary"), edit = $("#pref-edit");
+    const setCollapsed = collapsed => {
+      box.hidden = collapsed;
+      if (summary) {
+        summary.hidden = !collapsed;
+        if (collapsed) summary.textContent = planPrefsSummary(planPrefs());
+      }
+      if (edit) {
+        edit.hidden = !collapsed;
+        edit.setAttribute("aria-expanded", String(!collapsed));
+      }
+    };
+    setCollapsed(!!prefs);
+    if (edit && !edit.dataset.wired) {
+      edit.dataset.wired = "1";
+      edit.addEventListener("click", () => {
+        setCollapsed(false);
+        const first = $("#plan-prefs .pref-chip");
+        if (first) first.focus();
+      });
+    }
     const save = $("#pref-save");
     if (save && !save.dataset.wired) {
       save.dataset.wired = "1";
@@ -647,13 +681,9 @@
           minutes: Number(read("minutes")) || 45
         });
         renderWeekPlan();
-        notice("已保存训练偏好：每周 " + (Number(read("days")) || 3) + " 天，会用于目标测算；到「我的→健康档案」重新测算即可应用。");
+        setCollapsed(true);
+        notice("已保存训练偏好：每周 " + (Number(read("days")) || 3) + " 天，会用于目标测算；到「我的 → 身体档案与目标」重新测算即可应用。");
       });
-    }
-    const edit = $("#pref-edit");
-    if (edit && !edit.dataset.wired) {
-      edit.dataset.wired = "1";
-      edit.addEventListener("click", () => { box.hidden = !box.hidden; });
     }
   }
 
@@ -949,10 +979,8 @@
         adoptWeekDay();
       });
     }
-    const prefsForm = $("#plan-prefs");
     const prefs = planPrefs();
-    // 偏好芯片常驻：生成过也保持可见，改一个值就能重排，不用先点「修改」再找入口。
-    if (prefsForm) prefsForm.hidden = false;
+    // 收起/展开由 installPlanPrefs 统一管：这里别再强行显示，否则「修改」刚收起又会被撑开。
     const weekStart = shiftDay(activeDate, -((new Date(activeDate + "T00:00:00").getDay() + 6) % 7));
     let thisWeekHtml;
     if (!prefs) {

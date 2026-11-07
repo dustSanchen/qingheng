@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.09';
+  const APP_VERSION = '1.3.10';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -438,7 +438,8 @@
       const dose = aiPlanDose(item);
       // 名字、建议、组数同一栏：建议再长也只在自己的列里换行，不会把名字挤成一列，
       // 组数落在建议下方，和「做什么、为什么、做多少」的阅读顺序一致。
-      return "<div class=\"ai-plan-row\" role=\"listitem\"><label class=\"ai-plan-main\"><input type=\"checkbox\" data-ai-done=\"" + index + "\"" + (item.done ? " checked" : "") + "><span class=\"ai-plan-text\"><span class=\"ai-plan-name\">" + esc(item.name) + "</span>"
+      // 名字本身是按钮：点开看这个动作练什么、要点是什么；勾选框仍是「已做完」。
+      return "<div class=\"ai-plan-row\" role=\"listitem\"><label class=\"ai-plan-main\"><input type=\"checkbox\" data-ai-done=\"" + index + "\"" + (item.done ? " checked" : "") + "><span class=\"ai-plan-text\"><button type=\"button\" class=\"ai-plan-name\" data-ai-guide=\"" + index + "\" aria-haspopup=\"dialog\" aria-label=\"查看动作说明：" + esc(item.name) + "\">" + esc(item.name) + "<span class=\"ai-plan-name-mark\" aria-hidden=\"true\">?</span></button>"
         + (item.reason ? "<span class=\"ai-plan-reason\">" + esc(item.reason) + "</span>" : "")
         + (dose ? "<span class=\"ai-plan-dose\">" + esc(dose) + "</span>" : "")
         + "</span></label>"
@@ -594,6 +595,16 @@
     if (list && !list.dataset.aiRemoveWired) {
       list.dataset.aiRemoveWired = "data-ai-remove-wired";
       list.addEventListener("click", event => {
+        // 名字是「看说明」的第二入口：先拦下，别让 label 把点击顺带给勾选框。
+        const guideButton = event.target.closest("[data-ai-guide]");
+        if (guideButton) {
+          event.preventDefault();
+          event.stopPropagation();
+          const plan = aiPlanStore(activeDate) || [];
+          const item = plan[Number(guideButton.dataset.aiGuide)];
+          if (item && typeof showExerciseGuide === "function") showExerciseGuide(item.name);
+          return;
+        }
         const addButton = event.target.closest("[data-ai-add]");
         if (addButton) {
           event.preventDefault();
@@ -814,6 +825,7 @@
     if (typeof renderLastChat === "function") renderLastChat();
     if (typeof installWeightCalc === "function") installWeightCalc();
     if (typeof installPlanPrefs === "function") installPlanPrefs();
+    if (typeof installExerciseGuide === "function") installExerciseGuide();
     if (typeof installAiPlan === "function") installAiPlan();
     if (typeof installSegmentKeys === "function") installSegmentKeys();
     if (typeof installPhotoEntry === "function") installPhotoEntry();
@@ -1255,7 +1267,7 @@
    */
   const RECORD_PANELS = [
     {key: 'food', label: '饮食', headings: ['轻松记一餐', '最近的餐食记录', '复制一餐', '食品热量参考库', '手动记录餐食'], foldedHeadings: ['食品热量参考库', '手动记录餐食']},
-    {key: 'training', label: '训练', headings: ['训练日志', '训练计划', '下周计划'], trainingOnly: true},
+    {key: 'training', label: '训练', headings: ['训练计划', '训练日志', '下周计划'], trainingOnly: true},
     {key: 'body', label: '身体', headings: ['身体数据', '日常习惯']}
   ];
   const RECORD_PANEL_STORAGE = 'qingheng.recordsPanel';

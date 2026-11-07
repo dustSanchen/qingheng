@@ -1,4 +1,4 @@
-param([switch]$Clean,[string]$Version='1.3.09',[int]$VersionCode=309)
+param([switch]$Clean,[string]$Version='1.3.10',[int]$VersionCode=310)
 $ErrorActionPreference='Stop'
 $root=$PSScriptRoot
 $jdk=Get-ChildItem "$root\toolchain\jdk" -Directory | Select-Object -First 1
@@ -56,5 +56,10 @@ if(!(Test-Path $key)){ $pw=[guid]::NewGuid().ToString('N')+[guid]::NewGuid().ToS
 Run $java @('-jar',$apksigner,'sign','--ks',$key,'--ks-key-alias','qingheng','--ks-pass',"pass:$pw",'--key-pass',"pass:$pw",'--out',"$dist\$apkName","$build\aligned.apk")
 Run $java @('-jar',$apksigner,'verify','--verbose','--print-certs',"$dist\$apkName")
 Run $zipalign @('-c','-v','4',"$dist\$apkName")
-Get-FileHash "$dist\$apkName" -Algorithm SHA256 | Format-List
+# Hash is informational only: a missing Get-FileHash cmdlet must not fail the build.
+try { Get-FileHash "$dist\$apkName" -Algorithm SHA256 | Format-List } catch {
+  $sha=[System.Security.Cryptography.SHA256]::Create();$fs=[System.IO.File]::OpenRead("$dist\$apkName")
+  try { $bytes=$sha.ComputeHash($fs) } finally { $fs.Dispose() }
+  Write-Host ("SHA256 {0}" -f (($bytes | ForEach-Object { $_.ToString('x2') }) -join ''))
+}
 Write-Host "APK ready: dist/$apkName (versionName $Version, versionCode $VersionCode). Keep .signing private for future compatible updates."
