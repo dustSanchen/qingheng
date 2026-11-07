@@ -159,6 +159,31 @@
   add("蜂蜜", [], "seasoning", "as_served", [304,0.3,0,82.4], 15, "USDA：蜂蜜；糖分高，按实际用量记录。 数据：USDA FoodData Central SR Legacy，fdcId 169640（Honey）。", "169640");
   add("酱油", ["生抽"], "seasoning", "as_served", [53,8.14,0.57,4.93], 10, "USDA：酱油（大豆与小麦酿造）。 数据：USDA FoodData Central SR Legacy，fdcId 174277（Soy sauce made from soy and wheat (shoyu)）。", "174277");
   add("醋", ["米醋","香醋"], "seasoning", "as_served", [18,0,0,0.04], 10, "USDA：蒸馏醋；几乎不含热量。 数据：USDA FoodData Central SR Legacy，fdcId 172237（Vinegar, distilled）。", "172237");
+  add("猪里脊", ["里脊肉","猪里脊肉"], "meat", "cooked", [143,26.17,3.51,0], 100, "USDA：烤熟瘦肉部位；按熟重可食部。 数据：USDA FoodData Central SR Legacy，fdcId 168250（Pork, fresh, loin, tenderloin, separable lean only, cooked, roasted）。", "168250");
+  add("牛腩", ["牛腩肉"], "meat", "cooked", [302,30.12,19.22,0], 100, "USDA：焖炖，含脂肪；按熟重。 数据：USDA FoodData Central SR Legacy，fdcId 168667（Beef, chuck, arm pot roast, separable lean and fat, trimmed to 1/8\" fat, all grades, cooked, braised）。", "168667");
+  add("培根", ["烟肉"], "meat", "cooked", [548,35.73,43.27,1.35], 30, "USDA：煎烤后；钠很高，按可食部。 数据：USDA FoodData Central SR Legacy，fdcId 167914（Pork, cured, bacon, cooked, baked）。", "167914");
+  add("火腿", ["火腿片"], "meat", "as_served", [164,16.6,8.8,3.63], 50, "USDA：切片火腿，约 11% 脂肪。 数据：USDA FoodData Central SR Legacy，fdcId 173864（Ham, sliced, regular (approximately 11% fat)）。", "173864");
+  add("金枪鱼", ["吞拿鱼","金枪鱼罐头"], "seafood", "as_served", [86,19.44,0.96,0], 100, "USDA：水浸罐头沥干；蛋白高、脂肪低。 数据：USDA FoodData Central SR Legacy，fdcId 173709（Fish, tuna, light, canned in water, drained solids (Includes foods for USDA's Food Distribution Program)）。", "173709");
+  add("鲈鱼", ["鲈鱼肉"], "seafood", "cooked", [124,22.73,2.99,0], 100, "USDA：条纹鲈，干热熟制。 数据：USDA FoodData Central SR Legacy，fdcId 174228（Fish, bass, striped, cooked, dry heat）。", "174228");
+  add("虾", ["基围虾"], "seafood", "cooked", [119,22.78,1.7,1.52], 100, "USDA：混合虾种，湿热熟制；可能含保水添加剂。 数据：USDA FoodData Central SR Legacy，fdcId 171971（Crustaceans, shrimp, mixed species, cooked, moist heat (may contain additives to retain moisture)）。", "171971");
+  add("蟹肉", ["蟹","蓝蟹肉"], "seafood", "cooked", [83,17.88,0.74,0], 100, "USDA：蓝蟹肉，湿热熟制。 数据：USDA FoodData Central SR Legacy，fdcId 174205（Crustaceans, crab, blue, cooked, moist heat）。", "174205");
+  add("鱿鱼", ["鱿鱼圈"], "seafood", "cooked", [175,17.94,7.48,7.79], 100, "USDA：油炸鱿鱼；热量高于白灼，注意油。 数据：USDA FoodData Central SR Legacy，fdcId 171982（Mollusks, squid, mixed species, cooked, fried）。", "171982");
+  add("蛤蜊", ["花蛤"], "seafood", "cooked", [148,25.55,1.95,5.13], 100, "USDA：混合蛤类，湿热熟制。 数据：USDA FoodData Central SR Legacy，fdcId 171975（Mollusks, clam, mixed species, cooked, moist heat）。", "171975");
+  add("切达奶酪", ["芝士","奶酪"], "dairy", "as_served", [410,24.25,33.82,2.13], 30, "USDA：切达切片。 数据：USDA FoodData Central SR Legacy，fdcId 170899（Cheese, cheddar, sharp, sliced）。", "170899");
+  add("黄油", ["牛油"], "dairy", "as_served", [717,0.85,81.11,0.06], 10, "USDA：含盐黄油，脂肪近 81%。 数据：USDA FoodData Central SR Legacy，fdcId 173410（Butter, salted）。", "173410");
+  add("蛋白粉", ["乳清蛋白粉","whey"], "supplement", "as_served", [352,78.13,1.56,6.25], 30, "USDA：乳清蛋白粉，一勺按 30 g。 数据：USDA FoodData Central SR Legacy，fdcId 173180（Beverages, Protein powder whey based）。", "173180");
+  add("意面", ["意大利面","通心粉"], "grain", "cooked", [158,5.8,0.93,30.86], 180, "USDA：熟意面，不加盐。 数据：USDA FoodData Central SR Legacy，fdcId 169737（Pasta, cooked, enriched, without added salt）。", "169737");
+  add("藜麦", ["藜麦米"], "grain", "raw", [368,14.12,6.07,64.16], 50, "USDA：生藜麦；煮熟会吸水增重。 数据：USDA FoodData Central SR Legacy，fdcId 168874（Quinoa, uncooked）。", "168874");
+  add("小米", ["小米面"], "grain", "raw", [378,11.02,4.22,72.85], 50, "USDA：生小米。 数据：USDA FoodData Central SR Legacy，fdcId 169702（Millet, raw）。", "169702");
+  add("荞麦", ["荞麦饭"], "grain", "cooked", [92,3.38,0.62,19.94], 150, "USDA：烤荞麦粒煮熟。 数据：USDA FoodData Central SR Legacy，fdcId 170686（Buckwheat groats, roasted, cooked）。", "170686");
+  add("蘑菇", ["口蘑","白蘑菇"], "vegetable", "raw", [22,3.09,0.34,3.26], 100, "USDA：生白蘑菇。 数据：USDA FoodData Central SR Legacy，fdcId 169251（Mushrooms, white, raw）。", "169251");
+  add("木耳", ["黑木耳"], "vegetable", "raw", [284,9.25,0.73,73.01], 10, "USDA：干木耳；泡发后重量约十倍，热量按干重。 数据：USDA FoodData Central SR Legacy，fdcId 168581（Fungi, Cloud ears, dried）。", "168581");
+  add("香菜", ["芫荽"], "vegetable", "raw", [23,2.13,0.52,3.67], 10, "USDA：生香菜叶。 数据：USDA FoodData Central SR Legacy，fdcId 169997（Coriander (cilantro) leaves, raw）。", "169997");
+  add("蓝莓", ["蓝莓果"], "fruit", "raw", [57,0.74,0.33,14.49], 100, "USDA：生蓝莓。 数据：USDA FoodData Central SR Legacy，fdcId 171711（Blueberries, raw）。", "171711");
+  add("奇亚籽", ["chia"], "nut", "raw", [486,16.54,30.74,42.12], 10, "USDA：干奇亚籽。 数据：USDA FoodData Central SR Legacy，fdcId 170554（Seeds, chia seeds, dried）。", "170554");
+  add("亚麻籽", ["亚麻籽粉"], "nut", "raw", [534,18.29,42.16,28.88], 10, "USDA：干亚麻籽。 数据：USDA FoodData Central SR Legacy，fdcId 169414（Seeds, flaxseed）。", "169414");
+  add("黑巧克力", ["70%黑巧"], "snack", "as_served", [598,7.79,42.63,45.9], 20, "USDA：70~85% 可可。 数据：USDA FoodData Central SR Legacy，fdcId 170273（Chocolate, dark, 70-85% cacao solids）。", "170273");
+  add("可乐", ["碳酸饮料","汽水"], "drink", "as_served", [42,0,0.25,10.36], 330, "USDA：常规含糖可乐，一罐 330 mL。 数据：USDA FoodData Central SR Legacy，fdcId 174852（Beverages, carbonated, cola, regular）。", "174852");
 
   // ---- Mixed dishes: illustrative app-authored estimates, NOT USDA data ----
   dish("番茄炒蛋", ["西红柿炒鸡蛋","西红柿炒蛋","番茄炒鸡蛋"], [105,6,7,4.5], [75,165], 200, "鸡蛋、番茄、少量食用油和调味混合炒制");

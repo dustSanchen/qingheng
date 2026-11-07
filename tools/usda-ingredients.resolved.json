@@ -1838,5 +1838,463 @@
       0.04
     ],
     "note": "USDA：蒸馏醋；几乎不含热量。"
+  },
+  {
+    "name": "猪里脊",
+    "aliases": [
+      "里脊肉",
+      "猪里脊肉"
+    ],
+    "category": "meat",
+    "basis": "cooked",
+    "portion": 100,
+    "fdcId": "168250",
+    "description": "Pork, fresh, loin, tenderloin, separable lean only, cooked, roasted",
+    "per100": [
+      143,
+      26.17,
+      3.51,
+      0
+    ],
+    "note": "USDA：烤熟瘦肉部位；按熟重可食部。"
+  },
+  {
+    "name": "牛腩",
+    "aliases": [
+      "牛腩肉"
+    ],
+    "category": "meat",
+    "basis": "cooked",
+    "portion": 100,
+    "fdcId": "168667",
+    "description": "Beef, chuck, arm pot roast, separable lean and fat, trimmed to 1/8\" fat, all grades, cooked, braised",
+    "per100": [
+      302,
+      30.12,
+      19.22,
+      0
+    ],
+    "note": "USDA：焖炖，含脂肪；按熟重。"
+  },
+  {
+    "name": "培根",
+    "aliases": [
+      "烟肉"
+    ],
+    "category": "meat",
+    "basis": "cooked",
+    "portion": 30,
+    "fdcId": "167914",
+    "description": "Pork, cured, bacon, cooked, baked",
+    "per100": [
+      548,
+      35.73,
+      43.27,
+      1.35
+    ],
+    "note": "USDA：煎烤后；钠很高，按可食部。"
+  },
+  {
+    "name": "火腿",
+    "aliases": [
+      "火腿片"
+    ],
+    "category": "meat",
+    "basis": "as_served",
+    "portion": 50,
+    "fdcId": "173864",
+    "description": "Ham, sliced, regular (approximately 11% fat)",
+    "per100": [
+      164,
+      16.6,
+      8.8,
+      3.63
+    ],
+    "note": "USDA：切片火腿，约 11% 脂肪。"
+  },
+  {
+    "name": "金枪鱼",
+    "aliases": [
+      "吞拿鱼",
+      "金枪鱼罐头"
+    ],
+    "category": "seafood",
+    "basis": "as_served",
+    "portion": 100,
+    "fdcId": "173709",
+    "description": "Fish, tuna, light, canned in water, drained solids (Includes foods for USDA's Food Distribution Program)",
+    "per100": [
+      86,
+      19.44,
+      0.96,
+      0
+    ],
+    "note": "USDA：水浸罐头沥干；蛋白高、脂肪低。"
+  },
+  {
+    "name": "鲈鱼",
+    "aliases": [
+      "鲈鱼肉"
+    ],
+    "category": "seafood",
+    "basis": "cooked",
+    "portion": 100,
+    "fdcId": "174228",
+    "description": "Fish, bass, striped, cooked, dry heat",
+    "per100": [
+      124,
+      22.73,
+      2.99,
+      0
+    ],
+    "note": "USDA：条纹鲈，干热熟制。"
+  },
+  {
+    "name": "虾",
+    "aliases": [
+      "基围虾"
+    ],
+    "category": "seafood",
+    "basis": "cooked",
+    "portion": 100,
+    "fdcId": "171971",
+    "description": "Crustaceans, shrimp, mixed species, cooked, moist heat (may contain additives to retain moisture)",
+    "per100": [
+      119,
+      22.78,
+      1.7,
+      1.52
+    ],
+    "note": "USDA：混合虾种，湿热熟制；可能含保水添加剂。"
+  },
+  {
+    "name": "蟹肉",
+    "aliases": [
+      "蟹",
+      "蓝蟹肉"
+    ],
+    "category": "seafood",
+    "basis": "cooked",
+    "portion": 100,
+    "fdcId": "174205",
+    "description": "Crustaceans, crab, blue, cooked, moist heat",
+    "per100": [
+      83,
+      17.88,
+      0.74,
+      0
+    ],
+    "note": "USDA：蓝蟹肉，湿热熟制。"
+  },
+  {
+    "name": "鱿鱼",
+    "aliases": [
+      "鱿鱼圈"
+    ],
+    "category": "seafood",
+    "basis": "cooked",
+    "portion": 100,
+    "fdcId": "171982",
+    "description": "Mollusks, squid, mixed species, cooked, fried",
+    "per100": [
+      175,
+      17.94,
+      7.48,
+      7.79
+    ],
+    "note": "USDA：油炸鱿鱼；热量高于白灼，注意油。"
+  },
+  {
+    "name": "蛤蜊",
+    "aliases": [
+      "花蛤"
+    ],
+    "category": "seafood",
+    "basis": "cooked",
+    "portion": 100,
+    "fdcId": "171975",
+    "description": "Mollusks, clam, mixed species, cooked, moist heat",
+    "per100": [
+      148,
+      25.55,
+      1.95,
+      5.13
+    ],
+    "note": "USDA：混合蛤类，湿热熟制。"
+  },
+  {
+    "name": "切达奶酪",
+    "aliases": [
+      "芝士",
+      "奶酪"
+    ],
+    "category": "dairy",
+    "basis": "as_served",
+    "portion": 30,
+    "fdcId": "170899",
+    "description": "Cheese, cheddar, sharp, sliced",
+    "per100": [
+      410,
+      24.25,
+      33.82,
+      2.13
+    ],
+    "note": "USDA：切达切片。"
+  },
+  {
+    "name": "黄油",
+    "aliases": [
+      "牛油"
+    ],
+    "category": "dairy",
+    "basis": "as_served",
+    "portion": 10,
+    "fdcId": "173410",
+    "description": "Butter, salted",
+    "per100": [
+      717,
+      0.85,
+      81.11,
+      0.06
+    ],
+    "note": "USDA：含盐黄油，脂肪近 81%。"
+  },
+  {
+    "name": "蛋白粉",
+    "aliases": [
+      "乳清蛋白粉",
+      "whey"
+    ],
+    "category": "supplement",
+    "basis": "as_served",
+    "portion": 30,
+    "fdcId": "173180",
+    "description": "Beverages, Protein powder whey based",
+    "per100": [
+      352,
+      78.13,
+      1.56,
+      6.25
+    ],
+    "note": "USDA：乳清蛋白粉，一勺按 30 g。"
+  },
+  {
+    "name": "意面",
+    "aliases": [
+      "意大利面",
+      "通心粉"
+    ],
+    "category": "grain",
+    "basis": "cooked",
+    "portion": 180,
+    "fdcId": "169737",
+    "description": "Pasta, cooked, enriched, without added salt",
+    "per100": [
+      158,
+      5.8,
+      0.93,
+      30.86
+    ],
+    "note": "USDA：熟意面，不加盐。"
+  },
+  {
+    "name": "藜麦",
+    "aliases": [
+      "藜麦米"
+    ],
+    "category": "grain",
+    "basis": "raw",
+    "portion": 50,
+    "fdcId": "168874",
+    "description": "Quinoa, uncooked",
+    "per100": [
+      368,
+      14.12,
+      6.07,
+      64.16
+    ],
+    "note": "USDA：生藜麦；煮熟会吸水增重。"
+  },
+  {
+    "name": "小米",
+    "aliases": [
+      "小米面"
+    ],
+    "category": "grain",
+    "basis": "raw",
+    "portion": 50,
+    "fdcId": "169702",
+    "description": "Millet, raw",
+    "per100": [
+      378,
+      11.02,
+      4.22,
+      72.85
+    ],
+    "note": "USDA：生小米。"
+  },
+  {
+    "name": "荞麦",
+    "aliases": [
+      "荞麦饭"
+    ],
+    "category": "grain",
+    "basis": "cooked",
+    "portion": 150,
+    "fdcId": "170686",
+    "description": "Buckwheat groats, roasted, cooked",
+    "per100": [
+      92,
+      3.38,
+      0.62,
+      19.94
+    ],
+    "note": "USDA：烤荞麦粒煮熟。"
+  },
+  {
+    "name": "蘑菇",
+    "aliases": [
+      "口蘑",
+      "白蘑菇"
+    ],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 100,
+    "fdcId": "169251",
+    "description": "Mushrooms, white, raw",
+    "per100": [
+      22,
+      3.09,
+      0.34,
+      3.26
+    ],
+    "note": "USDA：生白蘑菇。"
+  },
+  {
+    "name": "木耳",
+    "aliases": [
+      "黑木耳"
+    ],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 10,
+    "fdcId": "168581",
+    "description": "Fungi, Cloud ears, dried",
+    "per100": [
+      284,
+      9.25,
+      0.73,
+      73.01
+    ],
+    "note": "USDA：干木耳；泡发后重量约十倍，热量按干重。"
+  },
+  {
+    "name": "香菜",
+    "aliases": [
+      "芫荽"
+    ],
+    "category": "vegetable",
+    "basis": "raw",
+    "portion": 10,
+    "fdcId": "169997",
+    "description": "Coriander (cilantro) leaves, raw",
+    "per100": [
+      23,
+      2.13,
+      0.52,
+      3.67
+    ],
+    "note": "USDA：生香菜叶。"
+  },
+  {
+    "name": "蓝莓",
+    "aliases": [
+      "蓝莓果"
+    ],
+    "category": "fruit",
+    "basis": "raw",
+    "portion": 100,
+    "fdcId": "171711",
+    "description": "Blueberries, raw",
+    "per100": [
+      57,
+      0.74,
+      0.33,
+      14.49
+    ],
+    "note": "USDA：生蓝莓。"
+  },
+  {
+    "name": "奇亚籽",
+    "aliases": [
+      "chia"
+    ],
+    "category": "nut",
+    "basis": "raw",
+    "portion": 10,
+    "fdcId": "170554",
+    "description": "Seeds, chia seeds, dried",
+    "per100": [
+      486,
+      16.54,
+      30.74,
+      42.12
+    ],
+    "note": "USDA：干奇亚籽。"
+  },
+  {
+    "name": "亚麻籽",
+    "aliases": [
+      "亚麻籽粉"
+    ],
+    "category": "nut",
+    "basis": "raw",
+    "portion": 10,
+    "fdcId": "169414",
+    "description": "Seeds, flaxseed",
+    "per100": [
+      534,
+      18.29,
+      42.16,
+      28.88
+    ],
+    "note": "USDA：干亚麻籽。"
+  },
+  {
+    "name": "黑巧克力",
+    "aliases": [
+      "70%黑巧"
+    ],
+    "category": "snack",
+    "basis": "as_served",
+    "portion": 20,
+    "fdcId": "170273",
+    "description": "Chocolate, dark, 70-85% cacao solids",
+    "per100": [
+      598,
+      7.79,
+      42.63,
+      45.9
+    ],
+    "note": "USDA：70~85% 可可。"
+  },
+  {
+    "name": "可乐",
+    "aliases": [
+      "碳酸饮料",
+      "汽水"
+    ],
+    "category": "drink",
+    "basis": "as_served",
+    "portion": 330,
+    "fdcId": "174852",
+    "description": "Beverages, carbonated, cola, regular",
+    "per100": [
+      42,
+      0,
+      0.25,
+      10.36
+    ],
+    "note": "USDA：常规含糖可乐，一罐 330 mL。"
   }
 ]

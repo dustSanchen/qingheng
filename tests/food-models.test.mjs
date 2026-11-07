@@ -47,11 +47,11 @@ test('the 12 anchor foods carry exact USDA values, fdcIds and preparation bases'
   assert.equal(foods.find('熟鸡胸肉').basis, 'cooked');
 });
 
-test('120-130 entries (USDA ingredients + illustrative dishes) have unique aliases and sensible values', () => {
-  assert.ok(foods.entries.length >= 120 && foods.entries.length <= 130, 'entries: ' + foods.entries.length);
+test('145-160 entries (USDA ingredients + illustrative dishes) have unique aliases and sensible values', () => {
+  assert.ok(foods.entries.length >= 145 && foods.entries.length <= 160, 'entries: ' + foods.entries.length);
   const dishes = foods.entries.filter(entry => entry.category === 'mixed_dish');
   assert.equal(dishes.length, 20);
-  assert.ok(foods.entries.length - dishes.length >= 100, 'at least 100 USDA ingredient rows');
+  assert.ok(foods.entries.length - dishes.length >= 125, 'at least 125 USDA ingredient rows');
   const aliases = new Set();
   for (const entry of foods.entries) {
     assert.ok(entry.name && entry.category && entry.note);
