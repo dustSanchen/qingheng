@@ -136,5 +136,6 @@
 | 2026-11-03 | `tests/ci-and-versions.test.mjs`、`tests/modularization.test.mjs` | `PROMPT_VERSION = 3` → `= 4` | 提速轮改了两处提示词：删掉 dailyAdvice 开头串进来的估算字段行（死文本），锚点注入上限 4000 → 1200 字；按仓库规矩，提示词文本一改就升版本 |
 | 2026-11-03 | `tests/meal-date-context.test.mjs`、`tests/p1-answers-phase-collapse.test.mjs` | 「行内日期 + 行内 重新生成/这条没用」→「日期只在分组头、两个动作进长按菜单」；展开按钮断言改成 `row-toggle-inline` | 问答界面落地清单第 3、4、5 条：一屏 6 颗按钮压过了内容，改成结构减法；截断去掉渐变遮罩，展开改成文字链 |
 | 2026-11-07 | `tests/records-panels.test.mjs` | 「训练日志先于训练计划」→「训练计划先于训练日志」 | 记录→训练原先先看到录入表单，训练计划与今日顺序掉到下方；1.3.10 把计划卡提到日志卡前面，断言跟随新的阅读顺序 |
+| 2026-11-07 | `tests/records-panels.test.mjs` | 训练分段顺序再改为 `计划 → 今日顺序 → 日志` | 1.3.11 把「今日顺序」从训练计划卡里拆成独立卡片，分段列表必须同步，否则新卡落不进任何分段 |
 
 

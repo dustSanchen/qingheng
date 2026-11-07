@@ -967,8 +967,18 @@
       + (Array.isArray(plan.reasons) ? plan.reasons.map(reason =>
         '<p>' + esc(reason.text) + (reason.source ? '<small> · ' + esc(reason.source) + '</small>' : '') + '</p>').join('') : '')
       + '</details>';
-    const cues = (typeof libraryCues === 'function' && plan.days.length) ? libraryCues(plan.days[0].template) : [];
-    const cueHtml = cues.length ? annotateTerms('<p class="plan-cue">' + cues.map(cue => esc(cue)).join('；') + '</p>') : '';
+    // 要点跟着「今天或下一个训练日」走：周计划第一天是周一，直接用 days[0] 会在休息日弹出
+    // 「侧平举下放」这种与今天无关的提示，读起来像凭空冒出来的警告。
+    const cueDay = plan.days.find(day => day.date === activeDate)
+      || plan.days.find(day => day.date > activeDate)
+      || plan.days[0];
+    const cues = (typeof libraryCues === 'function' && cueDay) ? libraryCues(cueDay.template) : [];
+    const cueToday = !!(cueDay && cueDay.date === activeDate);
+    const cueHtml = cues.length
+      ? '<details class="plan-cue-block"' + (cueToday ? ' open' : '') + '><summary>'
+        + esc((cueToday ? "今天" : "下一个训练日") + "（" + (TRAINING_TEMPLATES[cueDay.template] || cueDay.template) + "）的动作要点")
+        + '</summary>' + annotateTerms('<p class="plan-cue">' + cues.map(cue => esc(cue)).join('；') + '</p>') + '</details>'
+      : '';
     // 本周安排：完全按用户偏好生成；没有偏好就不出方案。
     const planBox = $("#week-plan");
     if (planBox && !planBox.dataset.adoptWired) {

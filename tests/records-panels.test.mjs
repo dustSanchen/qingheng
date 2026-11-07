@@ -14,7 +14,7 @@ check('three segments are declared', /label: '饮食'/.test(app) && /label: '训
 check('every card lands in a segment', ['轻松记一餐', '复制一餐', '最近的餐食记录', '食品热量参考库', '手动记录餐食', '训练日志', '身体数据', '日常习惯']
   .every(h => app.includes(`'${h}'`)));
 check('recent meals precede copying and reference tools fold', app.includes("headings: ['轻松记一餐', '最近的餐食记录', '复制一餐', '食品热量参考库', '手动记录餐食']") && app.includes("foldedHeadings: ['食品热量参考库', '手动记录餐食']"));
-check('planning precedes logging', app.includes("headings: ['训练计划', '训练日志', '下周计划']"));
+check('plan, today order, then logging', app.includes("headings: ['训练计划', '今日顺序', '训练日志', '下周计划']"));
 check('entering records from another page opens food first', app.includes("tab === 'records' && currentTab !== 'records' && !sub"));
 check('training save outranks week planning', html.includes('class="button subtle" id="pref-save"') && html.includes('class="button primary" type="submit">保存训练'));
 check('the installer runs at boot', app.includes('installRecordPanels();'));
