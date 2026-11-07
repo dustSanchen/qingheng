@@ -1511,3 +1511,12 @@ details.panel-more[open]{background:transparent}
 @media (prefers-reduced-motion: reduce){
   .view:not([hidden]),.notice,.slot-hint,.energy-ring,.segment,.pref-chip,.chip-toggle{animation:none!important;transition:none!important}
 }
+
+/* 训练计划内部：分隔用发丝线，不再一层层套框（1.3.13）。 */
+.plan-state{margin:0 0 var(--space-2);padding:var(--space-2) 0;border:0;border-block:1px solid var(--line);border-radius:0;background:transparent}
+.plan-load{border:0;border-block:1px solid var(--line);border-radius:0;background:transparent;padding:8px 0;margin:0 0 var(--space-2)}
+.plan-load.is-high{border:0;border-block:1px solid var(--warn-line);background:transparent}
+.plan-cue{background:transparent;padding:0;border-radius:0;margin:0}
+details.plan-why,details.plan-ref,details.plan-cue-block{border:0;border-block:1px solid var(--line);border-radius:0;background:transparent;margin:8px 0 0;padding:4px 0}
+details.plan-why>summary,details.plan-ref>summary,details.plan-cue-block>summary{min-height:40px}
+details.plan-why>summary::after,details.plan-ref>summary::after,details.plan-cue-block>summary::after{width:auto;height:auto;border:0;border-radius:0;background:none;font-size:14px;color:var(--muted)}

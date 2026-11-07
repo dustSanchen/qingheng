@@ -15,7 +15,7 @@
 
 - 食材：`tools/usda-catalogue.json`（中文名 + 别名 + 分类 + 基准 + 常见份量 + fdcId），`node tools/build-food-library.mjs` 生成 `app/src/main/assets/food-models.js`；改动只动 catalogue。
 - 混合菜（炒菜、面食）：USDA 没有对应条目，保留 `mixed_dish` 的示例估算，不冒充实测。
-- 动作说明：`app/src/fragments/65-exercise-guide.fragment.js`，2026-11-07 从 30 条扩到 61 条，按最长关键词匹配，未收录时明确说没收录。
+- 动作说明：`app/src/fragments/65-exercise-guide.fragment.js`，2026-11-07 从 30 条扩到 91 条；1.3.13 按 free-exercise-db（Unlicense）的名称与肌群覆盖补 30 条常见器械/绳索动作，中文名称与要点自写，不复制其媒体或英文原文。
 - 动作处方（组次/RPE）：`training-principles.js`，来自公开视频与指南，带来源等级；不引入第三方动作库的媒体文件。
 
 ## 许可落点

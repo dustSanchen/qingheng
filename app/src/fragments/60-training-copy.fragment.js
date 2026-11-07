@@ -478,9 +478,8 @@
       .filter(rule => (rule.tags || []).some(tag => wanted.has(tag)))
       .sort((a, b) => rank(a.source) - rank(b.source))
       .slice(0, max);
-    return hits.map(rule => '[' + rule.topic + '] ' + rule.claim
-      + (rule.evidence ? '（口述 ' + rule.evidence.at + '，' + rule.evidence.bvid + '）'
-        : rule.video ? '（视频 ' + rule.video.bvid + '）' : '')).join('\n');
+    // 只给规则本身，不带出处：模型不该在回答里报 BV 号或「口述 02:08」。
+    return hits.map(rule => '[' + rule.topic + '] ' + rule.claim).join('\n');
   }
   /** Two short cues for today's template, taken from the transcript-level rules. */
   function libraryCues(template) {
@@ -957,15 +956,14 @@
           ? '<br><small>' + day.cues.map(cue => esc(cue)).join('；') + '</small>' : '';
         return '<p><strong>' + esc(day.label) + '</strong><br>' + list + dayCues + '</p>';
       }).join('');
-      return rows ? '<details class="plan-ref"><summary>整理图参考处方</summary>' + rows
-        + '<p class="fine-print">来自评论区「课代表」按三分化视频整理的图片（C 级，与视频结构互证）。</p></details>' : '';
+      return rows ? '<details class="plan-ref"><summary>参考处方</summary>' + rows + '</details>' : '';
     })();
     const suggestedNote = plan.days.some(day => day.suggested) ? '<p class="fine-print">带「建议」的动作来自训练库（该模板你还没有记录），先按 3 组建立基线。</p>' : '';
     // 依据与说明沉到默认折叠的 details 里：首屏只留数据。
     const why = '<details class="plan-why"><summary>为什么这样排</summary>'
       + '<p>' + esc(plan.note) + '</p>'
       + (Array.isArray(plan.reasons) ? plan.reasons.map(reason =>
-        '<p>' + esc(reason.text) + (reason.source ? '<small> · ' + esc(reason.source) + '</small>' : '') + '</p>').join('') : '')
+        '<p>' + esc(reason.text) + '</p>').join('') : '')
       + '</details>';
     // 要点跟着「今天或下一个训练日」走：周计划第一天是周一，直接用 days[0] 会在休息日弹出
     // 「侧平举下放」这种与今天无关的提示，读起来像凭空冒出来的警告。

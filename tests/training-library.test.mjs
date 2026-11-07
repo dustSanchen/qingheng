@@ -29,7 +29,7 @@ check('most rules cite a video', withVideo.length >= 15, String(withVideo.length
 check('video refs look like bvids', withVideo.every(r => /^BV[0-9A-Za-z]{10}$/.test(r.video.bvid)), JSON.stringify(withVideo.slice(0, 2).map(r => r.video.bvid)));
 check('video refs carry a duration', withVideo.every(r => Number(r.video.seconds) > 0));
 check('digest includes the video reference', app.includes("'（视频 ' + rule.video.bvid"));
-check('the prompt asks for the BV number', (function(){const p=fs.readFileSync('app/src/main/java/cn/qingheng/health/ai/Prompts.java','utf8'); return p.includes('BV 号与时长')})());
+check('the advice prompt no longer asks for BV citations', (function(){const p=fs.readFileSync('app/src/main/java/cn/qingheng/health/ai/Prompts.java','utf8'); return !p.includes('BV 号与时长')})());
 
 check('rules are plentiful', lib.rules.length >= 14, String(lib.rules.length));
 check('every rule has id/topic/claim/source/confidence', lib.rules.every(r => r.id && r.topic && r.claim && r.source && r.confidence));
@@ -131,7 +131,7 @@ check('the digest rules exist', ['push-day-template','pull-day-template','legs-d
 check('the generator uses the day templates', app.includes('libraryDayTemplate(template)') && app.includes('function libraryDayTemplate(template)'));
 check('plan items show RPE', app.includes("' · RPE ' + item.rpe"));
 
-check('the card shows the reference prescriptions', app.includes('整理图参考处方') && app.includes('plan.days.some(day => day.suggested)'));
+check('the card shows the reference prescriptions', app.includes('<summary>参考处方</summary>') && app.includes('plan.days.some(day => day.suggested)'));
 
 // --- ASR 口述级规则（A 级） ---------------------------------------------------------------
 check('asr transcript rules', lib.sources.some(s => s.id === 'asr-transcript'));

@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.12';
+  const APP_VERSION = '1.3.13';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -239,7 +239,7 @@
         .sort((a, b) => rank(a.source) - rank(b.source))
         .slice(0, 3);
       if (!hits.length) return '';
-      const items = hits.map(rule => '<p>' + esc(rule.claim.split('；')[0]) + (rule.evidence ? '<small> · 口述 ' + esc(rule.evidence.at) + '</small>' : '') + '</p>').join('');
+      const items = hits.map(rule => '<p>' + esc(rule.claim.split('；')[0]) + '</p>').join('');
       return '<p class="part-title">' + esc(part.label) + '</p>' + items;
     }).join('');
     return rows ? '<details class="body-parts"><summary>按部位查解剖要点</summary>' + rows + '</details>' : '';
