@@ -505,3 +505,17 @@
 - 验收：`test-all` 57/57；dev-loop 1.3.11/311 全绿 31.7s（测试 10.7 / 打包 8.9 / 装机 9.4）；真机确认：今日顺序独立成卡、动作行无「加入」、算一下弹层三行横向、要点标题为「下一个训练日（推）的动作要点」且折叠。
 - APK：`dist/qingheng-1.3.11.apk`，584,801 B，sha256 `bb10745bdad666635eaa6dcf4714766aba5970e00869004d2b69656968793c40`。
 - 源码提交 `b3c12cc`；回滚：`git revert b3c12cc`。
+
+## r78 · 2026-11-07 · 1.3.12（补食材与动作说明，数据源评估）
+- 需求原话：「填充健身、饮食数据库，可从github上确认是否有相关可利用项目」。
+- 数据源结论（详见 `docs/design/23-data-sources.md`）：
+  - 采用 USDA FoodData Central SR Legacy（公有领域，逐条 fdcId）；
+  - ODbL 的 Open Food Facts 只在线查询、不批量入库；
+  - `Sanotsu/china-food-composition-data`（中国食物成分表，1677 条）**无 LICENSE 且源自受版权书籍截图**，不复制；
+  - `yuhonas/free-exercise-db`（Unlicense，876 动作）字段够用但需中文翻译，留作下一轮备选；
+  - `hasaneyldrm/exercises-dataset`（1,324 动作）许可 NOASSERTION、媒体 © Gym visual，不用。
+- 食材：`tools/usda-catalogue.json` 新增 27 条（肉类 7、水产 8、蛋奶补充 1、谷物豆类 7、蔬果坚果等 4），参考库 125 → 150 条（130 食材 + 20 示例菜）。踩坑：新增别名与旧条目冲突两次（`虾仁`、`全脂牛奶`/`低脂酸奶`），构建脚本的重复别名检查直接把构建拦下，按检查结果删别名/删重复行后通过。
+- 动作说明：`65-exercise-guide.fragment.js` 30 → 61 条，补推、拉、腿、核心与有氧常用动作；仍按最长关键词匹配，未收录直说。
+- 验收：`test-all` 57/57（food-models 条目数断言 `120–130` → `145–160`，登记 `03-global-changes §5.1`）；dev-loop 1.3.12/312 全绿 30.8s（测试 10.5 / 打包 8.1 / 装机 9.6）；离线校验 `search('三文鱼') → 208 kcal`、`黑巧克力 → 598 kcal`、条目数 150。
+- APK：`dist/qingheng-1.3.12.apk`，588,898 B，sha256 `f0cd8d2ec40f0742a07557aed8cea2ce1ea31d7aff670003344c5b5e709ead6d`。
+- 源码提交 `3c239ee`；回滚：`git revert 3c239ee`。
