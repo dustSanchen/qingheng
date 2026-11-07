@@ -539,3 +539,15 @@
 - 验收：`test-all` 57/57；dev-loop 1.3.14/314 全绿 31.2s（测试 10.8 / 打包 8.2 / 装机 9.6）；真机截图 `build/v314-plan.png`（分区小标题）、`build/v314-guide.png`（深蹲含「怎么做」）。
 - APK：`dist/qingheng-1.3.14.apk`，592,992 B，sha256 `0667ec4e4210c827d84cfd5b8c5f93ecf3463f6712a9f016f83f03443bd63697`。
 - 源码提交 `8854f6c`；回滚：`git revert 8854f6c`。
+
+## r81 · 2026-11-07 · 1.3.15（用量账本 + DeepSeek 余额 + 充值入口）
+- 需求原话：「为当天APP制作消耗token功能，计算APP累计消耗金额与api key关联账户剩余余额，是否可提供对应充值入口？」；用户补一句「优先为deepseek模型实现」。
+- 采集：缓冲响应读 `usage`；流式请求对 DeepSeek 加 `stream_options.include_usage`，读最后一帧的 `usage`；`recordUsage()` 只写 `{t, model, in, out}`，上限 800 条，存 SharedPreferences `usageLog`。
+- 展示：`我的 → AI 模型与密钥` 新增「用量与余额」：今天/本月 tokens、按可改单价估算的金额、DeepSeek 余额；单价默认 2/8 元每百万 tokens（输入/输出），存 `qingheng.usagePrice`。
+- 余额：`GET {baseUrl 去掉 /v1}/user/balance`，Bearer 用已保存 key；返回 `balance_infos[0]` 的 total/granted/topped；非 DeepSeek 直接提示不支持。
+- 充值：不在应用内收款，只允许 `openExternal` 打开 `platform.deepseek.com`（白名单），其余外链仍被 WebView 拦截。
+- 踩坑：`model` 在方法里可能被重新赋值，流式回调捕获它编译不过，先拷成 `final usageModel/estimateModel`；`usageLog()` 的 catch 里再 `new JSONObject().put()` 会抛未捕获的 JSONException，改成先建对象再填。
+- 验收：`test-all` 58/58（新增 `tests/usage-billing.test.mjs` 14 条）；dev-loop 1.3.15/315 全绿 31.3s；真机一次排程调用后显示 3.3k tokens / ¥0.02 / 1 次，余额 18.67 CNY（调用前 19.00）。
+- 已知边界：只统计本机此后发生的调用；历史调用没有 usage 数据，不回溯；价格是估算值，DeepSeek 调价后需在页面改单价。
+- APK：`dist/qingheng-1.3.15.apk`，597,088 B，sha256 `a22920257b989ebef1fb273e9500d1819eecb3f1fa90ea4ce84e6807c5696e5d`。
+- 源码提交 `e9db4d1`；回滚：`git revert e9db4d1`。
