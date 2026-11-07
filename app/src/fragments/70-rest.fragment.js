@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.14';
+  const APP_VERSION = '1.3.15';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -817,6 +817,7 @@
     if (typeof installWeightCalc === "function") installWeightCalc();
     if (typeof installPlanPrefs === "function") installPlanPrefs();
     if (typeof installExerciseGuide === "function") installExerciseGuide();
+    if (typeof installUsagePanel === "function") installUsagePanel();
     if (typeof installAiPlan === "function") installAiPlan();
     if (typeof installSegmentKeys === "function") installSegmentKeys();
     if (typeof installPhotoEntry === "function") installPhotoEntry();

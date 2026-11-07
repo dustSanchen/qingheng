@@ -8,6 +8,7 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import javax.net.ssl.HttpsURLConnection;
 
 /**
@@ -81,7 +82,10 @@ public final class ChatCompletion {
             if (content.length() > MAX_CONTENT) throw new PublicError("API 返回内容过长");
             // A response whose content is JSON null would otherwise be the literal string "null".
             if (isBlank(content)) throw new PublicError("模型这次没有给出回答内容，请重新提问或换一个模型");
-            return new JSONObject().put("content", content).put("message", message);
+            JSONObject out = new JSONObject().put("content", content).put("message", message);
+            JSONObject usage = response.optJSONObject("usage");
+            if (usage != null) out.put("usage", usage);
+            return out;
         } catch (PublicError e) {
             throw e;
         } catch (Exception e) {
@@ -142,12 +146,23 @@ public final class ChatCompletion {
      */
     public static String stream(JSONObject config, String apiKey, String model, JSONArray messages,
                                 Delta onDelta, Delta onThink) throws Exception {
+        return stream(config, apiKey, model, messages, onDelta, onThink, null);
+    }
+
+    /** Same as above, plus a usage sink (DeepSeek reports token usage on the last stream chunk). */
+    public static String stream(JSONObject config, String apiKey, String model, JSONArray messages,
+                                Delta onDelta, Delta onThink, UsageSink onUsage) throws Exception {
         if (model == null || model.trim().isEmpty()) throw new PublicError("请配置文本或视觉模型名称");
         if (apiKey == null || apiKey.trim().isEmpty()) throw new PublicError("未配置 API 密钥，可使用前端离线估算");
         if (messages == null || messages.length() < 1) throw new PublicError("请提供对话内容");
         URL destination = endpoint(config.getString("baseUrl"));
         JSONObject payload = new JSONObject().put("model", model).put("temperature", 0.2)
                 .put("messages", messages).put("stream", true);
+        // DeepSeek 支持在流式末尾带 usage；别的服务商可能不认这个字段，所以只对 DeepSeek 加。
+        String base = config.optString("baseUrl", "");
+        if (base.toLowerCase(Locale.ROOT).contains("deepseek")) {
+            payload.put("stream_options", new JSONObject().put("include_usage", true));
+        }
         HttpsURLConnection conn = null;
         StringBuilder answer = new StringBuilder();
         try {
@@ -184,6 +199,8 @@ public final class ChatCompletion {
                                 if (!thinking.isEmpty() && onThink != null) onThink.onDelta(thinking);
                             }
                         }
+                        JSONObject usageObj = chunk.optJSONObject("usage");
+                        if (usageObj != null && onUsage != null) onUsage.onUsage(usageObj);
                         // Some providers report an error inside the stream instead of via HTTP status.
                         JSONObject error = chunk.optJSONObject("error");
                         if (error != null && answer.length() == 0) {
@@ -284,6 +301,11 @@ public final class ChatCompletion {
     /** Receives each streamed text fragment as it arrives. */
     public interface Delta {
         void onDelta(String text);
+    }
+
+    /** Streaming providers report usage on the final chunk; callers record it for cost accounting. */
+    public interface UsageSink {
+        void onUsage(JSONObject usage);
     }
 
     /** Only GET /models: validates the stored key without sending health data or buying a completion. */

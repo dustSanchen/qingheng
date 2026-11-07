@@ -29,7 +29,9 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import javax.net.ssl.HttpsURLConnection;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -814,6 +816,23 @@ import java.util.concurrent.Executors;
             if (!alive) return;
             openHealthConnectPermissionScreen();
         }
+        /** Opens a provider console in the system browser; only known billing hosts are allowed. */
+        @JavascriptInterface public boolean openExternal(String url) {
+            if (!alive || url == null) return false;
+            try {
+                Uri uri = Uri.parse(url.trim());
+                String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
+                String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.ROOT);
+                if (!"https".equals(scheme)) return false;
+                boolean allowed = host.equals("platform.deepseek.com") || host.equals("cloud.siliconflow.cn")
+                        || host.equals("api.b.ai") || host.equals("b.ai");
+                if (!allowed) return false;
+                runOnUiThread(() -> {
+                    try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); } catch (Exception ignored) { }
+                });
+                return true;
+            } catch (Exception e) { return false; }
+        }
         /**
          * Asks the system for the Health Connect read permissions. Android shows its own consent
          * sheet; the app never grants anything for the user, and the answer is reported back to the
@@ -1569,6 +1588,11 @@ import java.util.concurrent.Executors;
             return ChatCompletion.checkConnection(config(p), apiKey(p));
         }
         if (get && path.equals("/api/key-info")) return keyInfo(provider());
+        if (path.equals("/api/usage")) {
+            if (get) return usageLog();
+            if (post) { prefs.edit().remove("usageLog").apply(); return usageLog(); }
+        }
+        if (get && path.equals("/api/balance")) return accountBalance();
         if (path.equals("/api/settings")) {
             if (get) return publicSettings();
             if (post) { saveSettings(b); return publicSettings(); }
@@ -2441,10 +2465,12 @@ import java.util.concurrent.Executors;
         String reply;
         int cap = planFocus ? CAP_PLAN : CAP_CHAT_BUFFERED;
         long planStart = System.currentTimeMillis();
+        final String usageModel = model;
         try {
             reply = sink == null
                     ? chat(c, model, messages, cap).trim()
-                    : ChatCompletion.stream(c, apiKey(c.optString("provider", provider())), model, messages, sink, think).trim();
+                    : ChatCompletion.stream(c, apiKey(c.optString("provider", provider())), model, messages, sink, think,
+                            usage -> recordUsage(usage, usageModel)).trim();
         } catch (Exception first) {
             // 清单只有一次机会：空回答多半是输出预算被思考过程吃掉了，放大上限重排一次，别让用户自己再点。
             if (!planFocus || sink != null || !EMPTY_REPLY.equals(first.getMessage())) throw first;
@@ -3244,7 +3270,9 @@ import java.util.concurrent.Executors;
     }
     /** Thin wrapper: all HTTPS and key handling lives in ChatCompletion/SecretStore. */
     private String chat(JSONObject c, String model, JSONArray messages) throws Exception {
-        return ChatCompletion.complete(c, apiKey(c.optString("provider", provider())), model, messages).getString("content");
+        JSONObject result = ChatCompletion.complete(c, apiKey(c.optString("provider", provider())), model, messages);
+        recordUsage(result.optJSONObject("usage"), model);
+        return result.getString("content");
     }
 
     /**
@@ -3253,7 +3281,69 @@ import java.util.concurrent.Executors;
      * rather than a quality trade: it only cuts the model's room to ramble past the answer.
      */
     private String chat(JSONObject c, String model, JSONArray messages, int maxTokens) throws Exception {
-        return ChatCompletion.complete(c, apiKey(c.optString("provider", provider())), model, messages, maxTokens).getString("content");
+        JSONObject result = ChatCompletion.complete(c, apiKey(c.optString("provider", provider())), model, messages, maxTokens);
+        recordUsage(result.optJSONObject("usage"), model);
+        return result.getString("content");
+    }
+
+    /** 用量账本：每次调用一条，只存 token 数与模型，不存问题与回答。 */
+    private static final int USAGE_LOG_CAP = 800;
+    private void recordUsage(JSONObject usage, String model) {
+        if (usage == null) return;
+        int in = usage.optInt("prompt_tokens", usage.optInt("input_tokens", -1));
+        int out = usage.optInt("completion_tokens", usage.optInt("output_tokens", -1));
+        if (in < 0 && out < 0) return;
+        try {
+            JSONArray log = new JSONArray(prefs.getString("usageLog", "[]"));
+            log.put(new JSONObject().put("t", System.currentTimeMillis())
+                    .put("model", model == null ? "" : model)
+                    .put("in", Math.max(0, in)).put("out", Math.max(0, out)));
+            JSONArray kept = new JSONArray();
+            for (int i = Math.max(0, log.length() - USAGE_LOG_CAP); i < log.length(); i++) kept.put(log.get(i));
+            prefs.edit().putString("usageLog", kept.toString()).apply();
+        } catch (Exception ignored) { }
+    }
+    private JSONObject usageLog() throws Exception {
+        JSONObject out = new JSONObject();
+        JSONArray log = new JSONArray();
+        try { log = new JSONArray(prefs.getString("usageLog", "[]")); } catch (Exception ignored) { }
+        out.put("log", log);
+        out.put("provider", provider());
+        return out;
+    }
+
+    /**
+     * DeepSeek 的余额接口：GET {baseUrl}/user/balance，Bearer 用已保存的 key。
+     * 其他服务商的余额口径不同，先明确拒绝，不拿一个假数字糊弄。
+     */
+    private JSONObject accountBalance() throws Exception {
+        String p = provider();
+        if (!"deepseek".equals(p)) throw fail("余额查询目前只支持 DeepSeek；其他服务商请到对应控制台查看。");
+        String key = apiKey(p);
+        if (key == null || key.trim().isEmpty()) throw fail("请先保存 DeepSeek 密钥");
+        String base = config(p).optString("baseUrl", "").trim().replaceAll("/+$", "");
+        if (base.endsWith("/v1")) base = base.substring(0, base.length() - 3);
+        if (base.isEmpty()) throw fail("请先保存 DeepSeek 的 API 地址");
+        HttpsURLConnection conn = (HttpsURLConnection) new URL(base + "/user/balance").openConnection();
+        try {
+            conn.setConnectTimeout(15000); conn.setReadTimeout(20000);
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("Authorization", "Bearer " + key);
+            conn.setRequestProperty("Accept", "application/json");
+            int code = conn.getResponseCode();
+            if (code != 200) throw fail("余额查询失败（HTTP " + code + "），请检查密钥与服务商");
+            String text;
+            try (InputStream in = conn.getInputStream()) { text = readText(in, 1 << 20); }
+            JSONObject json = new JSONObject(text);
+            JSONArray infos = json.optJSONArray("balance_infos");
+            JSONObject info = infos != null && infos.length() > 0 ? infos.optJSONObject(0) : null;
+            return new JSONObject().put("provider", p)
+                    .put("available", json.optBoolean("is_available"))
+                    .put("currency", info == null ? "" : info.optString("currency", ""))
+                    .put("total", info == null ? "" : info.optString("total_balance", ""))
+                    .put("granted", info == null ? "" : info.optString("granted_balance", ""))
+                    .put("topped", info == null ? "" : info.optString("topped_up_balance", ""));
+        } finally { conn.disconnect(); }
     }
 
     private JSONObject estimate(JSONObject b) throws Exception {
@@ -3282,9 +3372,11 @@ import java.util.concurrent.Executors;
                         cn.qingheng.health.ai.Prompts.withAnchors(cn.qingheng.health.ai.Prompts.mealEstimate(), b.optString("anchors", "")) + preferenceSuffix(b)))
                 .put(new JSONObject().put("role", "user").put("content", content));
         long estimateStarted = System.currentTimeMillis();
+        final String estimateModel = model;
         String response = sink == null
                 ? chat(c, model, messages, CAP_ESTIMATE).trim()
-                : ChatCompletion.stream(c, apiKey(c.optString("provider", provider())), model, messages, sink).trim();
+                : ChatCompletion.stream(c, apiKey(c.optString("provider", provider())), model, messages, sink, null,
+                        usage -> recordUsage(usage, estimateModel)).trim();
         android.util.Log.i("qingheng", "estimate " + (System.currentTimeMillis() - estimateStarted) + "ms chars=" + response.length() + " cap=" + CAP_ESTIMATE);
         JSONObject parsed;
         try { parsed = new JSONObject(response); }

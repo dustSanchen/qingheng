@@ -1521,3 +1521,10 @@ details.panel-more[open]{background:transparent}
 details.plan-why,details.plan-cue-block{border:0;border-block:1px solid var(--line);border-radius:0;background:transparent;margin:8px 0 0;padding:4px 0}
 details.plan-why>summary,details.plan-cue-block>summary{min-height:40px}
 details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto;height:auto;border:0;border-radius:0;background:none;font-size:14px;color:var(--muted)}
+
+/* 用量与余额：三个数并排，不对齐表格也能读。 */
+.usage-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-3);margin:var(--space-2) 0 var(--space-3)}
+.usage-grid>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.usage-label{font-size:var(--text-xs);color:var(--muted)}
+.usage-grid strong{font-size:17px;font-weight:var(--fw-medium);font-variant-numeric:tabular-nums;white-space:nowrap}
+.usage-grid small{font-size:var(--text-xs);color:var(--muted);overflow-wrap:anywhere}
