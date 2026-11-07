@@ -10,7 +10,7 @@ const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + 
 // --- The chat/advice context must let the model tell which day a record belongs to --------------
 check('chat takes the analysed day from the request', main.includes('String selectedDate = analysisDate(b.opt("date"), dayOffset(0));'));
 check('a bad analysed day is refused instead of silently replaced', /private static String analysisDate\(Object raw, String today\)[\s\S]{0,400}throw fail\("请选择有效的 YYYY-MM-DD 日期"\)/.test(main));
-check('chat context is appended after the history', /for \(int i = 0; i < history\.length\(\); i\+\+\) messages\.put\(history\.get\(i\)\);[\s\S]{0,600}chatDataContext\(selectedDate\)/.test(main));
+check('chat context is appended after the history', /for \(int i = 0; i < history\.length\(\); i\+\+\) messages\.put\(history\.get\(i\)\);[\s\S]{0,1200}if \(!planFocus\) messages\.put\([\s\S]{0,160}chatDataContext\(selectedDate\)/.test(main));
 for (const field of ['"today"', '"timezone"', '"selectedDate"', '"mealCount"', '"dailyNutrition"', '"recordPolicy"']) {
   check('chat context carries ' + field, main.includes(`.put(${field}`));
 }
@@ -136,7 +136,7 @@ check('entering a sub-page pushes history for the system back button', app.inclu
 check('restoring the tab ignores the sub-page', /function restoreTab\(\) \{\s*const fromHash = parseHash\(\)\.tab;/.test(app));
 check('hub summaries are refreshed from state', app.includes('function renderHub()') && app.includes('renderHub();'));
 check('the storage panel is driven by the new route', app.includes("api(remirror ? '/api/storage-remirror' : '/api/storage-status'"));
-check('the app version is a single constant', app.includes("const APP_VERSION = '1.3.08'"));
+check('the app version is a single constant', app.includes("const APP_VERSION = '1.3.09'"));
 check('the shown version matches the build script', (() => {
   const shown = /const APP_VERSION = '([0-9.]+)'/.exec(app);
   const built = /\$Version='([0-9.]+)'/.exec(fs.readFileSync('build.ps1', 'utf8'));

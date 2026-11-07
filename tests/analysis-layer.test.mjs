@@ -106,9 +106,9 @@ check('deload drops load and one set', deload.deload === true && deload.days.fla
 // --- 模型路由 -----------------------------------------------------------------------------------
 check('the client picks a fast tier', app.includes("const tier = !submittedImage && !deepIntent && question.length <= 24 ? 'fast' : 'deep';"));
 check('fast tier never searches', app.includes("webSearch:$('#chat-web').checked && navigator.onLine && tier === 'deep'"));
-check('the native side honours the tier', main.includes('boolean fastTier = "fast".equals(b.optString("tier", "deep"));'));
 check('fast tier trims the context', main.includes('private String chatDataContextCompact(String selectedDate)'));
-check('fast tier skips web search server-side', main.includes('boolean wantWeb = !fastTier && b.optBoolean("webSearch", false)'));
+check('fast tier still skips web search server-side', main.includes('boolean wantWeb = !fastTier && !planFocus && b.optBoolean("webSearch", false)'));
+check('the tier is read once and the plan request bypasses it', main.includes('boolean fastTier = !planFocus && "fast".equals(b.optString("tier", "deep"));'));
 
 // --- 界面挂载 -----------------------------------------------------------------------------------
 check('the check card exists', html.includes('id="daily-check"'));

@@ -61,6 +61,10 @@ import java.util.concurrent.Executors;
     private static final int CAP_QUERY_REWRITE = 140;
     private static final int CAP_SEARCH_KEYWORDS = 80;
     private static final int CAP_CHAT_BUFFERED = 900;
+    /** 今日清单要一次性写完 6 个动作的 JSON，900 不够用；被思考过程吃掉时还要 ×4 重试。 */
+    private static final int CAP_PLAN = 1400;
+    /** 空回答的固定文案：重试逻辑与对用户的提示都靠它判断，别各写一份。 */
+    private static final String EMPTY_REPLY = "模型这次没有给出回答内容，请重新提问或换一个模型";
     private static final String HOST = "app.qingheng.local";
     private static final int LIMIT = 8 * 1024 * 1024;
     private static final int PICK = 4101, SAVE = 4102, SAVE_TEXT = 4103, CAMERA = 4104, VOICE = 4105, REQUEST_CAMERA = 4202, REQUEST_VOICE = 4203, REQUEST_HEALTH = 4204;
@@ -2368,33 +2372,38 @@ import java.util.concurrent.Executors;
                             question.isEmpty() ? "请看我拍的照片，并结合我的记录回答；不确定就说明。" : question))
                     .put(new JSONObject().put("type", "image_url").put("image_url", new JSONObject().put("url", image)));
         }
+        // 今日清单是结构化输出，必须走自己的提示词：通用问答人设要求「先给结论、最多 3 句」，
+        // 和「只输出 JSON 数组」正面冲突，模型干脆只回思考过程，前端就只等到一条空回答。
+        boolean planFocus = "plan".equals(b.optString("focus", ""));
         JSONArray messages = new JSONArray()
-                .put(new JSONObject().put("role", "system").put("content", chatSystemPrompt()));
+                .put(new JSONObject().put("role", "system").put("content", planFocus ? planSystemPrompt() : chatSystemPrompt()));
         for (int i = 0; i < history.length(); i++) messages.put(history.get(i));
         // Fresh trusted records outrank stale conversation claims; never infer new totals from history.
         // Tier decides cost: a fast answer is short, never searches the web, and skips the deep context.
-        boolean fastTier = "fast".equals(b.optString("tier", "deep"));
+        boolean fastTier = !planFocus && "fast".equals(b.optString("tier", "deep"));
         if (fastTier) {
             messages.put(new JSONObject().put("role", "system").put("content",
                     "本次是快速回答：最多 3 句，先给结论再给一个动作，不要复述数据，不解释推理过程。"));
         }
-        messages.put(new JSONObject().put("role", "system").put("content", fastTier ? chatDataContextCompact(selectedDate) : chatDataContext(selectedDate)));
+        // 清单请求的资料全在用户消息里（目标、体重、分化、基线、训练库规则），再塞一份深上下文只是拉长首字延迟。
+        if (!planFocus) messages.put(new JSONObject().put("role", "system").put("content", fastTier ? chatDataContextCompact(selectedDate) : chatDataContext(selectedDate)));
         // The local knowledge base, if the page sent one: cite it by priority, never let it override the app's rules.
-        String libraryDigest = b.optString("library", "").trim();
+        // 清单请求不加：这份指令要求「引用时说明来自哪一级」，会把模型从纯 JSON 拉回写段落。
+        String libraryDigest = planFocus ? "" : b.optString("library", "").trim();
         if (!libraryDigest.isEmpty() && libraryDigest.length() <= 1500) {
             messages.put(new JSONObject().put("role", "system").put("content",
                     "本地建议库（优先按 P1 三分化、P2 好人松松、P3 谭成义、P4 凯圣王、P5 ALEX 的顺序引用；"
                     + "库内条目不得覆盖 App 的热量/蛋白/缺口口径。引用时说明来自哪一级）：\n" + libraryDigest));
         }
         // The 今天-page window asks training questions only, so it gets a narrower instruction.
-        if ("training".equals(b.optString("focus", ""))) {
+        if (!planFocus && "training".equals(b.optString("focus", ""))) {
             messages.put(new JSONObject().put("role", "system").put("content",
                     "本次只回答训练安排：今天练哪个模板、哪些动作、组次与强度、要不要有氧、时间不够怎么取舍。"
                     + "结合今日训练记录（trainedToday）与目标；不超过 4 句，给一个能立刻执行的安排，数字用区间。"
                     + "不回答饮食与疾病问题，若被问到就一句话说明这是训练窗口并建议去问答页。"));
         }
         // Lookup runs before the model call. The note goes right before the user turn so it outranks older history.
-        boolean wantWeb = !fastTier && b.optBoolean("webSearch", false) && !question.isEmpty();
+        boolean wantWeb = !fastTier && !planFocus && b.optBoolean("webSearch", false) && !question.isEmpty();
         JSONArray queries = new JSONArray();
         String searchWords = "";
         JSONObject web = null;
@@ -2429,11 +2438,23 @@ import java.util.concurrent.Executors;
             messages.put(new JSONObject().put("role", "system").put("content", webContext(web)));
         }
         messages.put(new JSONObject().put("role", "user").put("content", userContent));
-        String reply = sink == null
-                ? chat(c, model, messages, CAP_CHAT_BUFFERED).trim()
-                : ChatCompletion.stream(c, apiKey(c.optString("provider", provider())), model, messages, sink, think).trim();
+        String reply;
+        int cap = planFocus ? CAP_PLAN : CAP_CHAT_BUFFERED;
+        long planStart = System.currentTimeMillis();
+        try {
+            reply = sink == null
+                    ? chat(c, model, messages, cap).trim()
+                    : ChatCompletion.stream(c, apiKey(c.optString("provider", provider())), model, messages, sink, think).trim();
+        } catch (Exception first) {
+            // 清单只有一次机会：空回答多半是输出预算被思考过程吃掉了，放大上限重排一次，别让用户自己再点。
+            if (!planFocus || sink != null || !EMPTY_REPLY.equals(first.getMessage())) throw first;
+            reply = chat(c, model, messages, cap * 4).trim();
+        }
         // A reply made only of JSON nulls must never reach the page or the log.
         if (ChatCompletion.isBlank(reply)) throw fail("模型这次没有给出回答内容（可能只返回了思考过程），请重新提问或换一个模型");
+        if (planFocus) android.util.Log.i("qingheng",
+                "plan ms " + (System.currentTimeMillis() - planStart) + " chars " + reply.length()
+                        + " rows " + (reply.length() - reply.replace("{", "").length()));
         JSONObject out = new JSONObject().put("source", "api");
         if (web == null) return out.put("reply", reply);
         JSONObject webStatus = new JSONObject().put("connected", web.optBoolean("connected")).put("via", web.optString("via"))
@@ -2633,6 +2654,20 @@ import java.util.concurrent.Executors;
     /** Wording lives in ai.Prompts, so the prompt version and the text always change together. */
     private static String chatSystemPrompt() {
         return cn.qingheng.health.ai.Prompts.chat();
+    }
+    /**
+     * 今日清单的提示词：只认 JSON 数组，不要任何人设、寒暄、解释。
+     * 通用问答人设会让模型「先说结论」，而清单只要数据，两套要求同时存在时模型常只回思考过程。
+     */
+    private static String planSystemPrompt() {
+        return "你是力量与有氧训练教练，负责给用户排今天按顺序执行的清单。\n"
+                + "只输出一个 JSON 数组：第一个字符必须是 [，最后一个字符必须是 ]；不要写任何解释、不要加 ``` 代码块标记、不要输出别的文字。\n"
+                + "力量动作：{\"name\":\"深蹲\",\"sets\":4,\"reps\":8,\"weight\":40,\"reason\":\"一句话为什么排它\"}；"
+                + "有氧动作：{\"name\":\"跑步\",\"distanceKm\":5,\"durationMin\":30}，不要填 sets 与 reps 以外的组次字段。\n"
+                + "name 用常见标准动作名、不超过 12 个字、不得重复；每个动作都要写 reason，weight 可省略；最多 6 个动作。\n"
+                + "动作数量按时长定：30 分钟排 4 个、45 分钟排 5 个、60 分钟及以上排 6 个；总组数必须装得进用户给的时长。\n"
+                + "只排记成「组数×次数×负重」的力量动作和有氧动作；平板支撑这类按秒计的静态动作记不进组次表，不要排。\n"
+                + "顺序按真实执行顺序：大重量复合动作在前，孤立动作在后，有氧放最后。";
     }
 
     /**
@@ -3668,7 +3703,7 @@ import java.util.concurrent.Executors;
             summary = chat(c, c.getString("model"), messages, CAP_ADVICE).trim();
         } catch (Exception first) {
             // 模型把预算全用在思考过程上时 content 会是空的：放宽上限重试一次，别让建议卡直接空着。
-            if (!"模型这次没有给出回答内容，请重新提问或换一个模型".equals(first.getMessage())) throw first;
+            if (!EMPTY_REPLY.equals(first.getMessage())) throw first;
             summary = chat(c, c.getString("model"), messages, CAP_ADVICE * 4).trim();
         }
         android.util.Log.i("qingheng", "advice " + (System.currentTimeMillis() - adviceStarted) + "ms chars=" + summary.length() + " cap=" + CAP_ADVICE);

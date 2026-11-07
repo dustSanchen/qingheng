@@ -42,6 +42,22 @@
   let pushSettings={...pushDefaults};
   const HHMM=/^([01]\d|2[0-3]):[0-5]\d$/;
   const localDate=(date=new Date())=>`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+// /api/chat 与 /api/chat/stream 共用一个字段白名单。白名单漏一个字段，原生侧对应的分支就永远不生效：
+// 2026-11-07「用 AI 排今天」报错就是这么来的——focus/tier/library 全被丢掉，清单提示词从未到达模型。
+const chatNativeBody=(body,image)=>({
+  question:String(body?.question||'').trim(),
+  date:body?.date || localDate(),
+  ...(body?.photoTakenAt?{photoTakenAt:body.photoTakenAt}:{}),
+  ...(body?.photoTimeSource?{photoTimeSource:body.photoTimeSource}:{}),
+  history:Array.isArray(body?.history)?body.history.slice(-20):[],
+  allowExternal:true,
+  ...(typeof body?.anchors==='string'&&body.anchors?{anchors:body.anchors}:{}),
+  ...(typeof body?.focus==='string'&&body.focus?{focus:body.focus}:{}),
+  ...(body?.tier==='fast'?{tier:'fast'}:{}),
+  ...(typeof body?.library==='string'&&body.library?{library:body.library}:{}),
+  webSearch:body?.webSearch===true,
+  ...(image?{image}:{})
+});
   const healthOnly=data=>({profile:data?.profile && typeof data.profile==='object'?copy(data.profile):{},measurements:Array.isArray(data?.measurements)?copy(data.measurements):[],meals:Array.isArray(data?.meals)?copy(data.meals):[],habits:Array.isArray(data?.habits)?copy(data.habits):[],chats:Array.isArray(data?.chats)?copy(data.chats):[],...(Array.isArray(data?.estimateDrafts)?{estimateDrafts:copy(data.estimateDrafts)}:{}),...(Array.isArray(data?.activities)?{activities:copy(data.activities)}:{}),...(Array.isArray(data?.healthConnectRecords)?{healthConnectRecords:copy(data.healthConnectRecords)}:{}),...(data?.healthConnect && typeof data.healthConnect==='object'?{healthConnect:copy(data.healthConnect)}:{}) ,...(data?.temporaryTargets && typeof data.temporaryTargets==='object'?{temporaryTargets:copy(data.temporaryTargets)}:{})});
   function mergePush(data) {
     const enabled=data?.enabled===true;
@@ -409,7 +425,7 @@
         const config=await storageRequest('/api/settings','GET',undefined,options.signal);
         if(!config.apiConfigured)throw new Error('请先在「我的」保存所选服务商的 API Key。');
         if(image && (!config.visionEnabled || !config.visionModel))throw new Error('带照片提问需要已启用的视觉模型：请到「我的 → 模型连接」为所选服务商填写并启用支持图片的模型。');
-        const started=await nativeRequest('/api/chat/stream','POST',{question,date:body.date || localDate(),photoTakenAt:body.photoTakenAt,photoTimeSource:body.photoTimeSource,history:Array.isArray(body.history)?body.history.slice(-20):[],allowExternal:true,anchors:typeof body.anchors==='string'?body.anchors:'',webSearch:body.webSearch===true,...(image?{image}:{})},options.signal);
+        const started=await nativeRequest('/api/chat/stream','POST',chatNativeBody(body,image),options.signal);
         const streamId=started?.streamId;
         if(!streamId)throw new Error('流式输出未能启动，请重试。');
         const final=await new Promise((resolve,reject)=>{
@@ -459,7 +475,7 @@
         const config=await storageRequest('/api/settings','GET',undefined,options.signal);
         if(!config.apiConfigured)throw new Error('请先在「我的」保存所选服务商的 API Key。');
         if(image && (!config.visionEnabled || !config.visionModel))throw new Error('带照片提问需要已启用的视觉模型：请到「我的 → 模型连接」为所选服务商填写并启用支持图片的模型。');
-        const reply=await nativeRequest(path,method,{question,date:body.date || localDate(),photoTakenAt:body.photoTakenAt,photoTimeSource:body.photoTimeSource,history:Array.isArray(body.history)?body.history.slice(-20):[],allowExternal:true,webSearch:body.webSearch===true,...(image?{image}:{})},options.signal);
+        const reply=await nativeRequest(path,method,chatNativeBody(body,image),options.signal);
         // Machine-internal calls (AI plan, training advice) pass logToHistory:false, so the Q&A
         // history keeps holding only questions the user actually asked in the chat view.
         if(body?.logToHistory!==false) await storageRequest('/api/chatlog','POST',{entry:{date:localDate(),question:image?`［含照片］${question}`.slice(0,2000):question,answer:String(reply?.reply||''),sources:reply?.sources||[]}}).catch(()=>undefined);

@@ -263,7 +263,7 @@ check('the weight calculator handles per-side input', appJs.includes('weight-per
 check('the credits block lists the channels', idxHtml.includes('id="credits"') && idxHtml.includes('space.bilibili.com/2100737396') && idxHtml.includes('space.bilibili.com/521903482') && idxHtml.includes('space.bilibili.com/2078781964'));
 check('training tabs disappear in the no-training mode', appJs.includes('[data-records-panel=\"training\"]') && appJs.includes('[data-trends-panel=\"training\"]'));
 check('the AI plan uses the shared external consent', !appJs.includes('id="ai-plan-consent"') && appJs.includes('externalConsent()'));
-check('the AI plan parses JSON only', appJs.includes('reply.indexOf("[")') && appJs.includes('JSON.parse'));
+check('the AI plan parses JSON only', appJs.includes('function parseAiPlanReply') && appJs.includes('JSON.parse(slice)'));
 check('the AI plan stores per day', appJs.includes('qingheng.aiPlan.'));
 check('the term sheet exists', idxHtml.includes('id="term-sheet"') && appJs.includes('function openTerm'));
 check('every term has a caution', (appJs.match(/caution: "/g) || []).length >= 7, String((appJs.match(/caution: "/g) || []).length));

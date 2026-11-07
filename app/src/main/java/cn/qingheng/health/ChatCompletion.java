@@ -85,7 +85,9 @@ public final class ChatCompletion {
         } catch (PublicError e) {
             throw e;
         } catch (Exception e) {
-            // Deliberately generic: the cause may embed request details but never the key.
+            // Deliberately generic to the user: the cause may embed request details but never the key.
+            // The cause is still logged (class + message only) so a failure can be diagnosed from logcat.
+            android.util.Log.w("qingheng", "chat failed " + e.getClass().getSimpleName() + ": " + e.getMessage());
             throw new PublicError("API 请求失败或响应格式不正确，请检查网络与配置");
         } finally {
             if (conn != null) conn.disconnect();
@@ -209,6 +211,7 @@ public final class ChatCompletion {
         } catch (Exception e) {
             // A partial answer is still worth keeping: report it instead of losing what arrived.
             if (answer.length() > 0) throw new PublicError("回答中断，已显示收到的部分内容");
+            android.util.Log.w("qingheng", "chat stream failed " + e.getClass().getSimpleName() + ": " + e.getMessage());
             throw new PublicError("API 请求失败或响应格式不正确，请检查网络与配置");
         } finally {
             if (conn != null) conn.disconnect();

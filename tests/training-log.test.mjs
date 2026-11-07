@@ -57,7 +57,7 @@ check('the today list speaks plan semantics, not log semantics', app.includes('�
 check('the today list mirrors the AI plan with done checkboxes', app.includes('data-today-done=') && app.includes('data-today-add-all'));
 // 源码里的属性引号是转义的（\"ai\"），断言不能按字面量比对。
 check('an empty day offers two generators', /data-today-plan=\\?"ai\\?"/.test(app) && /data-today-plan=\\?"week\\?"/.test(app));
-check('AI plan rows carry the model reason', app.includes('ai-plan-reason') && app.includes('一句话为什么排它'));
+check('AI plan rows carry the model reason', app.includes('ai-plan-reason') && main.includes('一句话为什么排它'));
 check('the plan row keeps name, advice and dose in one text column', app.includes('ai-plan-text') && css.includes('.ai-plan-text{display:flex;flex-direction:column'));
 check('the dose sits below the model advice', /ai-plan-reason[\s\S]{0,120}ai-plan-dose/.test(app));
 check('a checked row strikes the name inside the text column', css.includes('.ai-plan-row input:checked ~ .ai-plan-text .ai-plan-name'));

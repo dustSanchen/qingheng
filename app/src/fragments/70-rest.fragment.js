@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.08';
+  const APP_VERSION = '1.3.09';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -495,59 +495,90 @@
       ? '<div class="ai-plan-append"><button type="button" class="button subtle" data-ai-append>添加一个动作</button></div>'
       : "");
   }
+  /** 模型偶尔会裹 ```json、末尾多一个逗号、或先寒暄两句：按括号配对取数组，再宽松解析。 */
+  function parseAiPlanReply(reply) {
+    const text = String(reply || "").replace(/```[a-zA-Z]*/g, "").trim();
+    const start = text.indexOf("[");
+    if (start < 0) return [];
+    let depth = 0, end = -1, inString = false, escaped = false;
+    for (let i = start; i < text.length; i++) {
+      const ch = text.charAt(i);
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (ch === "\\") escaped = true;
+        else if (ch === '"') inString = false;
+        continue;
+      }
+      if (ch === '"') { inString = true; continue; }
+      if (ch === "[") depth += 1;
+      else if (ch === "]") { depth -= 1; if (!depth) { end = i; break; } }
+    }
+    if (end < 0) return [];
+    const slice = text.slice(start, end + 1).replace(/,\s*([\]}])/g, "$1");
+    let rows;
+    try { rows = JSON.parse(slice); } catch { return []; }
+    if (!Array.isArray(rows)) return [];
+    // 组数与有氧距离都为空的行仍是合法动作（用户随后自己填），不在这里删。
+    return rows.filter(row => row && String(row.name || "").trim()).slice(0, 12).map(row => ({
+      name: String(row.name).trim().slice(0, 24),
+      sets: Number(row.sets) > 0 ? Math.round(Number(row.sets)) : 0,
+      reps: Number(row.reps) > 0 ? Math.round(Number(row.reps)) : 0,
+      weight: Number(row.weight) > 0 ? Number(row.weight) : null,
+      distanceKm: Number(row.distanceKm) > 0 ? Number(row.distanceKm) : null,
+      durationMin: Number(row.durationMin) > 0 ? Number(row.durationMin) : null,
+      reason: String(row.reason || "").slice(0, 60),
+      source: "ai",
+      done: false
+    }));
+  }
   async function askAiPlan(button) {
+    if (!button) return;
     if (!externalConsent()) { notice("请先到「我的 → 数据、外观与说明」开启外部模型授权。"); return; }
-    const prefs = typeof planPrefs === "function" ? planPrefs() : null;
-    const profile = state.profile || {};
-    const done = exercisesFor(activeDate).filter(item => item && item.name).map(item => item.name + " " + (item.sets || "") + "x" + (item.reps || ""));
-    // 喂给模型与本地规则引擎同一份素材：上周基线 + 训练库规则，输出质量才对得起「渐进」。
-    const baselines = typeof recentExerciseBaselines === "function" ? recentExerciseBaselines(14) : {};
-    const baselineText = Object.entries(baselines).slice(0, 8).map(([name, row]) =>
-      name + " " + row.sets + "x" + row.reps + (row.weight ? " " + row.weight + "kg" : "")).join("；");
-    const library = typeof librarySummary === "function" ? librarySummary(6) : "";
-    const prompt = [
-      "你是力量训练教练。请为今天排一个按顺序执行的训练清单。",
-      "信息：目标=" + (GOAL_LABEL[profile.goal] || "未填") + "；体重=" + (profile.weight || "未填") + "kg；每周练=" + (prefs && prefs.days ? prefs.days : (plannedSessions() || "未填")) + "；分化=" + (prefs ? prefs.split : "未填") + "；器械=" + (prefs ? (typeof GEAR_LABELS === "object" && GEAR_LABELS[prefs.gear] ? GEAR_LABELS[prefs.gear] : prefs.gear) : "未填")
-        + "；时长=" + (prefs ? prefs.minutes : 45) + " 分钟。"
-        + (prefs && prefs.gear === "mixed" ? "器械不限：请在同一份清单里混用杠铃、哑铃、固定器械与自重，不要全部用同一种器械。" : ""),
-      baselineText ? "上周最近记录（供渐进参考，不要盲目加量）：" + baselineText + "。" : "",
-      library ? "训练规则（必须遵守）：\n" + library : "",
-      done.length ? ("今天已记录：" + done.join("；") + "。") : "今天还没有训练记录。",
-      "只输出 JSON 数组，不要解释。力量动作每项形如 {\"name\": \"动作名\", \"sets\": 4, \"reps\": 8, \"weight\": 40, \"reason\": \"一句话为什么排它\"}；"
-        + "有氧动作写成 {\"name\": \"跑步\", \"distanceKm\": 5, \"durationMin\": 30}，不要填 sets 与 reps。"
-        + "weight 与 reason 可省略。按执行顺序排列，6 个动作以内，总组数要装得进时长。"
-    ].filter(Boolean).join("\n");
     button.disabled = true;
     const original = button.textContent;
     button.textContent = "正在排…";
     showBusy("正在排今天的动作顺序…");
+    // 慢的时候要说清还在等模型，别让按钮无声地停在「正在排…」。
+    const slowTimer = setTimeout(() => showBusy("模型还在排，一般要半分钟左右，请再等一会儿…"), 12000);
     try {
-      const data = await api("/api/chat", {question: prompt, date: activeDate, webSearch: false, tier: "fast", allowExternal: true, logToHistory: false});
-      const reply = String(data && data.reply ? data.reply : "");
-      const start = reply.indexOf("[");
-      const end = reply.lastIndexOf("]");
-      if (start < 0 || end <= start) throw new Error("模型没有返回 JSON 清单，请重试。");
-      const rows = JSON.parse(reply.slice(start, end + 1));
-      if (!Array.isArray(rows) || !rows.length) throw new Error("清单为空，请重试。");
-      const plan = rows.filter(row => row && row.name).map(row => ({
-        name: String(row.name).slice(0, 24),
-        sets: Number(row.sets) > 0 ? Number(row.sets) : 0,
-        reps: Number(row.reps) > 0 ? Number(row.reps) : 0,
-        weight: Number(row.weight) > 0 ? Number(row.weight) : null,
-        distanceKm: Number(row.distanceKm) > 0 ? Number(row.distanceKm) : null,
-        durationMin: Number(row.durationMin) > 0 ? Number(row.durationMin) : null,
-        reason: String(row.reason || "").slice(0, 60),
-        source: "ai",
-        done: false
-      }));
+      // 素材也放在 try 里：任何一步抛错都要落进 catch，不能让按钮卡死在「正在排…」。
+      const prefs = typeof planPrefs === "function" ? planPrefs() : null;
+      const profile = state.profile || {};
+      const done = exercisesFor(activeDate).filter(item => item && item.name).map(item => item.name + " " + (item.sets || "") + "x" + (item.reps || ""));
+      // 喂给模型与本地规则引擎同一份素材：上周基线 + 训练库规则，输出质量才对得起「渐进」。
+      const baselines = typeof recentExerciseBaselines === "function" ? recentExerciseBaselines(14) : {};
+      const baselineText = Object.entries(baselines).slice(0, 8).map(([name, row]) =>
+        name + " " + row.sets + "x" + row.reps + (row.weight ? " " + row.weight + "kg" : "")).join("；");
+      const library = typeof librarySummary === "function" ? librarySummary(6) : "";
+      const prompt = [
+        "请为今天排一个按顺序执行的训练清单。",
+        "信息：目标=" + (GOAL_LABEL[profile.goal] || "未填") + "；体重=" + (profile.weight || "未填") + "kg；每周练=" + (prefs && prefs.days ? prefs.days : (plannedSessions() || "未填")) + "；分化=" + (prefs ? prefs.split : "未填") + "；器械=" + (prefs ? (typeof GEAR_LABELS === "object" && GEAR_LABELS[prefs.gear] ? GEAR_LABELS[prefs.gear] : prefs.gear) : "未填")
+          + "；时长=" + (prefs ? prefs.minutes : 45) + " 分钟。"
+          + (prefs && prefs.gear === "mixed" ? "器械不限：请在同一份清单里混用杠铃、哑铃、固定器械与自重，不要全部用同一种器械。" : ""),
+        baselineText ? "上周最近记录（供渐进参考，不要盲目加量）：" + baselineText + "。" : "",
+        library ? "训练规则（必须遵守）：\n" + library : "",
+        done.length ? ("今天已记录：" + done.join("；") + "。") : "今天还没有训练记录。",
+        "只输出 JSON 数组，第一个字符是 [，不要解释、不要代码块标记。"
+      ].filter(Boolean).join("\n");
+      // focus:"plan" 走后端专用的「只出 JSON」提示词；tier:"fast" 会追加「最多 3 句」，与 JSON 直接冲突。
+      const data = await api("/api/chat", {question: prompt, date: activeDate, webSearch: false, focus: "plan", allowExternal: true, logToHistory: false});
+      const plan = parseAiPlanReply(String(data && data.reply ? data.reply : ""));
+      if (!plan.length) throw new Error("模型这次没有给出清单，原清单已保留；请再点一次重试。");
       aiPlanStore(activeDate, plan);
       renderAiPlan();
       // 今日页的「今日清单」读的是同一份数据，排完必须一起刷，否则两个页面各说各话。
       if (typeof renderAdviceOrder === "function") renderAdviceOrder();
-      notice("已按顺序排好今天的 " + plan.length + " 个动作。");
+      // 模型偶尔只回一两个动作：留着重排的入口，但要说清"这次偏少"，别让用户以为本该如此。
+      const wantMinutes = Number(prefs && prefs.minutes ? prefs.minutes : 45) || 45;
+      if (plan.length < 3 && wantMinutes >= 30) {
+        notice("模型这次只排了 " + plan.length + " 个动作，比 " + wantMinutes + " 分钟的量少；可以点「修改」补动作，或再点一次重排。");
+      } else {
+        notice("已按顺序排好今天的 " + plan.length + " 个动作。");
+      }
     } catch (error) {
       notice("排训练顺序失败：" + (error && error.message ? error.message : "未知错误"));
     } finally {
+      clearTimeout(slowTimer);
       button.disabled = false;
       button.textContent = original;
       hideBusy();

@@ -65,9 +65,12 @@ assert.match(app, /分析日期：\$\{activeDate\} · 已保存 \$\{count\} 条�
 assert.match(html, /拍摄时间 ≠ 进餐日期/, 'the UI separates capture time from the meal date');
 
 // --- Adapter: the native layer must receive the date and the photo provenance ------------------
-assert.match(adapter, /date:body\.date \|\| localDate\(\)/, 'the adapter passes the analysed date to the native layer');
-assert.match(adapter, /photoTakenAt:body\.photoTakenAt,photoTimeSource:body\.photoTimeSource/,
-  'only the vetted provenance fields cross the bridge');
+// 2026-11-07: both chat routes now build one shared body, so the assertions pin that single source.
+const chatBody = adapter.slice(adapter.indexOf('const chatNativeBody='), adapter.indexOf('const chatNativeBody=') + 1200);
+assert.match(chatBody, /date:body\?\.date \|\| localDate\(\)/, 'the adapter passes the analysed date to the native layer');
+assert.match(chatBody, /photoTakenAt:body\.photoTakenAt/, 'only the vetted provenance fields cross the bridge');
+assert.match(chatBody, /photoTimeSource:body\.photoTimeSource/, 'only the vetted provenance fields cross the bridge');
+assert.match(adapter, /chatNativeBody\(body,image\)/, 'both chat routes go through that shared body');
 
 // --- HTML integrity: the new controls must exist exactly once ---------------------------------
 const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map(match => match[1]);
