@@ -145,5 +145,7 @@
 | 2026-11-07 | `tests/ai-plan-focus.test.mjs` ×3、`tests/training-log.test.mjs` | 快照窗口 4000→6000；`showBusy(...)` → `showBusy(..., "plan-busy")`；`slice(0,12).map(row=>...)` → `map(planItemFromRow)`；计划提示的 `librarySummary(6)` → `(4)` | 1.3.16 把排程改成流式逐条渲染并压短 reason，函数变长、提示词体量下调，断言跟随现役实现 |
 | 2026-11-07 | `tests/training-log.test.mjs` | 「剂量在建议下方」→「剂量与名字同一行」 | 1.3.17 把剂量挪进 `.ai-plan-head` 与名字同行，窄屏自动换行，减少每行一行高度 |
 | 2026-11-10 | `tests/training-day-budget.test.mjs` | `intakeRangeForDate(date = activeDate)` → 带 `profileOverride` 的新签名 | 1.3.18 修临时目标：区间函数需要接收合并后的档案，否则临时值被区间覆盖 |
+| 2026-11-10 | `tests/habit-and-training-mode.test.mjs` | 「另加一句健身提示」→「训练记录缺失就不提训练」 | 1.3.23 建议卡提示词改成两句结构，训练提示并入第二条，不再单独一句 |
+| 2026-11-10 | `tests/chat-quality.test.mjs` / `anchors-oil.test.mjs` | 估算提示词旧措辞 → 三步结构措辞 | 1.3.21/1.3.22 压缩提示词并加逐道油量，语义未变 |
 
 

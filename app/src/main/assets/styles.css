@@ -1535,3 +1535,8 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 /* editable cooking oil in the estimate preview */
 .estimate-oil{display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:12px;margin:10px 0;font-size:15px}
 .estimate-oil input{width:96px;min-height:44px;text-align:right}
+
+/* advice card: verdict line, then actions */
+.advice-verdict{margin:0 0 8px;font-size:17px;line-height:1.55;font-weight:500}
+.advice-actions{margin:0}
+.advice-pref-note{margin:10px 0 0}

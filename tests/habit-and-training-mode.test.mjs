@@ -28,7 +28,7 @@ check('the training tile reuses the main training glyph', app.includes("training
 check('today metric icons come from the inline lucide table', app.includes('function metricIcon') && app.includes('const glyphs = {') && app.includes('Lucide') && app.includes('metric-glyph'));
 
 // --- push carries one training line ---------------------------------------------------------------------
-check('the prompt asks for one training sentence', prompts.includes('另加一句健身提示') && prompts.includes('不超过 20 个汉字'));
+check('the prompt keeps training guidance without inventing a workout', prompts.includes('训练记录缺失就不提训练') && prompts.includes('body.trainingDisabled 为 true'));
 check('it is capped at two bullets overall', prompts.includes('总数仍然不超过 2 条'));
 check('a no-training user gets none', prompts.includes('body.trainingDisabled 为 true'));
 check('the receiver sends trainsToday', alarm.includes('user.put("trainsToday"'));

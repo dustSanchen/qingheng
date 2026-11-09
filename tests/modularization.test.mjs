@@ -21,7 +21,7 @@ check('the drift guard test exists', fs.existsSync('tests/app-fragments.test.mjs
 // --- Java: packages own their concern -------------------------------------------------------------------
 const prompts = read('app/src/main/java/cn/qingheng/health/ai/Prompts.java');
 check('prompts live in their own package', prompts.includes('package cn.qingheng.health.ai;'));
-check('the prompt version lives with the prompt text', prompts.includes('public static final int PROMPT_VERSION = 7;') && prompts.includes('public static final int RULES_VERSION = 1;'));
+check('the prompt version lives with the prompt text', prompts.includes('public static final int PROMPT_VERSION = 8;') && prompts.includes('public static final int RULES_VERSION = 1;'));
 check('every prompt is exposed as a method', ['chat()', 'mealEstimate()', 'dailyAdvice(', 'weeklyReview()', 'withAnchors('].every(symbol => prompts.includes(symbol)));
 check('the prompts document the rules they encode', prompts.includes('missing data is stated, never treated as zero') && prompts.includes('must not under-report'));
 check('anchor framing moved into Prompts', prompts.includes('同一食物必须沿用这里的数值'));

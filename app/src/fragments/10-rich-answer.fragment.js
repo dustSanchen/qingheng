@@ -125,11 +125,25 @@
     const container = $('#advice-content');
     const rows = Array.isArray(messages) ? messages.map(value => String(value || '').trim()).filter(Boolean) : [];
     const rich = messages.some(message => /\n|^\s*\||^#{1,6}\s|^【/.test(String(message || '')));
-    container.innerHTML = rows.length
-      ? (rich
-        ? `<div class="answer">${rows.map(message => answerHtml(message)).join('')}</div>`
-        : `<div class="answer"><ul class="answer-list">${rows.map(message => `<li>${adviceHtml(message)}</li>`).join('')}</ul></div>`)
-      : empty('目前记录不足，暂不作判断', '先记两三天，建议会自己长出来。');
+    const prefCount = typeof readPreferences === 'function' ? readPreferences().length : 0;
+    const prefNote = prefCount ? `<p class="fine-print advice-pref-note">已带上 ${prefCount} 条偏好</p>` : '';
+    if (!rows.length) {
+      container.innerHTML = empty('目前记录不足，暂不作判断', '先记两三天，建议会自己长出来。');
+    } else if (rich) {
+      container.innerHTML = `<div class="answer">${rows.map(message => answerHtml(message)).join('')}</div>${prefNote}`;
+    } else {
+      // 第一句是评价，单独成行、加重；后面的动作保持列表，避免两句糊成一段。
+      // 模型常把「评价 + 动作」塞进一条消息，这里按句号再拆一次，只为显示分层，不改内容。
+      let verdict = rows[0];
+      let actions = rows.slice(1);
+      if (!actions.length) {
+        const parts = rows[0].split(/(?<=[。！？])/).map(part => part.trim()).filter(Boolean);
+        if (parts.length > 1) { verdict = parts[0]; actions = parts.slice(1); }
+      }
+      container.innerHTML = `<div class="answer advice-answer"><p class="advice-verdict">${adviceHtml(verdict)}</p>`
+        + (actions.length ? `<ul class="answer-list advice-actions">${actions.map(message => `<li>${adviceHtml(message)}</li>`).join('')}</ul>` : '')
+        + `</div>${prefNote}`;
+    }
     container.dataset.date = date || '';
     container.dataset.fingerprint = validDate(date) ? mealsFingerprint(date) : '';
   }
