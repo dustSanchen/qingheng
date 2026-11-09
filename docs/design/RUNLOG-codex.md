@@ -591,3 +591,12 @@
 - 未验证：包不可 `run-as`，迁移备份文件与 version=2 未能直接读取；估算等待态仍受 adb 中文输入法改写影响，未跑通真机可视验证。
 - APK：`dist/qingheng-1.3.20.apk`，601,243 B，sha256 `825c13fb630ff62ada135572117a334d16daea90b4c1e1e990c91a0fc611faee`。
 - 源码提交 `3295403`；回滚：`git revert 3295403`。
+
+## r86 · 2026-11-10 · 1.3.21（估算关思考 + 提示词压缩）
+- 需求原话：「当前思考估算热量还是过慢了，是不是思考的内容过多，限制条件过多导致?确认分析食品热量实际所需要的思考等级，以及具体的提示词，能否进一步优化」。
+- 根因：DeepSeek 新版 API 的思考模式**默认开启**、`reasoning_effort` 默认 `high`（[官方文档](https://api-docs.deepseek.com/zh-cn/guides/thinking_mode/)）。估算仍按默认请求，等于每次先写一整段思维链再做查表任务；提示词里重复的口径解释又把这部分拉长。
+- 修法：`ChatCompletion` 增加 `thinking` 开关，只在 baseUrl 含 `deepseek` 时下发 `{"thinking":{"type":"disabled"}}`；估算的缓冲与流式两条路径都传 `false`，聊天/建议保持默认。`PROMPT_VERSION` 升到 6，估算提示词从 800 余字压到约 520 字（三步：认食物 → 估份量 → 套数据；保留数据优先级、油按道累加、纤维口径、notes 一句）。
+- 实测：真机输入（adb 输入被 IME 改写为 `100rice个chicken100`）→ `estimate 1512ms chars=303 cap=900`。同一台机器改动前是数十秒级，差距来自整段思维链。
+- 验收：`test-all` 61/61；dev-loop 1.3.21/321 全绿 29.0s（测试 9.7 / 打包 7.6 / 装机 9.4），smoke 无 JS 错误。
+- APK：`dist/qingheng-1.3.21.apk`，601,245 B，sha256 `0bcf1b849cf908e1c3b51db483c534ecc1e6713a72296d0ae3766b6ad954ea84`。
+- 源码提交 `64e4fe0`；回滚：`git revert 64e4fe0`。
