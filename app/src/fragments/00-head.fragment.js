@@ -802,6 +802,25 @@
       if (prefs.trainingConsent === true) localStorage.setItem(TRAINING_CONSENT_KEY, '1');
     } catch { }
   }
+  /**
+   * 配置注册表：localStorage 的即时缓存与 state.prefs 的对应关系只写在这一处。
+   * 新增一项配置时，先登记再读写，避免「只存了 localStorage、换机就丢」。
+   */
+  const CONFIG_REGISTRY = [
+    {id: 'planPrefs', read: () => { try { return JSON.parse(localStorage.getItem(PLAN_PREFS_KEY) || 'null'); } catch { return null; } }, fromState: prefs => prefs.planPrefs ?? null},
+    {id: 'aiPlans', read: () => collectedAiPlans(), fromState: prefs => prefs.aiPlans || {}},
+  ];
+  /** 启动时对齐一次：本地缓存是当前事实，state.prefs 是随备份走的那份；漂移时以本地为准回写。 */
+  function verifyConfigSync() {
+    const stored = state && state.prefs && typeof state.prefs === 'object' ? state.prefs : {};
+    const patch = {};
+    for (const entry of CONFIG_REGISTRY) {
+      if (JSON.stringify(entry.read()) === JSON.stringify(entry.fromState(stored))) continue;
+      patch[entry.id] = entry.read();
+    }
+    if (Object.keys(patch).length) schedulePrefsSync(patch);
+    return Object.keys(patch);
+  }
   async function loadState(options = {}) {
     const revision = ++requestRevision;
     try {
@@ -832,6 +851,8 @@
         }
       }
       if (!state.onboardingDone && number((state.profile || {}).height) === null && !options.skipOnboarding) showOnboarding(true);
+      // 每次加载对齐一次本地缓存与 state.prefs，避免新增配置只存了一半。
+      try { verifyConfigSync(); } catch { }
       if (options.offerTargetAdjustment !== false) setTimeout(() => {maybeOfferTargetAdjustment().catch(() => {});}, 0);
     } catch (error) {loaded = false; connection(); notice(error.message,true); throw error;}
   }

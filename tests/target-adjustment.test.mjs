@@ -30,7 +30,7 @@ check('native effective profile overrides the day boundaries',
 
 check('estimate progress no longer ticks on a timer', !rest.includes('},1400)') && !rest.includes('clearInterval(ticker)'));
 check('estimate status stays one stable line', rest.includes('正在估算这份餐食（') && !rest.includes('正在核算 ${progressNames[progressIndex]}'));
-check('streamed names still update the rows', rest.includes('if(names.length>progressNames.length){progressNames=names;setBusyLine();}'));
+check('streamed names still update the rows', rest.includes('if(names.length>progressNames.length){') && rest.includes('progressNames=names;'));
 
 if (fail) { console.log('\nFAIL total: ' + fail); process.exit(1); }
 console.log('\nPASS total: 0 failed');

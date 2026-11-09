@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.18';
+  const APP_VERSION = '1.3.19';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -298,13 +298,10 @@
     markBusyButton(true);
     hideBusy();
     const label = text || "正在计算…";
+    // 等待反馈只留两种：目标容器内的行内提示，以及一次性 notice。全屏遮罩已删除。
     if (target) {
       const node = document.getElementById(target);
       if (node) { node.hidden = false; const t2 = node.querySelector(".inline-busy-text"); if (t2) t2.textContent = label; }
-    } else {
-      const layer = $("#busy-layer"), l2 = $("#busy-text");
-      if (l2) l2.textContent = label;
-      if (layer) layer.hidden = false;
     }
     // 兜底：任何异常都不该让等待提示常驻。
     busyTimer = setTimeout(() => hideBusy(), 25000);
@@ -312,7 +309,6 @@
   function hideBusy() {
     markBusyButton(false);
     if (busyTimer) { clearTimeout(busyTimer); busyTimer = null; }
-    const layer = $("#busy-layer"); if (layer) layer.hidden = true;
     const inline = document.getElementById("estimate-busy"); if (inline) inline.hidden = true;
     const planInline = document.getElementById("plan-busy"); if (planInline) planInline.hidden = true;
   }
@@ -1639,9 +1635,15 @@
       });
     };
     let progressNames=estimateInputNames(text);
+    // 思考流只占一行、滚动显示尾部：像 DSH/千问那样让人看到「模型在想什么」，
+    // 而不是用一个定时器假装进度。最终结果仍一次性出现在预览里。
+    let thinkNode=$('.estimate-think',busy);
+    if(!thinkNode){
+      thinkNode=document.createElement('p');thinkNode.className='estimate-think';thinkNode.hidden=true;
+      busy.insertBefore(thinkNode,progressList);
+    }
+    let thinkText='';
     const startedAt=Date.now();
-    // 文字保持不动，只让骨架在动：以前每 1.4 秒换一条「正在核算 X」，用户看到的是文字跳，
-    // 而不是结果出现。模型本来就只在最后给出完整 JSON，文字变化应该集中在结果落地那一刻。
     const setBusyLine=()=>{
       busyText.textContent = progressNames.length
         ? `正在估算这份餐食（${progressNames.length} 项）…`
@@ -1649,13 +1651,27 @@
       paintProgress(progressNames,-1);
     };
     setBusyLine();
-    let seen='';
-    window.QinghengEstimateStream={onDelta:chunk=>{
-      seen+=String(chunk||'');
-      const names=estimateStreamNames(seen);
-      // 只有流里真的出现了新食物名才更新那一行，不做定时假进度。
-      if(names.length>progressNames.length){progressNames=names;setBusyLine();}
-    }};
+    let seen='',thinkFrame=0;
+    const paintThink=()=>{thinkFrame=0;if(!thinkNode)return;thinkNode.hidden=!thinkText;if(thinkText)thinkNode.textContent='思考 · '+(thinkText.length>220?'…'+thinkText.slice(-220):thinkText);};
+    window.QinghengEstimateStream={
+      onThink:chunk=>{
+        const text=String(chunk||'');
+        if(!text)return;
+        thinkText+=text;
+        if(!progressNames.length)busyText.textContent='模型正在读这份餐食…';
+        if(!thinkFrame)thinkFrame=requestAnimationFrame(paintThink);
+      },
+      onDelta:chunk=>{
+        seen+=String(chunk||'');
+        const names=estimateStreamNames(seen);
+        // 只有流里真的出现了新食物名才更新那一行，不做定时假进度。
+        if(names.length>progressNames.length){
+          progressNames=names;
+          setBusyLine();
+          busyText.textContent='正在核对：'+names.slice(0,3).join('、')+(names.length>3?' 等 '+names.length+' 项':'')+'…';
+        }
+      }
+    };
     try {
       let data;
       try {data=await api('/api/estimate/stream',payload);}
@@ -1663,7 +1679,7 @@
       previewDraft(data,submittedForm);feedback(message,'估算完成。请在下方修改并确认，才会保存。');
     }
     catch(error){feedback(message,error.message,true);retry.hidden=false;}
-    finally{window.QinghengEstimateStream=null;busy.hidden=true;busy.classList.remove('estimate-progress');estimateBusy=false;button.disabled=false;}
+    finally{if(thinkFrame)cancelAnimationFrame(thinkFrame);window.QinghengEstimateStream=null;busy.hidden=true;busy.classList.remove('estimate-progress');estimateBusy=false;button.disabled=false;}
   });
   $('#estimate-items').addEventListener('input',event=>{
     const input=event.target.closest('[data-item-field]');if(!input)return;

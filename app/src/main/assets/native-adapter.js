@@ -390,6 +390,11 @@ const chatNativeBody=(body,image)=>({
             let event=null;
             try{event=typeof raw==='string'?JSON.parse(raw):raw;}catch{return true;}
             if(!event||event.streamId!==streamId)return true;
+            if(event.kind==='think'){
+              const sink=window.QinghengEstimateStream;
+              if(sink && typeof sink.onThink==='function'){try{sink.onThink(event.text||'');}catch{}}
+              return true;
+            }
             if(event.kind==='delta'){
               const sink=window.QinghengEstimateStream;
               if(sink && typeof sink.onDelta==='function'){try{sink.onDelta(event.text||'');}catch{}}

@@ -711,25 +711,9 @@
     }
     return {hasPlan: !!(plan && plan.days), day: plan && plan.days ? plan.days.find(item => item.date === activeDate) || null : null};
   }
-  /** 本周计划里「今天」那一节；没有打开过记录页时从缓存读，两处都能用。 */
+  /** 本周计划里「今天」那一节：与 weekPlanToday 共用同一个来源，不再各算一遍。 */
   function weekTodaySession() {
-    const weekStart = shiftDay(activeDate, 7 - weekdayIndex(activeDate));
-    let plan = (lastWeekPlan && lastWeekPlan.days) ? lastWeekPlan : null;
-    if (!plan) {
-      const cached = readWeekPlanCache(weekStart);
-      plan = cached && cached.plan ? cached.plan : null;
-    }
-    if (!plan) {
-      // 缓存为空时现算一次：否则今日页会说「还没有训练清单」，而记录页其实排得满满的。
-      try {
-        const baselines = recentExerciseBaselines(14);
-        const sessions = Math.max(1, Math.min(6, Math.round(number(effectiveProfileForDate(activeDate).training) || 3)));
-        const flag = (acwrFromDailyLoads(dailyLoads(28), activeDate) || {}).flag || "ok";
-        plan = generateWeekPlan({startDate: weekStart, sessions, lastByExercise: baselines, acwrFlag: flag});
-        if (plan) writeWeekPlanCache(weekStart, {plan, fingerprint: weekPlanFingerprint(prefsForPlan(), baselines, sessions), savedAt: Date.now()});
-      } catch { plan = null; }
-    }
-    return plan && plan.days ? plan.days.find(day => day.date === activeDate) || null : null;
+    return weekPlanToday().day;
   }
   /** 把周计划今天那一节写进今日清单，两处入口（今日页 / 记录页）共用。 */
   async function adoptWeekDay() {
@@ -980,22 +964,21 @@
     if (!prefs) {
       thisWeekHtml = "<p class=\"muted\">先选一下训练偏好（频率 / 分化 / 器械 / 时长），再按它安排本周。</p>";
     } else {
-      const days = trainingDays(prefs.days);
-      const labels = splitLabels(prefs.split);
-      let rotation = 0;
+      // 本周列表与「今天的状态」必须同源：都读 plan.days，而不是按偏好轮换另算一遍。
+      // 以前两处各算一次，会出现「今天·全身」和「今天 休息」同时出现。
       const rows = [];
       for (let offset = 0; offset < 7; offset++) {
         const day = shiftDay(weekStart, offset);
         const items = exercisesFor(day).filter(item => item && item.name);
         const isToday = day === activeDate;
         const past = day < activeDate;
-        const planned = days.includes(offset);
-        const label = planned ? labels[rotation++ % labels.length] : "休息";
+        const planDay = plan.days.find(item => item.date === day) || null;
+        const label = planDay ? (TRAINING_TEMPLATES[planDay.template] || planDay.template) : "休息";
         let mark, cls;
         if (items.length) { mark = items.slice(0, 3).map(item => item.name).join("、") + (items.length > 3 ? " 等 " + items.length + " 个" : ""); cls = "done"; }
-        else if (isToday) { mark = "今天 · " + label + " · " + (prefs.minutes || 45) + " 分钟"; cls = "today"; }
-        else if (past) { mark = planned ? "未记录 · 计划 " + label : "休息"; cls = planned ? "miss" : "plan"; }
-        else { mark = planned ? label + " · " + (prefs.minutes || 45) + " 分钟" : "休息"; cls = planned ? "plan" : "plan"; }
+        else if (isToday) { mark = planDay ? "今天 · " + label + " · " + (prefs.minutes || 45) + " 分钟" : "今天 · 休息"; cls = planDay ? "today" : "plan"; }
+        else if (past) { mark = planDay ? "未记录 · 计划 " + label : "休息"; cls = planDay ? "miss" : "plan"; }
+        else { mark = planDay ? label + " · " + (prefs.minutes || 45) + " 分钟" : "休息"; cls = planDay ? "plan" : "plan"; }
         rows.push("<li class=\"wk-" + cls + "\"><strong>" + esc(day.slice(5)) + "</strong><span>" + esc(mark) + "</span></li>");
       }
       thisWeekHtml = "<h3 class=\"plan-sub\">本周安排 · " + esc(weekStart.slice(5)) + " 起 · 每周 " + prefs.days + " 练</h3><ul class=\"plan-week\">" + rows.join("") + "</ul>";

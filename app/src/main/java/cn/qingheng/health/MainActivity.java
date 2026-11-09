@@ -2299,7 +2299,8 @@ import java.util.concurrent.Executors;
         final JSONObject body = new JSONObject(b.toString());
         Thread worker = new Thread(() -> {
             try {
-                JSONObject draft = estimate(body, text -> pushEstimateEvent("delta", id, text));
+                JSONObject draft = estimate(body, text -> pushEstimateEvent("delta", id, text),
+                        text -> pushEstimateEvent("think", id, text));
                 pushEstimateEvent("done", id, draft.toString());
             } catch (Exception e) {
                 String text = e instanceof PublicError ? e.getMessage() : "估算失败，请稍后重试";
@@ -3354,10 +3355,14 @@ import java.util.concurrent.Executors;
     }
 
     private JSONObject estimate(JSONObject b) throws Exception {
-        return estimate(b, null);
+        return estimate(b, null, null);
     }
 
     private JSONObject estimate(JSONObject b, ChatCompletion.Delta sink) throws Exception {
+        return estimate(b, sink, null);
+    }
+
+    private JSONObject estimate(JSONObject b, ChatCompletion.Delta sink, ChatCompletion.Delta think) throws Exception {
         JSONObject c = consent(b);
         String text = b.optString("text", b.optString("description", "")).trim();
         if (text.length() > 4000) throw fail("餐食描述最多 4000 字符");
@@ -3382,7 +3387,7 @@ import java.util.concurrent.Executors;
         final String estimateModel = model;
         String response = sink == null
                 ? chat(c, model, messages, CAP_ESTIMATE).trim()
-                : ChatCompletion.stream(c, apiKey(c.optString("provider", provider())), model, messages, sink, null,
+                : ChatCompletion.stream(c, apiKey(c.optString("provider", provider())), model, messages, sink, think,
                         usage -> recordUsage(usage, estimateModel)).trim();
         android.util.Log.i("qingheng", "estimate " + (System.currentTimeMillis() - estimateStarted) + "ms chars=" + response.length() + " cap=" + CAP_ESTIMATE);
         JSONObject parsed;
