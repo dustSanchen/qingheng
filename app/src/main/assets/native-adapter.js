@@ -467,7 +467,8 @@ const chatNativeBody=(body,image)=>({
           };
         });
         // The save happens here, exactly like the buffered route, so streaming never loses a record.
-        await storageRequest('/api/chatlog','POST',{entry:{date:localDate(),question:image?`［含照片］${question}`.slice(0,2000):question,answer:String(final?.reply||''),sources:final?.webSearch?.sources||[]}}).catch(()=>undefined);
+        // logToHistory:false 的调用（AI 排今天、训练问答）是工具，不是问答，不能塞进问答历史。
+        if(body?.logToHistory!==false) await storageRequest('/api/chatlog','POST',{entry:{date:localDate(),question:image?`［含照片］${question}`.slice(0,2000):question,answer:String(final?.reply||''),sources:final?.webSearch?.sources||[]}}).catch(()=>undefined);
         return response(final);
       }
       if(path==='/api/chat') {

@@ -821,8 +821,27 @@
     if (Object.keys(patch).length) schedulePrefsSync(patch);
     return Object.keys(patch);
   }
-  async function loadState(options = {}) {
-    const revision = ++requestRevision;
+  /**
+   * 旧版本的流式问答在 logToHistory:false 时仍会写问答历史，于是「AI 排今天」的工具提示
+   * 被当成用户提问存了下来。只清理这个固定开头的机器提示，不动用户自己问的问题。
+   */
+  async function cleanupPlanChatEntries() {
+    const flag = 'qingheng.cleanup.planChat.v1';
+    try { if (localStorage.getItem(flag)) return; } catch { return; }
+    const rows = (state?.chats || []).filter(row => row && String(row.question || '').startsWith('请为今天排一个按顺序执行的训练清单'));
+    try { localStorage.setItem(flag, '1'); } catch { }
+    if (!rows.length) return;
+    let removed = 0;
+    for (const row of rows) {
+      if (!row.id) continue;
+      try { await api(`/api/chatlog/${encodeURIComponent(row.id)}`, undefined, 'DELETE'); removed++; } catch { }
+    }
+    if (removed) {
+      notice(`已清理 ${removed} 条误存进问答的排课记录。`);
+      await loadState({quiet: true});
+    }
+  }
+  async function loadState(options = {}) {    const revision = ++requestRevision;
     try {
       const data = await api('/api/state');
       if (!data || !data.profile || !Array.isArray(data.measurements) || !Array.isArray(data.meals) || !Array.isArray(data.habits)) throw new Error('手机本地数据结构不完整，请检查备份或重新打开应用。');
@@ -853,6 +872,8 @@
       if (!state.onboardingDone && number((state.profile || {}).height) === null && !options.skipOnboarding) showOnboarding(true);
       // 每次加载对齐一次本地缓存与 state.prefs，避免新增配置只存了一半。
       try { verifyConfigSync(); } catch { }
+      // 一次性清掉旧版本把「AI 排今天」工具调用误存成问答的条目；只删这个固定开头的机器提示。
+      setTimeout(() => { cleanupPlanChatEntries().catch(() => {}); }, 800);
       if (options.offerTargetAdjustment !== false) setTimeout(() => {maybeOfferTargetAdjustment().catch(() => {});}, 0);
     } catch (error) {loaded = false; connection(); notice(error.message,true); throw error;}
   }
@@ -5637,7 +5658,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.24';
+  const APP_VERSION = '1.3.26';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}

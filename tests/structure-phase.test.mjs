@@ -42,5 +42,8 @@ check('thinking is only disabled for DeepSeek',
   completion.includes('private static void disableThinking')
   && completion.includes('"thinking", new JSONObject().put("type", "disabled")'));
 
+check('streaming chat honours logToHistory:false', adapter.includes("if(body?.logToHistory!==false) await storageRequest('/api/chatlog'"));
+check('old plan prompts are cleaned from chat history once', head.includes('cleanupPlanChatEntries') && head.includes('请为今天排一个按顺序执行的训练清单'));
+
 if (fail) { console.log('\nFAIL total: ' + fail); process.exit(1); }
 console.log('\nPASS total: 0 failed');
