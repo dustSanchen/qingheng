@@ -3426,10 +3426,18 @@ import java.util.concurrent.Executors;
                 .put(new JSONObject().put("role", "user").put("content", content));
         long estimateStarted = System.currentTimeMillis();
         final String estimateModel = model;
-        String response = sink == null
-                ? chat(c, model, messages, CAP_ESTIMATE).trim()
-                : ChatCompletion.stream(c, apiKey(c.optString("provider", provider())), model, messages, sink, think,
-                        usage -> recordUsage(usage, estimateModel)).trim();
+        String response;
+        if (sink == null) {
+            // 估算不需要长思考：DeepSeek 思考模式默认开启且 effort=high，关掉能省整段思维链。
+            JSONObject done = ChatCompletion.completeMessage(c, apiKey(c.optString("provider", provider())),
+                    model, messages, null, CAP_ESTIMATE, false);
+            JSONObject usage = done.optJSONObject("usage");
+            if (usage != null) recordUsage(usage, estimateModel);
+            response = done.getString("content").trim();
+        } else {
+            response = ChatCompletion.stream(c, apiKey(c.optString("provider", provider())), model, messages,
+                    sink, think, usage -> recordUsage(usage, estimateModel), false).trim();
+        }
         android.util.Log.i("qingheng", "estimate " + (System.currentTimeMillis() - estimateStarted) + "ms chars=" + response.length() + " cap=" + CAP_ESTIMATE);
         JSONObject parsed;
         try { parsed = new JSONObject(response); }

@@ -53,6 +53,10 @@ public final class ChatCompletion {
     }
 
     public static JSONObject completeMessage(JSONObject config, String apiKey, String model, JSONArray messages, JSONArray tools, int maxTokens) throws Exception {
+        return completeMessage(config, apiKey, model, messages, tools, maxTokens, true);
+    }
+
+    public static JSONObject completeMessage(JSONObject config, String apiKey, String model, JSONArray messages, JSONArray tools, int maxTokens, boolean thinking) throws Exception {
         if (model == null || model.trim().isEmpty()) throw new PublicError("请配置文本或视觉模型名称");
         if (apiKey == null || apiKey.trim().isEmpty()) throw new PublicError("未配置 API 密钥，可使用前端离线估算");
         if (messages == null || messages.length() < 1) throw new PublicError("请提供对话内容");
@@ -61,6 +65,7 @@ public final class ChatCompletion {
                 .put("messages", messages).put("stream", false);
         if (maxTokens > 0) payload.put("max_tokens", maxTokens);
         if (tools != null && tools.length() > 0) payload.put("tools", tools);
+        if (!thinking) disableThinking(payload, config);
         HttpsURLConnection conn = null;
         try {
             conn = (HttpsURLConnection)destination.openConnection();
@@ -149,9 +154,14 @@ public final class ChatCompletion {
         return stream(config, apiKey, model, messages, onDelta, onThink, null);
     }
 
-    /** Same as above, plus a usage sink (DeepSeek reports token usage on the last stream chunk). */
     public static String stream(JSONObject config, String apiKey, String model, JSONArray messages,
                                 Delta onDelta, Delta onThink, UsageSink onUsage) throws Exception {
+        return stream(config, apiKey, model, messages, onDelta, onThink, onUsage, true);
+    }
+
+    /** Same as above, plus a usage sink (DeepSeek reports token usage on the last stream chunk). */
+    public static String stream(JSONObject config, String apiKey, String model, JSONArray messages,
+                                Delta onDelta, Delta onThink, UsageSink onUsage, boolean thinking) throws Exception {
         if (model == null || model.trim().isEmpty()) throw new PublicError("请配置文本或视觉模型名称");
         if (apiKey == null || apiKey.trim().isEmpty()) throw new PublicError("未配置 API 密钥，可使用前端离线估算");
         if (messages == null || messages.length() < 1) throw new PublicError("请提供对话内容");
@@ -163,6 +173,7 @@ public final class ChatCompletion {
         if (base.toLowerCase(Locale.ROOT).contains("deepseek")) {
             payload.put("stream_options", new JSONObject().put("include_usage", true));
         }
+        if (!thinking) disableThinking(payload, config);
         HttpsURLConnection conn = null;
         StringBuilder answer = new StringBuilder();
         try {
@@ -194,9 +205,9 @@ public final class ChatCompletion {
                             if (piece == null) piece = choice == null ? null : choice.optJSONObject("message");
                             if (piece != null) {
                                 delta = text(piece, "content");
-                                String thinking = text(piece, "reasoning_content");
-                                if (thinking.isEmpty()) thinking = text(piece, "reasoning");
-                                if (!thinking.isEmpty() && onThink != null) onThink.onDelta(thinking);
+                                String reasoning = text(piece, "reasoning_content");
+                                if (reasoning.isEmpty()) reasoning = text(piece, "reasoning");
+                                if (!reasoning.isEmpty() && onThink != null) onThink.onDelta(reasoning);
                             }
                         }
                         JSONObject usageObj = chunk.optJSONObject("usage");
@@ -309,6 +320,16 @@ public final class ChatCompletion {
     }
 
     /** Only GET /models: validates the stored key without sending health data or buying a completion. */
+    /**
+     * DeepSeek 的思考模式默认开启、effort 默认 high；估算这类「认食物→套数据」的任务不需要长思考，
+     * 显式关掉可省掉整段思维链。其他服务商不认这个字段，不能发。
+     */
+    private static void disableThinking(JSONObject payload, JSONObject config) throws Exception {
+        String base = config.optString("baseUrl", "").toLowerCase(Locale.ROOT);
+        if (!base.contains("deepseek")) return;
+        payload.put("thinking", new JSONObject().put("type", "disabled"));
+    }
+
     public static JSONObject checkConnection(JSONObject config, String key) throws Exception {
         if (key == null || key.trim().isEmpty()) throw new PublicError("尚未保存此服务商的 API Key");
         URL completion = endpoint(config.getString("baseUrl"));

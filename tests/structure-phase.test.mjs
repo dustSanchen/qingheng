@@ -13,6 +13,7 @@ const rest = read('app/src/fragments/70-rest.fragment.js');
 const html = read('app/src/main/assets/index.html');
 const adapter = read('app/src/main/assets/native-adapter.js');
 const main = read('app/src/main/java/cn/qingheng/health/MainActivity.java');
+const completion = read('app/src/main/java/cn/qingheng/health/ChatCompletion.java');
 
 check('the week list reads the generated plan, not a second rotation',
   training.includes('const planDay = plan.days.find(item => item.date === day)')
@@ -33,6 +34,13 @@ check('state schema version and migration exist',
   main.includes('STATE_VERSION = 2') && main.includes('private static void migrateState')
   && main.includes('backupBeforeMigration'));
 check('calc module is loaded before app.js', html.includes('./calc.js'));
+
+check('estimate turns DeepSeek thinking off',
+  main.includes('CAP_ESTIMATE, false)') && main.includes(', false).trim();')
+  && main.includes('ChatCompletion.completeMessage'));
+check('thinking is only disabled for DeepSeek',
+  completion.includes('private static void disableThinking')
+  && completion.includes('"thinking", new JSONObject().put("type", "disabled")'));
 
 if (fail) { console.log('\nFAIL total: ' + fail); process.exit(1); }
 console.log('\nPASS total: 0 failed');

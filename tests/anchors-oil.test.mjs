@@ -50,10 +50,10 @@ check('the generator refuses to emit a thin table', generator.includes('parsed t
 
 // --- estimation must not under-report -------------------------------------------------------------
 check('estimator prompt asks for the median, not a high bias', prompts.includes('不要系统性往高报'));
-check('estimator prompt explains why', prompts.includes('两者要抵消'));
+check('estimator prompt explains why', prompts.includes('两边抵消'));
 check('estimator returns oil separately', prompts.includes('\\"oilGrams\\":0') && main.includes('oilIncluded'));
 check('estimator returns an uncertainty', prompts.includes('\\"uncertaintyPercent\\":15'));
-check('the estimate contract no longer asks the model for totals', !prompts.includes('\\"totals\\":{') && prompts.includes('不要输出 totals'));
+check('the estimate contract no longer asks the model for totals', !prompts.includes('\\"totals\\":{') && prompts.includes('不要 totals'));
 check('recalc re-estimates from the edited name and grams', html.includes('id="item-recalc-name"') && app.includes("text:`${name} ${grams} g`") && app.includes('noDraft:true'));
 check('a recalc that only wants numbers leaves no draft behind', main.includes('b.optBoolean("noDraft", false)') && main.includes('drafts.add(id);'));
 check('recalc still offers the manual per-100g path offline', app.includes('离线或未授权外部模型：请填上每 100g 四项数值'));

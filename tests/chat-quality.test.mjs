@@ -120,11 +120,11 @@ check('already-saved null answers are repaired', main.includes('private static v
 check('the repair keeps the question for a retry', main.includes('row.put("needsRetry", true)') && !main.includes('chats.remove('));
 
 // --- domestic nutrition data first --------------------------------------------------------------------
-check('the estimator prefers Chinese food composition data', prompts.includes('【数据口径优先顺序】') && prompts.includes('中式菜品与家常菜优先按中国大陆常见食物成分口径'));
-check('chain-restaurant items use the brand label', prompts.includes('连锁快餐用该品牌公开的营养成分表'));
-check('packaged food uses the label', prompts.includes('包装食品用包装标签'));
-check('generic western data is only the fallback', prompts.includes('只有中式口径和标签都拿不到时，才用通用的西式食材数据'));
-check('inference is explicitly allowed', prompts.includes('【允许推断】查不到确切数值时不要拒绝'));
+check('the estimator prefers Chinese food composition data', prompts.includes('数据顺序：用户锚点 > 中国大陆常见熟重'));
+check('chain-restaurant items use the brand label', prompts.includes('连锁公开成分表'));
+check('packaged food uses the label', prompts.includes('包装标签'));
+check('generic western data is only the fallback', prompts.includes('通用西式数据（notes 注明）'));
+check('inference is explicitly allowed', prompts.includes('查不到就按同类典型值估并注明，不要拒绝'));
 check('the chat prompt prefers domestic values too', prompts.includes('【热量以国内口径为准】'));
 check('the chat prompt allows an estimate when nothing is found', prompts.includes('查不到确切数值时**照样回答**'));
 

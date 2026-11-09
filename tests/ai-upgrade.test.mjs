@@ -19,7 +19,7 @@ check('a thinking sink can be passed alongside the answer sink', completion.incl
 check('the old signature still works', completion.includes('return stream(config, apiKey, model, messages, onDelta, null);'));
 check('reasoning_content is read', completion.includes('text(piece, "reasoning_content")'));
 check('an alternate reasoning key is accepted', completion.includes('text(piece, "reasoning")'));
-check('thinking is never appended to the answer', completion.includes('if (!thinking.isEmpty() && onThink != null) onThink.onDelta(thinking);') && !/answer\.append\(thinking\)/.test(completion));
+check('thinking is never appended to the answer', completion.includes('if (!reasoning.isEmpty() && onThink != null) onThink.onDelta(reasoning);') && !/answer\.append\(reasoning\)/.test(completion));
 check('the stream pushes think events', main.includes('text -> pushChatEvent("think", id, text, null)'));
 check('the adapter forwards think events', adapter.includes("if(event.kind==='think')") && adapter.includes('sink.onThink'));
 check('the page renders a thinking block', app.includes('stream-think') && app.includes('function pushChatThinking'));
