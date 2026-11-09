@@ -130,9 +130,11 @@
     const message = `今天已记录 ${fmt(totals.calories, 0)} kcal，超过目标约 ${fmt(totals.calories - target, 0)} kcal。是否仅在明天临时调整为热量 ${fmt(adjustedCalories, 0)} kcal、脂肪不超过 ${fmt(adjustedFatMax, 0)} g？原目标不会改变，明天结束后自动恢复。`;
     if (!await askConfirm(message, {title:'调整明日目标', ok:'调整明日'})) return;
     try {
-      await api('/api/target-adjustment', {action:'adjust'});
+      const saved = await api('/api/target-adjustment', {action:'adjust'});
       await loadState({quiet:true, offerTargetAdjustment:false});
-      notice(`明日将临时使用 ${fmt(adjustedCalories, 0)} kcal 与脂肪上限 ${fmt(adjustedFatMax, 0)} g；原目标已保留。`);
+      // 用服务端存下来的值回话：它可能因为已有生效目标而直接返回旧值，不能拿本地算式冒充。
+      const temp = saved && saved.temporary ? saved.temporary : {calorieTarget: adjustedCalories, fatMax: adjustedFatMax};
+      notice(`明日将临时使用 ${fmt(temp.calorieTarget, 0)} kcal 与脂肪上限 ${fmt(temp.fatMax, 0)} g；原目标已保留。`);
     } catch (error) {
       try {localStorage.removeItem(promptKey);} catch {}
       notice(error.message, true);

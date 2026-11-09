@@ -1180,8 +1180,8 @@ function applyTrainingVisibility() {
     const map = {gain: '增肌', cut: '减脂', recomp: '增肌同时减脂', lean: '薄肌', maintain: '保持身材'};
     return map[String(goal || 'recomp')] || '饮食';
   }
-function intakeRangeForDate(date = activeDate) {
-    const profile = state?.profile || {}, rules = targetRules(profile);
+function intakeRangeForDate(date = activeDate, profileOverride = null) {
+    const profile = profileOverride || state?.profile || {}, rules = targetRules(profile);
     const habit = (state?.habits || []).find(row => row && row.date === date);
     const trained = habit ? (habit.training === true || habit.training === 'true' ? true : habit.training === false || habit.training === 'false' ? false : null) : null;
     const useTraining = trained === true;
@@ -1218,14 +1218,29 @@ function intakeRangeForDate(date = activeDate) {
    */
   function effectiveProfileForDate(date = activeDate) {
     const profile = {...(state?.profile || {})}, adjustment = targetAdjustmentForDate(date);
-    const range = intakeRangeForDate(date);
+    // 临时目标要先并进 profile 再算区间：区间是最终口径，只改 calorieTarget 会被区间覆盖掉，
+    // 「弹窗说调低了、第二天却没变」就是这么来的。
+    if (adjustment) Object.assign(profile, adjustment.temporary);
+    const range = intakeRangeForDate(date, profile);
     // 区间与当日上限都以目标预设算出的结果为准，手填字段不再参与。
     profile.calorieTarget = range.max;
     profile.trainingDayMin = range.trainingDay.min;
     profile.trainingDayMax = range.trainingDay.max;
     profile.restDayMin = range.restDay.min;
     profile.restDayMax = range.restDay.max;
-    if (adjustment) Object.assign(profile, adjustment.temporary);
+    if (adjustment) {
+      const adjusted = number(adjustment.temporary?.calorieTarget);
+      if (adjusted !== null) {
+        // 临时目标是一整天的一个数：上下限与训练/休息日都用它，界面与提示词才不会各说各的。
+        range.min = adjusted; range.max = adjusted;
+        range.trainingDay = {min: adjusted, max: adjusted};
+        range.restDay = {min: adjusted, max: adjusted};
+        range.basis = '临时调整，明天恢复';
+        profile.calorieTarget = adjusted;
+        profile.trainingDayMin = adjusted; profile.trainingDayMax = adjusted;
+        profile.restDayMin = adjusted; profile.restDayMax = adjusted;
+      }
+    }
     profile.intakeRange = {min: range.min, max: range.max, basis: range.basis};
     return profile;
   }
@@ -2241,9 +2256,11 @@ function intakeRangeForDate(date = activeDate) {
     const message = `今天已记录 ${fmt(totals.calories, 0)} kcal，超过目标约 ${fmt(totals.calories - target, 0)} kcal。是否仅在明天临时调整为热量 ${fmt(adjustedCalories, 0)} kcal、脂肪不超过 ${fmt(adjustedFatMax, 0)} g？原目标不会改变，明天结束后自动恢复。`;
     if (!await askConfirm(message, {title:'调整明日目标', ok:'调整明日'})) return;
     try {
-      await api('/api/target-adjustment', {action:'adjust'});
+      const saved = await api('/api/target-adjustment', {action:'adjust'});
       await loadState({quiet:true, offerTargetAdjustment:false});
-      notice(`明日将临时使用 ${fmt(adjustedCalories, 0)} kcal 与脂肪上限 ${fmt(adjustedFatMax, 0)} g；原目标已保留。`);
+      // 用服务端存下来的值回话：它可能因为已有生效目标而直接返回旧值，不能拿本地算式冒充。
+      const temp = saved && saved.temporary ? saved.temporary : {calorieTarget: adjustedCalories, fatMax: adjustedFatMax};
+      notice(`明日将临时使用 ${fmt(temp.calorieTarget, 0)} kcal 与脂肪上限 ${fmt(temp.fatMax, 0)} g；原目标已保留。`);
     } catch (error) {
       try {localStorage.removeItem(promptKey);} catch {}
       notice(error.message, true);
@@ -5597,7 +5614,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.17';
+  const APP_VERSION = '1.3.18';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -7083,29 +7100,24 @@ function metricIcon(label) {
         $('.estimate-progress-name',row).textContent=names[i]||'';
       });
     };
-    let progressNames=estimateInputNames(text),progressIndex=0;
+    let progressNames=estimateInputNames(text);
     const startedAt=Date.now();
-    const idleActions=imageData
-      ? ['正在识别照片中的食物','正在匹配份量','正在核对营养与调味']
-      : ['正在拆分食物','正在匹配份量','正在核对油、酱料与糖'];
+    // 文字保持不动，只让骨架在动：以前每 1.4 秒换一条「正在核算 X」，用户看到的是文字跳，
+    // 而不是结果出现。模型本来就只在最后给出完整 JSON，文字变化应该集中在结果落地那一刻。
     const setBusyLine=()=>{
-      if(progressNames.length && progressIndex<progressNames.length)busyText.textContent=`正在核算 ${progressNames[progressIndex]}…`;
-      else if(progressNames.length)busyText.textContent='正在核对份量与油、酱料和糖…';
-      else busyText.textContent=idleActions[Math.min(Math.floor((Date.now()-startedAt)/1800),idleActions.length-1)]+'…';
-      paintProgress(progressNames,progressIndex);
+      busyText.textContent = progressNames.length
+        ? `正在估算这份餐食（${progressNames.length} 项）…`
+        : '正在识别与估算…';
+      paintProgress(progressNames,-1);
     };
     setBusyLine();
     let seen='';
     window.QinghengEstimateStream={onDelta:chunk=>{
       seen+=String(chunk||'');
       const names=estimateStreamNames(seen);
-      if(names.length){progressNames=names;progressIndex=Math.min(progressIndex,names.length-1);}
-      setBusyLine();
+      // 只有流里真的出现了新食物名才更新那一行，不做定时假进度。
+      if(names.length>progressNames.length){progressNames=names;setBusyLine();}
     }};
-    const ticker=setInterval(()=>{
-      if(progressNames.length && progressIndex<progressNames.length)progressIndex++;
-      setBusyLine();
-    },1400);
     try {
       let data;
       try {data=await api('/api/estimate/stream',payload);}
@@ -7113,7 +7125,7 @@ function metricIcon(label) {
       previewDraft(data,submittedForm);feedback(message,'估算完成。请在下方修改并确认，才会保存。');
     }
     catch(error){feedback(message,error.message,true);retry.hidden=false;}
-    finally{clearInterval(ticker);window.QinghengEstimateStream=null;busy.hidden=true;busy.classList.remove('estimate-progress');estimateBusy=false;button.disabled=false;}
+    finally{window.QinghengEstimateStream=null;busy.hidden=true;busy.classList.remove('estimate-progress');estimateBusy=false;button.disabled=false;}
   });
   $('#estimate-items').addEventListener('input',event=>{
     const input=event.target.closest('[data-item-field]');if(!input)return;

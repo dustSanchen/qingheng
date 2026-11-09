@@ -2159,6 +2159,13 @@ import java.util.concurrent.Executors;
             Double value = finite(values, key);
             if (value != null) out.put(key, value);
         }
+        // 训练日/休息日区间也是口径的一部分：只改 calorieTarget 会被区间盖掉，
+        // 第二天界面与 AI 建议都还是旧数。临时目标当天把四个边界一起压到同一个数。
+        Double adjustedCalories = finite(values, "calorieTarget");
+        if (adjustedCalories != null) {
+            for (String key : new String[]{"trainingDayMin", "trainingDayMax", "restDayMin", "restDayMax"})
+                out.put(key, adjustedCalories);
+        }
         return out;
     }
 

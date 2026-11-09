@@ -11,7 +11,7 @@ const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + 
 const app = fs.readFileSync('app/src/main/assets/app.js', 'utf8');
 
 // --- training day drives the budget -----------------------------------------------------------------
-check('an intake range is derived per date', app.includes('function intakeRangeForDate(date = activeDate)'));
+check('an intake range is derived per date', app.includes('function intakeRangeForDate(date = activeDate, profileOverride = null)'));
 check('a training day uses the training range', app.includes('min: useTraining ? trainingDay.min : restDay.min'));
 check('a rest day uses the rest range', app.includes('max: useTraining ? trainingDay.max : restDay.max'));
 check('an unrecorded day says so instead of guessing', app.includes("'当天未记录是否训练，按休息日区间'"));

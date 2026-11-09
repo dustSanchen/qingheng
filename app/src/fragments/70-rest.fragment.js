@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.17';
+  const APP_VERSION = '1.3.18';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1638,29 +1638,24 @@
         $('.estimate-progress-name',row).textContent=names[i]||'';
       });
     };
-    let progressNames=estimateInputNames(text),progressIndex=0;
+    let progressNames=estimateInputNames(text);
     const startedAt=Date.now();
-    const idleActions=imageData
-      ? ['正在识别照片中的食物','正在匹配份量','正在核对营养与调味']
-      : ['正在拆分食物','正在匹配份量','正在核对油、酱料与糖'];
+    // 文字保持不动，只让骨架在动：以前每 1.4 秒换一条「正在核算 X」，用户看到的是文字跳，
+    // 而不是结果出现。模型本来就只在最后给出完整 JSON，文字变化应该集中在结果落地那一刻。
     const setBusyLine=()=>{
-      if(progressNames.length && progressIndex<progressNames.length)busyText.textContent=`正在核算 ${progressNames[progressIndex]}…`;
-      else if(progressNames.length)busyText.textContent='正在核对份量与油、酱料和糖…';
-      else busyText.textContent=idleActions[Math.min(Math.floor((Date.now()-startedAt)/1800),idleActions.length-1)]+'…';
-      paintProgress(progressNames,progressIndex);
+      busyText.textContent = progressNames.length
+        ? `正在估算这份餐食（${progressNames.length} 项）…`
+        : '正在识别与估算…';
+      paintProgress(progressNames,-1);
     };
     setBusyLine();
     let seen='';
     window.QinghengEstimateStream={onDelta:chunk=>{
       seen+=String(chunk||'');
       const names=estimateStreamNames(seen);
-      if(names.length){progressNames=names;progressIndex=Math.min(progressIndex,names.length-1);}
-      setBusyLine();
+      // 只有流里真的出现了新食物名才更新那一行，不做定时假进度。
+      if(names.length>progressNames.length){progressNames=names;setBusyLine();}
     }};
-    const ticker=setInterval(()=>{
-      if(progressNames.length && progressIndex<progressNames.length)progressIndex++;
-      setBusyLine();
-    },1400);
     try {
       let data;
       try {data=await api('/api/estimate/stream',payload);}
@@ -1668,7 +1663,7 @@
       previewDraft(data,submittedForm);feedback(message,'估算完成。请在下方修改并确认，才会保存。');
     }
     catch(error){feedback(message,error.message,true);retry.hidden=false;}
-    finally{clearInterval(ticker);window.QinghengEstimateStream=null;busy.hidden=true;busy.classList.remove('estimate-progress');estimateBusy=false;button.disabled=false;}
+    finally{window.QinghengEstimateStream=null;busy.hidden=true;busy.classList.remove('estimate-progress');estimateBusy=false;button.disabled=false;}
   });
   $('#estimate-items').addEventListener('input',event=>{
     const input=event.target.closest('[data-item-field]');if(!input)return;

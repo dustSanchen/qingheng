@@ -1180,8 +1180,8 @@ function applyTrainingVisibility() {
     const map = {gain: '增肌', cut: '减脂', recomp: '增肌同时减脂', lean: '薄肌', maintain: '保持身材'};
     return map[String(goal || 'recomp')] || '饮食';
   }
-function intakeRangeForDate(date = activeDate) {
-    const profile = state?.profile || {}, rules = targetRules(profile);
+function intakeRangeForDate(date = activeDate, profileOverride = null) {
+    const profile = profileOverride || state?.profile || {}, rules = targetRules(profile);
     const habit = (state?.habits || []).find(row => row && row.date === date);
     const trained = habit ? (habit.training === true || habit.training === 'true' ? true : habit.training === false || habit.training === 'false' ? false : null) : null;
     const useTraining = trained === true;
@@ -1218,14 +1218,29 @@ function intakeRangeForDate(date = activeDate) {
    */
   function effectiveProfileForDate(date = activeDate) {
     const profile = {...(state?.profile || {})}, adjustment = targetAdjustmentForDate(date);
-    const range = intakeRangeForDate(date);
+    // 临时目标要先并进 profile 再算区间：区间是最终口径，只改 calorieTarget 会被区间覆盖掉，
+    // 「弹窗说调低了、第二天却没变」就是这么来的。
+    if (adjustment) Object.assign(profile, adjustment.temporary);
+    const range = intakeRangeForDate(date, profile);
     // 区间与当日上限都以目标预设算出的结果为准，手填字段不再参与。
     profile.calorieTarget = range.max;
     profile.trainingDayMin = range.trainingDay.min;
     profile.trainingDayMax = range.trainingDay.max;
     profile.restDayMin = range.restDay.min;
     profile.restDayMax = range.restDay.max;
-    if (adjustment) Object.assign(profile, adjustment.temporary);
+    if (adjustment) {
+      const adjusted = number(adjustment.temporary?.calorieTarget);
+      if (adjusted !== null) {
+        // 临时目标是一整天的一个数：上下限与训练/休息日都用它，界面与提示词才不会各说各的。
+        range.min = adjusted; range.max = adjusted;
+        range.trainingDay = {min: adjusted, max: adjusted};
+        range.restDay = {min: adjusted, max: adjusted};
+        range.basis = '临时调整，明天恢复';
+        profile.calorieTarget = adjusted;
+        profile.trainingDayMin = adjusted; profile.trainingDayMax = adjusted;
+        profile.restDayMin = adjusted; profile.restDayMax = adjusted;
+      }
+    }
     profile.intakeRange = {min: range.min, max: range.max, basis: range.basis};
     return profile;
   }

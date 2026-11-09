@@ -144,5 +144,6 @@
 | 2026-11-07 | `tests/training-library.test.mjs` | 「参考处方渲染 day.cues」→「day.cues 仍作为数据存在、不再上屏」 | 块删除后，日模板要点只在数据层供计划生成使用，断言改为检查数据仍在、UI 不再渲染 |
 | 2026-11-07 | `tests/ai-plan-focus.test.mjs` ×3、`tests/training-log.test.mjs` | 快照窗口 4000→6000；`showBusy(...)` → `showBusy(..., "plan-busy")`；`slice(0,12).map(row=>...)` → `map(planItemFromRow)`；计划提示的 `librarySummary(6)` → `(4)` | 1.3.16 把排程改成流式逐条渲染并压短 reason，函数变长、提示词体量下调，断言跟随现役实现 |
 | 2026-11-07 | `tests/training-log.test.mjs` | 「剂量在建议下方」→「剂量与名字同一行」 | 1.3.17 把剂量挪进 `.ai-plan-head` 与名字同行，窄屏自动换行，减少每行一行高度 |
+| 2026-11-10 | `tests/training-day-budget.test.mjs` | `intakeRangeForDate(date = activeDate)` → 带 `profileOverride` 的新签名 | 1.3.18 修临时目标：区间函数需要接收合并后的档案，否则临时值被区间覆盖 |
 
 
