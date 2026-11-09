@@ -17,8 +17,8 @@ package cn.qingheng.health.ai;
  *  - the user's own anchor table wins over any newly invented numbers.
  */
 public final class Prompts {
-    /** Bump when any prompt text below changes. v6: 估算提示词压缩为三步，删掉重复的口径段。 */
-    public static final int PROMPT_VERSION = 6;
+    /** Bump when any prompt text below changes. v7: 油按道相加并给出误差敏感度，估算可改油。 */
+    public static final int PROMPT_VERSION = 7;
     /** Bump when the 口径 defaults themselves change. v1: floor/deficit cap/ranges/macro floors. */
     public static final int RULES_VERSION = 1;
 
@@ -68,6 +68,7 @@ public final class Prompts {
                 + "carbs 按中国标签口径填（含纤维）；fiber 可省略，应用按 2 kcal/g 折算，不要先从 carbs 减纤维。"
                 + "油单独填 oilGrams（1 勺≈10 g，已含在合计），按每道需油的菜累加：家常小炒 8~18 g（盘底积油取高），"
                 + "红烧/干锅/油淋/煎炸 15~30 g，蒸煮炖凉拌白灼不计。"
+                + "油是整条链误差最大的一项：先逐道写油量再相加，不要先给整餐一个数；拿不准按方法取中间值，并在 notes 写油量区间（每 5 g 约 45 kcal）。"
                 + "可见脂肪（鸡皮、肥肉、明油）算进该菜 fat，不重复计入油。"
                 + "uncertaintyPercent 默认 15；notes 一句话写份量假设与拿不准的项（如酱汁），不要写思考过程。";
     }

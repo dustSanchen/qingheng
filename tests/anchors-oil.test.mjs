@@ -12,6 +12,8 @@ const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + 
 
 const anchorsSource = fs.readFileSync('app/src/main/assets/anchors.js', 'utf8');
 const app = fs.readFileSync('app/src/main/assets/app.js', 'utf8');
+const training = fs.readFileSync('app/src/fragments/60-training-copy.fragment.js', 'utf8');
+const rest = fs.readFileSync('app/src/fragments/70-rest.fragment.js', 'utf8');
 const html = fs.readFileSync('app/src/main/assets/index.html', 'utf8');
 const main = fs.readFileSync('app/src/main/java/cn/qingheng/health/MainActivity.java', 'utf8');
 const prompts = fs.readFileSync('app/src/main/java/cn/qingheng/health/ai/Prompts.java', 'utf8');
@@ -53,6 +55,8 @@ check('estimator prompt asks for the median, not a high bias', prompts.includes(
 check('estimator prompt explains why', prompts.includes('两边抵消'));
 check('estimator returns oil separately', prompts.includes('\\"oilGrams\\":0') && main.includes('oilIncluded'));
 check('estimator returns an uncertainty', prompts.includes('\\"uncertaintyPercent\\":15'));
+check('the prompt states the oil error sensitivity', prompts.includes('每 5 g 约 45 kcal') && prompts.includes('先逐道写油量再相加'));
+check('the preview oil amount is editable', training.includes('id="estimate-oil-input"') && rest.includes("event.target.id!=='estimate-oil-input'"));
 check('the estimate contract no longer asks the model for totals', !prompts.includes('\\"totals\\":{') && prompts.includes('不要 totals'));
 check('recalc re-estimates from the edited name and grams', html.includes('id="item-recalc-name"') && app.includes("text:`${name} ${grams} g`") && app.includes('noDraft:true'));
 check('a recalc that only wants numbers leaves no draft behind', main.includes('b.optBoolean("noDraft", false)') && main.includes('drafts.add(id);'));

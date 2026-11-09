@@ -5091,6 +5091,15 @@ const values = points.length<=7 ? points.map((item,i) => {
     $('#estimate-source').textContent=`${view.source==='api'?'外部模型':'本地估算'} · ${view.confidence==='medium'?'中等':'低'}置信度${restored?' · 已恢复未确认草稿':''}`;
     const uncertainty=number(view.uncertaintyPercent) ?? 15;
     draft.uncertaintyPercent=uncertainty; draft.oilGrams=number(view.oilGrams) ?? 0;
+    // 油是整条估算链最虚的一环：给一个可改的数，用户看到「炒菜只记了 5g」就能当场修正。
+    let oilBox=$('#estimate-oil');
+    if(!oilBox){
+      oilBox=document.createElement('label');oilBox.id='estimate-oil';oilBox.className='estimate-oil';
+      oilBox.innerHTML='烹调用油 · g<input id="estimate-oil-input" type="number" min="0" max="500" step="1" inputmode="decimal">';
+      $('#estimate-totals').before(oilBox);
+    }
+    const oilInput=$('#estimate-oil-input');
+    if(oilInput)oilInput.value=fmt(draft.oilGrams,0);
     const totalCalories=totalsFor(view.items).calories;
     const interval=`估算区间：约 ${fmt(totalCalories*(1-uncertainty/100),0)}–${fmt(totalCalories*(1+uncertainty/100),0)} kcal（±${fmt(uncertainty,0)}%）`;
     const oilNote=draft.oilGrams>0?`已计入烹调用油 ${fmt(draft.oilGrams,0)} g（约 ${fmt(draft.oilGrams*9,0)} kcal）`:'照片无法判断用油量；如果这餐是炒菜，请补上后用油量，否则热量会偏低。';
@@ -5614,7 +5623,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.21';
+  const APP_VERSION = '1.3.22';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -7128,6 +7137,12 @@ function metricIcon(label) {
   $('#estimate-items').addEventListener('input',event=>{
     const input=event.target.closest('[data-item-field]');if(!input)return;
     if(input.dataset.itemField==='grams'){const grams=number(input.value);if(grams>0)scaleEstimateItem(input.closest('.estimate-item'),grams);}
+    updatePreviewTotals();
+  });
+  document.addEventListener('input',event=>{
+    if(event.target.id!=='estimate-oil-input'||!draft)return;
+    const grams=number(event.target.value);
+    draft.oilGrams=grams===null?0:Math.max(0,Math.min(500,grams));
     updatePreviewTotals();
   });
   $('#estimate-items').addEventListener('click',event=>{

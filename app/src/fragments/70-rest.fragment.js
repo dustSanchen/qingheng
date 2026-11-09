@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.21';
+  const APP_VERSION = '1.3.22';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1666,6 +1666,12 @@
   $('#estimate-items').addEventListener('input',event=>{
     const input=event.target.closest('[data-item-field]');if(!input)return;
     if(input.dataset.itemField==='grams'){const grams=number(input.value);if(grams>0)scaleEstimateItem(input.closest('.estimate-item'),grams);}
+    updatePreviewTotals();
+  });
+  document.addEventListener('input',event=>{
+    if(event.target.id!=='estimate-oil-input'||!draft)return;
+    const grams=number(event.target.value);
+    draft.oilGrams=grams===null?0:Math.max(0,Math.min(500,grams));
     updatePreviewTotals();
   });
   $('#estimate-items').addEventListener('click',event=>{
