@@ -1242,26 +1242,17 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     // 临时目标要先并进 profile 再算区间：区间是最终口径，只改 calorieTarget 会被区间覆盖掉，
     // 「弹窗说调低了、第二天却没变」就是这么来的。
     if (adjustment) Object.assign(profile, adjustment.temporary);
-    const range = intakeRangeForDate(date, profile);
+    const baseRange = intakeRangeForDate(date, profile);
+    // 覆盖逻辑放在 calc.js（可单测）；没有该文件时退回原区间。
+    const range = adjustment && window.QinghengCalc && typeof window.QinghengCalc.applyTemporaryRange === 'function'
+      ? window.QinghengCalc.applyTemporaryRange(baseRange, adjustment.temporary)
+      : baseRange;
     // 区间与当日上限都以目标预设算出的结果为准，手填字段不再参与。
     profile.calorieTarget = range.max;
     profile.trainingDayMin = range.trainingDay.min;
     profile.trainingDayMax = range.trainingDay.max;
     profile.restDayMin = range.restDay.min;
     profile.restDayMax = range.restDay.max;
-    if (adjustment) {
-      const adjusted = number(adjustment.temporary?.calorieTarget);
-      if (adjusted !== null) {
-        // 临时目标是一整天的一个数：上下限与训练/休息日都用它，界面与提示词才不会各说各的。
-        range.min = adjusted; range.max = adjusted;
-        range.trainingDay = {min: adjusted, max: adjusted};
-        range.restDay = {min: adjusted, max: adjusted};
-        range.basis = '临时调整，明天恢复';
-        profile.calorieTarget = adjusted;
-        profile.trainingDayMin = adjusted; profile.trainingDayMax = adjusted;
-        profile.restDayMin = adjusted; profile.restDayMax = adjusted;
-      }
-    }
     profile.intakeRange = {min: range.min, max: range.max, basis: range.basis};
     return profile;
   }

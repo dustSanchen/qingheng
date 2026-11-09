@@ -967,11 +967,15 @@ import java.util.concurrent.Executors;
         boolean loadedNow = false;
         if (state == null) {
             JSONObject loaded;
-            try (InputStream in = disk.openRead()) { loaded = new JSONObject(readText(in, LIMIT)); }
+            String raw = null;
+            try (InputStream in = disk.openRead()) { raw = readText(in, LIMIT); loaded = new JSONObject(raw); }
             catch (java.io.FileNotFoundException noDisk) {
                 try (InputStream in = getAssets().open("seed.json")) { loaded = new JSONObject(readText(in, LIMIT)); }
                 catch (Exception noSeed) { loaded = new JSONObject(); }
             }
+            // 迁移前留一份原样快照：只保留每个旧版本的第一份，避免反复升级堆文件。
+            int fromVersion = loaded.optInt("version", 0);
+            if (raw != null && fromVersion > 0 && fromVersion < STATE_VERSION) backupBeforeMigration(raw, fromVersion);
             state = cleanState(loaded);
             loadedNow = true;
         }
@@ -983,6 +987,43 @@ import java.util.concurrent.Executors;
             catch (Exception ignored) { }
         }
     }
+    /** 数据结构版本：每次改 state 形状都加一，并在 migrateState 里补一段升级逻辑。 */
+    private static final int STATE_VERSION = 2;
+
+    /** 迁移前把原文件原样存一份；同名只写一次，用户可以在「数据管理」目录里找回。 */
+    private void backupBeforeMigration(String raw, int fromVersion) {
+        try {
+            File target = new File(getFilesDir(), "state.pre-v" + fromVersion + ".json");
+            if (target.exists()) return;
+            try (FileOutputStream out = new FileOutputStream(target)) {
+                out.write(raw.getBytes(StandardCharsets.UTF_8));
+            }
+        } catch (Exception ignored) { }
+    }
+
+    /**
+     * 逐级迁移。当前只到 v2：把 prefs 规范成对象，并把 temporaryTargets 收敛到已知字段。
+     * 更高版本写下的数据直接拒绝打开，避免旧代码把新字段洗掉。
+     */
+    private static void migrateState(JSONObject root) throws Exception {
+        int from = root.optInt("version", 0);
+        if (from > STATE_VERSION) throw new PublicError("数据来自更高版本的轻衡，请先升级应用再打开");
+        if (from < 2) {
+            if (!(root.opt("prefs") instanceof JSONObject)) root.put("prefs", new JSONObject());
+            JSONObject temporary = root.optJSONObject("temporaryTargets");
+            if (temporary != null) {
+                JSONObject keep = new JSONObject();
+                for (String key : new String[]{"status", "triggerDate", "effectiveDate", "createdAt",
+                        "triggerCalories", "original", "temporary"}) {
+                    if (temporary.has(key)) keep.put(key, temporary.get(key));
+                }
+                root.put("temporaryTargets", keep);
+            }
+            root.put("migratedFrom", from);
+        }
+        root.put("version", STATE_VERSION);
+    }
+
     /**
      * Normalizes a state object without losing anything the user may own.
      * Starts from a deep, secret-scrubbed copy, so every top-level key that is not one of the
@@ -992,7 +1033,7 @@ import java.util.concurrent.Executors;
      */
     private static JSONObject cleanState(JSONObject source) throws Exception {
         JSONObject out = source == null ? new JSONObject() : scrub(source);
-        out.put("version", 1);
+        migrateState(out);
         if (!(out.opt("profile") instanceof JSONObject)) out.put("profile", new JSONObject());
         for (String key : new String[]{"meals", "measurements", "habits", "chats"}) {
             if (!(out.opt(key) instanceof JSONArray)) out.put(key, new JSONArray());

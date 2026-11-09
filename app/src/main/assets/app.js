@@ -1242,26 +1242,17 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     // 临时目标要先并进 profile 再算区间：区间是最终口径，只改 calorieTarget 会被区间覆盖掉，
     // 「弹窗说调低了、第二天却没变」就是这么来的。
     if (adjustment) Object.assign(profile, adjustment.temporary);
-    const range = intakeRangeForDate(date, profile);
+    const baseRange = intakeRangeForDate(date, profile);
+    // 覆盖逻辑放在 calc.js（可单测）；没有该文件时退回原区间。
+    const range = adjustment && window.QinghengCalc && typeof window.QinghengCalc.applyTemporaryRange === 'function'
+      ? window.QinghengCalc.applyTemporaryRange(baseRange, adjustment.temporary)
+      : baseRange;
     // 区间与当日上限都以目标预设算出的结果为准，手填字段不再参与。
     profile.calorieTarget = range.max;
     profile.trainingDayMin = range.trainingDay.min;
     profile.trainingDayMax = range.trainingDay.max;
     profile.restDayMin = range.restDay.min;
     profile.restDayMax = range.restDay.max;
-    if (adjustment) {
-      const adjusted = number(adjustment.temporary?.calorieTarget);
-      if (adjusted !== null) {
-        // 临时目标是一整天的一个数：上下限与训练/休息日都用它，界面与提示词才不会各说各的。
-        range.min = adjusted; range.max = adjusted;
-        range.trainingDay = {min: adjusted, max: adjusted};
-        range.restDay = {min: adjusted, max: adjusted};
-        range.basis = '临时调整，明天恢复';
-        profile.calorieTarget = adjusted;
-        profile.trainingDayMin = adjusted; profile.trainingDayMax = adjusted;
-        profile.restDayMin = adjusted; profile.restDayMax = adjusted;
-      }
-    }
     profile.intakeRange = {min: range.min, max: range.max, basis: range.basis};
     return profile;
   }
@@ -2271,9 +2262,14 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     if (totals.calories <= threshold) return;
     const promptKey = `qingheng.target-adjustment.${activeDate}`;
     try {if (localStorage.getItem(promptKey) === '1') return; localStorage.setItem(promptKey, '1');} catch {}
+    // 下调公式放在 calc.js，与服务端的同一套规则对齐，并能被行为测试直接跑。
+    const calc = window.QinghengCalc && typeof window.QinghengCalc.adjustedTargets === 'function'
+      ? window.QinghengCalc.adjustedTargets(p) : null;
     const floor = p.sex === 'female' ? 1200 : 1500;
-    const adjustedCalories = Math.max(floor, Math.round((target - Math.min(250, Math.max(100, target * .10))) / 50) * 50);
-    const adjustedFatMax = Math.max(fatMin, Math.round(fatMax * .90));
+    const adjustedCalories = calc && calc.ok ? calc.calorieTarget
+      : Math.max(floor, Math.round((target - Math.min(250, Math.max(100, target * .10))) / 50) * 50);
+    const adjustedFatMax = calc && calc.ok && calc.fatMax !== null ? calc.fatMax
+      : Math.max(fatMin, Math.round(fatMax * .90));
     const message = `今天已记录 ${fmt(totals.calories, 0)} kcal，超过目标约 ${fmt(totals.calories - target, 0)} kcal。是否仅在明天临时调整为热量 ${fmt(adjustedCalories, 0)} kcal、脂肪不超过 ${fmt(adjustedFatMax, 0)} g？原目标不会改变，明天结束后自动恢复。`;
     if (!await askConfirm(message, {title:'调整明日目标', ok:'调整明日'})) return;
     try {
@@ -5618,7 +5614,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.19';
+  const APP_VERSION = '1.3.20';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -7101,40 +7097,22 @@ function metricIcon(label) {
       });
     };
     let progressNames=estimateInputNames(text);
-    // 思考流只占一行、滚动显示尾部：像 DSH/千问那样让人看到「模型在想什么」，
-    // 而不是用一个定时器假装进度。最终结果仍一次性出现在预览里。
-    let thinkNode=$('.estimate-think',busy);
-    if(!thinkNode){
-      thinkNode=document.createElement('p');thinkNode.className='estimate-think';thinkNode.hidden=true;
-      busy.insertBefore(thinkNode,progressList);
-    }
-    let thinkText='';
-    const startedAt=Date.now();
+    // 状态只写「正在 + 动词 + 名词」，不显示模型的信息流正文：用户要的是进度，不是推理草稿。
     const setBusyLine=()=>{
-      busyText.textContent = progressNames.length
-        ? `正在估算这份餐食（${progressNames.length} 项）…`
-        : '正在识别与估算…';
+      busyText.textContent='正在分析食品营养…';
       paintProgress(progressNames,-1);
     };
     setBusyLine();
-    let seen='',thinkFrame=0;
-    const paintThink=()=>{thinkFrame=0;if(!thinkNode)return;thinkNode.hidden=!thinkText;if(thinkText)thinkNode.textContent='思考 · '+(thinkText.length>220?'…'+thinkText.slice(-220):thinkText);};
+    let seen='';
     window.QinghengEstimateStream={
-      onThink:chunk=>{
-        const text=String(chunk||'');
-        if(!text)return;
-        thinkText+=text;
-        if(!progressNames.length)busyText.textContent='模型正在读这份餐食…';
-        if(!thinkFrame)thinkFrame=requestAnimationFrame(paintThink);
-      },
+      onThink:()=>{ busyText.textContent='正在分析食品营养…'; },
       onDelta:chunk=>{
         seen+=String(chunk||'');
         const names=estimateStreamNames(seen);
-        // 只有流里真的出现了新食物名才更新那一行，不做定时假进度。
         if(names.length>progressNames.length){
           progressNames=names;
-          setBusyLine();
-          busyText.textContent='正在核对：'+names.slice(0,3).join('、')+(names.length>3?' 等 '+names.length+' 项':'')+'…';
+          paintProgress(progressNames,-1);
+          busyText.textContent='正在核算份量与热量…';
         }
       }
     };
@@ -7145,7 +7123,7 @@ function metricIcon(label) {
       previewDraft(data,submittedForm);feedback(message,'估算完成。请在下方修改并确认，才会保存。');
     }
     catch(error){feedback(message,error.message,true);retry.hidden=false;}
-    finally{if(thinkFrame)cancelAnimationFrame(thinkFrame);window.QinghengEstimateStream=null;busy.hidden=true;busy.classList.remove('estimate-progress');estimateBusy=false;button.disabled=false;}
+    finally{window.QinghengEstimateStream=null;busy.hidden=true;busy.classList.remove('estimate-progress');estimateBusy=false;button.disabled=false;}
   });
   $('#estimate-items').addEventListener('input',event=>{
     const input=event.target.closest('[data-item-field]');if(!input)return;

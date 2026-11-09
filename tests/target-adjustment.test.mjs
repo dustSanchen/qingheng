@@ -15,12 +15,13 @@ const rest = read('app/src/fragments/70-rest.fragment.js');
 const main = read('app/src/main/java/cn/qingheng/health/MainActivity.java');
 
 const effective = head.slice(head.indexOf('function effectiveProfileForDate'), head.indexOf('function effectiveProfileForDate') + 1800);
+const calc = read('app/src/main/assets/calc.js');
 check('adjustment is merged before the range is computed',
   effective.indexOf('Object.assign(profile, adjustment.temporary)') > 0
-  && effective.indexOf('Object.assign(profile, adjustment.temporary)') < effective.indexOf('const range = intakeRangeForDate'));
+  && effective.indexOf('Object.assign(profile, adjustment.temporary)') < effective.indexOf('const baseRange = intakeRangeForDate'));
 check('the range itself is overridden for the temporary day',
-  /range\.min = adjusted;\s*range\.max = adjusted;/.test(effective)
-  && effective.includes('range.basis = \'临时调整，明天恢复\''));
+  effective.includes('applyTemporaryRange(baseRange, adjustment.temporary)')
+  && calc.includes('min: adjusted') && calc.includes("basis: '临时调整，明天恢复'"));
 check('the range helper accepts an explicit profile', head.includes('function intakeRangeForDate(date = activeDate, profileOverride = null)'));
 
 check('the popup reports the value the server stored', targetOffer.includes('saved.temporary') && targetOffer.includes('const temp ='));
@@ -29,7 +30,7 @@ check('native effective profile overrides the day boundaries',
   && main.includes('Double adjustedCalories = finite(values, "calorieTarget")'));
 
 check('estimate progress no longer ticks on a timer', !rest.includes('},1400)') && !rest.includes('clearInterval(ticker)'));
-check('estimate status stays one stable line', rest.includes('正在估算这份餐食（') && !rest.includes('正在核算 ${progressNames[progressIndex]}'));
+check('estimate status stays one stable line', rest.includes('正在分析食品营养') && !rest.includes('estimate-think'));
 check('streamed names still update the rows', rest.includes('if(names.length>progressNames.length){') && rest.includes('progressNames=names;'));
 
 if (fail) { console.log('\nFAIL total: ' + fail); process.exit(1); }

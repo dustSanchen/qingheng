@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.19';
+  const APP_VERSION = '1.3.20';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1635,40 +1635,22 @@
       });
     };
     let progressNames=estimateInputNames(text);
-    // 思考流只占一行、滚动显示尾部：像 DSH/千问那样让人看到「模型在想什么」，
-    // 而不是用一个定时器假装进度。最终结果仍一次性出现在预览里。
-    let thinkNode=$('.estimate-think',busy);
-    if(!thinkNode){
-      thinkNode=document.createElement('p');thinkNode.className='estimate-think';thinkNode.hidden=true;
-      busy.insertBefore(thinkNode,progressList);
-    }
-    let thinkText='';
-    const startedAt=Date.now();
+    // 状态只写「正在 + 动词 + 名词」，不显示模型的信息流正文：用户要的是进度，不是推理草稿。
     const setBusyLine=()=>{
-      busyText.textContent = progressNames.length
-        ? `正在估算这份餐食（${progressNames.length} 项）…`
-        : '正在识别与估算…';
+      busyText.textContent='正在分析食品营养…';
       paintProgress(progressNames,-1);
     };
     setBusyLine();
-    let seen='',thinkFrame=0;
-    const paintThink=()=>{thinkFrame=0;if(!thinkNode)return;thinkNode.hidden=!thinkText;if(thinkText)thinkNode.textContent='思考 · '+(thinkText.length>220?'…'+thinkText.slice(-220):thinkText);};
+    let seen='';
     window.QinghengEstimateStream={
-      onThink:chunk=>{
-        const text=String(chunk||'');
-        if(!text)return;
-        thinkText+=text;
-        if(!progressNames.length)busyText.textContent='模型正在读这份餐食…';
-        if(!thinkFrame)thinkFrame=requestAnimationFrame(paintThink);
-      },
+      onThink:()=>{ busyText.textContent='正在分析食品营养…'; },
       onDelta:chunk=>{
         seen+=String(chunk||'');
         const names=estimateStreamNames(seen);
-        // 只有流里真的出现了新食物名才更新那一行，不做定时假进度。
         if(names.length>progressNames.length){
           progressNames=names;
-          setBusyLine();
-          busyText.textContent='正在核对：'+names.slice(0,3).join('、')+(names.length>3?' 等 '+names.length+' 项':'')+'…';
+          paintProgress(progressNames,-1);
+          busyText.textContent='正在核算份量与热量…';
         }
       }
     };
@@ -1679,7 +1661,7 @@
       previewDraft(data,submittedForm);feedback(message,'估算完成。请在下方修改并确认，才会保存。');
     }
     catch(error){feedback(message,error.message,true);retry.hidden=false;}
-    finally{if(thinkFrame)cancelAnimationFrame(thinkFrame);window.QinghengEstimateStream=null;busy.hidden=true;busy.classList.remove('estimate-progress');estimateBusy=false;button.disabled=false;}
+    finally{window.QinghengEstimateStream=null;busy.hidden=true;busy.classList.remove('estimate-progress');estimateBusy=false;button.disabled=false;}
   });
   $('#estimate-items').addEventListener('input',event=>{
     const input=event.target.closest('[data-item-field]');if(!input)return;

@@ -124,9 +124,14 @@
     if (totals.calories <= threshold) return;
     const promptKey = `qingheng.target-adjustment.${activeDate}`;
     try {if (localStorage.getItem(promptKey) === '1') return; localStorage.setItem(promptKey, '1');} catch {}
+    // 下调公式放在 calc.js，与服务端的同一套规则对齐，并能被行为测试直接跑。
+    const calc = window.QinghengCalc && typeof window.QinghengCalc.adjustedTargets === 'function'
+      ? window.QinghengCalc.adjustedTargets(p) : null;
     const floor = p.sex === 'female' ? 1200 : 1500;
-    const adjustedCalories = Math.max(floor, Math.round((target - Math.min(250, Math.max(100, target * .10))) / 50) * 50);
-    const adjustedFatMax = Math.max(fatMin, Math.round(fatMax * .90));
+    const adjustedCalories = calc && calc.ok ? calc.calorieTarget
+      : Math.max(floor, Math.round((target - Math.min(250, Math.max(100, target * .10))) / 50) * 50);
+    const adjustedFatMax = calc && calc.ok && calc.fatMax !== null ? calc.fatMax
+      : Math.max(fatMin, Math.round(fatMax * .90));
     const message = `今天已记录 ${fmt(totals.calories, 0)} kcal，超过目标约 ${fmt(totals.calories - target, 0)} kcal。是否仅在明天临时调整为热量 ${fmt(adjustedCalories, 0)} kcal、脂肪不超过 ${fmt(adjustedFatMax, 0)} g？原目标不会改变，明天结束后自动恢复。`;
     if (!await askConfirm(message, {title:'调整明日目标', ok:'调整明日'})) return;
     try {

@@ -26,7 +26,13 @@ check('full-screen busy layer is gone', !html.includes('id="busy-layer"') && !re
 
 check('native estimate accepts a thinking sink', main.includes('Delta sink, ChatCompletion.Delta think') && main.includes('pushEstimateEvent("think"'));
 check('adapter forwards think events', adapter.includes("event.kind==='think'") && adapter.includes('sink.onThink'));
-check('estimate surface renders the thinking stream', rest.includes("className='estimate-think'") && rest.includes('onThink:chunk=>'));
+check('estimate status uses verb + noun only',
+  rest.includes('正在分析食品营养') && rest.includes('正在核算份量与热量') && !rest.includes('estimate-think'));
+
+check('state schema version and migration exist',
+  main.includes('STATE_VERSION = 2') && main.includes('private static void migrateState')
+  && main.includes('backupBeforeMigration'));
+check('calc module is loaded before app.js', html.includes('./calc.js'));
 
 if (fail) { console.log('\nFAIL total: ' + fail); process.exit(1); }
 console.log('\nPASS total: 0 failed');
