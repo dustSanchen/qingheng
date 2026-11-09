@@ -581,3 +581,13 @@
 - 未验证：估算思考流的真机可视验证 —— adb `input text` 被本机中文输入法改写（输入的英文变成「100rice个100」），提交按钮没被点到，只做了代码契约与编译验证；下次用系统键盘手动输入再截一次等待态。
 - APK：`dist/qingheng-1.3.19.apk`，601,183 B，sha256 `8dd6059a101efbdfb48624f92292d7b0651b89417ea77ddb80f25d147942ab04`。
 - 源码提交 `200762a`；回滚：`git revert 200762a`。
+
+## r85 · 2026-11-10 · 1.3.20（P4 迁移 + P5 行为测试 + 等待文案）
+- 需求原话：「生成预览文字内容格式保证“正在动词名词”即可（如正在分析食品营养），不要显示具体快速的信息流内容。可参考截图健康app。实现P4和P5」。
+- P4：`STATE_VERSION = 2` + `migrateState()`（v2 规范 prefs、把 temporaryTargets 收敛到已知字段）；迁移前把原文件存成 `state.pre-v{n}.json`（同版本只写一次）；`version > 2` 直接拒绝打开；`cleanState` 不再硬写 version=1。
+- P5：目标下调与临时覆盖抽到 `assets/calc.js`（`adjustedTargets` / `applyTemporaryRange`），`behavior-calcs.test.mjs` 直接跑 vm 断言 8 条：男性 2000→1800、女性 Floor、已达下限拒绝、缺目标拒绝、fatMax −10%、覆盖四处边界、不改入参、null 原样返回；弹窗与 `effectiveProfileForDate` 改用同一实现。
+- 估算等待：删掉 `.estimate-think` 的信息流正文，只留「正在分析食品营养…」→「正在核算份量与热量…」两句「正在+动词+名词」。
+- 验收：`test-all` 61/61；dev-loop 1.3.20/320 全绿 29.7s，装机 + smoke 无 JS 错误。
+- 未验证：包不可 `run-as`，迁移备份文件与 version=2 未能直接读取；估算等待态仍受 adb 中文输入法改写影响，未跑通真机可视验证。
+- APK：`dist/qingheng-1.3.20.apk`，601,243 B，sha256 `825c13fb630ff62ada135572117a334d16daea90b4c1e1e990c91a0fc611faee`。
+- 源码提交 `3295403`；回滚：`git revert 3295403`。
