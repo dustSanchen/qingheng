@@ -570,3 +570,14 @@
 - 验收：`test-all` 59/59（新增 `tests/target-adjustment.test.mjs` 8 条契约）；dev-loop 1.3.18/318 全绿。临时目标只做了代码路径核对与静态契约，没有实机模拟超支日。
 - APK：`dist/qingheng-1.3.18.apk`，601,183 B，sha256 `468274333a675efcfaebe40506ba82b846345d024241fb650a2aa7e7af52d4d7`。
 - 源码提交 `a536e18`；回滚：`git revert a536e18`。
+
+## r84 · 2026-11-10 · 1.3.19（P1–P3 + 估算思考流）
+- 需求原话：「实现p1到p3优化，确保估算动画会正确显示当前ai实际在计算的思考的内容，动画效果可参考dsh思考动画，千问等ai产品的思考动画。并非最后将所有结果一次性输出」。
+- P1 单一计划来源：周计划列表原来按 `trainingDays(prefs.days)` + 轮换自己算，和 `plan.days` 生成的「今天的状态」各说各话（出现过 11-07「今天·全身」与「今天 休息」并存）。改为两边都读 `plan.days`；`weekTodaySession()` 直接 `return weekPlanToday().day`。真机核对：列表「今天 · 休息」、状态「今天 休息」。
+- P2 配置注册表：`CONFIG_REGISTRY`（planPrefs / aiPlans）集中声明 localStorage 与 state.prefs 的映射；`loadState` 末尾 `verifyConfigSync()` 对齐并回写漂移项。
+- P3 等待反馈收敛：删掉 `#busy-layer` 全屏遮罩与 `showBusy` 的无 target 分支，只剩行内提示与 notice 两类。
+- 估算思考流：`estimate()` 增加 `think` 形参，`startEstimateStream` 把 `reasoning_content` 以 `kind: think` 推给页面；native-adapter 转发 `sink.onThink`；页面新增 `.estimate-think`，显示模型真实思考的尾部 220 字，食物名从流里解析出来后更新「正在核对」，不再有 1.4s 假进度；最终预览仍在完成后一次出现（严格 JSON 无法安全边写边渲染）。
+- 验收：`test-all` 60/60（新增 `tests/structure-phase.test.mjs`）；dev-loop 1.3.19/319 全绿 29.1s（测试 9.7 / 打包 7.7 / 装机 9.4），smoke 无 JS 错误。
+- 未验证：估算思考流的真机可视验证 —— adb `input text` 被本机中文输入法改写（输入的英文变成「100rice个100」），提交按钮没被点到，只做了代码契约与编译验证；下次用系统键盘手动输入再截一次等待态。
+- APK：`dist/qingheng-1.3.19.apk`，601,183 B，sha256 `8dd6059a101efbdfb48624f92292d7b0651b89417ea77ddb80f25d147942ab04`。
+- 源码提交 `200762a`；回滚：`git revert 200762a`。
