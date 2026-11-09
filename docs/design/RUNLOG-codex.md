@@ -561,3 +561,12 @@
 - 验收：`test-all` 58/58（training-log 的行结构断言改写并登记 §5.1）；dev-loop 1.3.17/317 全绿 31.3s；真机截图 `build/v317-rows2.png`。
 - APK：`dist/qingheng-1.3.17.apk`，601,184 B，sha256 `1414c4c7cd42cc45f67e179ab0a311801cc3f54cd0259cb5276cb9cf1c838e13`。
 - 源码提交 `7a5e8a9`；回滚：`git revert 7a5e8a9`。
+
+## r83 · 2026-11-10 · 1.3.18（临时目标落到区间 + 估算等待去跳字）
+- 需求原话：「当前app如果前面一天脂肪、热量超标，会弹窗提醒是否修改第二天的热量目标，但实际第二天目标未正常修改，请修复。并优化app生成估算时的动画表现，如在计算具体食品热量时，文字会随之跳动，而不是集中在最后时刻出现文字变化」。
+- 根因：`saveTemporaryTargets` 存了临时 `calorieTarget`，但「今天」页与 AI 提示词都读 `intakeRange`（trainingDay/restDay 区间）；`effectiveProfileForDate` 先算区间、再把 temporary 赋给 `calorieTarget`，随后界面又用 `range.max`，临时值被区间覆盖。原生 `effectiveProfile` 也只改 `calorieTarget`，同样被四个区间键盖住。
+- 修法：客户端先把 temporary 并进 profile 再算区间，并把当日上下限、训练/休息日边界统一设成临时值（basis 写「临时调整，明天恢复」）；原生 `effectiveProfile` 同样覆盖 `trainingDayMin/Max`、`restDayMin/Max`。弹窗结果改用服务端返回的 `temporary` 回话。
+- 估算动画：删掉 1.4s 定时轮换的假进度条（"正在核算 X"），文字稳定为「正在估算这份餐食（N 项）…」，只有流里真的解析出新的食物名才更新行；动效只留在骨架 shimmer。
+- 验收：`test-all` 59/59（新增 `tests/target-adjustment.test.mjs` 8 条契约）；dev-loop 1.3.18/318 全绿。临时目标只做了代码路径核对与静态契约，没有实机模拟超支日。
+- APK：`dist/qingheng-1.3.18.apk`，601,183 B，sha256 `468274333a675efcfaebe40506ba82b846345d024241fb650a2aa7e7af52d4d7`。
+- 源码提交 `a536e18`；回滚：`git revert a536e18`。
