@@ -620,3 +620,12 @@
 - 真机：生成一次建议，确认评价段与「已带上 1 条偏好」都在；第二次尝试时误点到问答页，未再补截图。
 - APK：`dist/qingheng-1.3.24.apk`，601,244 B，sha256 `c02010350dd112606171b3822b00fc765e0abc467f1a08aa826483c5d60bcb35`。
 - 源码提交 `08f3f5c`；回滚：`git revert 08f3f5c`。
+
+## r89 · 2026-11-10 · 1.3.26（排课不进问答历史）
+- 需求原话：「当前用ai排训练计划也会被保存至问答历史记录中，请优化」。
+- 根因：`native-adapter.js` 的流式 `/api/chat/stream` 在 `done` 后**无条件**写 `/api/chatlog`，把调用方的 `logToHistory:false` 丢了；缓冲路径 `/api/chat` 本来就有 `body?.logToHistory!==false` 判断。于是「AI 排今天」和训练问答这两个工具调用被当成问答记录存下来。
+- 修复：流式路径补同样的判断。
+- 清理：启动后一次性删除 question 以「请为今天排一个按顺序执行的训练清单」开头的旧记录（固定机器提示才删，用户问题不动），localStorage 标记只跑一次，删完提示「已清理 N 条」。
+- 验收：`test-all` 61/61（structure-phase 新增 2 条契约）；dev-loop 1.3.26/326 全绿 29.0s；装机后问答页 dump 已无「排一个按顺序」条目。
+- APK：`dist/qingheng-1.3.26.apk`，601,243 B，sha256 `14b9b2d3f38f96e2507e4f9723b34e873d6ba3b44d18611ec7b4316db35f0717`。
+- 源码提交 `cf8325b`；回滚：`git revert cf8325b`。
