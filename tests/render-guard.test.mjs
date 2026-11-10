@@ -13,7 +13,7 @@ const css = read('app/src/main/assets/styles.css');
 
 check('render is split into a guarded wrapper and a body', app.includes('function render() {') && app.includes('function renderBody() {'));
 check('it returns before drawing when state is missing', app.includes('if (!state) return;'));
-check('exceptions are caught', /try \{ renderBody\(\); \} catch \(error\) \{ showRenderError\(error\); \}/.test(app));
+check('exceptions are caught', /try \{ renderBody\(\);.*\} catch \(error\) \{ showRenderError\(error\); \}/.test(app));
 check('the bar explains the record is safe', app.includes('（记录已保存在本机）'));
 check('a retry control exists in the page', html.includes('id="render-error"') && html.includes('id="render-error-retry"'));
 check('retry reloads the state', app.includes("$('#render-error-retry')?.addEventListener('click'"));

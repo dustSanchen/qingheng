@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.27';
+  const APP_VERSION = '1.3.28';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -519,7 +519,7 @@
       name: String(row.name).trim().slice(0, 24),
       sets: Number(row.sets) > 0 ? Math.round(Number(row.sets)) : 0,
       reps: Number(row.reps) > 0 ? Math.round(Number(row.reps)) : 0,
-      weight: Number(row.weight) > 0 ? Number(row.weight) : null,
+      weight: typeof loadableWeightKg === "function" ? loadableWeightKg(row.name, Number(row.weight)) : (Number(row.weight) > 0 ? Number(row.weight) : null),
       distanceKm: Number(row.distanceKm) > 0 ? Number(row.distanceKm) : null,
       durationMin: Number(row.durationMin) > 0 ? Number(row.durationMin) : null,
       reason: String(row.reason || "").slice(0, 60),
@@ -612,6 +612,7 @@
         library ? "训练规则（必须遵守）：\n" + library : "",
         done.length ? ("今天已记录：" + done.join("；") + "。") : "今天还没有训练记录。",
         "每个动作的 reason 只写一句、不超过 12 个字，写为什么排它。",
+        "负重必须是健身房里装得出来的数：杠铃 = 20 kg 空杆 + 每侧 2.5 kg 的整数倍（如 60、65、70），不要给 62.5 这种装不出的重量；哑铃按 2 kg、器械按 5 kg 递增；不确定就留空。",
         "只输出 JSON 数组，第一个字符是 [，不要解释、不要代码块标记。"
       ].filter(Boolean).join("\n");
       // focus:"plan" 走后端专用的「只出 JSON」提示词；tier:"fast" 会追加「最多 3 句」，与 JSON 直接冲突。
@@ -1348,9 +1349,41 @@
    * the common action comes first in each. Layout matches what fitness apps converged on: a segmented
    * bar on top, one short screen per intent.
    */
+  /** 训练概览：把本周练了几次、总容量、今天蛋白放在同一屏，训练与饮食不再是两页。 */
+  function renderTrainingOverview() {
+    const grid = $('#training-overview-grid');
+    if (!grid) return;
+    const weekStart = shiftDay(activeDate, -((new Date(activeDate + 'T00:00:00').getDay() + 6) % 7));
+    const days = [];
+    for (let offset = 0; offset < 7; offset++) {
+      const date = shiftDay(weekStart, offset);
+      const rows = exercisesFor(date);
+      const volume = rows.reduce((sum, item) => sum + (Number(item.sets) || 0) * (Number(item.reps) || 0) * (Number(item.weight) || 0), 0);
+      days.push({date, count: rows.length, volume});
+    }
+    const sessions = days.filter(day => day.count > 0).length;
+    const volume = days.reduce((sum, day) => sum + day.volume, 0);
+    const meals = (state.meals || []).filter(row => row && row.date === activeDate);
+    const totals = totalsFor(meals), p = effectiveProfileForDate(activeDate);
+    const kcal = number(totals.calories), protein = number(totals.protein);
+    const target = number(p.intakeRange ? p.intakeRange.max : p.calorieTarget);
+    const proteinMin = number(p.proteinMin);
+    grid.innerHTML = '<div class="overview-stat"><small>本周训练</small><strong>' + sessions + '<span> 次</span></strong></div>'
+      + '<div class="overview-stat"><small>本周容量</small><strong>' + (volume > 0 ? fmt(volume, 0) : '—') + '<span>' + (volume > 0 ? ' kg' : '') + '</span></strong></div>'
+      + '<div class="overview-stat"><small>今日蛋白</small><strong>' + (protein === null ? '—' : fmt(protein, 0))
+      + '<span>' + (proteinMin ? ' / ' + fmt(proteinMin, 0) + ' g' : ' g') + '</span></strong></div>';
+    const peak = Math.max(1, ...days.map(day => day.volume));
+    const bars = $('#training-overview-bars');
+    if (bars) bars.innerHTML = days.map(day => '<div class="ov-bar' + (day.date === activeDate ? ' is-today' : '') + '"><span style="height:' + (day.volume ? Math.max(6, Math.round(day.volume / peak * 100)) : 3) + '%"></span><small>' + '日一二三四五六'[new Date(day.date + 'T00:00:00').getDay()] + '</small></div>').join('');
+    const note = $('#training-overview-note');
+    if (note) note.textContent = kcal === null
+      ? '今天还没有餐食记录；记一餐后，热量与蛋白会出现在这里。'
+      : '今天摄入 ' + fmt(kcal, 0) + (target ? ' / ' + fmt(target, 0) : '') + ' kcal · 蛋白 ' + fmt(protein || 0, 0) + ' g' + (proteinMin ? '（目标 ' + fmt(proteinMin, 0) + ' g 起）' : '') + '。';
+  }
+
   const RECORD_PANELS = [
     {key: 'food', label: '饮食', headings: ['轻松记一餐', '最近的餐食记录', '复制一餐', '食品热量参考库', '手动记录餐食'], foldedHeadings: ['食品热量参考库', '手动记录餐食']},
-    {key: 'training', label: '训练', headings: ['训练计划', '今日顺序', '训练日志', '下周计划'], trainingOnly: true},
+    {key: 'training', label: '训练', headings: ['训练概览', '训练计划', '今日顺序', '训练日志', '下周计划'], trainingOnly: true},
     {key: 'body', label: '身体', headings: ['身体数据', '日常习惯']}
   ];
   const RECORD_PANEL_STORAGE = 'qingheng.recordsPanel';

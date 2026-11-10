@@ -164,7 +164,7 @@
   }
   function render() {
     if (!state) return; // nothing to draw yet; loadState() calls render() again
-    try { renderBody(); } catch (error) { showRenderError(error); }
+    try { renderBody(); if (typeof renderTrainingOverview === "function") renderTrainingOverview(); } catch (error) { showRenderError(error); }
   }
   function arrangeEnergyCard() {
     const card = $('.energy-card');

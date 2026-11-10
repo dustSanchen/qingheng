@@ -148,5 +148,8 @@
 | 2026-11-10 | `tests/habit-and-training-mode.test.mjs` | 「另加一句健身提示」→「训练记录缺失就不提训练」 | 1.3.23 建议卡提示词改成两句结构，训练提示并入第二条，不再单独一句 |
 | 2026-11-10 | `tests/chat-quality.test.mjs` / `anchors-oil.test.mjs` | 估算提示词旧措辞 → 三步结构措辞 | 1.3.21/1.3.22 压缩提示词并加逐道油量，语义未变 |
 | 2026-11-11 | `tests/training-presets.test.mjs` | `renderTrainingLog()` → 带可选 rows 参数的签名 | 1.3.27 「照上次练」需要复用同一渲染器预填表单 |
+| 2026-11-11 | `tests/analysis-layer.test.mjs` | 卧推 61.5 → 65；减载 54 → 55 | 1.3.28 渐进重量改为「20kg 空杆 + 每侧 2.5kg 整数倍」，装不出的中间值被替换 |
+| 2026-11-11 | `tests/records-panels.test.mjs` | 训练 headings 前置「训练概览」 | 1.3.28 训练页新增概览卡，需归入训练面板 |
+| 2026-11-11 | `tests/render-guard.test.mjs` | render() 正则允许附加调用 | 1.3.28 renderBody 后追加 renderTrainingOverview，异常仍在同一 try 内 |
 
 

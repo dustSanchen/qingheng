@@ -52,5 +52,12 @@ check('plan rows offer one-tap logging',
 check('the training form can repeat the last session',
   onboarding.includes('function repeatLastTraining') && html.includes('id="training-repeat"'));
 
+check('recommended loads are plate-achievable',
+  training.includes('function loadableWeightKg') && training.includes('loadableWeightKg(name, suggested)')
+  && rest.includes('20 kg 空杆 + 每侧 2.5 kg'));
+check('the training overview connects diet and lifting',
+  html.includes('id="training-overview"') && rest.includes('function renderTrainingOverview')
+  && rest.includes("'训练概览'"));
+
 if (fail) { console.log('\nFAIL total: ' + fail); process.exit(1); }
 console.log('\nPASS total: 0 failed');

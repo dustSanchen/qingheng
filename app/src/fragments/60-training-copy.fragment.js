@@ -307,6 +307,26 @@
   }
 
   /**
+   * 把建议重量落到健身房里装得出来的数：杠铃按 20 kg 空杆 + 每侧 2.5 kg 的整数倍，
+   * 哑铃按 2 kg、器械按 5 kg 递增。装不出的数字（如 62.5 kg）比偏轻更伤执行。
+   */
+  function loadableWeightKg(name, desired) {
+    const kg = Number(desired);
+    const text = String(name || '');
+    if (!Number.isFinite(kg) || kg <= 0) return null;
+    if (/(负重)?(引体向上|俯卧撑|平板支撑|卷腹|悬垂举腿|双杠臂屈伸)/.test(text) && !/负重/.test(text)) return null;
+    const barbell = /杠铃/.test(text) || (!/(哑铃|器械|绳索|史密斯|龙门)/.test(text)
+      && /(卧推|深蹲|硬拉|划船|推举|肩推|罗马尼亚|臀推|臀桥|早安|箭步|实力举|借力推)/.test(text));
+    if (barbell) {
+      if (kg <= 20) return 20;
+      return 20 + Math.max(5, Math.round((kg - 20) / 5) * 5);
+    }
+    if (/(哑铃|飞鸟|侧平举|前平举|锤式|弯举|保加利亚)/.test(text)) return Math.max(2, Math.round(kg / 2) * 2);
+    if (/(器械|绳索|下拉|腿举|腿屈伸|腿弯举|夹胸|史密斯|龙门)/.test(text)) return Math.max(5, Math.round(kg / 5) * 5);
+    return Math.round(kg * 2) / 2;
+  }
+
+  /**
    * Next week's sessions from the last two weeks per exercise, with a graded progression.
    * lastByExercise: {name: {sets, reps, weight, date}}; acwr flag decides a deload.
    */
@@ -333,9 +353,14 @@
       if (Number.isFinite(Number(row.durationMin)) || Number.isFinite(Number(row.distanceKm))) continue;
       const template = /(深蹲|硬拉|腿|提踵)/.test(name) ? 'legs' : /(划船|引体|下拉|弯举|面拉)/.test(name) ? 'pull' : /(卧推|肩推|侧平举|下压|臂屈伸)/.test(name) ? 'push' : 'other';
       const weight = Number(row.weight);
-      const suggested = Number.isFinite(weight) && weight > 0
+      let suggested = Number.isFinite(weight) && weight > 0
         ? Math.round((deload ? weight * 0.9 : weight * 1.025) * 2) / 2
         : null;
+      if (suggested !== null) {
+        suggested = loadableWeightKg(name, suggested);
+        // +2.5% 对轻重量可能落回同一档（60 kg → 61.5 → 装不出 → 60），这时至少进一档，不能原地不动。
+        if (!deload && suggested !== null && suggested <= weight) suggested = loadableWeightKg(name, weight + 2.5);
+      }
       byTemplate[template].push({name, sets: Math.max(2, Number(row.sets) - (deload ? 1 : 0)), reps: Number(row.reps) || 8, weight: suggested});
     }
     const days = [];

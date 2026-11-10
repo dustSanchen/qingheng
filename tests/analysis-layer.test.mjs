@@ -99,9 +99,9 @@ const plan = api.generateWeekPlan({startDate: '2026-10-26', sessions: 5, acwrFla
 }});
 check('five sessions generated', plan.days.length === 5, String(plan.days.length));
 check('all dates are in the target week', plan.days.every(day => day.date >= '2026-10-26'), plan.days.map(d => d.date).join(','));
-check('progression is +2.5% rounded', plan.days.flatMap(d => d.exercises).some(item => item.name === '卧推' && item.weight === 61.5), JSON.stringify(plan.days.flatMap(d => d.exercises).map(i => i.name + ':' + i.weight)));
+check('progression lands on a plate-achievable weight', plan.days.flatMap(d => d.exercises).some(item => item.name === '卧推' && item.weight === 65), JSON.stringify(plan.days.flatMap(d => d.exercises).map(i => i.name + ':' + i.weight)));
 const deload = api.generateWeekPlan({startDate: '2026-10-26', sessions: 5, acwrFlag: 'high', lastByExercise: {卧推: {sets: 4, reps: 8, weight: 60}}});
-check('deload drops load and one set', deload.deload === true && deload.days.flatMap(d => d.exercises).some(item => item.name === '卧推' && item.weight === 54 && item.sets === 3));
+check('deload drops load and one set', deload.deload === true && deload.days.flatMap(d => d.exercises).some(item => item.name === '卧推' && item.weight === 55 && item.sets === 3));
 
 // --- 模型路由 -----------------------------------------------------------------------------------
 check('the client picks a fast tier', app.includes("const tier = !submittedImage && !deepIntent && question.length <= 24 ? 'fast' : 'deep';"));
