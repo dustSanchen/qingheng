@@ -75,5 +75,10 @@ check('rest timer and plan actions exist',
 check('diet and training link both ways',
   html.includes('id="today-training-line"') && rich.includes("trainingLine.textContent"));
 
+check('each set can be marked done and starts the rest timer',
+  onboarding.includes('data-set-done') && rest.includes('startRestTimer(true)'));
+check('swapping an exercise re-rounds the load',
+  rest.includes('loadableWeightKg(item.name, number(item.weight))'));
+
 if (fail) { console.log('\nFAIL total: ' + fail); process.exit(1); }
 console.log('\nPASS total: 0 failed');

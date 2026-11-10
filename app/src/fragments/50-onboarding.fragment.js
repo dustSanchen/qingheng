@@ -552,7 +552,7 @@ const values = points.length<=7 ? points.map((item,i) => {
   }
   function setRowHtml(set, index) {
     const value = v => v === null || v === undefined ? '' : ` value="${Number(v)}"`;
-    return `<div class="set-row" data-set-row><span class="set-no">${index + 1}</span>`
+    return `<div class="set-row" data-set-row><button type="button" class="set-check" data-set-done aria-pressed="false" aria-label="标记第 ${index + 1} 组完成">✓</button><span class="set-no">${index + 1}</span>`
       + `<label>次<input data-set="reps" type="number" inputmode="numeric" min="0" max="200" step="1"${value(set.reps)}></label>`
       + `<label>kg<input data-set="weight" type="number" inputmode="decimal" min="0" max="500" step="0.5"${value(set.weight)}></label>`
       + `<button type="button" class="icon-button danger set-remove" data-set-remove aria-label="移除第 ${index + 1} 组">×</button></div>`;
@@ -571,6 +571,8 @@ const values = points.length<=7 ? points.map((item,i) => {
       const no = $('.set-no', set); if (no) no.textContent = String(index + 1);
       const remove = $('[data-set-remove]', set);
       if (remove) { remove.disabled = sets.length <= 1; remove.setAttribute('aria-label', '移除第 ' + (index + 1) + ' 组'); }
+      const done = $('[data-set-done]', set);
+      if (done) done.setAttribute('aria-label', '标记第 ' + (index + 1) + ' 组完成');
     });
     const volume = sets.reduce((sum, set) => {
       const reps = number($('[data-set="reps"]', set)?.value), weight = number($('[data-set="weight"]', set)?.value);

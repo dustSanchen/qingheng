@@ -3632,7 +3632,7 @@ const values = points.length<=7 ? points.map((item,i) => {
   }
   function setRowHtml(set, index) {
     const value = v => v === null || v === undefined ? '' : ` value="${Number(v)}"`;
-    return `<div class="set-row" data-set-row><span class="set-no">${index + 1}</span>`
+    return `<div class="set-row" data-set-row><button type="button" class="set-check" data-set-done aria-pressed="false" aria-label="标记第 ${index + 1} 组完成">✓</button><span class="set-no">${index + 1}</span>`
       + `<label>次<input data-set="reps" type="number" inputmode="numeric" min="0" max="200" step="1"${value(set.reps)}></label>`
       + `<label>kg<input data-set="weight" type="number" inputmode="decimal" min="0" max="500" step="0.5"${value(set.weight)}></label>`
       + `<button type="button" class="icon-button danger set-remove" data-set-remove aria-label="移除第 ${index + 1} 组">×</button></div>`;
@@ -3651,6 +3651,8 @@ const values = points.length<=7 ? points.map((item,i) => {
       const no = $('.set-no', set); if (no) no.textContent = String(index + 1);
       const remove = $('[data-set-remove]', set);
       if (remove) { remove.disabled = sets.length <= 1; remove.setAttribute('aria-label', '移除第 ' + (index + 1) + ' 组'); }
+      const done = $('[data-set-done]', set);
+      if (done) done.setAttribute('aria-label', '标记第 ' + (index + 1) + ' 组完成');
     });
     const volume = sets.reduce((sum, set) => {
       const reps = number($('[data-set="reps"]', set)?.value), weight = number($('[data-set="weight"]', set)?.value);
@@ -5814,7 +5816,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.30';
+  const APP_VERSION = '1.3.31';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -6401,6 +6403,9 @@ function metricIcon(label) {
           const pool = [...new Set(presets)].filter(name => name !== item.name && !taken.has(name));
           if (!pool.length) { notice("训练库里没有可替换的动作。"); return; }
           item.name = pool[index % pool.length];
+          if (typeof loadableWeightKg === "function" && number(item.weight) !== null) {
+            item.weight = loadableWeightKg(item.name, number(item.weight));
+          }
           aiPlanStore(activeDate, plan);
           renderAiPlan();
           notice("已换成「" + item.name + "」，组次沿用原动作，可再点「换」继续。");
@@ -7232,10 +7237,14 @@ function metricIcon(label) {
   $('#training-template')?.addEventListener('change', () => renderTrainingPresets());
   $('#training-repeat')?.addEventListener('click', () => repeatLastTraining());
   let restTick = 0, restEnd = 0;
-  $('#rest-timer')?.addEventListener('click', () => {
+  /** 组间休息：标记一组完成后自动开 90s；再点按钮取消。 */
+  function startRestTimer(restart = false) {
     const button = $('#rest-timer');
     if (!button) return;
-    if (restTick) { clearInterval(restTick); restTick = 0; button.textContent = '组间休息'; return; }
+    if (restTick) {
+      if (!restart) { clearInterval(restTick); restTick = 0; button.textContent = '组间休息'; return; }
+      clearInterval(restTick); restTick = 0;
+    }
     restEnd = Date.now() + 90000;
     const paint = () => {
       const left = Math.max(0, Math.ceil((restEnd - Date.now()) / 1000));
@@ -7244,8 +7253,17 @@ function metricIcon(label) {
     };
     paint();
     restTick = setInterval(paint, 1000);
-  });
+  }
+  $('#rest-timer')?.addEventListener('click', () => startRestTimer(false));
   $('#training-exercises')?.addEventListener('click', event => {
+    const done = event.target.closest?.('[data-set-done]');
+    if (done) {
+      const set = done.closest('[data-set-row]');
+      const on = set.classList.toggle('is-done');
+      done.setAttribute('aria-pressed', String(on));
+      if (on) startRestTimer(true);
+      return;
+    }
     const addSet = event.target.closest?.('[data-set-add]');
     if (addSet) {
       const row = addSet.closest('[data-exercise-row]');

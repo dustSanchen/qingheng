@@ -1571,3 +1571,8 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 .training-summary{margin-top:14px;padding-top:14px;border-top:1px solid var(--line);animation:summaryIn .32s cubic-bezier(.22,.8,.3,1)}
 @keyframes summaryIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.training-summary{animation:none}}
+
+.set-check{width:32px;height:32px;min-height:32px;flex:0 0 auto;border-radius:50%;border:1px solid var(--line-strong);background:transparent;color:transparent;font-size:14px;line-height:1;display:grid;place-items:center;padding:0;transition:background .18s,border-color .18s,color .18s,transform .18s}
+.set-check:active{transform:scale(.92)}
+.set-row.is-done .set-check{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.set-row.is-done input{color:var(--muted)}

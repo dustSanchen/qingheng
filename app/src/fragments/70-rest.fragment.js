@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.30';
+  const APP_VERSION = '1.3.31';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -739,6 +739,9 @@
           const pool = [...new Set(presets)].filter(name => name !== item.name && !taken.has(name));
           if (!pool.length) { notice("训练库里没有可替换的动作。"); return; }
           item.name = pool[index % pool.length];
+          if (typeof loadableWeightKg === "function" && number(item.weight) !== null) {
+            item.weight = loadableWeightKg(item.name, number(item.weight));
+          }
           aiPlanStore(activeDate, plan);
           renderAiPlan();
           notice("已换成「" + item.name + "」，组次沿用原动作，可再点「换」继续。");
@@ -1570,10 +1573,14 @@
   $('#training-template')?.addEventListener('change', () => renderTrainingPresets());
   $('#training-repeat')?.addEventListener('click', () => repeatLastTraining());
   let restTick = 0, restEnd = 0;
-  $('#rest-timer')?.addEventListener('click', () => {
+  /** 组间休息：标记一组完成后自动开 90s；再点按钮取消。 */
+  function startRestTimer(restart = false) {
     const button = $('#rest-timer');
     if (!button) return;
-    if (restTick) { clearInterval(restTick); restTick = 0; button.textContent = '组间休息'; return; }
+    if (restTick) {
+      if (!restart) { clearInterval(restTick); restTick = 0; button.textContent = '组间休息'; return; }
+      clearInterval(restTick); restTick = 0;
+    }
     restEnd = Date.now() + 90000;
     const paint = () => {
       const left = Math.max(0, Math.ceil((restEnd - Date.now()) / 1000));
@@ -1582,8 +1589,17 @@
     };
     paint();
     restTick = setInterval(paint, 1000);
-  });
+  }
+  $('#rest-timer')?.addEventListener('click', () => startRestTimer(false));
   $('#training-exercises')?.addEventListener('click', event => {
+    const done = event.target.closest?.('[data-set-done]');
+    if (done) {
+      const set = done.closest('[data-set-row]');
+      const on = set.classList.toggle('is-done');
+      done.setAttribute('aria-pressed', String(on));
+      if (on) startRestTimer(true);
+      return;
+    }
     const addSet = event.target.closest?.('[data-set-add]');
     if (addSet) {
       const row = addSet.closest('[data-exercise-row]');
