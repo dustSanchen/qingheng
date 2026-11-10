@@ -985,8 +985,21 @@ details[open] .preview-panel, .data-preview-panel{border:1px solid var(--line);b
 
 /* 本周安排：七天一行行，状态用色点与文字区分，不再堆卡片。 */
 .plan-week{list-style:none;padding:0;margin:0 0 var(--space-3)}
-/* 下一训练日只留一行小注：原来那三行「今天 / 下一训练日 / 分化」键值块与本周列表、偏好摘要重复。 */
-.plan-next{margin:0 0 var(--space-2);font-size:var(--text-xs);color:var(--muted);font-variant-numeric:tabular-nums}
+/* 本周安排 = 一条 7 格周条（2026-11-11 晚）：用格子与短线表达「这周什么形状」，不再逐行写「休息」。
+   训练日一根淡绿短线、已练实心、今天加深；被点开的格子铺一层浅底。 */
+.week-strip{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin:var(--space-2) 0 var(--space-2)}
+.week-cell{display:grid;grid-template-rows:auto auto 3px;justify-items:center;align-items:center;gap:3px;min-height:54px;padding:6px 0 5px;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--ink-soft);font:inherit;transition:background var(--dur-fast),border-color var(--dur-fast)}
+.week-cell:active{background:var(--surface-soft)}
+.week-dow{font-size:var(--text-xs);line-height:1;color:var(--muted)}
+.week-num{font-size:var(--text-md);font-weight:var(--fw-medium);line-height:1.1;font-variant-numeric:tabular-nums}
+.week-bar{display:block;width:14px;height:3px;border-radius:2px;background:transparent}
+/* 计划日：半透明绿线（浅到不抢今天）；已练：实心。 */
+.week-cell.is-plan .week-bar{background:var(--accent);opacity:.42}
+.week-cell.is-done .week-bar{background:var(--accent);opacity:1}
+.week-cell.is-today .week-num{color:var(--accent);font-weight:var(--fw-semibold)}
+.week-cell.is-selected{background:var(--surface-soft);border-color:var(--line)}
+.week-cell.is-today.is-selected{border-color:var(--accent-line)}
+.week-detail{margin:0 0 var(--space-1);font-size:var(--text-sm);color:var(--ink-soft);line-height:1.5;overflow-wrap:anywhere}
 .plan-week li{display:flex;gap:var(--space-2);align-items:baseline;padding:6px 0;border-bottom:1px solid var(--line);font-size:var(--text-sm)}
 .plan-week li:last-child{border-bottom:0}
 .plan-week li strong{flex:0 0 44px;color:var(--muted);font-weight:var(--fw-medium);font-variant-numeric:tabular-nums}
@@ -1591,7 +1604,7 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 .exercise-name{flex:1 1 auto;min-width:0;margin:0}
 /* 动作名是这一行的标题，不是第三个输入框：平时无框无底，聚焦时才长成输入框。
    这样一行读作「1 卧推 → 3 组数」，而不是「一叠长得一样的灰盒子」。 */
-#view-records .training-row .exercise-name input{min-height:44px;padding:6px 0;border-color:transparent;background:transparent;font-size:var(--text-lg);font-weight:var(--fw-semibold)}
+#view-records .training-row .exercise-name input{min-height:44px;padding:6px 0;border-color:transparent;background:transparent;font-size:17px;font-weight:var(--fw-semibold)}
 /* 聚焦时只加底与细框，不加内边距：否则文字会在点进去的瞬间往右跳 12px。 */
 #view-records .training-row .exercise-name input:focus-visible{border-color:transparent;background:var(--surface-soft);box-shadow:0 0 0 1px var(--line)}
 /* 账本/夜间沿用同一条规则：动作名是行标题，不因为换了皮肤就长成第三个输入框。 */
@@ -1599,15 +1612,33 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 [data-skin="ledger"] #view-records .training-row .exercise-name input:focus-visible{border-color:var(--line-strong);background:var(--surface);box-shadow:none}
 .exercise-remove{flex:0 0 auto;min-height:32px;padding:0 var(--space-1);font-size:var(--text-sm);color:var(--muted)}
 .exercise-remove:active{color:var(--danger)}
-.set-table{margin:0 0 var(--space-1) 26px}
-.set-head{display:grid;grid-template-columns:28px 18px 1fr 1fr 26px;gap:var(--space-2);align-items:center;margin:0 0 2px;font-size:var(--text-xs);color:var(--muted)}
-.set-head span:nth-child(3),.set-head span:nth-child(4){text-align:center}
-.set-list{margin:0;display:flex;flex-direction:column;gap:6px}
-.set-row{display:grid;grid-template-columns:28px 18px 1fr 1fr 26px;gap:var(--space-2);align-items:center}
-.set-no{font-size:var(--text-xs);color:var(--muted);font-variant-numeric:tabular-nums;text-align:left}
-.set-field{margin:0;min-width:0}
-.set-field input{min-height:42px;padding:8px 10px;text-align:center;font-variant-numeric:tabular-nums}
-.set-remove{width:26px;height:32px;padding:0;border:0;background:none;color:var(--muted);font-size:16px;line-height:1;display:grid;place-items:center}
+/* 每一组是一行手账：圈/编号 → 「10 次 × 60 kg」→ ×。没有表头，数字是主角。 */
+.set-list{margin:var(--space-2) 0 0 26px;display:flex;flex-direction:column;gap:2px}
+.set-row{display:grid;grid-template-columns:26px 16px minmax(0,1fr) 26px;gap:var(--space-2);align-items:center}
+.set-no{font-size:var(--text-xs);color:var(--muted);font-variant-numeric:tabular-nums}
+.set-values{display:flex;align-items:baseline;justify-content:flex-start;gap:4px;min-width:0}
+.set-value{display:inline-flex;flex-direction:row;align-items:baseline;gap:3px;margin:0;min-width:0}
+/* 这里的字段要压过 #view-records 的通用输入框规则：不要底、不要框、不要 100% 宽。 */
+/* 数字盒按内容伸缩（width:auto + field-sizing:content），单位和数字之间不留空槽；
+   不支持的 WebView 用 @supports 回落到固定宽度。 */
+#view-records .training-row .set-value input{width:auto;field-sizing:content;min-width:1.7em;max-width:6em;min-height:40px;padding:0 2px;border:0;border-radius:0;background:transparent;color:var(--ink);font-size:20px;font-weight:var(--fw-semibold);font-variant-numeric:tabular-nums;line-height:1.2;text-align:center;box-shadow:none;transition:background var(--dur-fast),box-shadow var(--dur-fast)}
+#view-records .training-row .set-value.is-kg input{min-width:2.2em}
+@supports not (field-sizing: content){
+  #view-records .training-row .set-value input{width:2.6em}
+  #view-records .training-row .set-value.is-kg input{width:3.3em}
+}
+/* 账本/夜间：同样的数字行，不给它长回输入框（否则每个数字都坐一块黑底）。 */
+[data-skin="ledger"] #view-records .training-row .set-value input{background:transparent;border:0;border-radius:0}
+[data-skin="ledger"] #view-records .training-row .set-value input:focus-visible{background:var(--surface);box-shadow:inset 0 -2px 0 var(--accent)}
+.set-value small{font-size:var(--text-xs);font-weight:var(--fw-regular);color:var(--muted)}
+.set-value input::placeholder{color:var(--muted);opacity:.55}
+/* 聚焦只长一条下划线：不换成盒子，也不改内边距，避免数字左右跳。 */
+#view-records .training-row .set-value input:focus-visible{outline:none;border:0;border-radius:4px;background:var(--surface-soft);box-shadow:inset 0 -2px 0 var(--accent)}
+.set-times{font-size:var(--text-xs);color:var(--muted);opacity:.6;padding:0 4px}
+.set-row.is-done .set-value input{color:var(--muted)}
+.set-row.is-done .set-values{opacity:.75}
+/* 组删除与中间的「×」分隔符要能分开：删除更大、更靠边。 */
+.set-remove{width:26px;height:32px;padding:0;border:0;background:none;color:var(--muted);font-size:17px;line-height:1;display:grid;place-items:center}
 .set-remove:active{color:var(--danger)}
 .set-remove:disabled{opacity:.35}
 .set-foot{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);margin:var(--space-1) 0 0 26px}

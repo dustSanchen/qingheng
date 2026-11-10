@@ -553,14 +553,20 @@ const values = points.length<=7 ? points.map((item,i) => {
   function setRowHtml(set, index) {
     const n = index + 1;
     const value = v => v === null || v === undefined ? '' : ` value="${Number(v)}"`;
-    return `<div class="set-row" data-set-row><button type="button" class="set-check" data-set-done aria-pressed="false" aria-label="标记第 ${n} 组完成">✓</button><span class="set-no" aria-hidden="true">${n}</span>`
-      + `<label class="set-field"><input data-set="reps" type="number" inputmode="numeric" min="0" max="200" step="1" aria-label="第 ${n} 组次数"${value(set.reps)}></label>`
-      + `<label class="set-field"><input data-set="weight" type="number" inputmode="decimal" min="0" max="500" step="0.5" aria-label="第 ${n} 组负重公斤"${value(set.weight)}></label>`
+    // 2026-11-11 晚：这里不再是一张表（表头 + 两个输入框），而是一行手账：
+    // 「◯ 1  10 次 × 60 kg   ×」，数字本身就是主角，单位只跟一次，改数时只有一条下划线出现。
+    return `<div class="set-row" data-set-row><button type="button" class="set-check" data-set-done aria-pressed="false" aria-label="标记第 ${n} 组完成">✓</button>`
+      + `<span class="set-no" aria-hidden="true">${n}</span>`
+      + `<span class="set-values">`
+      + `<label class="set-value"><input data-set="reps" type="number" inputmode="numeric" min="0" max="200" step="1" aria-label="第 ${n} 组次数" placeholder="—"${value(set.reps)}><small>次</small></label>`
+      + `<span class="set-times" aria-hidden="true">×</span>`
+      + `<label class="set-value is-kg"><input data-set="weight" type="number" inputmode="decimal" min="0" max="500" step="0.5" aria-label="第 ${n} 组负重公斤" placeholder="—"${value(set.weight)}><small>kg</small></label>`
+      + `</span>`
       + `<button type="button" class="set-remove" data-set-remove aria-label="移除第 ${n} 组">×</button></div>`;
   }
   /**
-   * 一个动作 = 一张小表：编号 + 动作名（满宽，不套双层框）→ 组/次/kg 表头 → 每组一行 →
-   * 加一组 / 容量。删除放在动作名行的右端、组行的末尾，避免 44px 危险按钮压在标题行上方。
+   * 一个动作 = 一张手账：编号 + 动作名（行标题，不套框）→ 每一组一行「次 × kg」→ 加一组 / 容量。
+   * 删除放在动作名行右端与组行末尾，避免 44px 危险按钮压在标题行上方。
    */
   function exerciseRowHtml(item, index) {
     const n = index + 1;
@@ -568,8 +574,7 @@ const values = points.length<=7 ? points.map((item,i) => {
       + `<div class="exercise-row-head"><span class="exercise-no" aria-hidden="true">${n}</span>`
       + `<label class="exercise-name"><input data-exercise="name" value="${esc(item.name || '')}" maxlength="60" placeholder="动作名，例如卧推" aria-label="第 ${n} 个动作名称"></label>`
       + `<button type="button" class="text-button exercise-remove" data-exercise-remove="${index}" aria-label="移除这个动作">移除</button></div>`
-      + `<div class="set-table"><div class="set-head" aria-hidden="true"><span></span><span></span><span>次</span><span>kg</span><span></span></div>`
-      + `<div class="set-list" data-set-list>${trainingSetDetails(item).map(setRowHtml).join('')}</div></div>`
+      + `<div class="set-list" data-set-list>${trainingSetDetails(item).map(setRowHtml).join('')}</div>`
       + `<div class="set-foot"><button type="button" class="text-button" data-set-add>＋ 加一组</button><span class="row-meta">容量 <b data-set-volume>—</b></span></div></div>`;
   }
   /** 一组增删后重排序号、重算该动作容量；只改 UI，保存时才落库。 */

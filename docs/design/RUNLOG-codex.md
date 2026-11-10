@@ -692,4 +692,13 @@
 - 断言更新已登记：tests/training-log.test.mjs ×3（动作行字段改 data-set、12 上限 return null、剂量距离窗口 300→600）。
 - 未做：周条（7 格 + 点开当天）、今日顺序拖拽排序、组间休息按动作区分、空态块替换空白行——理由见 docs/design/26-record-training-art-review.md 第五节。
 - GitHub：origin 推送连续 TLS 握手失败（schannel / openssl 两条后端都失败）；localmirror 已推（force-with-lease），待网络恢复后补推。
-- APK：dist/qingheng-1.3.39.apk（599 KB，sha256 0F36584C70A5C79A9199ACA0D44291D43D327C1BE18CC45BE4F79775006FD1A7）。
+- APK：dist/qingheng-1.3.39.apk（599 KB，sha256 0F36584C70A5C79A9199ACA0D44291D43D327C1BE18CC45BE4F79775006FD1A7）
+
+## r96 · 2026-11-11 · 1.3.44（训练页第二轮：手账式记组 + 7 格周条）
+- 需求原话：「继续，美术效果优先于表格结构」。
+- 判断：第一轮把「组/次/kg」做成对齐小表，读起来先读列再读这一组；改成一整行话「◯ 1 10 次 × 60 kg」。
+- 训练日志：删表头；数字放大到 20px、单位 11px 跟数字；输入框 width:auto + field-sizing:content 按内容伸缩（@supports 回落固定宽）；聚焦只长 2px 下划线；完成态圆点实心 + 数字转灰；删除钮降为 17px 幽灵 ×。
+- 周计划：7 行文本 → 7 格周条（星期 + 日号 + 3px 短线：计划日半透明绿、已练实心、今天加深），点某格在下方换一行详情。
+- 顺手修语义错位：标题写「本周安排」但 startDate 是下一个周一，周条按今天所在周画，导致计划日一根线都画不出来。现在周条与标题都用计划所在周（「下周安排 · 11-16 起」），并删掉重复的「每周 N 练」与「下一训练日」小注。
+- 验收：test-all 61/61；dev-loop 1.3.44/344 全绿（打包 8.5s / 装机 9.1s）；真机确认 10 次 × 60 kg → 容量 600 kg、点圆点变实心起休息、点 18 号详情切到「拉 · 高位下拉…」；账本/夜间 DPR3 对照。
+- APK：dist/qingheng-1.3.44.apk（599 KB，sha256 7F4CEA674C36AE9CDB5B7EE4BF32C76EA0EF71019B2A8ADAB48D1C34190FC799）。。

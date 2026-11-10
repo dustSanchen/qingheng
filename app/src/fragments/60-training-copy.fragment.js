@@ -585,6 +585,27 @@
 
   /** The plan currently on screen; the schedule button writes exactly this. */
   let lastWeekPlan = null;
+  /** 周条上被点开的那一天；空着就默认今天。 */
+  let weekDetailDay = null;
+
+  /** 周条下方的一行详情：那天记录了什么、计划是什么。 */
+  function weekDetailHtml(day, plan) {
+    if (!day) return '';
+    const prefix = (day === activeDate ? '今天' : day.slice(5)) + ' · ';
+    const items = exercisesFor(day).filter(item => item && item.name);
+    const planDay = (plan && Array.isArray(plan.days) ? plan.days : []).find(item => item.date === day) || null;
+    if (items.length) {
+      return prefix + '已记录 ' + items.length + ' 个动作 · '
+        + items.slice(0, 3).map(item => item.name).join('、') + (items.length > 3 ? ' 等' : '');
+    }
+    if (planDay) {
+      const label = TRAINING_TEMPLATES[planDay.template] || planDay.template;
+      const all = planDay.exercises || [];
+      const names = all.slice(0, 3).map(item => item.name).join('、');
+      return prefix + label + (names ? ' · ' + names + (all.length > 3 ? ' 等 ' + all.length + ' 个' : '') : ' · 动作待定');
+    }
+    return prefix + '休息';
+  }
 
   /** Five-metric check for the selected day, plus the single action to take. */
   function renderDailyCheck() {
@@ -958,14 +979,6 @@
     if (tag) tag.textContent = plan.deload ? '减载周' : '负重 +2.5%';
     // "What do I train today": today's planned day, the next one, or what was already logged.
     const todayPlan = plan.days.find(day => day.date === activeDate);
-    const nextPlan = plan.days.find(day => day.date > activeDate);
-    // 2026-11-11：删掉原来三行「今天 / 下一训练日 / 分化」的键值块——
-    // 「今天」和「分化」已经分别在本周列表与偏好摘要里出现过；只把「下一训练日」（跨周信息）留成一行小注。
-    const nextNote = nextPlan
-      ? '<p class="plan-next">下一训练日 ' + esc(nextPlan.date.slice(5)) + ' · '
-        + esc(TRAINING_TEMPLATES[nextPlan.template] || nextPlan.template)
-        + (nextPlan.exercises.length ? ' · ' + esc(nextPlan.exercises[0].name) : '') + '</p>'
-      : (todayPlan ? '' : '<p class="plan-next">本周没有安排训练日</p>');
     // 负荷：标签 + 数值 + 判定，不写成一句话。「急慢性比」第一次看不知道是谁比谁，改成「负荷比」+ 一行口径。
     const acwrHtml = (() => {
       if (!stats || !Number.isFinite(stats.ratio)) return '';
@@ -1000,6 +1013,18 @@
     if (planBox && !planBox.dataset.adoptWired) {
       planBox.dataset.adoptWired = "1";
       planBox.addEventListener("click", event => {
+        const cell = event.target.closest("[data-week-day]");
+        if (cell) {
+          weekDetailDay = cell.dataset.weekDay || null;
+          for (const node of planBox.querySelectorAll("[data-week-day]")) {
+            const on = node.dataset.weekDay === weekDetailDay;
+            node.classList.toggle("is-selected", on);
+            node.setAttribute("aria-pressed", String(on));
+          }
+          const detail = $("#week-detail");
+          if (detail) detail.textContent = weekDetailHtml(weekDetailDay, lastWeekPlan);
+          return;
+        }
         const button = event.target.closest("[data-adopt-today]");
         if (!button) return;
         adoptWeekDay();
@@ -1007,47 +1032,37 @@
     }
     const prefs = planPrefs();
     // 收起/展开由 installPlanPrefs 统一管：这里别再强行显示，否则「修改」刚收起又会被撑开。
-    const weekStart = shiftDay(activeDate, -((new Date(activeDate + "T00:00:00").getDay() + 6) % 7));
     let thisWeekHtml;
     if (!prefs) {
       thisWeekHtml = "<p class=\"muted\">先选一下训练偏好（频率 / 分化 / 器械 / 时长），再按它安排本周。</p>";
     } else {
-      // 本周列表与「今天的状态」必须同源：都读 plan.days，而不是按偏好轮换另算一遍。
-      // 以前两处各算一次，会出现「今天·全身」和「今天 休息」同时出现。
-      const rows = [];
+      // 2026-11-11 晚（用户：美术效果优先于表格结构）：本周安排不再是一张 7 行表格，
+      // 而是一条 7 格周条——训练日一根绿短线、已练实心、今天加深；点某格在下面换一行详情。
+      // 周条画「计划所在的那一周」（startDate = 下一个周一），而不是今天所在的日历周：
+      // 以前标题写「本周安排」、内容却是下周的计划，所以计划日一根线都画不出来。
+      const weekStartPlan = startDate;
+      const weekEndPlan = shiftDay(weekStartPlan, 7);
+      const firstPlanDay = plan.days.length ? plan.days[0].date : activeDate;
+      if (!weekDetailDay || weekDetailDay < weekStartPlan || weekDetailDay >= weekEndPlan) weekDetailDay = firstPlanDay;
+      const cells = [];
       for (let offset = 0; offset < 7; offset++) {
-        const day = shiftDay(weekStart, offset);
-        const items = exercisesFor(day).filter(item => item && item.name);
-        const isToday = day === activeDate;
-        const past = day < activeDate;
+        const day = shiftDay(weekStartPlan, offset);
         const planDay = plan.days.find(item => item.date === day) || null;
+        const logged = exercisesFor(day).filter(item => item && item.name).length > 0;
+        const isToday = day === activeDate;
+        const selected = day === weekDetailDay;
+        const dow = "日一二三四五六"[new Date(day + "T00:00:00").getDay()];
         const label = planDay ? (TRAINING_TEMPLATES[planDay.template] || planDay.template) : "休息";
-        let mark, cls;
-        if (items.length) { mark = items.slice(0, 3).map(item => item.name).join("、") + (items.length > 3 ? " 等 " + items.length + " 个" : ""); cls = "done"; }
-        else if (isToday) { mark = planDay ? "今天 · " + label + " · " + (prefs.minutes || 45) + " 分钟" : "今天 · 休息"; cls = planDay ? "today" : "plan"; }
-        else if (past) { mark = planDay ? "未记录 · 计划 " + label : "休息"; cls = planDay ? "miss" : "plan"; }
-        else { mark = planDay ? label + " · " + (prefs.minutes || 45) + " 分钟" : "休息"; cls = planDay ? "plan" : "plan"; }
-        rows.push({day, mark, cls});
+        cells.push('<button type="button" class="week-cell'
+          + (planDay ? " is-plan" : "") + (logged ? " is-done" : "") + (isToday ? " is-today" : "") + (selected ? " is-selected" : "")
+          + '" data-week-day="' + day + '" aria-pressed="' + (selected ? "true" : "false") + '" aria-label="' + esc(day.slice(5)) + " " + esc(label) + '">'
+          + '<span class="week-dow">' + dow + '</span>'
+          + '<span class="week-num">' + esc(day.slice(8)) + '</span>'
+          + '<span class="week-bar" aria-hidden="true"></span></button>');
       }
-      // 连续休息日合成一行：一周 5 个「休息」逐行铺开，会把真正的训练日淹掉。
-      const merged = [];
-      for (const row of rows) {
-        const last = merged[merged.length - 1];
-        if (row.cls === "plan" && row.mark === "休息" && last && last.cls === "plan" && last.mark === "休息") {
-          last.end = row.day;
-          last.count = (last.count || 1) + 1;
-          continue;
-        }
-        merged.push({...row});
-      }
-      const rowsHtml = merged.map(row => {
-        if (row.count > 1) {
-          const sameMonth = row.day.slice(0, 7) === row.end.slice(0, 7);
-          return '<li class="wk-plan wk-rest-range"><strong>' + esc(row.day.slice(5)) + " → " + esc(sameMonth ? row.end.slice(8) : row.end.slice(5)) + "</strong><span>休息 · " + row.count + " 天</span></li>";
-        }
-        return "<li class=\"wk-" + row.cls + "\"><strong>" + esc(row.day.slice(5)) + "</strong><span>" + esc(row.mark) + "</span></li>";
-      }).join("");
-      thisWeekHtml = "<h3 class=\"plan-sub\">本周安排 · " + esc(weekStart.slice(5)) + " 起 · 每周 " + prefs.days + " 练</h3>" + nextNote + "<ul class=\"plan-week\">" + rowsHtml + "</ul>";
+      thisWeekHtml = '<h3 class="plan-sub">下周安排 · ' + esc(weekStartPlan.slice(5)) + ' 起</h3>'
+        + '<div class="week-strip" role="group" aria-label="下周训练安排，点一天看安排">' + cells.join("") + '</div>'
+        + '<p class="week-detail" id="week-detail">' + weekDetailHtml(weekDetailDay, plan) + '</p>';
     }
     const driftHtml = drifted ? '<p class="fine-print">记录有更新，本周安排已按最新数据重算。</p>' : '';
     // 采纳入口：今天有安排且今日清单还空着时，一键把它变成今日清单——否则用户要自己把
