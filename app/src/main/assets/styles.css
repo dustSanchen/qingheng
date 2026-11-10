@@ -1558,7 +1558,7 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 .adv-plan-log{flex:0 0 auto;min-height:32px;padding:0 8px;font-size:13px;white-space:nowrap}
 
 /* training overview: one lead number + a week of bars that actually carries values */
-.overview-grid{display:grid;grid-template-columns:1.1fr .7fr 1.1fr;gap:12px;border-top:1px solid var(--line);padding-top:14px;align-items:end}
+.overview-grid{display:grid;grid-template-columns:1.1fr .7fr 1.1fr;gap:12px;border-top:1px solid var(--line);padding-top:14px;align-items:start}
 .overview-stat small{display:block;font-size:var(--text-xs);color:var(--muted)}
 .overview-stat strong{font-size:19px;font-weight:var(--fw-semibold);line-height:1.4;white-space:nowrap;font-variant-numeric:tabular-nums}
 .overview-stat.is-lead strong{font-size:26px;line-height:1.25}

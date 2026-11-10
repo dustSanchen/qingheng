@@ -2,7 +2,7 @@
 
 一个把「记录」认真做好的本地优先 Android 健康应用：饮食、训练、身体数据与睡眠饮水都留在手机里，需要 AI 时再按你的明确同意调用你自己的模型服务。
 
-![Version](https://img.shields.io/badge/version-1.3.38-informational) ![Tests](https://img.shields.io/badge/tests-61%20%2F%2061-green) ![MinSdk](https://img.shields.io/badge/minSdk-26-blue) ![TargetSdk](https://img.shields.io/badge/targetSdk-35-blue) ![APK](https://img.shields.io/badge/APK-599%20KB-lightgrey)
+![Version](https://img.shields.io/badge/version-1.3.39-informational) ![Tests](https://img.shields.io/badge/tests-61%20%2F%2061-green) ![MinSdk](https://img.shields.io/badge/minSdk-26-blue) ![TargetSdk](https://img.shields.io/badge/targetSdk-35-blue) ![APK](https://img.shields.io/badge/APK-599%20KB-lightgrey)
 
 ## 项目定位
 
@@ -56,7 +56,7 @@ tools\assemble-app.ps1
 node tools/test-all.mjs
 
 # 版本号 + 测试 + 打包 + 装机 + 冒烟（约 30s）
-tools\dev-loop.ps1 -Version 1.3.38 -VersionCode 338
+tools\dev-loop.ps1 -Version 1.3.39 -VersionCode 339
 ```
 
 - 版本规则：`1.<minor>.<patch>`，patch 两位补零、逢百进一；`dev-loop` 会同步片段常量、`build.ps1` 默认值与测试字面量。
