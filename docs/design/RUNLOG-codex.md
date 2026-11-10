@@ -629,3 +629,12 @@
 - 验收：`test-all` 61/61（structure-phase 新增 2 条契约）；dev-loop 1.3.26/326 全绿 29.0s；装机后问答页 dump 已无「排一个按顺序」条目。
 - APK：`dist/qingheng-1.3.26.apk`，601,243 B，sha256 `14b9b2d3f38f96e2507e4f9723b34e873d6ba3b44d18611ec7b4316db35f0717`。
 - 源码提交 `cf8325b`；回滚：`git revert cf8325b`。
+
+## r90 · 2026-11-11 · 1.3.27（训练：一键记录 + 照上次练）
+- 需求原话：「优化APP训练功能，参考主流健康健身app，使该功能使用更符合用户操作直觉」。
+- 诊断：清单与执行之间断着——看完「今日清单/AI 顺序」要跳到训练日志重新输入动作名；每天的动作又高度重复。主流 App 是「看清单 → 点动作 → 记实际组次」+「重复上次训练」。
+- 改动：① `aiPlanRowHtml` 与今日清单每行加「记录」，`startLoggingFromPlan()` 把动作并入今天（已存在则跳过）、切到记录→训练、滚到该行并聚焦负重；② `renderTrainingLog(rowsOverride)` 支持预填，训练日志加「照上次练」，取最近一次训练预填动作/组/次/负重（只改草稿，不落库）。
+- 验收：`test-all` 61/61（structure-phase +2、training-presets 断言改签名并登记 §5.1）；dev-loop 1.3.27/327 全绿 36.3s，smoke 无 JS 错误；真机点「照上次练」，表单填出深蹲 4/6/40、卧推 4/6/45。
+- 观察未修：训练页在「为什么这样排」与「今日顺序」之间仍有一段空白（约 200px），原因未查明，下轮先查 disclosure 折叠后的高度占位。
+- APK：`dist/qingheng-1.3.27.apk`，605,339 B，sha256 `8b1fd4bbe2a3700fc6eadbbca936b3d353b062d6620333ccbe980ce83d4ce631`。
+- 源码提交 `bce43f6`；回滚：`git revert bce43f6`。
