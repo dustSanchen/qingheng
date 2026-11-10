@@ -2106,7 +2106,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     try {
       const history = (Array.isArray(state.chats) ? state.chats : []).slice(-5).flatMap(row => [{role:'user',content:String(row.question || '').slice(0,4000)},{role:'assistant',content:String(row.answer || '').slice(0,4000)}]);
       // Routing rule: a short question with no lookup intent is answered in the fast tier.
-      const deepIntent = /(检索|搜索|查一下|最新|研究|证据|为什么|原理|对比|论文|指南)/.test(question);
+      const deepIntent = /(检索|搜索|查一下|最新|研究|证据|为什么|原理|对比|论文|指南|训练|练了|练什么|动作|组数|体重|体脂|蛋白|热量|吃了|睡眠|数据)/.test(question);
       const tier = !submittedImage && !deepIntent && question.length <= 24 ? 'fast' : 'deep';
       const payload = {question,history,date:submittedDate,allowExternal:true,anchors:anchorSummary(),tier,library:(libraryLookup(question, 8) || librarySummary(6)),webSearch:$('#chat-web').checked && navigator.onLine && tier === 'deep',...(submittedImage?{image:submittedImage,...submittedPhotoMeta}:{})};
       let data = null;
@@ -4582,6 +4582,17 @@ const values = points.length<=7 ? points.map((item,i) => {
         if (first) first.focus();
       });
     }
+    const regen = $("#pref-regen");
+    if (regen) {
+      regen.hidden = !prefs;
+      if (!regen.dataset.wired) {
+        regen.dataset.wired = "1";
+        regen.addEventListener("click", () => {
+          regenerateWeekPlan();
+          notice("已按当前偏好重新生成本周安排（偏好没改也能换一版）。");
+        });
+      }
+    }
     const save = $("#pref-save");
     if (save && !save.dataset.wired) {
       save.dataset.wired = "1";
@@ -4592,9 +4603,10 @@ const values = points.length<=7 ? points.map((item,i) => {
           gear: read("gear") || "mixed",
           minutes: Number(read("minutes")) || 45
         });
-        renderWeekPlan();
+        // 保存偏好与生成本周安排是同一次动作：以前指纹没变就复用缓存，看起来像「点了没反应」。
+        regenerateWeekPlan();
         setCollapsed(true);
-        notice("已保存训练偏好：每周 " + (Number(read("days")) || 3) + " 天，会用于目标测算；到「我的 → 身体档案与目标」重新测算即可应用。");
+        notice("已保存训练偏好，并按新偏好重新生成本周安排。");
       });
     }
   }
@@ -4801,6 +4813,15 @@ const values = points.length<=7 ? points.map((item,i) => {
   function writeWeekPlanCache(week, value) {
     try { localStorage.setItem(WEEK_PLAN_KEY(week), JSON.stringify(value)); } catch {}
   }
+  let forceWeekPlan = false;
+  /** 明确「重新生成」：清掉本周缓存并强制重算，偏好不变也能换一版。 */
+  function regenerateWeekPlan() {
+    const startDate = shiftDay(activeDate, 7 - weekdayIndex(activeDate));
+    try { localStorage.removeItem(WEEK_PLAN_KEY(startDate)); } catch { }
+    lastWeekPlan = null;
+    forceWeekPlan = true;
+    renderWeekPlan();
+  }
   function renderWeekPlan() {
     const box = $('#week-plan'), tag = $('#week-plan-tag');
     if (!box) return;
@@ -4810,7 +4831,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     const sessions = Math.max(1, Math.min(6, Math.round(number(effectiveProfileForDate(activeDate).training) || 3)));
     const startDate = shiftDay(activeDate, 7 - weekdayIndex(activeDate));
     const fingerprint = weekPlanFingerprint(prefsForPlan(), lastByExercise, sessions);
-    const cached = readWeekPlanCache(startDate);
+    const cached = forceWeekPlan ? null : readWeekPlanCache(startDate);
     let plan, drifted = false;
     if (cached && cached.plan && cached.fingerprint === fingerprint) {
       plan = cached.plan; // 指纹没变：照用上次的结果，计划是被「约定」过的
@@ -4819,6 +4840,7 @@ const values = points.length<=7 ? points.map((item,i) => {
       drifted = !!(cached && cached.plan);
       if (plan) writeWeekPlanCache(startDate, {plan, fingerprint, savedAt: Date.now()});
     }
+    forceWeekPlan = false;
     lastWeekPlan = plan;
     if (!plan) { box.innerHTML = empty('还没有足够的训练记录', '先记两周训练，计划会自动出来。', 'empty'); return; }
     if (tag) tag.textContent = plan.deload ? '减载周' : '按上周 +2.5%';
@@ -5702,7 +5724,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.28';
+  const APP_VERSION = '1.3.29';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}

@@ -694,6 +694,17 @@
         if (first) first.focus();
       });
     }
+    const regen = $("#pref-regen");
+    if (regen) {
+      regen.hidden = !prefs;
+      if (!regen.dataset.wired) {
+        regen.dataset.wired = "1";
+        regen.addEventListener("click", () => {
+          regenerateWeekPlan();
+          notice("已按当前偏好重新生成本周安排（偏好没改也能换一版）。");
+        });
+      }
+    }
     const save = $("#pref-save");
     if (save && !save.dataset.wired) {
       save.dataset.wired = "1";
@@ -704,9 +715,10 @@
           gear: read("gear") || "mixed",
           minutes: Number(read("minutes")) || 45
         });
-        renderWeekPlan();
+        // 保存偏好与生成本周安排是同一次动作：以前指纹没变就复用缓存，看起来像「点了没反应」。
+        regenerateWeekPlan();
         setCollapsed(true);
-        notice("已保存训练偏好：每周 " + (Number(read("days")) || 3) + " 天，会用于目标测算；到「我的 → 身体档案与目标」重新测算即可应用。");
+        notice("已保存训练偏好，并按新偏好重新生成本周安排。");
       });
     }
   }
@@ -913,6 +925,15 @@
   function writeWeekPlanCache(week, value) {
     try { localStorage.setItem(WEEK_PLAN_KEY(week), JSON.stringify(value)); } catch {}
   }
+  let forceWeekPlan = false;
+  /** 明确「重新生成」：清掉本周缓存并强制重算，偏好不变也能换一版。 */
+  function regenerateWeekPlan() {
+    const startDate = shiftDay(activeDate, 7 - weekdayIndex(activeDate));
+    try { localStorage.removeItem(WEEK_PLAN_KEY(startDate)); } catch { }
+    lastWeekPlan = null;
+    forceWeekPlan = true;
+    renderWeekPlan();
+  }
   function renderWeekPlan() {
     const box = $('#week-plan'), tag = $('#week-plan-tag');
     if (!box) return;
@@ -922,7 +943,7 @@
     const sessions = Math.max(1, Math.min(6, Math.round(number(effectiveProfileForDate(activeDate).training) || 3)));
     const startDate = shiftDay(activeDate, 7 - weekdayIndex(activeDate));
     const fingerprint = weekPlanFingerprint(prefsForPlan(), lastByExercise, sessions);
-    const cached = readWeekPlanCache(startDate);
+    const cached = forceWeekPlan ? null : readWeekPlanCache(startDate);
     let plan, drifted = false;
     if (cached && cached.plan && cached.fingerprint === fingerprint) {
       plan = cached.plan; // 指纹没变：照用上次的结果，计划是被「约定」过的
@@ -931,6 +952,7 @@
       drifted = !!(cached && cached.plan);
       if (plan) writeWeekPlanCache(startDate, {plan, fingerprint, savedAt: Date.now()});
     }
+    forceWeekPlan = false;
     lastWeekPlan = plan;
     if (!plan) { box.innerHTML = empty('还没有足够的训练记录', '先记两周训练，计划会自动出来。', 'empty'); return; }
     if (tag) tag.textContent = plan.deload ? '减载周' : '按上周 +2.5%';

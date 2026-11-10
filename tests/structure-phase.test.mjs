@@ -59,5 +59,11 @@ check('the training overview connects diet and lifting',
   html.includes('id="training-overview"') && rest.includes('function renderTrainingOverview')
   && rest.includes("'训练概览'"));
 
+check('the week plan can be regenerated explicitly',
+  training.includes('function regenerateWeekPlan') && html.includes('id="pref-regen"')
+  && training.includes('regenerateWeekPlan();'));
+check('the fast chat context carries training and meals',
+  main.includes('trainingLast7Days') && main.includes('cappedWindow(numericWindow("meals", from, selectedDate), 10)'));
+
 if (fail) { console.log('\nFAIL total: ' + fail); process.exit(1); }
 console.log('\nPASS total: 0 failed');

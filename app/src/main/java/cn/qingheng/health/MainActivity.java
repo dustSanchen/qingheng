@@ -3004,10 +3004,13 @@ import java.util.concurrent.Executors;
         }
         targets.put("trainedOnSelectedDate", trainedOn(selectedDate));
         String from = dayOffsetFrom(selectedDate, -2);
+        JSONArray training = trainingLog(selectedDate, 7);
+        if (training.length() > 0) context.put("trainingLast7Days", training);
         context.put("profileTargets", targets).put("window", from + ".." + selectedDate)
                 .put("mealCount", mealCount(selectedDate))
+                .put("meals", cappedWindow(numericWindow("meals", from, selectedDate), 10))
                 .put("dailyNutrition", dailyNutrition(from, selectedDate))
-                .put("recordPolicy", "快速回答模式：只给了最近三天，缺数据就说缺失，不要推测。");
+                .put("recordPolicy", "快速回答模式：给了最近三天餐食与最近七天训练；缺数据就直说缺失，不要推测。");
         return context.toString();
     }
 
