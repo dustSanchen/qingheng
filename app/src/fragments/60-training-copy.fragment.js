@@ -748,6 +748,13 @@
     if (!box.dataset.todayWired) {
       box.dataset.todayWired = "1";
       box.addEventListener("click", event => {
+        const log = event.target.closest("[data-today-log]");
+        if (log) {
+          event.preventDefault();
+          const plan = typeof aiPlanStore === "function" ? (aiPlanStore(activeDate) || []) : [];
+          if (typeof startLoggingFromPlan === "function") startLoggingFromPlan(plan[Number(log.dataset.todayLog)]).catch(() => {});
+          return;
+        }
         const done = event.target.closest("[data-today-done]");
         if (done) {
           const plan = typeof aiPlanStore === "function" ? (aiPlanStore(activeDate) || []) : [];
@@ -798,8 +805,9 @@
       const pending = plan.length - doneCount;
       const rows = plan.map((item, index) => {
         const dose = [item.sets ? item.sets + " 组" : "", item.reps ? item.reps + " 次" : "", item.weight ? item.weight + " kg" : ""].filter(Boolean).join(" × ");
-        return "<li><label class=\"adv-plan-item\"><input type=\"checkbox\" data-today-done=\"" + index + "\"" + (item.done ? " checked" : "") + ">"
-          + "<span class=\"adv-name\">" + esc(item.name) + "</span>" + (dose ? "<span class=\"adv-dose\">" + esc(dose) + "</span>" : "") + "</label></li>";
+        return "<li class=\"adv-plan-li\"><label class=\"adv-plan-item\"><input type=\"checkbox\" data-today-done=\"" + index + "\"" + (item.done ? " checked" : "") + ">"
+          + "<span class=\"adv-name\">" + esc(item.name) + "</span>" + (dose ? "<span class=\"adv-dose\">" + esc(dose) + "</span>" : "") + "</label>"
+          + "<button type=\"button\" class=\"text-button adv-plan-log\" data-today-log=\"" + index + "\" aria-label=\"记录" + esc(item.name) + "\">记录</button></li>";
       }).join("");
       box.hidden = false;
       box.innerHTML = "<h3 class=\"plan-sub\">今日清单 · " + doneCount + "/" + plan.length + " 完成</h3><ol class=\"adv-order-list\">" + rows + "</ol>"

@@ -1540,3 +1540,9 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 .advice-verdict{margin:0 0 8px;font-size:17px;line-height:1.55;font-weight:500}
 .advice-actions{margin:0}
 .advice-pref-note{margin:10px 0 0}
+
+/* plan rows: one-tap log entry */
+.ai-plan-log{flex:0 0 auto;align-self:center;min-height:32px;padding:0 8px;font-size:13px;white-space:nowrap}
+.adv-plan-li{display:flex;flex-direction:row;align-items:center;gap:8px}
+.adv-plan-li .adv-plan-item{flex:1 1 auto;min-width:0}
+.adv-plan-log{flex:0 0 auto;min-height:32px;padding:0 8px;font-size:13px;white-space:nowrap}

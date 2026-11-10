@@ -9,6 +9,7 @@ const read = path => fs.readFileSync(path, 'utf8');
 
 const head = read('app/src/fragments/00-head.fragment.js');
 const training = read('app/src/fragments/60-training-copy.fragment.js');
+const onboarding = read('app/src/fragments/50-onboarding.fragment.js');
 const rest = read('app/src/fragments/70-rest.fragment.js');
 const html = read('app/src/main/assets/index.html');
 const adapter = read('app/src/main/assets/native-adapter.js');
@@ -44,6 +45,12 @@ check('thinking is only disabled for DeepSeek',
 
 check('streaming chat honours logToHistory:false', adapter.includes("if(body?.logToHistory!==false) await storageRequest('/api/chatlog'"));
 check('old plan prompts are cleaned from chat history once', head.includes('cleanupPlanChatEntries') && head.includes('请为今天排一个按顺序执行的训练清单'));
+
+check('plan rows offer one-tap logging',
+  rest.includes('data-ai-log=') && rest.includes('startLoggingFromPlan')
+  && training.includes('data-today-log='));
+check('the training form can repeat the last session',
+  onboarding.includes('function repeatLastTraining') && html.includes('id="training-repeat"'));
 
 if (fail) { console.log('\nFAIL total: ' + fail); process.exit(1); }
 console.log('\nPASS total: 0 failed');

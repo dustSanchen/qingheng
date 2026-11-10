@@ -39,7 +39,7 @@ check('the 12-row cap still applies', app.includes("if (index >= 12) {notice('ä¸
 
 // --- no duplicate declarations after the fix ----------------------------------------------------------
 check('the preset block is not duplicated', (onboarding.match(/const EXERCISE_PRESETS/g) || []).length === 1);
-check('there is one training log renderer', (onboarding.match(/function renderTrainingLog\(\)/g) || []).length === 1);
+check('there is one training log renderer', (onboarding.match(/function renderTrainingLog\(/g) || []).length === 1);
 
 console.log('\nFAIL total: ' + fail);
 process.exitCode = fail ? 1 : 0;

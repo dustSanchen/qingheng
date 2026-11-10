@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.26';
+  const APP_VERSION = '1.3.27';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -378,6 +378,25 @@
       notice("加入训练记录失败：" + (error && error.message ? error.message : "未知错误"), true);
     }
   }
+  /**
+   * 从「今日清单」直接进入记录：把动作并进今天，跳到训练日志并聚焦负重。
+   * 主流健身 App 的路径都是「看清单 → 点这个动作 → 记实际组次」，不要求重新打字。
+   */
+  async function startLoggingFromPlan(item) {
+    const name = String(item && item.name || "").trim();
+    if (!name) return;
+    const already = exercisesFor(activeDate).some(row => String(row && row.name || "").trim() === name);
+    if (!already) await addExercisesToToday([item]);
+    switchTab("records", true);
+    if (typeof switchRecordPanel === "function") switchRecordPanel("training");
+    setTimeout(() => {
+      const row = [...document.querySelectorAll("#training-exercises [data-exercise-row]")]
+        .find(node => String(($('[data-exercise="name"]', node) || {}).value || "").trim() === name);
+      (row || $("#training-form"))?.scrollIntoView({block: "center", behavior: "smooth"});
+      row?.querySelector('[data-exercise="weight"]')?.focus();
+    }, 220);
+  }
+
   /** 从 AI 回答的纯文本里挑出「动作名 3组×8次 60kg」这类片段；认不出就返回空。 */
   function parseExercisesFromText(text) {
     const cleaned = String(text || "").replace(/<[^>]+>/g, "\n");
@@ -440,7 +459,8 @@
         + (dose ? "<span class=\"ai-plan-dose\">" + esc(dose) + "</span>" : "")
         + "</span>"
         + (item.reason ? "<span class=\"ai-plan-reason\">" + esc(item.reason) + "</span>" : "")
-        + "</span></label></div>";
+        + "</span></label>"
+        + "<button type=\"button\" class=\"text-button ai-plan-log\" data-ai-log=\"" + index + "\" aria-label=\"记录" + esc(item.name) + "\">记录</button></div>";
     }
     const num = (name, value, attrs, label) => "<input class=\"ai-plan-input\" data-ai-field=\"" + name + "\" type=\"number\" inputmode=\"decimal\" " + attrs + " value=\"" + (value == null ? "" : value) + "\" aria-label=\"" + label + "\">";
     // 编辑态留一行原建议：改名字/组数时还看得见「为什么排它」，不用退出编辑再回忆。
@@ -681,6 +701,13 @@
           const names = $$(".ai-plan-row.is-editing .ai-plan-input.is-name", list);
           const last = names[names.length - 1];
           if (last) { last.focus(); last.select(); }
+          return;
+        }
+        const logButton = event.target.closest("[data-ai-log]");
+        if (logButton) {
+          event.preventDefault();
+          const plan = aiPlanStore(activeDate) || [];
+          startLoggingFromPlan(plan[Number(logButton.dataset.aiLog)]).catch(() => {});
           return;
         }
         const removeButton = event.target.closest("[data-ai-remove]");
@@ -1475,6 +1502,7 @@
     $('[data-exercise="sets"]', row)?.focus();
   });
   $('#training-template')?.addEventListener('change', () => renderTrainingPresets());
+  $('#training-repeat')?.addEventListener('click', () => repeatLastTraining());
   $('#training-exercises')?.addEventListener('click', event => {
     const button = event.target.closest?.('[data-exercise-remove]');
     if (!button) return;

@@ -3636,7 +3636,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     box.innerHTML = (EXERCISE_PRESETS[template] || []).map(name => `<button type="button" class="button subtle" data-training-preset="${esc(name)}">${esc(name)}</button>`).join('');
     box.dataset.template = template;
   }
-  function renderTrainingLog() {
+  function renderTrainingLog(rowsOverride = null) {
     const form = $('#training-form');
     if (!form) return;
     const row = habitRowFor(activeDate);
@@ -3644,11 +3644,22 @@ const values = points.length<=7 ? points.map((item,i) => {
     const template = TRAINING_TEMPLATES[row?.template] ? row.template : 'push';
     if (document.activeElement !== form.elements.template) form.elements.template.value = template;
     const box = $('#training-exercises');
-    const rows = exercises.length ? exercises : [{name: '', sets: null, reps: null, weight: null}];
+    const rows = Array.isArray(rowsOverride) ? rowsOverride : (exercises.length ? exercises : [{name: '', sets: null, reps: null, weight: null}]);
     box.innerHTML = rows.map((item, index) => `<div class="training-row" data-exercise-row="${index}" data-exercise-id="${esc(item.id || '')}"><label>动作<input data-exercise="name" value="${esc(item.name)}" maxlength="60" placeholder="例如 卧推"></label><div class="form-grid"><label>组数<input data-exercise="sets" type="number" min="0" max="30" step="1" value="${item.sets ?? ''}"></label><label>每组次数<input data-exercise="reps" type="number" min="0" max="200" step="1" value="${item.reps ?? ''}"></label><label>负重 · kg<input data-exercise="weight" type="number" min="0" max="500" step="0.5" value="${item.weight ?? ''}"></label></div><div class="row-meta"><span>${number(item.distanceKm) !== null ? `${fmt(item.distanceKm)} km` : `容量 ${exerciseVolume(item) === null ? '—' : `${fmt(exerciseVolume(item), 0)} kg`}`}${number(item.durationMin) !== null ? ` · ${fmt(item.durationMin, 0)} 分钟` : ''}</span><button type="button" class="icon-button danger" data-exercise-remove="${index}" aria-label="移除这个动作">×</button></div></div>`).join('');
     renderTrainingPresets();
     const tag = $('#training-tag');
     if (tag) tag.textContent = exercises.length ? `${TRAINING_TEMPLATES[template]} · ${exercises.length} 个动作` : row?.training === true ? '已标记训练' : '未记录';
+  }
+  /** 照上一次训练预填表单（只改草稿，不落库）；主流健身 App 都靠这一下省掉重复输入。 */
+  function repeatLastTraining() {
+    const sessions = (state.habits || [])
+      .filter(row => row && row.date < activeDate && Array.isArray(row.exercises) && row.exercises.length)
+      .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    if (!sessions.length) { notice('还没有可照抄的训练记录，先记一次。'); return; }
+    const last = sessions[0];
+    renderTrainingLog(last.exercises.map(item => ({name: item.name, sets: item.sets, reps: item.reps, weight: item.weight})));
+    notice(`已照 ${last.date.slice(5)} 的训练填好；核对实际组次后点「保存训练」。`);
+    $('#training-form')?.scrollIntoView({block: 'start', behavior: 'smooth'});
   }
   function readTrainingExercises() {
     const box = $('#training-exercises');
@@ -4625,6 +4636,13 @@ const values = points.length<=7 ? points.map((item,i) => {
     if (!box.dataset.todayWired) {
       box.dataset.todayWired = "1";
       box.addEventListener("click", event => {
+        const log = event.target.closest("[data-today-log]");
+        if (log) {
+          event.preventDefault();
+          const plan = typeof aiPlanStore === "function" ? (aiPlanStore(activeDate) || []) : [];
+          if (typeof startLoggingFromPlan === "function") startLoggingFromPlan(plan[Number(log.dataset.todayLog)]).catch(() => {});
+          return;
+        }
         const done = event.target.closest("[data-today-done]");
         if (done) {
           const plan = typeof aiPlanStore === "function" ? (aiPlanStore(activeDate) || []) : [];
@@ -4675,8 +4693,9 @@ const values = points.length<=7 ? points.map((item,i) => {
       const pending = plan.length - doneCount;
       const rows = plan.map((item, index) => {
         const dose = [item.sets ? item.sets + " 组" : "", item.reps ? item.reps + " 次" : "", item.weight ? item.weight + " kg" : ""].filter(Boolean).join(" × ");
-        return "<li><label class=\"adv-plan-item\"><input type=\"checkbox\" data-today-done=\"" + index + "\"" + (item.done ? " checked" : "") + ">"
-          + "<span class=\"adv-name\">" + esc(item.name) + "</span>" + (dose ? "<span class=\"adv-dose\">" + esc(dose) + "</span>" : "") + "</label></li>";
+        return "<li class=\"adv-plan-li\"><label class=\"adv-plan-item\"><input type=\"checkbox\" data-today-done=\"" + index + "\"" + (item.done ? " checked" : "") + ">"
+          + "<span class=\"adv-name\">" + esc(item.name) + "</span>" + (dose ? "<span class=\"adv-dose\">" + esc(dose) + "</span>" : "") + "</label>"
+          + "<button type=\"button\" class=\"text-button adv-plan-log\" data-today-log=\"" + index + "\" aria-label=\"记录" + esc(item.name) + "\">记录</button></li>";
       }).join("");
       box.hidden = false;
       box.innerHTML = "<h3 class=\"plan-sub\">今日清单 · " + doneCount + "/" + plan.length + " 完成</h3><ol class=\"adv-order-list\">" + rows + "</ol>"
@@ -5658,7 +5677,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.26';
+  const APP_VERSION = '1.3.27';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -5884,6 +5903,25 @@ function metricIcon(label) {
       notice("加入训练记录失败：" + (error && error.message ? error.message : "未知错误"), true);
     }
   }
+  /**
+   * 从「今日清单」直接进入记录：把动作并进今天，跳到训练日志并聚焦负重。
+   * 主流健身 App 的路径都是「看清单 → 点这个动作 → 记实际组次」，不要求重新打字。
+   */
+  async function startLoggingFromPlan(item) {
+    const name = String(item && item.name || "").trim();
+    if (!name) return;
+    const already = exercisesFor(activeDate).some(row => String(row && row.name || "").trim() === name);
+    if (!already) await addExercisesToToday([item]);
+    switchTab("records", true);
+    if (typeof switchRecordPanel === "function") switchRecordPanel("training");
+    setTimeout(() => {
+      const row = [...document.querySelectorAll("#training-exercises [data-exercise-row]")]
+        .find(node => String(($('[data-exercise="name"]', node) || {}).value || "").trim() === name);
+      (row || $("#training-form"))?.scrollIntoView({block: "center", behavior: "smooth"});
+      row?.querySelector('[data-exercise="weight"]')?.focus();
+    }, 220);
+  }
+
   /** 从 AI 回答的纯文本里挑出「动作名 3组×8次 60kg」这类片段；认不出就返回空。 */
   function parseExercisesFromText(text) {
     const cleaned = String(text || "").replace(/<[^>]+>/g, "\n");
@@ -5946,7 +5984,8 @@ function metricIcon(label) {
         + (dose ? "<span class=\"ai-plan-dose\">" + esc(dose) + "</span>" : "")
         + "</span>"
         + (item.reason ? "<span class=\"ai-plan-reason\">" + esc(item.reason) + "</span>" : "")
-        + "</span></label></div>";
+        + "</span></label>"
+        + "<button type=\"button\" class=\"text-button ai-plan-log\" data-ai-log=\"" + index + "\" aria-label=\"记录" + esc(item.name) + "\">记录</button></div>";
     }
     const num = (name, value, attrs, label) => "<input class=\"ai-plan-input\" data-ai-field=\"" + name + "\" type=\"number\" inputmode=\"decimal\" " + attrs + " value=\"" + (value == null ? "" : value) + "\" aria-label=\"" + label + "\">";
     // 编辑态留一行原建议：改名字/组数时还看得见「为什么排它」，不用退出编辑再回忆。
@@ -6187,6 +6226,13 @@ function metricIcon(label) {
           const names = $$(".ai-plan-row.is-editing .ai-plan-input.is-name", list);
           const last = names[names.length - 1];
           if (last) { last.focus(); last.select(); }
+          return;
+        }
+        const logButton = event.target.closest("[data-ai-log]");
+        if (logButton) {
+          event.preventDefault();
+          const plan = aiPlanStore(activeDate) || [];
+          startLoggingFromPlan(plan[Number(logButton.dataset.aiLog)]).catch(() => {});
           return;
         }
         const removeButton = event.target.closest("[data-ai-remove]");
@@ -6981,6 +7027,7 @@ function metricIcon(label) {
     $('[data-exercise="sets"]', row)?.focus();
   });
   $('#training-template')?.addEventListener('change', () => renderTrainingPresets());
+  $('#training-repeat')?.addEventListener('click', () => repeatLastTraining());
   $('#training-exercises')?.addEventListener('click', event => {
     const button = event.target.closest?.('[data-exercise-remove]');
     if (!button) return;

@@ -565,7 +565,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     box.innerHTML = (EXERCISE_PRESETS[template] || []).map(name => `<button type="button" class="button subtle" data-training-preset="${esc(name)}">${esc(name)}</button>`).join('');
     box.dataset.template = template;
   }
-  function renderTrainingLog() {
+  function renderTrainingLog(rowsOverride = null) {
     const form = $('#training-form');
     if (!form) return;
     const row = habitRowFor(activeDate);
@@ -573,11 +573,22 @@ const values = points.length<=7 ? points.map((item,i) => {
     const template = TRAINING_TEMPLATES[row?.template] ? row.template : 'push';
     if (document.activeElement !== form.elements.template) form.elements.template.value = template;
     const box = $('#training-exercises');
-    const rows = exercises.length ? exercises : [{name: '', sets: null, reps: null, weight: null}];
+    const rows = Array.isArray(rowsOverride) ? rowsOverride : (exercises.length ? exercises : [{name: '', sets: null, reps: null, weight: null}]);
     box.innerHTML = rows.map((item, index) => `<div class="training-row" data-exercise-row="${index}" data-exercise-id="${esc(item.id || '')}"><label>动作<input data-exercise="name" value="${esc(item.name)}" maxlength="60" placeholder="例如 卧推"></label><div class="form-grid"><label>组数<input data-exercise="sets" type="number" min="0" max="30" step="1" value="${item.sets ?? ''}"></label><label>每组次数<input data-exercise="reps" type="number" min="0" max="200" step="1" value="${item.reps ?? ''}"></label><label>负重 · kg<input data-exercise="weight" type="number" min="0" max="500" step="0.5" value="${item.weight ?? ''}"></label></div><div class="row-meta"><span>${number(item.distanceKm) !== null ? `${fmt(item.distanceKm)} km` : `容量 ${exerciseVolume(item) === null ? '—' : `${fmt(exerciseVolume(item), 0)} kg`}`}${number(item.durationMin) !== null ? ` · ${fmt(item.durationMin, 0)} 分钟` : ''}</span><button type="button" class="icon-button danger" data-exercise-remove="${index}" aria-label="移除这个动作">×</button></div></div>`).join('');
     renderTrainingPresets();
     const tag = $('#training-tag');
     if (tag) tag.textContent = exercises.length ? `${TRAINING_TEMPLATES[template]} · ${exercises.length} 个动作` : row?.training === true ? '已标记训练' : '未记录';
+  }
+  /** 照上一次训练预填表单（只改草稿，不落库）；主流健身 App 都靠这一下省掉重复输入。 */
+  function repeatLastTraining() {
+    const sessions = (state.habits || [])
+      .filter(row => row && row.date < activeDate && Array.isArray(row.exercises) && row.exercises.length)
+      .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    if (!sessions.length) { notice('还没有可照抄的训练记录，先记一次。'); return; }
+    const last = sessions[0];
+    renderTrainingLog(last.exercises.map(item => ({name: item.name, sets: item.sets, reps: item.reps, weight: item.weight})));
+    notice(`已照 ${last.date.slice(5)} 的训练填好；核对实际组次后点「保存训练」。`);
+    $('#training-form')?.scrollIntoView({block: 'start', behavior: 'smooth'});
   }
   function readTrainingExercises() {
     const box = $('#training-exercises');
