@@ -645,7 +645,7 @@
     const split = PLAN_SPLIT_LABELS[prefs.split] || "推拉腿";
     const gear = PLAN_GEAR_LABELS[prefs.gear] || "综合";
     const minutes = Number(prefs.minutes) > 0 ? Number(prefs.minutes) : 45;
-    return "每周 " + days + " 天 · " + split + " · " + gear + " · 每次 " + minutes + " 分钟";
+    return "每周 " + days + " 练 · " + split + " · " + gear + " · " + minutes + " 分钟";
   }
 
   function installPlanPrefs() {
@@ -955,33 +955,26 @@
     forceWeekPlan = false;
     lastWeekPlan = plan;
     if (!plan) { box.innerHTML = empty('还没有足够的训练记录', '先记两周训练，计划会自动出来。', 'empty'); return; }
-    if (tag) tag.textContent = plan.deload ? '减载周' : '按上周 +2.5%';
+    if (tag) tag.textContent = plan.deload ? '减载周' : '负重 +2.5%';
     // "What do I train today": today's planned day, the next one, or what was already logged.
     const todayPlan = plan.days.find(day => day.date === activeDate);
     const nextPlan = plan.days.find(day => day.date > activeDate);
-    const logged = exercisesFor(activeDate);
-    // 状态拆成三行：今天 / 下一训练日 / 分化，一行一件事。
-    const stateRows = [];
-    if (logged.length) stateRows.push(['今天', '已记录 ' + logged.length + ' 个动作']);
-    else if (todayPlan) stateRows.push(['今天', (TRAINING_TEMPLATES[todayPlan.template] || todayPlan.template)
-      + (todayPlan.exercises.length ? ' · ' + todayPlan.exercises.map(item => item.name).slice(0, 3).join('、') : '（动作待定）')]);
-    else stateRows.push(['今天', '休息']);
-    if (nextPlan) stateRows.push(['下一训练日', nextPlan.date.slice(5) + ' · '
-      + (TRAINING_TEMPLATES[nextPlan.template] || nextPlan.template)
-      + (nextPlan.exercises.length ? ' · ' + nextPlan.exercises[0].name : '')]);
-    else stateRows.push(['下一训练日', '本周没有安排']);
-    stateRows.push(['分化', (() => {
-      const now = planPrefs();
-      return now && now.split ? splitLabels(now.split).join(' / ') : '未选';
-    })()]);
-    // 负荷：标签 + 数值 + 判定，不写成一句话。
+    // 2026-11-11：删掉原来三行「今天 / 下一训练日 / 分化」的键值块——
+    // 「今天」和「分化」已经分别在本周列表与偏好摘要里出现过；只把「下一训练日」（跨周信息）留成一行小注。
+    const nextNote = nextPlan
+      ? '<p class="plan-next">下一训练日 ' + esc(nextPlan.date.slice(5)) + ' · '
+        + esc(TRAINING_TEMPLATES[nextPlan.template] || nextPlan.template)
+        + (nextPlan.exercises.length ? ' · ' + esc(nextPlan.exercises[0].name) : '') + '</p>'
+      : (todayPlan ? '' : '<p class="plan-next">本周没有安排训练日</p>');
+    // 负荷：标签 + 数值 + 判定，不写成一句话。「急慢性比」第一次看不知道是谁比谁，改成「负荷比」+ 一行口径。
     const acwrHtml = (() => {
       if (!stats || !Number.isFinite(stats.ratio)) return '';
       const level = stats.flag === 'high' ? 'high' : stats.flag === 'low' ? 'low' : 'ok';
       const verdict = level === 'high' ? '偏高 · 本周减载' : level === 'low' ? '偏低 · 按记录安排' : '维持';
-      return '<p class="plan-label">训练负荷</p><div class="plan-load is-' + level + '"><span class="plan-load-label">急慢性负荷比</span>'
+      return '<p class="plan-label">训练负荷</p><div class="plan-load is-' + level + '"><span class="plan-load-label">负荷比</span>'
         + '<span class="plan-load-value">' + stats.ratio.toFixed(2) + '</span>'
-        + '<span class="plan-load-verdict">' + verdict + '</span></div>';
+        + '<span class="plan-load-verdict">' + verdict + '</span></div>'
+        + '<p class="fine-print">负荷比 = 近 7 天 ÷ 近 4 周平均负荷；0.8–1.3 为维持区。</p>';
     })();
     const suggestedNote = plan.days.some(day => day.suggested) ? '<p class="fine-print">带「建议」的动作来自训练库（该模板你还没有记录），先按 3 组建立基线。</p>' : '';
     // 依据与说明沉到默认折叠的 details 里：首屏只留数据。
@@ -1034,12 +1027,28 @@
         else if (isToday) { mark = planDay ? "今天 · " + label + " · " + (prefs.minutes || 45) + " 分钟" : "今天 · 休息"; cls = planDay ? "today" : "plan"; }
         else if (past) { mark = planDay ? "未记录 · 计划 " + label : "休息"; cls = planDay ? "miss" : "plan"; }
         else { mark = planDay ? label + " · " + (prefs.minutes || 45) + " 分钟" : "休息"; cls = planDay ? "plan" : "plan"; }
-        rows.push("<li class=\"wk-" + cls + "\"><strong>" + esc(day.slice(5)) + "</strong><span>" + esc(mark) + "</span></li>");
+        rows.push({day, mark, cls});
       }
-      thisWeekHtml = "<h3 class=\"plan-sub\">本周安排 · " + esc(weekStart.slice(5)) + " 起 · 每周 " + prefs.days + " 练</h3><ul class=\"plan-week\">" + rows.join("") + "</ul>";
+      // 连续休息日合成一行：一周 5 个「休息」逐行铺开，会把真正的训练日淹掉。
+      const merged = [];
+      for (const row of rows) {
+        const last = merged[merged.length - 1];
+        if (row.cls === "plan" && row.mark === "休息" && last && last.cls === "plan" && last.mark === "休息") {
+          last.end = row.day;
+          last.count = (last.count || 1) + 1;
+          continue;
+        }
+        merged.push({...row});
+      }
+      const rowsHtml = merged.map(row => {
+        if (row.count > 1) {
+          const sameMonth = row.day.slice(0, 7) === row.end.slice(0, 7);
+          return '<li class="wk-plan wk-rest-range"><strong>' + esc(row.day.slice(5)) + " → " + esc(sameMonth ? row.end.slice(8) : row.end.slice(5)) + "</strong><span>休息 · " + row.count + " 天</span></li>";
+        }
+        return "<li class=\"wk-" + row.cls + "\"><strong>" + esc(row.day.slice(5)) + "</strong><span>" + esc(row.mark) + "</span></li>";
+      }).join("");
+      thisWeekHtml = "<h3 class=\"plan-sub\">本周安排 · " + esc(weekStart.slice(5)) + " 起 · 每周 " + prefs.days + " 练</h3>" + nextNote + "<ul class=\"plan-week\">" + rowsHtml + "</ul>";
     }
-    const stateHtml = '<p class="plan-label">今天的状态</p><div class="plan-state">' + stateRows.map(row =>
-      '<div class="plan-state-row"><span>' + esc(row[0]) + '</span><b>' + esc(row[1]) + '</b></div>').join('') + '</div>';
     const driftHtml = drifted ? '<p class="fine-print">记录有更新，本周安排已按最新数据重算。</p>' : '';
     // 采纳入口：今天有安排且今日清单还空着时，一键把它变成今日清单——否则用户要自己把
     // 数据层里的安排重录一遍。已有 AI 清单时不出现：AI 排的优先级高于周计划。
@@ -1047,7 +1056,7 @@
     const adoptHtml = (!hasTodayList && todayPlan && todayPlan.exercises.length)
       ? '<button type="button" class="button subtle full-width" data-adopt-today>把今天这节采纳到今日清单</button>'
       : '';
-    box.innerHTML = annotateTerms(thisWeekHtml + cueHtml + stateHtml + acwrHtml + driftHtml + adoptHtml + suggestedNote + why);
+    box.innerHTML = annotateTerms(thisWeekHtml + cueHtml + acwrHtml + driftHtml + adoptHtml + suggestedNote + why);
       + '<div class="plan-days">' + plan.days.map(day =>
         `<div class="plan-day"><div class="plan-day-head"><strong>${esc(day.date.slice(5))}</strong><span>${esc(TRAINING_TEMPLATES[day.template] || day.template)}</span></div>`
         + (day.exercises.length ? day.exercises.map(item =>

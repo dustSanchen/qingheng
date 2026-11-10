@@ -551,28 +551,41 @@ const values = points.length<=7 ? points.map((item,i) => {
     return Array.from({length: count}, () => ({reps: number(item && item.reps), weight: number(item && item.weight)}));
   }
   function setRowHtml(set, index) {
+    const n = index + 1;
     const value = v => v === null || v === undefined ? '' : ` value="${Number(v)}"`;
-    return `<div class="set-row" data-set-row><button type="button" class="set-check" data-set-done aria-pressed="false" aria-label="标记第 ${index + 1} 组完成">✓</button><span class="set-no">${index + 1}</span>`
-      + `<label>次<input data-set="reps" type="number" inputmode="numeric" min="0" max="200" step="1"${value(set.reps)}></label>`
-      + `<label>kg<input data-set="weight" type="number" inputmode="decimal" min="0" max="500" step="0.5"${value(set.weight)}></label>`
-      + `<button type="button" class="icon-button danger set-remove" data-set-remove aria-label="移除第 ${index + 1} 组">×</button></div>`;
+    return `<div class="set-row" data-set-row><button type="button" class="set-check" data-set-done aria-pressed="false" aria-label="标记第 ${n} 组完成">✓</button><span class="set-no" aria-hidden="true">${n}</span>`
+      + `<label class="set-field"><input data-set="reps" type="number" inputmode="numeric" min="0" max="200" step="1" aria-label="第 ${n} 组次数"${value(set.reps)}></label>`
+      + `<label class="set-field"><input data-set="weight" type="number" inputmode="decimal" min="0" max="500" step="0.5" aria-label="第 ${n} 组负重公斤"${value(set.weight)}></label>`
+      + `<button type="button" class="set-remove" data-set-remove aria-label="移除第 ${n} 组">×</button></div>`;
   }
+  /**
+   * 一个动作 = 一张小表：编号 + 动作名（满宽，不套双层框）→ 组/次/kg 表头 → 每组一行 →
+   * 加一组 / 容量。删除放在动作名行的右端、组行的末尾，避免 44px 危险按钮压在标题行上方。
+   */
   function exerciseRowHtml(item, index) {
+    const n = index + 1;
     return `<div class="training-row" data-exercise-row="${index}" data-exercise-id="${esc(item.id || '')}">`
-      + `<div class="exercise-row-head"><label>动作<input data-exercise="name" value="${esc(item.name || '')}" maxlength="60" placeholder="例如 卧推"></label>`
-      + `<button type="button" class="icon-button danger" data-exercise-remove="${index}" aria-label="移除这个动作">×</button></div>`
-      + `<div class="set-list" data-set-list>${trainingSetDetails(item).map(setRowHtml).join('')}</div>`
-      + `<div class="set-foot"><button type="button" class="text-button" data-set-add>+ 加一组</button><span class="row-meta">容量 <b data-set-volume>—</b></span></div></div>`;
+      + `<div class="exercise-row-head"><span class="exercise-no" aria-hidden="true">${n}</span>`
+      + `<label class="exercise-name"><input data-exercise="name" value="${esc(item.name || '')}" maxlength="60" placeholder="动作名，例如卧推" aria-label="第 ${n} 个动作名称"></label>`
+      + `<button type="button" class="text-button exercise-remove" data-exercise-remove="${index}" aria-label="移除这个动作">移除</button></div>`
+      + `<div class="set-table"><div class="set-head" aria-hidden="true"><span></span><span></span><span>次</span><span>kg</span><span></span></div>`
+      + `<div class="set-list" data-set-list>${trainingSetDetails(item).map(setRowHtml).join('')}</div></div>`
+      + `<div class="set-foot"><button type="button" class="text-button" data-set-add>＋ 加一组</button><span class="row-meta">容量 <b data-set-volume>—</b></span></div></div>`;
   }
   /** 一组增删后重排序号、重算该动作容量；只改 UI，保存时才落库。 */
   function refreshSetRow(row) {
     const sets = $$('[data-set-row]', row);
     sets.forEach((set, index) => {
-      const no = $('.set-no', set); if (no) no.textContent = String(index + 1);
+      const n = index + 1;
+      const no = $('.set-no', set); if (no) no.textContent = String(n);
       const remove = $('[data-set-remove]', set);
-      if (remove) { remove.disabled = sets.length <= 1; remove.setAttribute('aria-label', '移除第 ' + (index + 1) + ' 组'); }
+      if (remove) { remove.disabled = sets.length <= 1; remove.setAttribute('aria-label', '移除第 ' + n + ' 组'); }
       const done = $('[data-set-done]', set);
-      if (done) done.setAttribute('aria-label', '标记第 ' + (index + 1) + ' 组完成');
+      if (done) done.setAttribute('aria-label', '标记第 ' + n + ' 组完成');
+      const reps = $('[data-set="reps"]', set);
+      if (reps) reps.setAttribute('aria-label', '第 ' + n + ' 组次数');
+      const weight = $('[data-set="weight"]', set);
+      if (weight) weight.setAttribute('aria-label', '第 ' + n + ' 组负重公斤');
     });
     const volume = sets.reduce((sum, set) => {
       const reps = number($('[data-set="reps"]', set)?.value), weight = number($('[data-set="weight"]', set)?.value);
@@ -599,12 +612,12 @@ const values = points.length<=7 ? points.map((item,i) => {
     box.append(row);
     return row;
   }
-  /** Chips for the selected template. */
+  /** Chips for the selected template. 小号胶囊：它们是「快捷方式」，不该和主行动一样重。 */
   function renderTrainingPresets() {
     const box = $('#training-presets'), form = $('#training-form');
     if (!box || !form) return;
     const template = TRAINING_TEMPLATES[form.elements.template.value] ? form.elements.template.value : 'push';
-    box.innerHTML = (EXERCISE_PRESETS[template] || []).map(name => `<button type="button" class="button subtle" data-training-preset="${esc(name)}">${esc(name)}</button>`).join('');
+    box.innerHTML = (EXERCISE_PRESETS[template] || []).map(name => `<button type="button" class="preset-chip" data-training-preset="${esc(name)}">${esc(name)}</button>`).join('');
     box.dataset.template = template;
   }
   function renderTrainingLog(rowsOverride = null) {
@@ -620,7 +633,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     $$('[data-exercise-row]', box).forEach(refreshSetRow);
     renderTrainingPresets();
     const tag = $('#training-tag');
-    if (tag) tag.textContent = exercises.length ? `${TRAINING_TEMPLATES[template]} · ${exercises.length} 个动作` : row?.training === true ? '已标记训练' : '未记录';
+    if (tag) tag.textContent = exercises.length ? `${TRAINING_TEMPLATES[template]} · ${exercises.length} 个动作` : row?.training === true ? '已练 · 动作未填' : '未记录';
   }
   /** 照上一次训练预填表单（只改草稿，不落库）；主流健身 App 都靠这一下省掉重复输入。 */
   function repeatLastTraining() {

@@ -536,11 +536,6 @@ label{font-size:var(--text-sm)}
 .quick-target{animation:quickFlash var(--dur-pulse) ease-out 1}
 @keyframes quickFlash{0%{box-shadow:0 0 0 3px var(--flash-ring)}70%{box-shadow:0 0 0 3px var(--flash-ring)}100%{box-shadow:var(--elev-1)}}
 /* 状态：三行，一行一件事。标签定宽，值自己换行。 */
-.plan-state{margin:0 0 var(--space-2);padding:var(--space-2) var(--space-3);border-radius:8px;background:var(--accent-soft)}
-.plan-state-row{display:flex;flex-direction:row;align-items:baseline;gap:var(--space-2);margin:0;line-height:1.5}
-.plan-state-row+.plan-state-row{margin-top:2px}
-.plan-state-row>span{flex:0 0 5.5em;font-size:var(--text-xs);color:var(--ink-soft)}
-.plan-state-row>b{flex:1 1 auto;min-width:0;font-size:var(--text-sm);font-weight:var(--fw-medium);color:var(--ink);overflow-wrap:anywhere}
 /* 负荷：标签 + 数值 + 判定，不写成一句话。 */
 .plan-load{display:flex;flex-direction:row;align-items:baseline;gap:var(--space-2);margin:0 0 var(--space-2);padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font-size:var(--text-sm)}
 .plan-load-label{flex:0 0 auto;font-size:var(--text-xs);color:var(--ink-soft)}
@@ -990,9 +985,14 @@ details[open] .preview-panel, .data-preview-panel{border:1px solid var(--line);b
 
 /* 本周安排：七天一行行，状态用色点与文字区分，不再堆卡片。 */
 .plan-week{list-style:none;padding:0;margin:0 0 var(--space-3)}
+/* 下一训练日只留一行小注：原来那三行「今天 / 下一训练日 / 分化」键值块与本周列表、偏好摘要重复。 */
+.plan-next{margin:0 0 var(--space-2);font-size:var(--text-xs);color:var(--muted);font-variant-numeric:tabular-nums}
 .plan-week li{display:flex;gap:var(--space-2);align-items:baseline;padding:6px 0;border-bottom:1px solid var(--line);font-size:var(--text-sm)}
 .plan-week li:last-child{border-bottom:0}
 .plan-week li strong{flex:0 0 44px;color:var(--muted);font-weight:var(--fw-medium);font-variant-numeric:tabular-nums}
+/* 连续休息日合成一行后，日期列要放下「11-12 → 15」。 */
+.plan-week li.wk-rest-range strong{flex:0 0 auto;white-space:nowrap}
+.plan-week li.wk-rest-range span{color:var(--muted)}
 .plan-week li span{flex:1 1 auto;color:var(--body-text)}
 .plan-week .wk-done span{color:var(--accent)}
 .plan-week .wk-today span{color:var(--ink);font-weight:var(--fw-semibold)}
@@ -1002,9 +1002,10 @@ details[open] .preview-panel, .data-preview-panel{border:1px solid var(--line);b
 /* 训练偏好：两行两列，与应用表单同一套节奏。 */
 .plan-prefs{margin:var(--space-3) 0 0;padding-top:var(--space-3);border-top:1px solid var(--line)}
 /* 定过的安排收成一行：摘要 + 修改；展开后摘要让位给选项。 */
-.plan-prefs-bar{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-2);margin:var(--space-3) 0 0;min-height:24px}
+.plan-prefs-bar{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:var(--space-1) var(--space-3);margin:var(--space-2) 0 0;min-height:24px}
 .plan-prefs-summary{margin:0;font-size:var(--text-sm);color:var(--muted);overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
-.plan-prefs-bar .text-button{flex:0 0 auto;min-height:0;padding:0 2px;font-size:var(--text-sm)}
+.plan-bar-actions{display:flex;align-items:baseline;gap:var(--space-3);flex:0 0 auto}
+.plan-prefs-bar .text-button{flex:0 0 auto;min-height:32px;padding:0 2px;font-size:var(--text-sm)}
 .pref-row{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2)}
 .pref-row label{font-size:var(--text-sm);color:var(--muted)}
 .pref-row select{width:100%;margin-top:4px}
@@ -1183,9 +1184,9 @@ body.no-training #training-advice-order{display:none !important}
 .ai-plan{margin:var(--space-3) 0 0;padding-top:var(--space-3);border-top:1px solid var(--line)}
 .ai-plan .card-heading h3{margin:0;font-size:var(--text-sm);color:var(--muted);font-weight:var(--fw-medium)}
 #ai-plan-list{counter-reset:ai-step}
-.ai-plan-row{display:flex;flex-direction:row;align-items:flex-start;gap:var(--space-2);margin:0;min-height:44px;padding:var(--space-1) 0;border-bottom:1px solid var(--line);font-size:var(--text-md)}
+.ai-plan-row{display:grid;grid-template-columns:1.5em minmax(0,1fr);column-gap:var(--space-2);align-items:start;margin:0;min-height:44px;padding:var(--space-2) 0;border-bottom:1px solid var(--line);font-size:var(--text-md)}
 .ai-plan-row input[type=checkbox]{order:-1;flex:0 0 auto;width:18px;height:18px;margin:2px 0 0;accent-color:var(--accent)}
-.ai-plan-row::before{counter-increment:ai-step;content:counter(ai-step);flex:0 0 1.5em;color:var(--muted);font-size:var(--text-sm);font-variant-numeric:tabular-nums}
+.ai-plan-row::before{counter-increment:ai-step;content:counter(ai-step);grid-column:1;grid-row:1;color:var(--muted);font-size:var(--text-sm);font-variant-numeric:tabular-nums}
 .ai-plan-row:last-child{border-bottom:0}
 /* 动作名是按钮：点开看「练什么、要点」，右侧的问号只是提示它可点。 */
 .ai-plan-name{display:inline-flex;align-items:center;gap:6px;min-width:0;padding:0;border:0;background:none;color:var(--ink);font:inherit;text-align:left;overflow-wrap:anywhere;cursor:pointer}
@@ -1198,11 +1199,17 @@ body.no-training #training-advice-order{display:none !important}
 .ai-plan-summary{display:flex;flex-direction:row;flex-wrap:wrap;align-items:baseline;gap:var(--space-1) var(--space-2);margin:var(--space-2) 0 0;font-size:var(--text-xs);color:var(--muted);font-variant-numeric:tabular-nums}
 .ai-plan-summary-text{flex:0 1 auto}
 .ai-plan-summary-note{flex:0 1 auto;color:var(--muted)}
-.ai-plan-summary .text-button{flex:0 0 auto;min-height:0;padding:0 2px;font-size:var(--text-xs)}
+.ai-plan-summary .text-button{flex:0 0 auto;min-height:0;padding:0 2px;font-size:var(--text-xs);text-decoration:underline;text-underline-offset:2px}
 .ai-plan-dose{flex:0 0 auto;white-space:nowrap;color:var(--muted);font-size:var(--text-sm);font-variant-numeric:tabular-nums}
 /* 名字与剂量同一行：宽屏左右分开，窄屏自动换到下一行，不写死宽度。 */
-.ai-plan-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:2px 8px;min-width:0}
-.ai-plan-head .ai-plan-dose{margin-left:auto}
+.ai-plan-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;min-width:0}
+.ai-plan-main{grid-column:2;grid-row:1;display:flex;flex-direction:row;align-items:flex-start;gap:var(--space-2);min-width:0;margin:0}
+/* 组次重量 + 两个行内动作放在名字下一行：剂量不再和按钮抢同一条基线。 */
+.ai-plan-meta{grid-column:2;grid-row:2;display:flex;align-items:center;flex-wrap:wrap;gap:0 var(--space-3);margin-top:2px}
+.ai-plan-meta .ai-plan-dose{margin:0}
+.ai-plan-meta .text-button{min-height:32px;padding:0;font-size:var(--text-sm)}
+.ai-plan-meta .ai-plan-swap{margin-left:auto;color:var(--muted)}
+.ai-plan-meta .ai-plan-log{color:var(--accent);font-weight:var(--fw-semibold)}
 .ai-plan-row input:checked ~ .ai-plan-text .ai-plan-name{color:var(--muted);text-decoration:line-through}
 
 /* 等待层：半透明遮罩 + 旋转环 + 一行说明，轻量、不抢焦点。 */
@@ -1311,7 +1318,7 @@ html{scroll-padding-bottom:calc(var(--tabbar-safe,96px) + 16px)}
 .empty-title{margin:0;color:var(--ink-soft);font-weight:var(--fw-medium)}
 .empty-hint{margin:var(--space-1) 0 0;color:var(--muted);font-size:var(--text-sm);line-height:1.55}
 /* 今天页今日清单 + AI 计划理由行：只用既有令牌。 */
-.ai-plan-reason{display:block;font-size:var(--text-xs);color:var(--muted);margin-top:2px;overflow-wrap:anywhere}
+.ai-plan-reason{grid-column:2;grid-row:3;display:block;font-size:var(--text-xs);color:var(--muted);margin-top:2px;overflow-wrap:anywhere}
 .adv-plan-item{display:flex;flex-direction:row;align-items:center;gap:8px;min-height:28px;cursor:pointer}
 .adv-plan-item .adv-name{flex:1 1 auto;min-width:0}
 .adv-insight{display:grid;grid-template-columns:auto 1fr;gap:var(--space-2);align-items:start;padding:var(--space-2) 0;border-top:1px solid var(--line)}
@@ -1424,7 +1431,11 @@ html{scroll-padding-bottom:calc(var(--tabbar-safe,96px) + 16px)}
 .quick-chip.quick-chip-primary{background:var(--accent);color:var(--on-accent)}
 .quick-chip.quick-chip-primary .quick-chip-icon img{filter:brightness(0) invert(1)}
 textarea{resize:none}
-#view-records input:not([type=checkbox]):not([type=radio]),#view-records select,#view-records textarea{border-color:transparent;border-bottom-color:var(--line-strong);background:var(--surface-soft)}
+/* 记录页字段：纸感用「浅底 + 一圈发丝线」的便笺，不是「三边透明 + 一条粗底边」——
+   后者在 12px 圆角上会把底边的两个端头悬在填充外，看起来像两张叠着的纸（2026-11-11 修）。 */
+#view-records input:not([type=checkbox]):not([type=radio]),#view-records select,#view-records textarea{border-color:var(--line);background:var(--surface-soft)}
+/* 记录页卡片角标一律降为中性：整页的绿色只留给当前态与主行动。 */
+#view-records .tag{background:var(--surface-soft);color:var(--ink-soft)}
 #view-records .mic-button,#view-records .photo-add{border-color:transparent;background:var(--surface-soft)}
 .photo-add-icon,.capture-card img{opacity:1}
 .capture-card img{background:transparent;padding:0}
@@ -1517,7 +1528,6 @@ details.panel-more[open]{background:transparent}
 }
 
 /* 训练计划内部：分隔用发丝线，不再一层层套框（1.3.13）。 */
-.plan-state{margin:0 0 var(--space-2);padding:var(--space-2) 0;border:0;border-block:1px solid var(--line);border-radius:0;background:transparent}
 .plan-load{border:0;border-block:1px solid var(--line);border-radius:0;background:transparent;padding:8px 0;margin:0 0 var(--space-2)}
 .plan-load.is-high{border:0;border-block:1px solid var(--warn-line);background:transparent}
 .plan-cue{background:transparent;padding:0;border-radius:0;margin:0}
@@ -1547,32 +1557,76 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 .adv-plan-li .adv-plan-item{flex:1 1 auto;min-width:0}
 .adv-plan-log{flex:0 0 auto;min-height:32px;padding:0 8px;font-size:13px;white-space:nowrap}
 
-/* training overview: three stats + weekly volume bars */
-.overview-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;border-top:1px solid var(--line);padding-top:14px}
+/* training overview: one lead number + a week of bars that actually carries values */
+.overview-grid{display:grid;grid-template-columns:1.1fr .7fr 1.1fr;gap:12px;border-top:1px solid var(--line);padding-top:14px;align-items:end}
 .overview-stat small{display:block;font-size:var(--text-xs);color:var(--muted)}
-.overview-stat strong{font-size:24px;font-weight:var(--fw-semibold);line-height:1.4;white-space:nowrap}
-.overview-stat strong span{font-size:var(--text-xs);font-weight:var(--fw-regular);color:var(--muted)}
-.overview-bars{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;align-items:end;height:74px;margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
-.ov-bar{display:flex;flex-direction:column;justify-content:flex-end;align-items:stretch;gap:4px;height:100%}
-.ov-bar span{display:block;background:var(--accent-soft);border-radius:4px 4px 0 0;min-height:2px}
+.overview-stat strong{font-size:19px;font-weight:var(--fw-semibold);line-height:1.4;white-space:nowrap;font-variant-numeric:tabular-nums}
+.overview-stat.is-lead strong{font-size:26px;line-height:1.25}
+.overview-stat strong span{font-size:var(--text-xs);font-weight:var(--fw-regular);color:var(--muted);margin-left:3px}
+.overview-bars{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;align-items:end;height:78px;margin-top:12px;border-top:1px solid var(--line);padding-top:8px}
+.ov-bar{display:grid;grid-template-rows:13px 1fr 14px;gap:3px;height:100%;align-items:stretch}
+.ov-bar-value{display:block;font-size:var(--text-xs);font-weight:var(--fw-medium);color:var(--muted);text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;line-height:13px}
+.ov-bar.has-data .ov-bar-value{color:var(--ink-soft)}
+.ov-bar span{display:block;align-self:end;background:var(--accent-soft);border-radius:4px 4px 0 0;min-height:2px}
 .ov-bar.is-today span{background:var(--accent)}
-.ov-bar small{font-size:var(--text-xs);text-align:center;color:var(--muted)}
+.ov-bar small{font-size:var(--text-xs);text-align:center;color:var(--muted);line-height:14px}
+.ov-bar.is-today small{color:var(--ink);font-weight:var(--fw-semibold)}
+.inline-link{min-height:0;padding:0 2px;font-size:inherit;color:var(--accent);text-decoration:underline;text-underline-offset:2px}
 
-/* per-set logging and post-workout summary */
-.exercise-row-head{display:flex;flex-direction:row;align-items:flex-start;gap:8px}
-.exercise-row-head>label{flex:1 1 auto;margin:0}
-.set-list{margin:6px 0;display:flex;flex-direction:column;gap:6px}
-.set-row{display:flex;flex-direction:row;align-items:center;gap:8px}
-.set-no{width:18px;text-align:right;font-size:var(--text-xs);color:var(--muted);font-variant-numeric:tabular-nums}
-.set-row label{flex:1 1 0;margin:0;font-size:var(--text-xs);gap:4px}
-.set-row input{min-height:40px;padding:8px 10px}
-.set-row .set-remove{width:32px;height:32px;min-height:32px;flex:0 0 auto}
-.set-foot{display:flex;flex-direction:row;align-items:center;justify-content:space-between;margin-top:2px}
+/* ---- 训练日志：一个动作 = 一张小表（组 / 次 / kg）。动作名不套框，数字对齐，动作与动作之间
+   只用留白分开（2026-11-11 训练页美术重做）。 ---- */
+.log-bar{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);margin:0 0 var(--space-4)}
+.log-template{display:flex;flex-direction:row;align-items:center;gap:var(--space-2);margin:0;font-size:var(--text-sm);color:var(--muted);min-width:0}
+.log-template select{width:auto;max-width:100%;min-height:38px;padding:6px 34px 6px 12px;font-size:var(--text-md);font-weight:var(--fw-medium);color:var(--ink);background-position:right 12px center}
+.preset-block{margin:0 0 var(--space-3)}
+.preset-label{display:block;margin:0 0 6px;font-size:var(--text-xs);color:var(--muted)}
+#training-presets{gap:var(--space-2);margin:0}
+#training-presets .preset-chip{min-height:34px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--ink-soft);font-size:var(--text-sm);line-height:1}
+#training-presets .preset-chip:active{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent)}
+#training-exercises.list-stack{gap:var(--space-3)}
+.training-row{padding:var(--space-3) 0 0;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;margin-bottom:0}
+#training-exercises .training-row:first-child{padding-top:0;border-top:0}
+.exercise-row-head{display:flex;align-items:center;gap:var(--space-2);margin:0 0 var(--space-2)}
+.exercise-no{flex:0 0 auto;width:18px;font-size:var(--text-xs);color:var(--muted);font-variant-numeric:tabular-nums}
+.exercise-name{flex:1 1 auto;min-width:0;margin:0}
+/* 动作名是这一行的标题，不是第三个输入框：平时无框无底，聚焦时才长成输入框。
+   这样一行读作「1 卧推 → 3 组数」，而不是「一叠长得一样的灰盒子」。 */
+#view-records .training-row .exercise-name input{min-height:44px;padding:6px 0;border-color:transparent;background:transparent;font-size:var(--text-lg);font-weight:var(--fw-semibold)}
+/* 聚焦时只加底与细框，不加内边距：否则文字会在点进去的瞬间往右跳 12px。 */
+#view-records .training-row .exercise-name input:focus-visible{border-color:transparent;background:var(--surface-soft);box-shadow:0 0 0 1px var(--line)}
+/* 账本/夜间沿用同一条规则：动作名是行标题，不因为换了皮肤就长成第三个输入框。 */
+[data-skin="ledger"] #view-records .training-row .exercise-name input{border-color:transparent;background:transparent}
+[data-skin="ledger"] #view-records .training-row .exercise-name input:focus-visible{border-color:var(--line-strong);background:var(--surface);box-shadow:none}
+.exercise-remove{flex:0 0 auto;min-height:32px;padding:0 var(--space-1);font-size:var(--text-sm);color:var(--muted)}
+.exercise-remove:active{color:var(--danger)}
+.set-table{margin:0 0 var(--space-1) 26px}
+.set-head{display:grid;grid-template-columns:28px 18px 1fr 1fr 26px;gap:var(--space-2);align-items:center;margin:0 0 2px;font-size:var(--text-xs);color:var(--muted)}
+.set-head span:nth-child(3),.set-head span:nth-child(4){text-align:center}
+.set-list{margin:0;display:flex;flex-direction:column;gap:6px}
+.set-row{display:grid;grid-template-columns:28px 18px 1fr 1fr 26px;gap:var(--space-2);align-items:center}
+.set-no{font-size:var(--text-xs);color:var(--muted);font-variant-numeric:tabular-nums;text-align:left}
+.set-field{margin:0;min-width:0}
+.set-field input{min-height:42px;padding:8px 10px;text-align:center;font-variant-numeric:tabular-nums}
+.set-remove{width:26px;height:32px;padding:0;border:0;background:none;color:var(--muted);font-size:16px;line-height:1;display:grid;place-items:center}
+.set-remove:active{color:var(--danger)}
+.set-remove:disabled{opacity:.35}
+.set-foot{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);margin:var(--space-1) 0 0 26px}
+.set-foot .text-button{min-height:32px;padding:0;font-size:var(--text-sm)}
+.set-foot .row-meta{margin:0;font-size:var(--text-sm);color:var(--muted);display:flex;align-items:baseline;gap:6px}
+.set-foot .row-meta b{font-size:var(--text-sm);font-weight:var(--fw-semibold);font-variant-numeric:tabular-nums;color:var(--ink-soft)}
+.log-actions{display:grid;grid-template-columns:1fr 1.3fr;gap:var(--space-3);margin:var(--space-4) 0 var(--space-2)}
+/* 只有「保存训练」是实心主行动；添加动作退回描边，否则两个大按钮在抢同一层注意力。 */
+#training-add.button.subtle{background:transparent;border-color:var(--line);color:var(--ink-soft)}
+#training-add.button.subtle:active{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent)}
+.log-tools{display:flex;flex-wrap:wrap;align-items:center;gap:0 var(--space-4)}
+.log-tools .text-button{min-height:38px;padding:0;color:var(--ink-soft);font-size:var(--text-sm)}
+.log-tools .text-button.is-danger{color:var(--danger);margin-left:auto}
+#rest-timer{min-width:84px;font-variant-numeric:tabular-nums}
 .training-summary{margin-top:14px;padding-top:14px;border-top:1px solid var(--line);animation:summaryIn .32s cubic-bezier(.22,.8,.3,1)}
 @keyframes summaryIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.training-summary{animation:none}}
 
-.set-check{width:32px;height:32px;min-height:32px;flex:0 0 auto;border-radius:50%;border:1px solid var(--line-strong);background:transparent;color:transparent;font-size:14px;line-height:1;display:grid;place-items:center;padding:0;transition:background .18s,border-color .18s,color .18s,transform .18s}
+.set-check{width:28px;height:28px;min-height:28px;flex:0 0 auto;border-radius:50%;border:1px solid var(--line-strong);background:transparent;color:transparent;font-size:13px;line-height:1;display:grid;place-items:center;padding:0;transition:background .18s,border-color .18s,color .18s,transform .18s}
 .set-check:active{transform:scale(.92)}
 .set-row.is-done .set-check{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
-.set-row.is-done input{color:var(--muted)}
+.set-row.is-done input{color:var(--muted);background:var(--surface)}

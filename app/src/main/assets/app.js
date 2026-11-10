@@ -3631,28 +3631,41 @@ const values = points.length<=7 ? points.map((item,i) => {
     return Array.from({length: count}, () => ({reps: number(item && item.reps), weight: number(item && item.weight)}));
   }
   function setRowHtml(set, index) {
+    const n = index + 1;
     const value = v => v === null || v === undefined ? '' : ` value="${Number(v)}"`;
-    return `<div class="set-row" data-set-row><button type="button" class="set-check" data-set-done aria-pressed="false" aria-label="标记第 ${index + 1} 组完成">✓</button><span class="set-no">${index + 1}</span>`
-      + `<label>次<input data-set="reps" type="number" inputmode="numeric" min="0" max="200" step="1"${value(set.reps)}></label>`
-      + `<label>kg<input data-set="weight" type="number" inputmode="decimal" min="0" max="500" step="0.5"${value(set.weight)}></label>`
-      + `<button type="button" class="icon-button danger set-remove" data-set-remove aria-label="移除第 ${index + 1} 组">×</button></div>`;
+    return `<div class="set-row" data-set-row><button type="button" class="set-check" data-set-done aria-pressed="false" aria-label="标记第 ${n} 组完成">✓</button><span class="set-no" aria-hidden="true">${n}</span>`
+      + `<label class="set-field"><input data-set="reps" type="number" inputmode="numeric" min="0" max="200" step="1" aria-label="第 ${n} 组次数"${value(set.reps)}></label>`
+      + `<label class="set-field"><input data-set="weight" type="number" inputmode="decimal" min="0" max="500" step="0.5" aria-label="第 ${n} 组负重公斤"${value(set.weight)}></label>`
+      + `<button type="button" class="set-remove" data-set-remove aria-label="移除第 ${n} 组">×</button></div>`;
   }
+  /**
+   * 一个动作 = 一张小表：编号 + 动作名（满宽，不套双层框）→ 组/次/kg 表头 → 每组一行 →
+   * 加一组 / 容量。删除放在动作名行的右端、组行的末尾，避免 44px 危险按钮压在标题行上方。
+   */
   function exerciseRowHtml(item, index) {
+    const n = index + 1;
     return `<div class="training-row" data-exercise-row="${index}" data-exercise-id="${esc(item.id || '')}">`
-      + `<div class="exercise-row-head"><label>动作<input data-exercise="name" value="${esc(item.name || '')}" maxlength="60" placeholder="例如 卧推"></label>`
-      + `<button type="button" class="icon-button danger" data-exercise-remove="${index}" aria-label="移除这个动作">×</button></div>`
-      + `<div class="set-list" data-set-list>${trainingSetDetails(item).map(setRowHtml).join('')}</div>`
-      + `<div class="set-foot"><button type="button" class="text-button" data-set-add>+ 加一组</button><span class="row-meta">容量 <b data-set-volume>—</b></span></div></div>`;
+      + `<div class="exercise-row-head"><span class="exercise-no" aria-hidden="true">${n}</span>`
+      + `<label class="exercise-name"><input data-exercise="name" value="${esc(item.name || '')}" maxlength="60" placeholder="动作名，例如卧推" aria-label="第 ${n} 个动作名称"></label>`
+      + `<button type="button" class="text-button exercise-remove" data-exercise-remove="${index}" aria-label="移除这个动作">移除</button></div>`
+      + `<div class="set-table"><div class="set-head" aria-hidden="true"><span></span><span></span><span>次</span><span>kg</span><span></span></div>`
+      + `<div class="set-list" data-set-list>${trainingSetDetails(item).map(setRowHtml).join('')}</div></div>`
+      + `<div class="set-foot"><button type="button" class="text-button" data-set-add>＋ 加一组</button><span class="row-meta">容量 <b data-set-volume>—</b></span></div></div>`;
   }
   /** 一组增删后重排序号、重算该动作容量；只改 UI，保存时才落库。 */
   function refreshSetRow(row) {
     const sets = $$('[data-set-row]', row);
     sets.forEach((set, index) => {
-      const no = $('.set-no', set); if (no) no.textContent = String(index + 1);
+      const n = index + 1;
+      const no = $('.set-no', set); if (no) no.textContent = String(n);
       const remove = $('[data-set-remove]', set);
-      if (remove) { remove.disabled = sets.length <= 1; remove.setAttribute('aria-label', '移除第 ' + (index + 1) + ' 组'); }
+      if (remove) { remove.disabled = sets.length <= 1; remove.setAttribute('aria-label', '移除第 ' + n + ' 组'); }
       const done = $('[data-set-done]', set);
-      if (done) done.setAttribute('aria-label', '标记第 ' + (index + 1) + ' 组完成');
+      if (done) done.setAttribute('aria-label', '标记第 ' + n + ' 组完成');
+      const reps = $('[data-set="reps"]', set);
+      if (reps) reps.setAttribute('aria-label', '第 ' + n + ' 组次数');
+      const weight = $('[data-set="weight"]', set);
+      if (weight) weight.setAttribute('aria-label', '第 ' + n + ' 组负重公斤');
     });
     const volume = sets.reduce((sum, set) => {
       const reps = number($('[data-set="reps"]', set)?.value), weight = number($('[data-set="weight"]', set)?.value);
@@ -3679,12 +3692,12 @@ const values = points.length<=7 ? points.map((item,i) => {
     box.append(row);
     return row;
   }
-  /** Chips for the selected template. */
+  /** Chips for the selected template. 小号胶囊：它们是「快捷方式」，不该和主行动一样重。 */
   function renderTrainingPresets() {
     const box = $('#training-presets'), form = $('#training-form');
     if (!box || !form) return;
     const template = TRAINING_TEMPLATES[form.elements.template.value] ? form.elements.template.value : 'push';
-    box.innerHTML = (EXERCISE_PRESETS[template] || []).map(name => `<button type="button" class="button subtle" data-training-preset="${esc(name)}">${esc(name)}</button>`).join('');
+    box.innerHTML = (EXERCISE_PRESETS[template] || []).map(name => `<button type="button" class="preset-chip" data-training-preset="${esc(name)}">${esc(name)}</button>`).join('');
     box.dataset.template = template;
   }
   function renderTrainingLog(rowsOverride = null) {
@@ -3700,7 +3713,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     $$('[data-exercise-row]', box).forEach(refreshSetRow);
     renderTrainingPresets();
     const tag = $('#training-tag');
-    if (tag) tag.textContent = exercises.length ? `${TRAINING_TEMPLATES[template]} · ${exercises.length} 个动作` : row?.training === true ? '已标记训练' : '未记录';
+    if (tag) tag.textContent = exercises.length ? `${TRAINING_TEMPLATES[template]} · ${exercises.length} 个动作` : row?.training === true ? '已练 · 动作未填' : '未记录';
   }
   /** 照上一次训练预填表单（只改草稿，不落库）；主流健身 App 都靠这一下省掉重复输入。 */
   function repeatLastTraining() {
@@ -4625,7 +4638,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     const split = PLAN_SPLIT_LABELS[prefs.split] || "推拉腿";
     const gear = PLAN_GEAR_LABELS[prefs.gear] || "综合";
     const minutes = Number(prefs.minutes) > 0 ? Number(prefs.minutes) : 45;
-    return "每周 " + days + " 天 · " + split + " · " + gear + " · 每次 " + minutes + " 分钟";
+    return "每周 " + days + " 练 · " + split + " · " + gear + " · " + minutes + " 分钟";
   }
 
   function installPlanPrefs() {
@@ -4935,33 +4948,26 @@ const values = points.length<=7 ? points.map((item,i) => {
     forceWeekPlan = false;
     lastWeekPlan = plan;
     if (!plan) { box.innerHTML = empty('还没有足够的训练记录', '先记两周训练，计划会自动出来。', 'empty'); return; }
-    if (tag) tag.textContent = plan.deload ? '减载周' : '按上周 +2.5%';
+    if (tag) tag.textContent = plan.deload ? '减载周' : '负重 +2.5%';
     // "What do I train today": today's planned day, the next one, or what was already logged.
     const todayPlan = plan.days.find(day => day.date === activeDate);
     const nextPlan = plan.days.find(day => day.date > activeDate);
-    const logged = exercisesFor(activeDate);
-    // 状态拆成三行：今天 / 下一训练日 / 分化，一行一件事。
-    const stateRows = [];
-    if (logged.length) stateRows.push(['今天', '已记录 ' + logged.length + ' 个动作']);
-    else if (todayPlan) stateRows.push(['今天', (TRAINING_TEMPLATES[todayPlan.template] || todayPlan.template)
-      + (todayPlan.exercises.length ? ' · ' + todayPlan.exercises.map(item => item.name).slice(0, 3).join('、') : '（动作待定）')]);
-    else stateRows.push(['今天', '休息']);
-    if (nextPlan) stateRows.push(['下一训练日', nextPlan.date.slice(5) + ' · '
-      + (TRAINING_TEMPLATES[nextPlan.template] || nextPlan.template)
-      + (nextPlan.exercises.length ? ' · ' + nextPlan.exercises[0].name : '')]);
-    else stateRows.push(['下一训练日', '本周没有安排']);
-    stateRows.push(['分化', (() => {
-      const now = planPrefs();
-      return now && now.split ? splitLabels(now.split).join(' / ') : '未选';
-    })()]);
-    // 负荷：标签 + 数值 + 判定，不写成一句话。
+    // 2026-11-11：删掉原来三行「今天 / 下一训练日 / 分化」的键值块——
+    // 「今天」和「分化」已经分别在本周列表与偏好摘要里出现过；只把「下一训练日」（跨周信息）留成一行小注。
+    const nextNote = nextPlan
+      ? '<p class="plan-next">下一训练日 ' + esc(nextPlan.date.slice(5)) + ' · '
+        + esc(TRAINING_TEMPLATES[nextPlan.template] || nextPlan.template)
+        + (nextPlan.exercises.length ? ' · ' + esc(nextPlan.exercises[0].name) : '') + '</p>'
+      : (todayPlan ? '' : '<p class="plan-next">本周没有安排训练日</p>');
+    // 负荷：标签 + 数值 + 判定，不写成一句话。「急慢性比」第一次看不知道是谁比谁，改成「负荷比」+ 一行口径。
     const acwrHtml = (() => {
       if (!stats || !Number.isFinite(stats.ratio)) return '';
       const level = stats.flag === 'high' ? 'high' : stats.flag === 'low' ? 'low' : 'ok';
       const verdict = level === 'high' ? '偏高 · 本周减载' : level === 'low' ? '偏低 · 按记录安排' : '维持';
-      return '<p class="plan-label">训练负荷</p><div class="plan-load is-' + level + '"><span class="plan-load-label">急慢性负荷比</span>'
+      return '<p class="plan-label">训练负荷</p><div class="plan-load is-' + level + '"><span class="plan-load-label">负荷比</span>'
         + '<span class="plan-load-value">' + stats.ratio.toFixed(2) + '</span>'
-        + '<span class="plan-load-verdict">' + verdict + '</span></div>';
+        + '<span class="plan-load-verdict">' + verdict + '</span></div>'
+        + '<p class="fine-print">负荷比 = 近 7 天 ÷ 近 4 周平均负荷；0.8–1.3 为维持区。</p>';
     })();
     const suggestedNote = plan.days.some(day => day.suggested) ? '<p class="fine-print">带「建议」的动作来自训练库（该模板你还没有记录），先按 3 组建立基线。</p>' : '';
     // 依据与说明沉到默认折叠的 details 里：首屏只留数据。
@@ -5014,12 +5020,28 @@ const values = points.length<=7 ? points.map((item,i) => {
         else if (isToday) { mark = planDay ? "今天 · " + label + " · " + (prefs.minutes || 45) + " 分钟" : "今天 · 休息"; cls = planDay ? "today" : "plan"; }
         else if (past) { mark = planDay ? "未记录 · 计划 " + label : "休息"; cls = planDay ? "miss" : "plan"; }
         else { mark = planDay ? label + " · " + (prefs.minutes || 45) + " 分钟" : "休息"; cls = planDay ? "plan" : "plan"; }
-        rows.push("<li class=\"wk-" + cls + "\"><strong>" + esc(day.slice(5)) + "</strong><span>" + esc(mark) + "</span></li>");
+        rows.push({day, mark, cls});
       }
-      thisWeekHtml = "<h3 class=\"plan-sub\">本周安排 · " + esc(weekStart.slice(5)) + " 起 · 每周 " + prefs.days + " 练</h3><ul class=\"plan-week\">" + rows.join("") + "</ul>";
+      // 连续休息日合成一行：一周 5 个「休息」逐行铺开，会把真正的训练日淹掉。
+      const merged = [];
+      for (const row of rows) {
+        const last = merged[merged.length - 1];
+        if (row.cls === "plan" && row.mark === "休息" && last && last.cls === "plan" && last.mark === "休息") {
+          last.end = row.day;
+          last.count = (last.count || 1) + 1;
+          continue;
+        }
+        merged.push({...row});
+      }
+      const rowsHtml = merged.map(row => {
+        if (row.count > 1) {
+          const sameMonth = row.day.slice(0, 7) === row.end.slice(0, 7);
+          return '<li class="wk-plan wk-rest-range"><strong>' + esc(row.day.slice(5)) + " → " + esc(sameMonth ? row.end.slice(8) : row.end.slice(5)) + "</strong><span>休息 · " + row.count + " 天</span></li>";
+        }
+        return "<li class=\"wk-" + row.cls + "\"><strong>" + esc(row.day.slice(5)) + "</strong><span>" + esc(row.mark) + "</span></li>";
+      }).join("");
+      thisWeekHtml = "<h3 class=\"plan-sub\">本周安排 · " + esc(weekStart.slice(5)) + " 起 · 每周 " + prefs.days + " 练</h3>" + nextNote + "<ul class=\"plan-week\">" + rowsHtml + "</ul>";
     }
-    const stateHtml = '<p class="plan-label">今天的状态</p><div class="plan-state">' + stateRows.map(row =>
-      '<div class="plan-state-row"><span>' + esc(row[0]) + '</span><b>' + esc(row[1]) + '</b></div>').join('') + '</div>';
     const driftHtml = drifted ? '<p class="fine-print">记录有更新，本周安排已按最新数据重算。</p>' : '';
     // 采纳入口：今天有安排且今日清单还空着时，一键把它变成今日清单——否则用户要自己把
     // 数据层里的安排重录一遍。已有 AI 清单时不出现：AI 排的优先级高于周计划。
@@ -5027,7 +5049,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     const adoptHtml = (!hasTodayList && todayPlan && todayPlan.exercises.length)
       ? '<button type="button" class="button subtle full-width" data-adopt-today>把今天这节采纳到今日清单</button>'
       : '';
-    box.innerHTML = annotateTerms(thisWeekHtml + cueHtml + stateHtml + acwrHtml + driftHtml + adoptHtml + suggestedNote + why);
+    box.innerHTML = annotateTerms(thisWeekHtml + cueHtml + acwrHtml + driftHtml + adoptHtml + suggestedNote + why);
       + '<div class="plan-days">' + plan.days.map(day =>
         `<div class="plan-day"><div class="plan-day-head"><strong>${esc(day.date.slice(5))}</strong><span>${esc(TRAINING_TEMPLATES[day.template] || day.template)}</span></div>`
         + (day.exercises.length ? day.exercises.map(item =>
@@ -5816,7 +5838,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.31';
+  const APP_VERSION = '1.3.38';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -6116,16 +6138,15 @@ function metricIcon(label) {
   function aiPlanRowHtml(item, index, editing) {
     if (!editing) {
       const dose = aiPlanDose(item);
-      // 名字、建议、组数同一栏：建议再长也只在自己的列里换行，不会把名字挤成一列，
-      // 组数落在建议下方，和「做什么、为什么、做多少」的阅读顺序一致。
+      // 三行读一行：① 编号 + 勾选 + 动作名；② 组次重量 + 记录/换一个；③ 一句为什么。
+      // 以前 dose 和两个按钮挤在同一条基线上，会随理由长短上下错位，读起来像散落的四列。
       // 名字本身是按钮：点开看这个动作练什么、要点是什么；勾选框仍是「已做完」。
-      return "<div class=\"ai-plan-row\" role=\"listitem\"><label class=\"ai-plan-main\"><input type=\"checkbox\" data-ai-done=\"" + index + "\"" + (item.done ? " checked" : "") + "><span class=\"ai-plan-text\"><span class=\"ai-plan-head\"><button type=\"button\" class=\"ai-plan-name\" data-ai-guide=\"" + index + "\" aria-haspopup=\"dialog\" aria-label=\"查看动作说明：" + esc(item.name) + "\">" + esc(item.name) + "<span class=\"ai-plan-name-mark\" aria-hidden=\"true\">?</span></button>"
-        + (dose ? "<span class=\"ai-plan-dose\">" + esc(dose) + "</span>" : "")
-        + "</span>"
+      return "<div class=\"ai-plan-row\" role=\"listitem\"><label class=\"ai-plan-main\"><input type=\"checkbox\" data-ai-done=\"" + index + "\"" + (item.done ? " checked" : "") + "><span class=\"ai-plan-text\"><span class=\"ai-plan-head\"><button type=\"button\" class=\"ai-plan-name\" data-ai-guide=\"" + index + "\" aria-haspopup=\"dialog\" aria-label=\"查看动作说明：" + esc(item.name) + "\">" + esc(item.name) + "<span class=\"ai-plan-name-mark\" aria-hidden=\"true\">?</span></button></span></span></label>"
+        + "<span class=\"ai-plan-meta\">" + (dose ? "<span class=\"ai-plan-dose\">" + esc(dose) + "</span>" : "")
+        + "<button type=\"button\" class=\"text-button ai-plan-swap\" data-ai-swap=\"" + index + "\" aria-label=\"换一个动作\">换一个</button>"
+        + "<button type=\"button\" class=\"text-button ai-plan-log\" data-ai-log=\"" + index + "\" aria-label=\"记录" + esc(item.name) + "\">记录</button></span>"
         + (item.reason ? "<span class=\"ai-plan-reason\">" + esc(item.reason) + "</span>" : "")
-        + "</span></label>"
-        + "<button type=\"button\" class=\"text-button ai-plan-log\" data-ai-swap=\"" + index + "\" aria-label=\"换一个动作\">换</button>"
-        + "<button type=\"button\" class=\"text-button ai-plan-log\" data-ai-log=\"" + index + "\" aria-label=\"记录" + esc(item.name) + "\">记录</button></div>";
+        + "</div>";
     }
     const num = (name, value, attrs, label) => "<input class=\"ai-plan-input\" data-ai-field=\"" + name + "\" type=\"number\" inputmode=\"decimal\" " + attrs + " value=\"" + (value == null ? "" : value) + "\" aria-label=\"" + label + "\">";
     // 编辑态留一行原建议：改名字/组数时还看得见「为什么排它」，不用退出编辑再回忆。
@@ -6143,6 +6164,20 @@ function metricIcon(label) {
     const box = $("#ai-plan-list"), tag = $("#ai-plan-tag"), clear = $("#ai-plan-clear"), summary = $("#ai-plan-summary");
     if (!box) return;
     const plan = aiPlanStore(activeDate);
+    // 已经有清单时，「用 AI 排今天」不再是主行动：主行动是把清单落成记录。
+    // 同一个按钮两种状态，文案也分开（排 / 重排），避免「已经排好了却还在喊排」。
+    const ask = $("#ai-plan-ask"), hasPlan = !!(plan && plan.length);
+    if (ask) {
+      ask.textContent = hasPlan ? "重排今天" : "用 AI 排今天";
+      ask.classList.toggle("primary", !hasPlan);
+      ask.classList.toggle("subtle", hasPlan);
+      ask.setAttribute("aria-label", hasPlan ? "让 AI 重新排今天的动作顺序" : "让 AI 排今天的动作顺序");
+    }
+    const allToggle = $("#ai-plan-all");
+    if (allToggle) {
+      allToggle.classList.toggle("primary", hasPlan);
+      allToggle.classList.toggle("subtle", !hasPlan);
+    }
     if (clear) clear.hidden = !plan;
     const edit = $("#ai-plan-edit");
     if (edit) edit.hidden = !(plan && plan.length);
@@ -6168,7 +6203,7 @@ function metricIcon(label) {
       } else if (Math.abs(need - setMinutes) >= 10) {
         // 差异够大就给一个入口，点了才弹窗，不主动打断。
         summary.innerHTML = '<span class="ai-plan-summary-text">共 ' + totalSets + " 组 · 按组数约需 " + need + ' 分钟</span>'
-          + '<button type="button" class="text-button" data-plan-minutes="' + need + '">改成 ' + need + ' 分钟</button>';
+          + '<button type="button" class="text-button" data-plan-minutes="' + need + '">改单次时长</button>';
       } else {
         summary.innerHTML = '<span class="ai-plan-summary-text">共 ' + totalSets + " 组 · 约需 " + need + ' 分钟</span>'
           + '<span class="ai-plan-summary-note">你设的是 ' + setMinutes + ' 分钟</span>';
@@ -7049,7 +7084,7 @@ function metricIcon(label) {
    * the common action comes first in each. Layout matches what fitness apps converged on: a segmented
    * bar on top, one short screen per intent.
    */
-  /** 训练概览：把本周练了几次、总容量、今天蛋白放在同一屏，训练与饮食不再是两页。 */
+  /** 训练概览：本周练了几次、总容量、今天蛋白放在同一屏，训练与饮食不再是两页。 */
   function renderTrainingOverview() {
     const grid = $('#training-overview-grid');
     if (!grid) return;
@@ -7062,23 +7097,39 @@ function metricIcon(label) {
       days.push({date, count: rows.length, volume});
     }
     const sessions = days.filter(day => day.count > 0).length;
-    const volume = days.reduce((sum, day) => sum + day.volume, 0);
+    const totalVolume = days.reduce((sum, day) => sum + day.volume, 0);
     const meals = (state.meals || []).filter(row => row && row.date === activeDate);
     const totals = totalsFor(meals), p = effectiveProfileForDate(activeDate);
     const kcal = number(totals.calories), protein = number(totals.protein);
     const target = number(p.intakeRange ? p.intakeRange.max : p.calorieTarget);
     const proteinMin = number(p.proteinMin);
-    grid.innerHTML = '<div class="overview-stat"><small>本周训练</small><strong>' + sessions + '<span> 次</span></strong></div>'
-      + '<div class="overview-stat"><small>本周容量</small><strong>' + (volume > 0 ? fmt(volume, 0) : '—') + '<span>' + (volume > 0 ? ' kg' : '') + '</span></strong></div>'
-      + '<div class="overview-stat"><small>今日蛋白</small><strong>' + (protein === null ? '—' : fmt(protein, 0))
-      + '<span>' + (proteinMin ? ' / ' + fmt(proteinMin, 0) + ' g' : ' g') + '</span></strong></div>';
+    // 三个数不再同字号：容量是这张卡的主数字，次数是注脚，蛋白是跨域的副指标。
+    grid.innerHTML = '<div class="overview-stat is-lead"><small>本周容量</small><strong>' + (totalVolume > 0 ? fmt(totalVolume, 0) : '—') + '<span>' + (totalVolume > 0 ? ' kg' : '') + '</span></strong></div>'
+      + '<div class="overview-stat"><small>本周训练</small><strong>' + sessions + '<span> 次</span></strong></div>'
+      + '<div class="overview-stat is-cross"><small>今日蛋白</small><strong>' + (protein === null ? '—' : fmt(protein, 0))
+      + '<span>' + (proteinMin ? (protein === null ? '目标 ' + fmt(proteinMin, 0) + ' g' : ' / ' + fmt(proteinMin, 0) + ' g') : ' g') + '</span></strong></div>';
     const peak = Math.max(1, ...days.map(day => day.volume));
     const bars = $('#training-overview-bars');
-    if (bars) bars.innerHTML = days.map(day => '<div class="ov-bar' + (day.date === activeDate ? ' is-today' : '') + '"><span style="height:' + (day.volume ? Math.max(6, Math.round(day.volume / peak * 100)) : 3) + '%"></span><small>' + '日一二三四五六'[new Date(day.date + 'T00:00:00').getDay()] + '</small></div>').join('');
+    if (bars) {
+      // 柱子只画「练了的天」，空天留一条基线；有容量的柱子头顶标数，图才读得出信息而不只是装饰。
+      bars.innerHTML = days.map(day => '<div class="ov-bar' + (day.date === activeDate ? ' is-today' : '') + (day.count ? ' has-data' : '') + '">'
+        + '<b class="ov-bar-value">' + (day.volume > 0 ? fmt(day.volume, 0) : '') + '</b>'
+        + '<span style="height:' + (day.volume ? Math.max(8, Math.round(day.volume / peak * 100)) : 2) + '%"></span>'
+        + '<small>' + '日一二三四五六'[new Date(day.date + 'T00:00:00').getDay()] + '</small></div>').join('');
+    }
     const note = $('#training-overview-note');
-    if (note) note.textContent = kcal === null
-      ? '今天还没有餐食记录；记一餐后，热量与蛋白会出现在这里。'
-      : '今天摄入 ' + fmt(kcal, 0) + (target ? ' / ' + fmt(target, 0) : '') + ' kcal · 蛋白 ' + fmt(protein || 0, 0) + ' g' + (proteinMin ? '（目标 ' + fmt(proteinMin, 0) + ' g 起）' : '') + '。';
+    if (note) {
+      note.innerHTML = kcal === null
+        ? (sessions === 0 ? '本周还没训练 · ' : '') + '今天还没记饮食 · <button type="button" class="text-button inline-link" data-panel-go="food">去记一餐</button>'
+        : '今天摄入 ' + fmt(kcal, 0) + (target ? ' / ' + fmt(target, 0) : '') + ' kcal · 蛋白 ' + fmt(protein || 0, 0) + ' g' + (proteinMin ? '（目标 ' + fmt(proteinMin, 0) + ' g 起）' : '') + '。';
+      if (!note.dataset.wired) {
+        note.dataset.wired = '1';
+        note.addEventListener('click', event => {
+          const go = event.target.closest?.('[data-panel-go]');
+          if (go && typeof switchRecordPanel === 'function') switchRecordPanel(go.dataset.panelGo);
+        });
+      }
+    }
   }
 
   const RECORD_PANELS = [
@@ -7204,14 +7255,12 @@ function metricIcon(label) {
   $('#measurement-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/measurements',form=>{const values=numericForm(form,['weight','waist','bodyFat','muscle','visceralFat','bmr']);if(Object.values(values).every(value=>value===null)) throw new Error('请至少填写一项测量数据。');return {date:form.elements.date.value,...values};});});
   $('#habit-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/habits',form=>{const values=numericForm(form,['steps','sleep','water']);const training=form.elements.training.value===''?null:form.elements.training.value==='true';if(training===null && Object.values(values).every(value=>value===null)) throw new Error('请至少填写一项日常习惯。');return {date:form.elements.date.value,training,...values};});});
   $('#training-add')?.addEventListener('click', () => {
-    const box = $('#training-exercises');
-    const index = box.querySelectorAll('[data-exercise-row]').length;
-    if (index >= 12) {notice('一次最多记录 12 个动作。', true); return;}
-    const row = document.createElement('div');
-    row.className = 'training-row';
-    row.dataset.exerciseRow = String(index);
-    row.innerHTML = '<label>动作<input data-exercise="name" maxlength="60" placeholder="例如 深蹲"></label><div class="form-grid"><label>组数<input data-exercise="sets" type="number" min="0" max="30" step="1"></label><label>每组次数<input data-exercise="reps" type="number" min="0" max="200" step="1"></label><label>负重 · kg<input data-exercise="weight" type="number" min="0" max="500" step="0.5"></label></div><div class="row-meta"><span>容量 —</span><button type="button" class="icon-button danger" data-exercise-remove="${index}" aria-label="移除这个动作">×</button></div>';
-    box.append(row);
+    // 以前这里手写了一套「组数 / 每组次数 / 负重」旧字段，与逐组模型不兼容——
+    // 点「添加动作」加出来的行没有 [data-set-row]，保存时会被判为「每组都要填次数与负重」。
+    // 现在与预设 chip 走同一个构造函数，加出来的行立刻就有第 1 组。
+    const row = appendExerciseRow('');
+    if (!row) return;
+    $('[data-exercise="name"]', row)?.focus();
   });
   document.addEventListener('click', event => {
     const toggle = event.target.closest('[data-meal-items]');
@@ -7237,24 +7286,32 @@ function metricIcon(label) {
   $('#training-template')?.addEventListener('change', () => renderTrainingPresets());
   $('#training-repeat')?.addEventListener('click', () => repeatLastTraining());
   let restTick = 0, restEnd = 0;
-  /** 组间休息：标记一组完成后自动开 90s；再点按钮取消。 */
+  /** 组间休息：标记一组完成后自动开 90s；再点按钮取消。按钮显示剩余时间，不是泛称。 */
   function startRestTimer(restart = false) {
     const button = $('#rest-timer');
     if (!button) return;
     if (restTick) {
-      if (!restart) { clearInterval(restTick); restTick = 0; button.textContent = '组间休息'; return; }
+      if (!restart) { clearInterval(restTick); restTick = 0; button.textContent = '休息 90s'; button.setAttribute('aria-label', '开始 90 秒组间休息'); return; }
       clearInterval(restTick); restTick = 0;
     }
     restEnd = Date.now() + 90000;
     const paint = () => {
       const left = Math.max(0, Math.ceil((restEnd - Date.now()) / 1000));
-      button.textContent = left ? `休息 ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` : '组间休息';
-      if (!left) { clearInterval(restTick); restTick = 0; button.textContent = '组间休息'; }
+      button.textContent = left ? `休息 ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` : '休息 90s';
+      button.setAttribute('aria-label', left ? `组间休息还剩 ${Math.floor(left / 60)} 分 ${left % 60} 秒，点一下结束` : '开始 90 秒组间休息');
+      if (!left) { clearInterval(restTick); restTick = 0; }
     };
     paint();
     restTick = setInterval(paint, 1000);
   }
   $('#rest-timer')?.addEventListener('click', () => startRestTimer(false));
+  // 容量必须跟着输入走：以前只在增删组时重算，填完 10 次 × 60 kg 还挂着「—」，像没记上。
+  $('#training-exercises')?.addEventListener('input', event => {
+    const field = event.target;
+    if (!field.matches?.('[data-set="reps"],[data-set="weight"]')) return;
+    const row = field.closest?.('[data-exercise-row]');
+    if (row) refreshSetRow(row);
+  });
   $('#training-exercises')?.addEventListener('click', event => {
     const done = event.target.closest?.('[data-set-done]');
     if (done) {

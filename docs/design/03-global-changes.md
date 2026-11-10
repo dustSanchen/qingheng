@@ -107,6 +107,8 @@
 | 2026-10-29 | `tests/icon-style.test.mjs` | `REQUIRED` 扩充 `BRAND_GLYPHS`（7 个品牌 glyph，共 28 个，共享 `stroke="#44755d"` 校验） | 1.1.99–1.1.100 把底部导航、今日四宫格与拍照/相册入口全部收进 24×24、1.8px 圆头单色几何语言 |
 | 2026-10-30 | `tests/habit-and-training-mode.test.mjs` | 新增今日体检指标图标映射断言 | 训练/睡眠图标资产合并后，守住 `metricIcon()` 的动态拼接引用，防止回退到已删除文件名 |
 | 2026-10-29 | `tests/icons-motion.test.mjs`、`tests/meal-date-context.test.mjs` | 底部导航图标断言由 `icon-nav-*.svg` 改为 `icon-glyph-*.svg`，餐食行营养数值断言改为 `.meal-numbers` 命名数值列 | 1.1.99 底部导航复用品牌 glyph 家族；餐食行抽出 `.meal-numbers` 供纸感与账本皮肤分别应用阅读流与三列网格 |
+| 2026-11-11 | `tests/training-log.test.mjs` ×2 | 「动作行有 sets/reps/weight 三字段」→「动作行有 data-exercise=name + data-set=reps/weight」；12 个上限断言的 `return;` → `return null;` | 逐组模型（1.3.30 起）让「组数」变成组行数，旧的三字段 markup 已不存在；编辑「添加动作」时发现它仍在生成旧三字段行，保存必失败，本轮统一走 `appendExerciseRow`，断言跟到现役实现 |
+| 2026-11-11 | `tests/training-log.test.mjs` | 「剂量在名字与理由之间」的距离窗口 300 → 600 | 今日顺序改成三行式：名字 / 组次重量 + 记录·换一个 / 理由。剂量与理由之间隔了两个行内按钮，顺序语义未变 |
 | 2026-10-29 | `tests/meal-date-java.test.mjs` | `APP_VERSION` 随版本同步（`1.1.98` → `1.1.99` → `1.1.100`） | dev-loop 同步片段常量、build.ps1 默认值与测试字面量 |
 | 2026-10-29 | `tests/icon-style.test.mjs`、`tests/icons-motion.test.mjs`、`tests/layout-four.test.mjs`、`tests/records-panels.test.mjs`、`tests/apk-food-assets.test.mjs`、`tests/auth-food-integration.test.mjs`、`tests/habit-and-training-mode.test.mjs`、`tests/meal-date-context.test.mjs` | 图标固定 28 名单 / 1.8 描边改为目录全量 / 24 格 / 1.5 单色圆头；入口断言跟到任务操作条、分段默认、低频折叠、复用 glyph 与快捷操作文流防遮挡 | 用户取消图标数量上限并要求重复符号合并；14 个未用或重复 SVG 删除后，27 个实际图标均受同一守卫检查，快捷操作紧随能量摘要且不覆盖页面内容，页面与 APK 引用同步跟随 |
 | 2026-10-30 | `tests/layout-four.test.mjs` | 新增跨页面共享品牌页头断言 | 当前今天页与其他页分别使用 38px/28px logo、显示/隐藏副标题；统一品牌标志尺寸、文字字号、间距和分隔线，避免回归页面专属页头分叉 |

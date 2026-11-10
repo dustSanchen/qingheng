@@ -16,8 +16,11 @@ const main = fs.readFileSync('app/src/main/java/cn/qingheng/health/MainActivity.
 check('the training card exists', html.includes('<article class="card" id="training-log">'));
 check('the three templates from the written plan exist', html.includes('value="push"') && html.includes('value="pull"') && html.includes('value="legs"'));
 check('template labels match the training plan', html.includes('推（胸肩三头）') && html.includes('拉（背二头）') && html.includes('腿（下肢核心）'));
-check('an exercise row asks for sets, reps and weight', html.includes('id="training-exercises"') && app.includes('data-exercise="sets"') && app.includes('data-exercise="reps"') && app.includes('data-exercise="weight"'));
-check('up to twelve exercises are allowed', app.includes("if (index >= 12) {notice('一次最多记录 12 个动作。', true); return;}"));
+// 断言更新登记（03-global-changes.md §5.1，2026-11-11）：逐组模型落地后，动作行不再有
+// 「组数」字段（组数 = 组行数），断言语义不变（一行仍要能写次与负重），只跟到现役控件。
+check('an exercise row asks for sets, reps and weight', html.includes('id="training-exercises"') && app.includes('data-exercise="name"') && app.includes('data-set="reps"') && app.includes('data-set="weight"'));
+// 断言更新登记（同上）：12 个动作的上限改为走 appendExerciseRow，返回值从 undefined 变 null。
+check('up to twelve exercises are allowed', app.includes("if (index >= 12) {notice('一次最多记录 12 个动作。', true); return null;}"));
 // 断言更新登记（03-global-changes.md §5 第 3 条）：实现从「整表单一次性拒绝」改为
 // 「逐字段 aria-invalid + 聚焦第一个缺失项」，语义未变，故改断言到现役实现。
 check('an incomplete exercise is refused instead of stored',
@@ -59,7 +62,9 @@ check('the today list mirrors the AI plan with done checkboxes', app.includes('d
 check('an empty day offers two generators', /data-today-plan=\\?"ai\\?"/.test(app) && /data-today-plan=\\?"week\\?"/.test(app));
 check('AI plan rows carry the model reason', app.includes('ai-plan-reason') && main.includes('一句话为什么排它'));
 check('the plan row keeps name, advice and dose in one text column', app.includes('ai-plan-text') && css.includes('.ai-plan-text{display:flex;flex-direction:column'));
-check('the dose sits beside the name', /ai-plan-head[\s\S]{0,700}ai-plan-dose[\s\S]{0,300}ai-plan-reason/.test(app));
+// 断言更新登记（03-global-changes.md §5.1，2026-11-11）：动作行改成三行式（名字 / 组次重量+记录·换一个 / 一句理由），
+// 剂量与理由之间隔了两个行内按钮，窗口从 300 放宽到 600；断言的意图（剂量在名字之后、理由之前）不变。
+check('the dose sits beside the name', /ai-plan-head[\s\S]{0,700}ai-plan-dose[\s\S]{0,600}ai-plan-reason/.test(app));
 check('a checked row strikes the name inside the text column', css.includes('.ai-plan-row input:checked ~ .ai-plan-text .ai-plan-name'));
 check('edit rows label their inputs in Chinese', app.includes('组数') && app.includes('负重公斤') && !app.includes('aria-label="sets"'));
 check('edit mode can add a blank row and keeps the reason visible', app.includes('data-ai-append') && app.includes('ai-plan-edit-reason') && app.includes('一份清单最多 12 个动作'));
