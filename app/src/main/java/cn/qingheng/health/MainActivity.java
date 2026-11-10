@@ -3615,6 +3615,18 @@ import java.util.concurrent.Executors;
                     double max = key.equals("sets") ? 30 : key.equals("reps") ? 200 : 500;
                     if (value > max) throw fail("动作的 " + key + " 超出合理范围（上限 " + trim(max) + "）");
                 }
+                // 逐组记录：可选，最多 30 组，每组只允许次数与负重。
+                JSONArray setDetails = item.optJSONArray("setDetails");
+                if (setDetails != null) {
+                    if (setDetails.length() > 30) throw fail("一个动作最多 30 组");
+                    for (int s = 0; s < setDetails.length(); s++) {
+                        JSONObject set = setDetails.optJSONObject(s);
+                        if (set == null) throw fail("组记录格式不正确");
+                        Double reps = finite(set, "reps"), weight = finite(set, "weight");
+                        if (reps == null || reps < 0 || reps > 200) throw fail("每组的次数需在 0~200");
+                        if (weight == null || weight < 0 || weight > 500) throw fail("每组的负重需在 0~500 kg");
+                    }
+                }
             }
         }
     }

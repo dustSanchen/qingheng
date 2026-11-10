@@ -1557,3 +1557,17 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 .ov-bar span{display:block;background:var(--accent-soft);border-radius:4px 4px 0 0;min-height:2px}
 .ov-bar.is-today span{background:var(--accent)}
 .ov-bar small{font-size:var(--text-xs);text-align:center;color:var(--muted)}
+
+/* per-set logging and post-workout summary */
+.exercise-row-head{display:flex;flex-direction:row;align-items:flex-start;gap:8px}
+.exercise-row-head>label{flex:1 1 auto;margin:0}
+.set-list{margin:6px 0;display:flex;flex-direction:column;gap:6px}
+.set-row{display:flex;flex-direction:row;align-items:center;gap:8px}
+.set-no{width:18px;text-align:right;font-size:var(--text-xs);color:var(--muted);font-variant-numeric:tabular-nums}
+.set-row label{flex:1 1 0;margin:0;font-size:var(--text-xs);gap:4px}
+.set-row input{min-height:40px;padding:8px 10px}
+.set-row .set-remove{width:32px;height:32px;min-height:32px;flex:0 0 auto}
+.set-foot{display:flex;flex-direction:row;align-items:center;justify-content:space-between;margin-top:2px}
+.training-summary{margin-top:14px;padding-top:14px;border-top:1px solid var(--line);animation:summaryIn .32s cubic-bezier(.22,.8,.3,1)}
+@keyframes summaryIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.training-summary{animation:none}}

@@ -190,6 +190,15 @@
     }
     const meals = state.meals.filter(meal => meal.date === activeDate);
     const totals = totalsFor(meals), p = effectiveProfileForDate(activeDate);
+    // 饮食页也要看得到训练：一行「今天练了什么 / 多少容量」，点进去就是训练面板。
+    const trainingLine = $('#today-training-line');
+    if (trainingLine) {
+      const habit = (state.habits || []).find(row => row && row.date === activeDate);
+      const rows = habit && Array.isArray(habit.exercises) ? habit.exercises : [];
+      const volume = typeof trainingVolumeOf === 'function' ? trainingVolumeOf(rows) : 0;
+      trainingLine.hidden = !rows.length;
+      trainingLine.textContent = rows.length ? `今天训练 ${rows.length} 个动作 · 容量 ${fmt(volume, 0)} kg` : '';
+    }
     $('#calorie-value').textContent = fmt(totals.calories,0);
     const range = p.intakeRange;
     // C 节：目标只给一个数，误差用 ±2% 说明，依据与数字同屏同步更新。

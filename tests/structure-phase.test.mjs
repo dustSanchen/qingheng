@@ -10,6 +10,7 @@ const read = path => fs.readFileSync(path, 'utf8');
 const head = read('app/src/fragments/00-head.fragment.js');
 const training = read('app/src/fragments/60-training-copy.fragment.js');
 const onboarding = read('app/src/fragments/50-onboarding.fragment.js');
+const rich = read('app/src/fragments/10-rich-answer.fragment.js');
 const rest = read('app/src/fragments/70-rest.fragment.js');
 const html = read('app/src/main/assets/index.html');
 const adapter = read('app/src/main/assets/native-adapter.js');
@@ -64,6 +65,15 @@ check('the week plan can be regenerated explicitly',
   && training.includes('regenerateWeekPlan();'));
 check('the fast chat context carries training and meals',
   main.includes('trainingLast7Days') && main.includes('cappedWindow(numericWindow("meals", from, selectedDate), 10)'));
+
+check('training records are per set',
+  onboarding.includes('setDetails') && main.includes('JSONArray setDetails = item.optJSONArray("setDetails")')
+  && onboarding.includes('renderTrainingSummary'));
+check('rest timer and plan actions exist',
+  html.includes('id="rest-timer"') && rest.includes('restEnd = Date.now() + 90000')
+  && rest.includes('data-ai-swap') && html.includes('id="ai-plan-postpone"'));
+check('diet and training link both ways',
+  html.includes('id="today-training-line"') && rich.includes("trainingLine.textContent"));
 
 if (fail) { console.log('\nFAIL total: ' + fail); process.exit(1); }
 console.log('\nPASS total: 0 failed');

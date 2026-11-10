@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.29';
+  const APP_VERSION = '1.3.30';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -460,6 +460,7 @@
         + "</span>"
         + (item.reason ? "<span class=\"ai-plan-reason\">" + esc(item.reason) + "</span>" : "")
         + "</span></label>"
+        + "<button type=\"button\" class=\"text-button ai-plan-log\" data-ai-swap=\"" + index + "\" aria-label=\"换一个动作\">换</button>"
         + "<button type=\"button\" class=\"text-button ai-plan-log\" data-ai-log=\"" + index + "\" aria-label=\"记录" + esc(item.name) + "\">记录</button></div>";
     }
     const num = (name, value, attrs, label) => "<input class=\"ai-plan-input\" data-ai-field=\"" + name + "\" type=\"number\" inputmode=\"decimal\" " + attrs + " value=\"" + (value == null ? "" : value) + "\" aria-label=\"" + label + "\">";
@@ -481,6 +482,8 @@
     if (clear) clear.hidden = !plan;
     const edit = $("#ai-plan-edit");
     if (edit) edit.hidden = !(plan && plan.length);
+    const postpone = $("#ai-plan-postpone");
+    if (postpone) postpone.hidden = !(plan && plan.length);
     if (!plan || !plan.length) {
       if (tag) tag.textContent = "未生成";
       if (summary) { summary.hidden = true; summary.textContent = ""; }
@@ -674,6 +677,19 @@
     if (!ask || ask.dataset.wired) return;
     ask.dataset.wired = "1";
     ask.addEventListener("click", () => askAiPlan(ask));
+    const postpone = $("#ai-plan-postpone");
+    if (postpone && !postpone.dataset.wired) {
+      postpone.dataset.wired = "1";
+      postpone.addEventListener("click", () => {
+        const plan = aiPlanStore(activeDate) || [];
+        if (!plan.length) return;
+        const tomorrow = shiftDay(activeDate, 1);
+        aiPlanStore(tomorrow, plan.map(item => ({...item, done: false})));
+        aiPlanStore(activeDate, []);
+        renderAiPlan();
+        notice("已把这份清单顺延到 " + tomorrow.slice(5) + "，今天不再安排。");
+      });
+    }
     if (clear) clear.addEventListener("click", () => { aiPlanStore(activeDate, []); renderAiPlan(); });
     const edit = $("#ai-plan-edit");
     if (list && !list.dataset.aiRemoveWired) {
@@ -709,6 +725,23 @@
           event.preventDefault();
           const plan = aiPlanStore(activeDate) || [];
           startLoggingFromPlan(plan[Number(logButton.dataset.aiLog)]).catch(() => {});
+          return;
+        }
+        const swapButton = event.target.closest("[data-ai-swap]");
+        if (swapButton) {
+          event.preventDefault();
+          const plan = aiPlanStore(activeDate) || [];
+          const index = Number(swapButton.dataset.aiSwap);
+          const item = plan[index];
+          if (!item) return;
+          const presets = typeof EXERCISE_PRESETS === "object" ? Object.values(EXERCISE_PRESETS).flat() : [];
+          const taken = new Set(plan.map(row => String(row.name || "")));
+          const pool = [...new Set(presets)].filter(name => name !== item.name && !taken.has(name));
+          if (!pool.length) { notice("训练库里没有可替换的动作。"); return; }
+          item.name = pool[index % pool.length];
+          aiPlanStore(activeDate, plan);
+          renderAiPlan();
+          notice("已换成「" + item.name + "」，组次沿用原动作，可再点「换」继续。");
           return;
         }
         const removeButton = event.target.closest("[data-ai-remove]");
@@ -1531,12 +1564,46 @@
     if (!row) return;
     notice(previous
       ? `已添加 ${name}：沿用 ${previous.date} 的 ${previous.sets}×${previous.reps}×${previous.weight} kg，可修改。`
-      : `已添加 ${name}，填写组数、次数与负重后保存。`);
-    $('[data-exercise="sets"]', row)?.focus();
+      : `已添加 ${name}，填好组次与负重后保存。`);
+    $('[data-set="reps"]', row)?.focus();
   });
   $('#training-template')?.addEventListener('change', () => renderTrainingPresets());
   $('#training-repeat')?.addEventListener('click', () => repeatLastTraining());
+  let restTick = 0, restEnd = 0;
+  $('#rest-timer')?.addEventListener('click', () => {
+    const button = $('#rest-timer');
+    if (!button) return;
+    if (restTick) { clearInterval(restTick); restTick = 0; button.textContent = '组间休息'; return; }
+    restEnd = Date.now() + 90000;
+    const paint = () => {
+      const left = Math.max(0, Math.ceil((restEnd - Date.now()) / 1000));
+      button.textContent = left ? `休息 ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` : '组间休息';
+      if (!left) { clearInterval(restTick); restTick = 0; button.textContent = '组间休息'; }
+    };
+    paint();
+    restTick = setInterval(paint, 1000);
+  });
   $('#training-exercises')?.addEventListener('click', event => {
+    const addSet = event.target.closest?.('[data-set-add]');
+    if (addSet) {
+      const row = addSet.closest('[data-exercise-row]');
+      const list = $('[data-set-list]', row);
+      const last = list ? list.lastElementChild : null;
+      list?.insertAdjacentHTML('beforeend', setRowHtml({
+        reps: last ? number($('[data-set="reps"]', last).value) : null,
+        weight: last ? number($('[data-set="weight"]', last).value) : null
+      }, list.children.length));
+      refreshSetRow(row);
+      return;
+    }
+    const removeSet = event.target.closest?.('[data-set-remove]');
+    if (removeSet) {
+      const row = removeSet.closest('[data-exercise-row]');
+      if ($$('[data-set-row]', row).length <= 1) return;
+      removeSet.closest('[data-set-row]')?.remove();
+      refreshSetRow(row);
+      return;
+    }
     const button = event.target.closest?.('[data-exercise-remove]');
     if (!button) return;
     button.closest('[data-exercise-row]')?.remove();
@@ -1551,6 +1618,10 @@
     delete next.template;
     try {await api('/api/habits', next); await loadState({quiet: true}); renderTrainingLog(); notice('已清空今天的训练记录。');}
     catch (error) {notice(error.message, true);}
+  });
+  $('#today-training-line')?.addEventListener('click', () => {
+    switchTab('records', true);
+    if (typeof switchRecordPanel === 'function') switchRecordPanel('training');
   });
   $('#copy-meal-buttons')?.addEventListener('click', event => {
     const button = event.target.closest?.('[data-copy-meal]');

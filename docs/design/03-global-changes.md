@@ -151,5 +151,6 @@
 | 2026-11-11 | `tests/analysis-layer.test.mjs` | 卧推 61.5 → 65；减载 54 → 55 | 1.3.28 渐进重量改为「20kg 空杆 + 每侧 2.5kg 整数倍」，装不出的中间值被替换 |
 | 2026-11-11 | `tests/records-panels.test.mjs` | 训练 headings 前置「训练概览」 | 1.3.28 训练页新增概览卡，需归入训练面板 |
 | 2026-11-11 | `tests/render-guard.test.mjs` | render() 正则允许附加调用 | 1.3.28 renderBody 后追加 renderTrainingOverview，异常仍在同一 try 内 |
+| 2026-11-11 | `tests/training-log.test.mjs` / `training-presets.test.mjs` | 动作级校验文案 → 逐组校验；预填断言改 `setDetails` | 1.3.30 记录模型从「组数一个数」改为 `setDetails[]`，校验与预填都按组 |
 
 

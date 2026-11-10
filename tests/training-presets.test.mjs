@@ -33,7 +33,7 @@ check('the name comes from the chip', rest.includes('const name = chip.dataset.t
 check('last values are looked up', app.includes('function latestExerciseValues(name)'));
 check('lookup scans newest habits first', app.includes("sort((a, b) => String(b.date).localeCompare(String(a.date)))"));
 check('incomplete history is skipped', app.includes('if (sets === null || reps === null || weight === null) continue;'));
-check('the row is prefilled', app.includes('function appendExerciseRow(name, values)') && app.includes('${attr(values && values.sets)}'));
+check('the row is prefilled', app.includes('function appendExerciseRow(name, values)') && app.includes('trainingSetDetails(item).map(setRowHtml)'));
 check('the user is told what was reused', rest.includes('沿用 ${previous.date} 的'));
 check('the 12-row cap still applies', app.includes("if (index >= 12) {notice('一次最多记录 12 个动作。', true); return null;}"));
 

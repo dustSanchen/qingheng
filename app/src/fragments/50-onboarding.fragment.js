@@ -543,6 +543,41 @@ const values = points.length<=7 ? points.map((item,i) => {
     }
     return null;
   }
+  /** 一组一条：旧记录没有 setDetails 时，用 sets/次/负重复制出同样多组。 */
+  function trainingSetDetails(item) {
+    const details = Array.isArray(item && item.setDetails) ? item.setDetails : null;
+    if (details && details.length) return details.slice(0, 30).map(set => ({reps: number(set.reps), weight: number(set.weight)}));
+    const count = Math.max(1, Math.min(30, Math.round(number(item && item.sets) || 1)));
+    return Array.from({length: count}, () => ({reps: number(item && item.reps), weight: number(item && item.weight)}));
+  }
+  function setRowHtml(set, index) {
+    const value = v => v === null || v === undefined ? '' : ` value="${Number(v)}"`;
+    return `<div class="set-row" data-set-row><span class="set-no">${index + 1}</span>`
+      + `<label>次<input data-set="reps" type="number" inputmode="numeric" min="0" max="200" step="1"${value(set.reps)}></label>`
+      + `<label>kg<input data-set="weight" type="number" inputmode="decimal" min="0" max="500" step="0.5"${value(set.weight)}></label>`
+      + `<button type="button" class="icon-button danger set-remove" data-set-remove aria-label="移除第 ${index + 1} 组">×</button></div>`;
+  }
+  function exerciseRowHtml(item, index) {
+    return `<div class="training-row" data-exercise-row="${index}" data-exercise-id="${esc(item.id || '')}">`
+      + `<div class="exercise-row-head"><label>动作<input data-exercise="name" value="${esc(item.name || '')}" maxlength="60" placeholder="例如 卧推"></label>`
+      + `<button type="button" class="icon-button danger" data-exercise-remove="${index}" aria-label="移除这个动作">×</button></div>`
+      + `<div class="set-list" data-set-list>${trainingSetDetails(item).map(setRowHtml).join('')}</div>`
+      + `<div class="set-foot"><button type="button" class="text-button" data-set-add>+ 加一组</button><span class="row-meta">容量 <b data-set-volume>—</b></span></div></div>`;
+  }
+  /** 一组增删后重排序号、重算该动作容量；只改 UI，保存时才落库。 */
+  function refreshSetRow(row) {
+    const sets = $$('[data-set-row]', row);
+    sets.forEach((set, index) => {
+      const no = $('.set-no', set); if (no) no.textContent = String(index + 1);
+      const remove = $('[data-set-remove]', set);
+      if (remove) { remove.disabled = sets.length <= 1; remove.setAttribute('aria-label', '移除第 ' + (index + 1) + ' 组'); }
+    });
+    const volume = sets.reduce((sum, set) => {
+      const reps = number($('[data-set="reps"]', set)?.value), weight = number($('[data-set="weight"]', set)?.value);
+      return reps !== null && weight !== null ? sum + reps * weight : sum;
+    }, 0);
+    const out = $('[data-set-volume]', row); if (out) out.textContent = volume > 0 ? fmt(volume, 0) + ' kg' : '—';
+  }
   /** Adds one exercise row, optionally pre-filled; shared by the 添加动作 button and the preset chips. */
   function appendExerciseRow(name, values) {
     const box = $('#training-exercises');
@@ -552,8 +587,13 @@ const values = points.length<=7 ? points.map((item,i) => {
     const row = document.createElement('div');
     row.className = 'training-row';
     row.dataset.exerciseRow = String(index);
-    const attr = value => value === null || value === undefined ? '' : ` value="${Number(value)}"`;
-    row.innerHTML = `<label>动作<input data-exercise="name" maxlength="60" placeholder="例如 深蹲" value="${esc(name || '')}"></label><div class="form-grid"><label>组数<input data-exercise="sets" type="number" min="0" max="30" step="1"${attr(values && values.sets)}></label><label>每组次数<input data-exercise="reps" type="number" min="0" max="200" step="1"${attr(values && values.reps)}></label><label>负重 · kg<input data-exercise="weight" type="number" min="0" max="500" step="0.5"${attr(values && values.weight)}></label></div><div class="row-meta"><span>容量 —</span><button type="button" class="icon-button danger" data-exercise-remove="${index}" aria-label="移除这个动作">×</button></div>`;
+    row.innerHTML = exerciseRowHtml({
+      name: name || '',
+      id: '',
+      sets: values && values.sets,
+      reps: values && values.reps,
+      weight: values && values.weight
+    }, index);
     box.append(row);
     return row;
   }
@@ -573,8 +613,9 @@ const values = points.length<=7 ? points.map((item,i) => {
     const template = TRAINING_TEMPLATES[row?.template] ? row.template : 'push';
     if (document.activeElement !== form.elements.template) form.elements.template.value = template;
     const box = $('#training-exercises');
-    const rows = Array.isArray(rowsOverride) ? rowsOverride : (exercises.length ? exercises : [{name: '', sets: null, reps: null, weight: null}]);
-    box.innerHTML = rows.map((item, index) => `<div class="training-row" data-exercise-row="${index}" data-exercise-id="${esc(item.id || '')}"><label>动作<input data-exercise="name" value="${esc(item.name)}" maxlength="60" placeholder="例如 卧推"></label><div class="form-grid"><label>组数<input data-exercise="sets" type="number" min="0" max="30" step="1" value="${item.sets ?? ''}"></label><label>每组次数<input data-exercise="reps" type="number" min="0" max="200" step="1" value="${item.reps ?? ''}"></label><label>负重 · kg<input data-exercise="weight" type="number" min="0" max="500" step="0.5" value="${item.weight ?? ''}"></label></div><div class="row-meta"><span>${number(item.distanceKm) !== null ? `${fmt(item.distanceKm)} km` : `容量 ${exerciseVolume(item) === null ? '—' : `${fmt(exerciseVolume(item), 0)} kg`}`}${number(item.durationMin) !== null ? ` · ${fmt(item.durationMin, 0)} 分钟` : ''}</span><button type="button" class="icon-button danger" data-exercise-remove="${index}" aria-label="移除这个动作">×</button></div></div>`).join('');
+    const rows = Array.isArray(rowsOverride) ? rowsOverride : (exercises.length ? exercises : [{name: '', sets: 1, reps: null, weight: null}]);
+    box.innerHTML = rows.map(exerciseRowHtml).join('');
+    $$('[data-exercise-row]', box).forEach(refreshSetRow);
     renderTrainingPresets();
     const tag = $('#training-tag');
     if (tag) tag.textContent = exercises.length ? `${TRAINING_TEMPLATES[template]} · ${exercises.length} 个动作` : row?.training === true ? '已标记训练' : '未记录';
@@ -606,10 +647,15 @@ const values = points.length<=7 ? points.map((item,i) => {
     return [...box.querySelectorAll('[data-exercise-row]')].map(row => ({
       id: row.dataset.exerciseId || '',
       name: $('[data-exercise="name"]', row).value.trim().slice(0, 60),
-      sets: number($('[data-exercise="sets"]', row).value),
-      reps: number($('[data-exercise="reps"]', row).value),
-      weight: number($('[data-exercise="weight"]', row).value)
+      setDetails: $$('[data-set-row]', row).map(set => ({
+        reps: number($('[data-set="reps"]', set).value),
+        weight: number($('[data-set="weight"]', set).value)
+      }))
     })).map(item => {
+      item.sets = item.setDetails.length;
+      item.reps = item.setDetails[0] ? item.setDetails[0].reps : null;
+      const weights = item.setDetails.map(set => set.weight).filter(value => value !== null);
+      item.weight = weights.length ? Math.max(...weights) : null;
       // 没有 id 说明是新加的一行，给它一个，后续对位就靠它。
       if (!item.id) item.id = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'ex-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
       let previous = previousById.get(item.id) || null;
@@ -622,24 +668,58 @@ const values = points.length<=7 ? points.map((item,i) => {
         item.durationMin = number(previous.durationMin);
       }
       return item;
-    }).filter(item => item.name || item.sets !== null || item.reps !== null || item.weight !== null || item.distanceKm != null || item.durationMin != null);
+    }).filter(item => item.name || item.setDetails.some(set => set.reps !== null || set.weight !== null));
+  }
+  function trainingVolumeOf(items) {
+    let volume = 0;
+    for (const item of (items || [])) {
+      if (Array.isArray(item.setDetails) && item.setDetails.length) {
+        for (const set of item.setDetails) {
+          const reps = number(set.reps), weight = number(set.weight);
+          if (reps !== null && weight !== null && weight > 0) volume += reps * weight;
+        }
+      } else {
+        const sets = number(item.sets), reps = number(item.reps), weight = number(item.weight);
+        if (sets !== null && reps !== null && weight !== null && weight > 0) volume += sets * reps * weight;
+      }
+    }
+    return Math.round(volume);
+  }
+  /** 保存后的课后总结：容量、组数、和上次比、下次怎么做；不打断操作，放在表单下方。 */
+  function renderTrainingSummary(items) {
+    const box = $('#training-summary');
+    if (!box) return;
+    const volume = trainingVolumeOf(items);
+    const sets = (items || []).reduce((sum, item) => sum + (Array.isArray(item.setDetails) ? item.setDetails.length : (number(item.sets) || 0)), 0);
+    const previous = (state.habits || [])
+      .filter(row => row && row.date < activeDate && Array.isArray(row.exercises) && row.exercises.length)
+      .sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
+    const before = previous ? trainingVolumeOf(previous.exercises) : null;
+    const delta = before === null ? null : volume - before;
+    const next = delta === null ? '下次同动作先持平，把每组次数做满。'
+      : delta >= 0 ? '下次同动作试 +2.5 kg，或最后一组 +1 次。'
+      : '这次容量低于上次；下次先把动作做满，不急着加重。';
+    box.innerHTML = `<p class="plan-label">本次训练</p><div class="overview-grid"><div class="overview-stat"><small>容量</small><strong>${fmt(volume, 0)}<span> kg</span></strong></div>`
+      + `<div class="overview-stat"><small>组数</small><strong>${sets}<span> 组</span></strong></div>`
+      + `<div class="overview-stat"><small>对比上次</small><strong>${delta === null ? '首次' : (delta >= 0 ? '+' : '') + fmt(delta, 0)}<span>${delta === null ? '' : ' kg'}</span></strong></div></div>`
+      + `<p class="fine-print">${next}</p>`;
+    box.hidden = false;
   }
   /** Saves the log onto the day's habit row, preserving every other field it already carries. */
   async function saveTrainingLog() {
     const form = $('#training-form'), message = $('.form-feedback', form), button = $('button[type=submit]', form);
     const exercises = readTrainingExercises();
-    const incomplete = exercises.find(item => !item.name || item.sets === null || item.reps === null || item.weight === null);
+    const incomplete = exercises.find(item => !item.name || !item.setDetails.length
+      || item.setDetails.some(set => set.reps === null || set.weight === null));
     if (incomplete) {
       const row = $$('[data-exercise-row]', form).find(node => {
         const name = $('[data-exercise="name"]', node).value.trim();
-        const sets = number($('[data-exercise="sets"]', node).value);
-        const reps = number($('[data-exercise="reps"]', node).value);
-        const weight = number($('[data-exercise="weight"]', node).value);
-        return !name || sets === null || reps === null || weight === null;
+        const sets = $$('[data-set-row]', node);
+        return !name || !sets.length || sets.some(set => number($('[data-set="reps"]', set).value) === null || number($('[data-set="weight"]', set).value) === null);
       });
-      const missing = row ? ['name', 'sets', 'reps', 'weight'].map(key => $('[data-exercise="' + key + '"]', row)).filter(field => field && (field.dataset.exercise === 'name' ? !field.value.trim() : number(field.value) === null)) : [];
-      missing.forEach(field => markFieldInvalid(field, '请补全这个动作的记录。'));
-      feedback(message, '每个动作都要填完整：名称、组数、次数、负重；不想记的动作请先移除。', true);
+      const missing = row ? $$('[data-set="reps"], [data-set="weight"]', row).filter(field => number(field.value) === null) : [];
+      missing.forEach(field => markFieldInvalid(field, '请补全这一组。'));
+      feedback(message, '每个动作至少一组，每组都要填次数与负重；自重动作负重填 0，不想记的动作请先移除。', true);
       missing[0]?.focus();
       return;
     }
@@ -654,6 +734,7 @@ const values = points.length<=7 ? points.map((item,i) => {
       await loadState({quiet: true});
       feedback(message, `已保存 ${exercises.length} 个动作。`);
       renderTrainingLog();
+      renderTrainingSummary(exercises);
     } catch (error) {feedback(message, error.message, true);}
     finally {button.disabled = false;}
   }
