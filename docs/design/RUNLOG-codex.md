@@ -638,3 +638,13 @@
 - 观察未修：训练页在「为什么这样排」与「今日顺序」之间仍有一段空白（约 200px），原因未查明，下轮先查 disclosure 折叠后的高度占位。
 - APK：`dist/qingheng-1.3.27.apk`，605,339 B，sha256 `8b1fd4bbe2a3700fc6eadbbca936b3d353b062d6620333ccbe980ce83d4ce631`。
 - 源码提交 `bce43f6`；回滚：`git revert bce43f6`。
+
+## r91 · 2026-11-11 · 1.3.28（配片重量 + 训练概览）
+- 需求原话：「杠铃类健身项目两边加片，没法每次加2.5kg重量，请优化渐进式负荷ai建议训练算法，使推荐的动作重量用户可实现可照做。同时优化界面布局，使健身项目可视化，让健身数据与饮食数据打通。」
+- 诊断：`generateWeekPlan` 按 `×1.025` 四舍五入到 0.5 kg，100 kg 会给出 102.5、60 kg 给 61.5——健身房里不一定有 1.25 kg 片，建议不可执行。
+- 算法：新增 `loadableWeightKg(name, kg)`——杠铃 = 20 kg 空杆 + 每侧 2.5 kg 的整数倍（60→65），哑铃 2 kg、器械 5 kg 递增，自重返回 null；若 +2.5% 落回同一档则至少进一档。`planItemFromRow` 与 `generateWeekPlan` 都过这一层；AI 排课提示词同步写死规则。
+- 界面：训练页顶部新增「训练概览」卡——本周训练次数、本周容量、今日蛋白 + 7 天容量柱 + 「今天摄入 X / 目标 kcal · 蛋白 Y g」；数据来自 habits/exercises 与 meals/effectiveProfileForDate，训练与饮食同屏。
+- 验收：`test-all` 61/61（新增 2 条契约；改 analysis-layer 65/55、records-panels headings、render-guard 正则，均登记 §5.1）；dev-loop 1.3.28/328 全绿 29.8s；真机截图确认概览渲染（本周 1 次 / 4,560 kg / 蛋白 —/142 g）。
+- 未修：概览卡与训练计划卡之间仍有约 90px 空白，未查明来源，继续留在下轮观察。
+- APK：`dist/qingheng-1.3.28.apk`，605,339 B，sha256 `a8a0759ecddfd19682a2d1b64b61e7582fcdcfb37e045f29ae0f7453a38f8db9`。
+- 源码提交 `0ed96d9`；回滚：`git revert 0ed96d9`。
