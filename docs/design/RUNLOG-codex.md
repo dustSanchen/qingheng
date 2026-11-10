@@ -691,7 +691,7 @@
 - 验收：test-all 61/61；dev-loop 1.3.39/339 全绿（测试 12.3s / 打包 12.9s / 装机 9.6s）；真机 1156×2510 四屏截图（docs/design/art/training-20261111-{1..4}.png）确认字段无双线、点「添加动作」出现带 1 组的新行并聚焦、点完成圆点变实心并起 1:29 倒计时；账本与夜间用 Chrome DPR3 静态对照（build/harness-{ledger,night}*.png）。
 - 断言更新已登记：tests/training-log.test.mjs ×3（动作行字段改 data-set、12 上限 return null、剂量距离窗口 300→600）。
 - 未做：周条（7 格 + 点开当天）、今日顺序拖拽排序、组间休息按动作区分、空态块替换空白行——理由见 docs/design/26-record-training-art-review.md 第五节。
-- GitHub：origin 推送连续 TLS 握手失败（schannel / openssl 两条后端都失败）；localmirror 已推（force-with-lease），待网络恢复后补推。
+- GitHub：origin 在 r95 期间连续 TLS 握手失败；1.3.44 收尾时一次推送成功（04c1ac7..29c8746），两处远端已同步。
 - APK：dist/qingheng-1.3.39.apk（599 KB，sha256 0F36584C70A5C79A9199ACA0D44291D43D327C1BE18CC45BE4F79775006FD1A7）
 
 ## r96 · 2026-11-11 · 1.3.44（训练页第二轮：手账式记组 + 7 格周条）
