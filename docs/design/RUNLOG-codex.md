@@ -702,3 +702,13 @@
 - 顺手修语义错位：标题写「本周安排」但 startDate 是下一个周一，周条按今天所在周画，导致计划日一根线都画不出来。现在周条与标题都用计划所在周（「下周安排 · 11-16 起」），并删掉重复的「每周 N 练」与「下一训练日」小注。
 - 验收：test-all 61/61；dev-loop 1.3.44/344 全绿（打包 8.5s / 装机 9.1s）；真机确认 10 次 × 60 kg → 容量 600 kg、点圆点变实心起休息、点 18 号详情切到「拉 · 高位下拉…」；账本/夜间 DPR3 对照。
 - APK：dist/qingheng-1.3.44.apk（599 KB，sha256 7F4CEA674C36AE9CDB5B7EE4BF32C76EA0EF71019B2A8ADAB48D1C34190FC799）。。
+
+## r97 · 2026-11-13 · 1.3.45（动效层 v2：数字归位 + 卡片错帧）
+- 需求：「落地到轻衡APP」——把上一轮选定的 Opus 味动效栈落进现有界面，不是只交清单。
+- 约束裁决：AGENTS 明令不引依赖与构建步骤，所以 Motion / Number Flow 不装包，改为手写等价语义（320ms 缓出数字归位、6px 卡片错帧、页面纯淡入），零依赖、零新构建。
+- 数字：`[data-count]` + MutationObserver，只挂今日能量主数字；首帧（— → 0）不滚，reduced-motion 直接落终值，tabular-nums 防抖动；数值由渲染代码整体替换时不会从 0 重滚。
+- 页面：`.view` 由「translateY 4px + 淡入」改为纯淡入 220ms；卡片起 6px 归位，28ms 一档、封顶 140ms；from-left/from-right 的推入转场保持原样，不叠加第二套位移。
+- 令牌：`--dur-1/2/3 = 140/220/320ms`、`--ease-opus: cubic-bezier(.2,0,0,1)`；位移上限 6px，scale 不参与。
+- 验收：test-all 62/62（新增 tests/motion.test.mjs）；aesthetic-audit 无阻塞项；dev-loop 1.3.45/345 全绿（打包 13.7s / 装机 11.0s，js errors none）；真机截图 build/motion-home.png 确认 430 kcal、目标 1,848 kcal、三格营养与底栏布局均未变。
+- 未验：错帧与数字滚动的逐帧手感（截图只能证明静止态），时长是否偏快需真机连点几个 tab 才判断得准。
+- APK：dist/qingheng-1.3.45.apk（599 KB，sha256 23CB1506A825FF3C0FB8A3F23EB54CF1D090B9A74A8DB63D6182A411A9DB38C8）。
