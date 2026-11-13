@@ -1661,3 +1661,24 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 .set-check:active{transform:scale(.92)}
 .set-row.is-done .set-check{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
 .set-row.is-done input{color:var(--muted);background:var(--surface)}
+
+/* —— 动效层 v2（2026-11-13）：只做归位，不做表演 ——
+   三档时长 140/220/320ms，缓动统一 cubic-bezier(.2,0,0,1)（无回弹）。
+   页面切换 = 整页淡入 + 卡片 6px 归位错帧（28ms 一档，最多 140ms）；
+   位移只到 6px，scale 不参与，入场结束后不再有任何附加动作。 */
+:root{--dur-1:140ms;--dur-2:220ms;--dur-3:320ms;--ease-opus:cubic-bezier(.2,0,0,1)}
+.count-roll{font-variant-numeric:tabular-nums}
+@keyframes viewFade{from{opacity:0}to{opacity:1}}
+@keyframes cardRise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: no-preference){
+  .view:not([hidden]):not(.from-left):not(.from-right){animation:viewFade var(--dur-2) var(--ease-opus) both}
+  .view:not([hidden])>.card{animation:cardRise 260ms var(--ease-opus) both}
+  .view:not([hidden])>.card:nth-child(2){animation-delay:28ms}
+  .view:not([hidden])>.card:nth-child(3){animation-delay:56ms}
+  .view:not([hidden])>.card:nth-child(4){animation-delay:84ms}
+  .view:not([hidden])>.card:nth-child(5){animation-delay:112ms}
+  .view:not([hidden])>.card:nth-child(n+6){animation-delay:140ms}
+}
+@media (prefers-reduced-motion: reduce){
+  .view:not([hidden])>.card{animation:none!important}
+}
