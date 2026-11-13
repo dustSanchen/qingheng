@@ -712,3 +712,13 @@
 - 验收：test-all 62/62（新增 tests/motion.test.mjs）；aesthetic-audit 无阻塞项；dev-loop 1.3.45/345 全绿（打包 13.7s / 装机 11.0s，js errors none）；真机截图 build/motion-home.png 确认 430 kcal、目标 1,848 kcal、三格营养与底栏布局均未变。
 - 未验：错帧与数字滚动的逐帧手感（截图只能证明静止态），时长是否偏快需真机连点几个 tab 才判断得准。
 - APK：dist/qingheng-1.3.45.apk（599 KB，sha256 23CB1506A825FF3C0FB8A3F23EB54CF1D090B9A74A8DB63D6182A411A9DB38C8）。
+
+## r98 · 2026-11-13 · 1.3.46（第一次引入依赖：vendor 缝 + motion/mini）
+- 需求原话：「在确保结构稳定的，模块化的情况下，可引入依赖 / 构建步骤」。
+- 结构：新增 `vendor/`（只放 package.json、src/motion-entry.js、manifest.json）与 `tools/build-vendor.mjs`（esbuild 0.28.2 → IIFE，全局 `MotionLib`）。`assets/` 保持扁平这条不变量没破，产物是 `assets/motion.min.js`（13,718 B），`--check` 用 sha256 校验，`tests/vendor.test.mjs` 守版本/哈希/体积预算/无 eval/加载顺序/不落 node_modules。
+- 采用边界（实测得出）：`motion/mini` 只导出 `animate`，且只接受元素——对普通对象会抛 `No valid elements`。所以数字归位继续用自写 rAF（含 watchdog），把「卡片错帧」交给 Motion：按真实 `.card` 顺序、6px、28ms 一档、最多 5 张、首帧不表演；CSS 里删掉 nth-child 错帧与 `cardRise`，不留两套动画。
+- 降级：库缺失或动画抛错 → 卡片保持静止（先清掉内联 opacity/transform）；reduced-motion 直接不入场。
+- 验收：test-all 63/63（新增 vendor.test.mjs）；dev-loop 1.3.46/346 全绿（打包 10.9s / 装机 10.6s，js errors none）；APK 599 → 607 KB（+8 KB 压缩后）；真机截图 build/motion-v2-{home,records}.png 卡片全亮，无半透明残留。
+- 未验：错帧的逐帧观感、快速连点 tab 时的中断表现。
+- 事故：用 PowerShell `Get-Content/Set-Content` 改 index.html 触发 GBK 二次编码并写入 BOM，已用 `git cat-file blob HEAD:...` 还原；以后改 UTF-8 源文件只用编辑工具，不经 PowerShell 文本管道。
+- APK：dist/qingheng-1.3.46.apk（607 KB，sha256 F56339B250EFAE658B2B3966D369CCC168776B5F0B9DDBEC74ACEF47B43807DA）。
