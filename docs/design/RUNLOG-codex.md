@@ -722,3 +722,13 @@
 - 未验：错帧的逐帧观感、快速连点 tab 时的中断表现。
 - 事故：用 PowerShell `Get-Content/Set-Content` 改 index.html 触发 GBK 二次编码并写入 BOM，已用 `git cat-file blob HEAD:...` 还原；以后改 UTF-8 源文件只用编辑工具，不经 PowerShell 文本管道。
 - APK：dist/qingheng-1.3.46.apk（607 KB，sha256 F56339B250EFAE658B2B3966D369CCC168776B5F0B9DDBEC74ACEF47B43807DA）。
+
+## r99 · 2026-11-13 · 1.3.47（左右滑动切换 tab）
+- 需求：「为APP新增左右滑动切换功能」。
+- 决定：不跟手。跟手要常驻 transform + 滚动锁，会和内置滚动、长按选行、输入焦点抢手势；改成松手判定，复用 switchTab 已有的 from-left/from-right 滑入，方向与 TAB_ORDER 一致（左滑 → 下一屏）。
+- 阈值：水平位移 ≥56px、时长 ≤600ms、|dx| ≥ 1.6|dy|；到头不回绕。
+- 排除区：input/textarea/select/contenteditable、.app-dialog、.sheet-panel、.pref-chips/.chips/.segmented/.table-wrap（横向滚动）、「我的」二层页打开时不切（避免把未保存编辑留在背后）。
+- 验收：test-all 64/64（新增 tests/swipe.test.mjs）；dev-loop 1.3.47/347 全绿；真机验证 —— 左滑 今天→记录（build/swipe-1-next.png）、右滑 记录→今天（swipe-2-back.png）、纵向拖动仍在记录页滚动且不切页（swipe-3-vertical.png）。
+- 未验：滑动与长按选行同时发生时的边界、平板/横屏。
+- APK：dist/qingheng-1.3.47.apk（607 KB，sha256 5DCBDD59544398DFA9C37B8147B4BFF84FD82657621AE63D1E969A6942D7D0D5）。
+- 在线更新可行性取证（同一轮）：设备侧 `curl https://api.github.com` 返回 200（网络通）；`GET /repos/dustSanchen/qingheng`、`/releases/latest`、`/tags` 均 404（仓库私有，匿名读不到）；manifest 无 REQUEST_INSTALL_PACKAGES、无 FileProvider；设备 Android 17 / targetSdk 35 → 安装需用户点确认，做不到静默。
