@@ -1,0 +1,16 @@
+{
+  "generatedBy": "tools/build-vendor.mjs",
+  "entries": [
+    {
+      "file": "motion.min.js",
+      "package": "motion",
+      "subpath": "motion/mini",
+      "version": "14.13.0",
+      "license": "MIT",
+      "global": "MotionLib",
+      "esbuild": "0.28.2",
+      "bytes": 13718,
+      "sha256": "1564178a00aa38edd2aff83a88f19c7e1f6f83c8144ba4c0eecdc7d9a16199f8"
+    }
+  ]
+}

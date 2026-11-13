@@ -12,3 +12,5 @@ artifacts/
 Thumbs.db
 .DS_Store
 tmp-audit/
+
+vendor/node_modules/

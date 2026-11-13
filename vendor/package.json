@@ -1,0 +1,12 @@
+{
+  "name": "qingheng-vendor",
+  "private": true,
+  "type": "module",
+  "description": "Vendored browser libraries for the 轻衡 WebView assets. Built by tools/build-vendor.mjs into app/src/main/assets/vendor/.",
+  "dependencies": {
+    "motion": "14.13.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}
