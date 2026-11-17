@@ -1,4 +1,4 @@
-<#
+﻿<#
   One-command dev loop: backup -> assemble -> syntax check -> tests -> build -> packaging -> install -> smoke.
 
   Order matters: a forgotten assemble step is otherwise only caught later by the drift guard.
@@ -114,9 +114,15 @@ if (-not $SkipBackup) {
 Step 'version sync' {
   # One place owns the version: keep the fragment constant, build.ps1 defaults and the test
   # literal in step with -Version, otherwise the About page drifts (1.1.71 vs 1.1.91).
+  # 2026-11-18: this used to go through Run, which parks child output in a temp file; it was
+  # observed running 0.0 s with no output and no file change, which is how "installed 1.3.91 /
+  # about page 1.3.90" happens. Call node directly and print the outcome.
   if ($Version -match '^\d+\.\d+\.\d+$' -and $VersionCode -ge 1) {
-    $code = Run 'sync-version' ("& '" + $node + "' tools/sync-version.mjs " + $Version + " " + $VersionCode) 60
+    & $node tools\sync-version.mjs $Version $VersionCode
+    $code = $LASTEXITCODE
     if ($code -ne 0) { $global:LASTEXITCODE = $code; return }
+  } else {
+    Write-Host ('      skipped: -Version {0} / versionCode {1} is not a full version' -f $Version, $VersionCode)
   }
   $global:LASTEXITCODE = 0
 }

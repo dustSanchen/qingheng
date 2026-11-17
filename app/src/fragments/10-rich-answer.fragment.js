@@ -306,6 +306,7 @@
     renderChat();
     renderTrainingInsights();
     renderDailyCheck();
+    renderBodyQuick();
     renderWeekPlan();
     renderTrendWarnings();
     if (typeof renderDietTrend === 'function') renderDietTrend();

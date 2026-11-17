@@ -24,10 +24,12 @@ check('energy ring and target detail share one compact summary', app.includes('b
 check('energy summary keeps a responsive two-column layout', css.includes('.energy-body{display:grid;grid-template-columns:112px minmax(0,1fr)') &&
   css.includes('.energy-body{grid-template-columns:150px minmax(0,1fr)') &&
   css.includes('.energy-body{grid-template-columns:96px minmax(0,1fr)'));
-for (const label of ['记一餐', '训练', '身体', '拍照']) check(`chip: ${label}`, app.includes(label));
+// 2026-11-18：首页「拍照」胶囊删除——「记一餐」那张卡里本来就有添加照片，重复一步。
+for (const label of ['记一餐', '训练', '身体']) check(`chip: ${label}`, app.includes(label));
+check('no camera chip on today', !app.includes("['icon-glyph-camera.svg', '拍照', 'photo']"));
 check('only the meal action is visually primary', app.includes("'quick-chip-primary'") && css.includes('.quick-chip.quick-chip-primary{background:var(--accent)'));
-check('chips route to the right segment', app.includes('switchRecordPanel(recordPanelForField(focus === \'photo\' ? \'meal-text\' : focus))'));
-check('the photo chip opens the camera tile', app.includes("$('#view-records label[for=\"meal-image\"]')?.click();"));
+check('chips route to the right segment', app.includes('switchRecordPanel(recordPanelForField(focus))'));
+check('the photo entry stays on the meal card', html.includes('id="photo-add"') && html.includes('id="photo-sheet"'));
 check('the training chip scrolls without focusing', app.includes("flashTarget(form.closest('.card'))") && app.includes("revealField(focus, {focus: false, block: 'start'});"));
 check('chat input and quick prompts lead the composer', app.includes('function installChatTaskOrder()') && app.includes('question.after(chips)'));
 check('low-frequency profile settings open their own sub-page', app.includes('function installProfileMore()') && html.includes('外观与餐次时间') && app.includes("iconMarkup('icon-copy.svg')") &&
@@ -75,7 +77,7 @@ check('quick record meal type is an in-dialog chip row, not a native select', ap
 check('today records empty state does not add a dashed inner frame', css.includes('#today-records-card .empty-state.is-empty{border:0;border-radius:0}'));
 
 // --- styles ---------------------------------------------------------------------------------------------
-check('quick actions follow the energy summary without overlaying content', app.includes('energyBody.after(row)') && css.includes('.quick-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))') && !css.includes('.quick-actions{position:fixed'));
+check('quick actions follow the energy summary without overlaying content', app.includes('energyBody.after(row)') && css.includes('.quick-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))') && !css.includes('.quick-actions{position:fixed'));
 check('quick action targets stay at least 44px with 8px gaps', css.includes('gap:8px') && css.includes('min-height:52px'));
 check('bottom navigation keeps 52px targets and 8px spacing', /\.bottom-nav button\{[^}]*min-height:52px/.test(css) && /\.bottom-nav\{[^}]*gap:8px/.test(css));
 check('record and trend tabs keep 44px targets and 8px spacing', /\.segment-bar\{[^}]*gap:8px/.test(css) && /\.segment\{[^}]*min-height:44px/.test(css));

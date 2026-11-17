@@ -250,7 +250,7 @@
       const source = ({manual:'手动',local:'本地估算',api:'模型估算','quick-copy':'复制','import':'导入'})[meal.source] || '';
       const items = Array.isArray(meal.items) && meal.items.length ? `共 ${meal.items.length} 项` : '';
       const photo = meal.photoTakenAt ? '有照片' : '';
-      return `<div class="meal-row list-row" role="listitem" data-long-press="meal:${esc(meal.id ?? '')}"><div class="row-body"><div class="row-head"><strong>${esc(meal.name || '未命名餐食')}</strong>`
+      return `<div class="meal-row list-row" role="listitem" data-long-press="meal:${esc(meal.id ?? '')}"><div class="row-body"><div class="row-head"><strong>${esc(stripQuickTag(meal.name) || '未命名餐食')}</strong>`
         + `${meal.favorite === true ? `<span class="fav-badge" aria-label="已收藏"><span class="inline-icon" aria-hidden="true">${SVG_ICONS['icon-bookmark.svg']}</span></span>` : ''}`
         + `${type ? `<span class="row-tag">${type}</span>` : ''}`
         + `${source ? `<span class="row-tag subtle-tag">${esc(source)}</span>` : ''}`
@@ -475,7 +475,6 @@ const values = points.length<=7 ? points.map((item,i) => {
         stats[1].title = `计划每周 ${plannedRate > 0 ? '+' : ''}${fmt(plannedRate, 2)} kg，实际每周 ${observedRate > 0 ? '+' : ''}${fmt(observedRate, 2)} kg`;
       }
     }
-    renderDailyThree();
     renderCopyMeals();
     renderTrainingLog();
     renderVolumeTable();
@@ -499,6 +498,15 @@ const values = points.length<=7 ? points.map((item,i) => {
   /** The habit row for a date; older builds could append duplicates, so keep the fullest one. */
   function habitRowFor(date) {
     const rows = (state.habits || []).filter(row => row && row.date === date);
+    if (rows.length <= 1) return rows[0] || null;
+    return rows.slice().sort((a, b) => JSON.stringify(b).length - JSON.stringify(a).length)[0];
+  }
+  /**
+   * The measurement row for a date. 同一天只该有一行：写之前先拿到它，
+   * 带上 id 就变成更新，否则「身体近况」按日期取第一条时会读到旧值（2026-11-18）。
+   */
+  function measurementRowFor(date) {
+    const rows = (state.measurements || []).filter(row => row && row.date === date);
     if (rows.length <= 1) return rows[0] || null;
     return rows.slice().sort((a, b) => JSON.stringify(b).length - JSON.stringify(a).length)[0];
   }

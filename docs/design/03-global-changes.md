@@ -165,3 +165,5 @@
 
 
 | 2026-11-18 | `tests/daily-three-copy.test.mjs`、`tests/layout-four.test.mjs` | 「三样卡存在 / 收起」改为「三样并入体检」：断言 today 不再有 `id="daily-three"`，且 app 含 `check-missing` | 用户要求今日三样与今日体检合并、减少卡片堆砌；训练/睡眠/体重入口改为体检卡的「补记」行与记录页表单 |
+| 2026-11-18 | `tests/daily-three-copy.test.mjs`、`tests/layout-four.test.mjs`、`tests/advice-and-training-window.test.mjs`、`tests/records-panels.test.mjs` | 三样卡 → 「今天两样」卡（体重 + 睡眠一次保存）；快捷胶囊 4 枚 → 3 枚（删「拍照」）；习惯预设只留步数与饮水；身体面板标题追加「今天两样」 | 用户 2026-11-18 四条反馈：快速记录餐名叠后缀、首页拍照多余、体检两行点评重复、记录·身体要能一次记下当天睡眠体重。三样卡的旧断言指向已被 1.3.83 删除的 DOM，本轮顺势清掉死代码并跟到现役实现 |
+| 2026-11-18 | 新增 `tests/body-quick.test.mjs` | 快速记录餐名去后缀（生成端 + 显示端）、首页无拍照胶囊、体检只有一行点评（含 `dailyCheck` 行为断言）、今天两样一次保存且同一天只留一行测量 | 同上；四条反馈各留一组断言，防止回退到叠后缀、双按钮、重复行 |

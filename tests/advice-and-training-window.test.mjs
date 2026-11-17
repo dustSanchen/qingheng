@@ -37,7 +37,8 @@ check('the native side narrows the prompt for training', main.includes('"trainin
 
 // --- habits lose friction ---------------------------------------------------------------------------
 check('habit presets exist', html.includes('id="habit-chips"'));
-check('presets cover steps, sleep and water', rest.includes("['步数 8k', 'steps', 8000]") && rest.includes("['睡眠 7.5h', 'sleep', 7.5]") && rest.includes("['饮水 2L', 'water', 2000]"));
+// 2026-11-18：睡眠与体重挪到「记录·身体 → 今天两样」，习惯卡片只留步数与饮水。
+check('presets cover steps and water', rest.includes("['步数 8k', 'steps', 8000]") && rest.includes("['饮水 2L', 'water', 2000]") && !rest.includes("['睡眠 7.5h', 'sleep', 7.5]"));
 check('a copy-yesterday shortcut exists', rest.includes('data-habit-copy') && rest.includes("shiftDay(localDate(), -1)"));
 check('copying fills only recorded values', rest.includes("if (field && number(rowData[key]) !== null) field.value = rowData[key];"));
 

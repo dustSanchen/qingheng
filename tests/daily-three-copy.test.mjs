@@ -12,18 +12,19 @@ const html = fs.readFileSync('app/src/main/assets/index.html', 'utf8');
 const css = fs.readFileSync('app/src/main/assets/styles.css', 'utf8');
 const main = fs.readFileSync('app/src/main/java/cn/qingheng/health/MainActivity.java', 'utf8');
 
-// --- today's three things ---------------------------------------------------------------------------
-check('the three things merged into the check card', !html.includes('id="daily-three"') && app.includes('check-fix-row') );
-check('it asks for exactly the three documented things', html.includes('name="training"') && html.includes('name="sleep"') && html.includes('name="weight"'));
+// --- today's two things -----------------------------------------------------------------------------
+// 2026-11-18：三样卡并入体检后，记录页「身体」面板新增「今天两样」：体重 + 睡眠一次保存。
+check('the three things merged into the check card', !html.includes('id="daily-three"') && app.includes('check-fix-row'));
+check('the body panel asks for weight and sleep in one row', html.includes('id="body-quick-form"') && html.includes('name="weight"') && html.includes('name="sleep"'));
 check('cooking oil is explained in spoons', html.includes('1 勺≈10 g≈90 kcal'));
 check('weight is asked for under the documented conditions', html.includes('空腹、同一状态'));
 check('the card is prefilled from the day being viewed', app.includes("const habit = (state.habits || []).find(row => row && row.date === activeDate) || {};") && app.includes("const measurement = (state.measurements || []).find(row => row && row.date === activeDate) || {};"));
-check('a three-part tag shows progress', app.includes("filled === 3 ? '已记录三样' : `已记录 ${filled}/3`"));
-check('an empty submit is refused', /if \(trainingValue === '' && sleep === null && weight === null\)[\s\S]{0,40}三样都空着/.test(app));
-check('training and oil go to the habit row', app.includes("await api('/api/habits', {...(habitRowFor(activeDate) || {}), date: activeDate,"));
-check('weight goes to the measurements', app.includes("await api('/api/measurements', {date: activeDate, weight});"));
+check('a two-part tag shows progress', app.includes("filled === 2 ? '已记录两样' : `已记录 ${filled}/2`"));
+check('an empty submit is refused', /if \(weight === null && sleep === null\)[\s\S]{0,80}都空着/.test(app));
+check('sleep merges into the habit row of the day', app.includes("await api('/api/habits', {...(habitRowFor(activeDate) || {}), date: activeDate, sleep});"));
+check('weight updates the same-day measurement instead of adding a row', app.includes("await api('/api/measurements', {...(measurementRowFor(activeDate) || {}), date: activeDate, weight});") && app.includes('function measurementRowFor(date)'));
 check('the app reports what was stored', app.includes("feedback(message, `已记录：${saved.join('、')}。`);"));
-check('the card is re-rendered with the day view', app.includes('    renderDailyThree();'));
+check('the card is re-rendered with the day view', app.includes('    renderBodyQuick();'));
 
 // --- native validation for the habit row --------------------------------------------------------------
 check('habits are validated natively', main.includes('private void requireHabitFields(JSONObject record)'));
@@ -47,7 +48,7 @@ check('an empty list is explained instead of showing a blank box', app.includes(
 check('the copy list is re-rendered with the records view', app.includes('    renderCopyMeals();'));
 
 // --- styles -------------------------------------------------------------------------------------------
-check('the three-things card is single column on a phone', css.includes('#daily-three .form-grid{grid-template-columns:1fr}'));
+check('the two-things row is a two-column grid on a phone', css.includes('.quick-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))'));
 check('copy buttons are readable', css.includes('#copy-meal-buttons .button{justify-content:flex-start'));
 
 console.log('\nFAIL total: ' + fail);

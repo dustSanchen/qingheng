@@ -2,7 +2,7 @@
 
 一个把「记录」认真做好的本地优先 Android 健康应用：饮食、训练、身体数据与睡眠饮水都留在手机里，需要 AI 时再按你的明确同意调用你自己的模型服务。
 
-![Version](https://img.shields.io/badge/version-1.3.90-informational) ![Tests](https://img.shields.io/badge/tests-64%20%2F%2064-green) ![MinSdk](https://img.shields.io/badge/minSdk-26-blue) ![TargetSdk](https://img.shields.io/badge/targetSdk-35-blue) ![APK](https://img.shields.io/badge/APK-615%20KB-lightgrey)
+![Version](https://img.shields.io/badge/version-1.3.92-informational) ![Tests](https://img.shields.io/badge/tests-65%20%2F%2065-green) ![MinSdk](https://img.shields.io/badge/minSdk-26-blue) ![TargetSdk](https://img.shields.io/badge/targetSdk-35-blue) ![APK](https://img.shields.io/badge/APK-619%20KB-lightgrey)
 
 产品页（纯静态，可直接打开）：[`site/index.html`](site/index.html)
 
@@ -18,7 +18,7 @@
 | 页面 | 能做什么 |
 |---|---|
 | 今天 | 能量环与宏量、今日体检（四项加权、接近/偏离分档）、放松日、今日清单、建议卡，更多里放身体近况与小习惯 |
-| 记录 | 饮食：拍照 / 相册 / 描述估算，预览确认后入档，本地食品库 150 条，复制一餐；训练：本周容量与训练概览、周计划与换一版、三行式今日顺序（换一个 / 记录）、逐组记录与 90s 组间休息、杠铃总重与照上次练、91 条动作说明、课后总结；身体：身体数据与日常习惯 |
+| 记录 | 饮食：拍照 / 相册 / 描述估算，预览确认后入档，本地食品库 150 条，复制一餐；训练：本周容量与训练概览、周计划与换一版、三行式今日顺序（换一个 / 记录）、逐组记录与 90s 组间休息、杠铃总重与照上次练、91 条动作说明、课后总结；身体：今天两样（体重 + 睡眠一次保存）、身体数据、日常习惯 |
 | 问答 | 流式回答、联网检索开关、按天回看、收藏与搜索、拍照提问；发送前可展开核对将发送的数据 |
 | 趋势 | 体重按真实测量日期绘制、不插值；食物、训练与体重面板 |
 | 我的 | 身体档案与目标、AI 模型与密钥（含用量与余额）、提醒与每日建议、偏好与记忆、外观与餐次时间、数据管理、更多设置与关于 |
@@ -29,7 +29,7 @@
 - 三套皮肤：纸感（暖米底、衬线标题）、账本（近白、无衬线、数据优先）、夜间（暗底，手动切换）。
 - 线用三档、字号六档、圆角三档；图标 24 网格 / 1.5 描边 / 每枚最多一个微型记号。
 - 展开/收起做 0.28–0.46s 的不对称过渡，`prefers-reduced-motion` 下全部关闭。
-- 61 个测试文件守住结构、口径、可访问性与数据契约，全量跑一轮约 10 秒。
+- 65 个测试文件守住结构、口径、可访问性与数据契约，全量跑一轮约 10 秒。
 
 ## 隐私与数据
 
@@ -54,11 +54,11 @@
 # 片段 → app.js，并做语法检查
 tools\assemble-app.ps1
 
-# 全量测试（基线 61/61）
+# 全量测试（基线 65/65）
 node tools/test-all.mjs
 
 # 版本号 + 测试 + 打包 + 装机 + 冒烟（约 30s）
-tools\dev-loop.ps1 -Version 1.3.39 -VersionCode 339
+tools\dev-loop.ps1 -Version 1.3.92 -VersionCode 392
 ```
 
 - 版本规则：`1.<minor>.<patch>`，patch 两位补零、逢百进一；`dev-loop` 会同步片段常量、`build.ps1` 默认值与测试字面量。

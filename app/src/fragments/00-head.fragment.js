@@ -21,6 +21,11 @@
   /** Calendar-day shift used by the copy-a-meal and daily-three helpers. */
   const shiftDay = (value, days) => {const date = new Date(`${value}T12:00:00`); date.setDate(date.getDate() + days); return localDate(date);};
   const mealNames = {breakfast:'早餐',lunch:'午餐',dinner:'晚餐',snack:'加餐'};
+  /**
+   * 快速记录以前把「（快速记录）」写进餐名，复制一餐就再叠一层（见到过两层）。
+   * 行里本来就有「复制」标签，名称不再带后缀；老记录在显示时一并清掉。
+   */
+  const stripQuickTag = value => String(value ?? '').replace(/(?:（快速记录）|\(快速记录\))+$/, '').trim();
   let state = {profile:{},measurements:[],meals:[],habits:[],settings:{}};
   let loaded = false, settingsKnown = false, imageData = null, imageBusy = false, imageVersion = 0, draft = null, estimateBusy = false, savingDraft = false, requestRevision = 0;
   let lastCaptureId = '';
@@ -75,8 +80,6 @@
   // from dinnerFrom dinner, from snackFrom a snack. Three thresholds, editable in
   // 我的 → 数据、外观与说明.
   const MEAL_WINDOW_KEY = 'qingheng.mealWindow';
-  /** 今日三样当天是否已保存过（保存后收成摘要，要改先点「修改」）。 */
-  const DAILY_THREE_KEY = date => `qingheng.dailyThree.${date}`;
   /** 长期偏好：一句话一条，最多 20 条，注入估算/建议/训练的提示词。 */
   const PREFERENCES_KEY = 'qingheng.preferences';
   function readPreferences() {

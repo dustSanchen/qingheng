@@ -154,7 +154,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.90';
+  const APP_VERSION = '1.3.92';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1129,8 +1129,7 @@
     row.innerHTML = [
       ['icon-meal.svg', '记一餐', 'meal-text', 'quick-chip-primary'],
       ['icon-glyph-training.svg', '训练', 'training-form', ''],
-      ['icon-glyph-balance.svg', '身体', 'measurement-weight', ''],
-      ['icon-glyph-camera.svg', '拍照', 'photo']
+      ['icon-glyph-balance.svg', '身体', 'measurement-weight', '']
     ].map(([icon, label, focus, className = '']) => `<button type="button" class="quick-chip ${className}" data-quick-focus="${focus}" data-quick-icon="${icon}"><span class="quick-chip-icon" aria-hidden="true">${iconMarkup(icon)}</span>${label}</button>`).join('');
     energyBody.after(row);
     row.addEventListener('click', event => {
@@ -1138,13 +1137,8 @@
       if (!chip) return;
       const focus = chip.dataset.quickFocus;
       switchTab('records', true);
-      switchRecordPanel(recordPanelForField(focus === 'photo' ? 'meal-text' : focus));
+      switchRecordPanel(recordPanelForField(focus));
       setTimeout(() => {
-        if (focus === 'photo') {
-          // The camera tile is a label bound to the file input; clicking it opens the camera.
-          $('#view-records label[for="meal-image"]')?.click();
-          return;
-        }
         if (focus === 'training-form') {
           const form = $('#training-form');
           if (form) { form.closest('.card')?.scrollIntoView({block: 'start', behavior: 'smooth'}); flashTarget(form.closest('.card')); }
@@ -1519,7 +1513,7 @@
   const RECORD_PANELS = [
     {key: 'food', label: '饮食', headings: ['轻松记一餐', '最近的餐食记录', '复制一餐', '食品热量参考库', '手动记录餐食'], foldedHeadings: ['食品热量参考库', '手动记录餐食']},
     {key: 'training', label: '训练', headings: ['训练概览', '训练计划', '今日顺序', '训练日志', '下周计划'], trainingOnly: true},
-    {key: 'body', label: '身体', headings: ['身体数据', '日常习惯']}
+    {key: 'body', label: '身体', headings: ['今天两样', '身体数据', '日常习惯']}
   ];
   const RECORD_PANEL_STORAGE = 'qingheng.recordsPanel';
   function installRecordPanels() {
@@ -1644,8 +1638,10 @@
   });
   window.addEventListener('hashchange',()=>{const {tab,sub}=parseHash();switchTab(tab||'today',false,sub);});
   $('#trend-range').addEventListener('change',renderTrends);$('#refresh-advice').addEventListener('click',refreshAdvice);
-  $('#measurement-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/measurements',form=>{const values=numericForm(form,['weight','waist','bodyFat','muscle','visceralFat','bmr']);if(Object.values(values).every(value=>value===null)) throw new Error('请至少填写一项测量数据。');return {date:form.elements.date.value,...values};});});
-  $('#habit-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/habits',form=>{const values=numericForm(form,['steps','sleep','water']);const training=form.elements.training.value===''?null:form.elements.training.value==='true';if(training===null && Object.values(values).every(value=>value===null)) throw new Error('请至少填写一项日常习惯。');return {date:form.elements.date.value,training,...values};});});
+  // 两项「更多测量」与「日常习惯」都并进当天那一行：同一天只有一行测量、一行习惯（2026-11-18）。
+  // 空着的格不再写成 null，否则只改腰围会把当天的体重冲掉。
+  $('#measurement-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/measurements',form=>{const filled=Object.fromEntries(Object.entries(numericForm(form,['waist','bodyFat','muscle','visceralFat','bmr'])).filter(([,value])=>value!==null));if(!Object.keys(filled).length) throw new Error('请至少填写一项测量数据。');return {...(measurementRowFor(form.elements.date.value)||{}), date:form.elements.date.value, ...filled};});});
+  $('#habit-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/habits',form=>{const filled=Object.fromEntries(Object.entries(numericForm(form,['steps','water'])).filter(([,value])=>value!==null));const training=form.elements.training.value===''?null:form.elements.training.value==='true';if(training===null && !Object.keys(filled).length) throw new Error('请至少填写一项日常习惯。');return {...(habitRowFor(form.elements.date.value)||{}), date:form.elements.date.value, ...(training===null?{}:{training}), ...filled};});});
   // 记录页三种表单统一成「日期在最前、保存在最后」；训练日志原来没有日期输入，只能靠页面顶部的全局日期。
   $('#training-date')?.addEventListener('change', event => {
     const value = event.target.value;
@@ -1829,30 +1825,29 @@
     const button = event.target.closest?.('[data-copy-meal]');
     if (button) copyMeal(button.dataset.copyMeal).catch(error => notice(error.message, true));
   });
-  $('#daily-three-form')?.addEventListener('submit', async event => {
+  // 记录·身体「今天两样」：体重写测量、睡眠并进习惯行，一次提交两处都落库（2026-11-18）。
+  $('#body-quick-form')?.addEventListener('submit', async event => {
     event.preventDefault();
     const form = event.currentTarget, message = $('.form-feedback', form), button = $('button[type=submit]', form);
     if (button.disabled) return;
-    const trainingValue = form.elements.training.value;
-    const sleep = number(form.elements.sleep.value);
-    const weight = number(form.elements.weight.value);
-    if (trainingValue === '' && sleep === null && weight === null) {feedback(message, '三样都空着，没有可保存的内容。', true); return;}
+    const weight = number(form.elements.weight.value), sleep = number(form.elements.sleep.value);
+    if (weight === null && sleep === null) {feedback(message, '体重和睡眠都空着，没有可保存的内容。', true); return;}
+    if (weight !== null && (weight <= 0 || weight > 500)) {feedback(message, '体重请填 1–500 kg。', true); return;}
+    if (sleep !== null && (sleep < 0 || sleep > 24)) {feedback(message, '睡眠请填 0–24 小时。', true); return;}
     button.disabled = true;
     feedback(message, '正在保存…');
     const saved = [];
     try {
-      if (trainingValue !== '' || sleep !== null) {
-        // Merge into the day's row so training, oil and the training log never split into duplicates.
-        await api('/api/habits', {...(habitRowFor(activeDate) || {}), date: activeDate, ...(trainingValue === '' ? {} : {training: trainingValue === 'true'}), ...(sleep === null ? {} : {sleep})});
-        saved.push(trainingValue === '' ? '睡眠' : '训练');
+      if (sleep !== null) {
+        // 并进当天那一行：训练、饮水、训练日志都挂在同一行上，不能因为补睡眠而分裂成两行。
+        await api('/api/habits', {...(habitRowFor(activeDate) || {}), date: activeDate, sleep});
+        saved.push(`睡眠 ${fmt(sleep)} 小时`);
       }
       if (weight !== null) {
-        await api('/api/measurements', {date: activeDate, weight});
-        saved.push('体重');
+        // 同一天只留一行测量：带 id 就是更新，否则「身体近况」按日期取第一条会读到旧值。
+        await api('/api/measurements', {...(measurementRowFor(activeDate) || {}), date: activeDate, weight});
+        saved.push(`体重 ${fmt(weight)} kg`);
       }
-      // 记过一次就收起来：这张卡在首屏占地大，展开态最容易误触。
-      try {localStorage.setItem(DAILY_THREE_KEY(activeDate), '1');} catch {}
-      dailyThreeEditing = '';
       await loadState({quiet: true});
       feedback(message, `已记录：${saved.join('、')}。`);
     } catch (error) {feedback(message, error.message, true);}
@@ -2266,13 +2261,12 @@ feedback(message,'数据已导入。'+report);
       card.dataset.collapsed = '1';
     }
   }
-  /** One-tap habit values: the form asks for six fields, most days only three matter. */
+  /** One-tap habit values: 睡眠/体重 已归到「今天两样」，这里只留步数与饮水。 */
   function installHabitChips() {
     const row = $('#habit-chips'), form = $('#habit-form');
     if (!row || !form) return;
     const presets = [
       ['步数 6k', 'steps', 6000], ['步数 8k', 'steps', 8000], ['步数 10k', 'steps', 10000],
-      ['睡眠 6.5h', 'sleep', 6.5], ['睡眠 7.5h', 'sleep', 7.5], ['睡眠 8.5h', 'sleep', 8.5],
       ['饮水 1.5L', 'water', 1500], ['饮水 2L', 'water', 2000], ['饮水 2.5L', 'water', 2500]
     ];
     row.innerHTML = presets.map(([label, key, value], index) => `<button type="button" class="button subtle" data-habit-preset="${index}">${esc(label)}</button>`).join('')
@@ -2285,7 +2279,7 @@ feedback(message,'数据已导入。'+report);
         const yesterday = shiftDay(localDate(), -1);
         const rowData = (state.habits || []).find(item => item && item.date === yesterday);
         if (!rowData) {notice('昨天没有习惯记录可复制。', true); return;}
-        for (const key of ['steps', 'sleep', 'water']) {
+        for (const key of ['steps', 'water']) {
           const field = form.elements[key];
           if (field && number(rowData[key]) !== null) field.value = rowData[key];
         }
@@ -2356,8 +2350,9 @@ feedback(message,'数据已导入。'+report);
     const habit = habitRowFor(draft.date) || {date: draft.date};
     const existing = Array.isArray(habit.exercises) ? habit.exercises : [];
     if (draft.kind === 'weight') {
-      const before = (state.measurements || []).find(row => row && row.date === draft.date) || null;
-      await api('/api/measurements', {date: draft.date, weight: draft.payload.weight});
+      // 带当天那行的 id 写入：否则同一天会有两行测量，「身体近况」按日期取第一条会读到旧值。
+      const before = measurementRowFor(draft.date);
+      await api('/api/measurements', {...(before || {}), date: draft.date, weight: draft.payload.weight});
       return {kind: 'weight', date: draft.date, before};
     }
     if (draft.kind === 'training') {
@@ -2376,7 +2371,7 @@ feedback(message,'数据已导入。'+report);
       if (!draftUndo) return;
       try {
         if (draftUndo.kind === 'weight') {
-          if (draftUndo.before) await api('/api/measurements', {date: draftUndo.date, weight: draftUndo.before.weight});
+          if (draftUndo.before) await api('/api/measurements', {...draftUndo.before, date: draftUndo.date});
         } else {
           await api('/api/habits', {...draftUndo.before, date: draftUndo.date});
         }

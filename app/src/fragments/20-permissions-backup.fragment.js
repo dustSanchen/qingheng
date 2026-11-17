@@ -217,7 +217,7 @@
     quickRecordSources = merged;
     const quickTypeLabel = {breakfast: '早餐', lunch: '午餐', dinner: '晚餐', snack: '加餐'};
     const quickShortName = (meal) => {
-      const raw = String(meal.name || '未命名餐食').replace(/\s+/g, ' ').trim();
+      const raw = stripQuickTag(String(meal.name || '未命名餐食')).replace(/\s+/g, ' ').trim() || '未命名餐食';
       return raw.length > 14 ? raw.slice(0, 14) + '…' : raw;
     };
     quickRecordSelected = 0;
@@ -267,7 +267,8 @@
     const scale = value => value === null || value === undefined ? null : Math.round(Number(value) * factor * 100) / 100;
     const items = Array.isArray(source.items) ? source.items.map(item => ({...item, grams:scale(item.grams), calories:scale(item.calories), protein:scale(item.protein), fat:scale(item.fat), carbs:scale(item.carbs)})) : [];
     const totals = Object.fromEntries(['calories','protein','fat','carbs'].map(key => [key, scale(source[key] ?? source.totals?.[key])]));
-    const name = $('#quick-record-text').value.trim() || `${source.name || '未命名餐食'}（快速记录）`;
+    // 名称不再补「（快速记录）」：餐食行本来就有「复制」标签，补了会随复制层层叠加。
+    const name = $('#quick-record-text').value.trim() || stripQuickTag(source.name) || '未命名餐食';
     const button = $('button[type="submit"]', event.currentTarget);
     button.disabled = true;
     try {

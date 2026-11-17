@@ -235,30 +235,32 @@
       if (!worst || item.score < worst.score) worst = item;
       if (!best || item.score > best.score) best = item;
     }
-    // 一句评价：先给结论，再说哪一项差多少，最后给一句人话。不用「明显偏了」这类判断词。
-    let verdict = '还没有可评的记录：先记一餐和睡眠，我再帮你算。';
-    if (score !== null) {
-      const band = score >= 85 ? '今天整体到位' : score >= 70 ? '今天整体还不错' : score >= 50 ? '今天有几项没跟上' : '今天缺口比较大';
-      const gapOf = item => {
-        if (item.key === 'calories' && range) return item.value < range.min
-          ? `热量还差 ${Math.round(range.min - item.value)} kcal`
-          : `热量超了 ${Math.round(item.value - range.max)} kcal`;
-        if (item.key === 'protein') return `蛋白还差 ${Math.max(0, Math.round((src.proteinMin || 0) - item.value))} g`;
-        if (item.key === 'fat') return item.value > (src.fatMax || 0)
-          ? `脂肪超了 ${Math.round(item.value - (src.fatMax || 0))} g`
-          : `脂肪少了 ${Math.round((src.fatMin || 0) - item.value)} g`;
-        if (item.key === 'sleep') return `睡眠只有 ${item.value}（建议 7 小时以上）`;
-        return `${item.label}还差一点`;
-      };
-      const good = scored.filter(item => item.ok).map(item => item.label);
-      const goodPart = good.length ? `${good.slice(0, 2).join('和')}在区间内` : '还没有一项完全在区间内';
-      const worstPart = worst && !worst.ok ? gapOf(worst) : '';
-      verdict = worstPart
-        ? `${band}：${goodPart}，${worstPart}，先补这一项。`
-        : `${band}：${goodPart}。`;
-      const missing = items.length - scored.length;
-      if (missing > 0) verdict += `还有 ${missing} 项没记录，记了才评得准。`;
-    }
+    // 一句评价（2026-11-18）：结论 → 差在哪 → 一个动作，合成一句。原来是「评价」一行、
+    // 「今天优先」再一行，两行说同一件事，动作句里的数字还与评价重复。
+    // 用「明显偏了」这类判断词是要避免的；只报数值和动作。
+    const band = score === null ? '' : score >= 85 ? '今天整体到位' : score >= 70 ? '今天整体还不错' : score >= 50 ? '今天有几项没跟上' : '今天缺口比较大';
+    const gapOf = item => {
+      if (item.key === 'calories' && range) return item.value < range.min
+        ? `热量还差 ${Math.round(range.min - item.value)} kcal`
+        : `热量超了 ${Math.round(item.value - range.max)} kcal`;
+      if (item.key === 'protein') return `蛋白还差 ${Math.max(0, Math.round((src.proteinMin || 0) - item.value))} g`;
+      if (item.key === 'fat') return item.value > (src.fatMax || 0)
+        ? `脂肪超了 ${Math.round(item.value - (src.fatMax || 0))} g`
+        : `脂肪少了 ${Math.round((src.fatMin || 0) - item.value)} g`;
+      if (item.key === 'sleep') return `睡眠只有 ${item.value}`;
+      return `${item.label}还差一点`;
+    };
+    const good = scored.filter(item => item.ok).map(item => item.label);
+    const goodPart = good.length ? `${good.slice(0, 2).join('和')}在区间内` : '还没有一项完全在区间内';
+    // 动作按「哪一项 + 偏哪边」取：热量低和热量高要的是相反的动作。
+    const STEP_TEXT = {
+      'calories:high': '晚餐只吃蛋白和蔬菜',
+      'calories:low': '加一份主食配一个蛋白来源',
+      'protein:low': '下一餐先吃一份蛋白质',
+      'fat:high': '之后改白灼或清蒸',
+      'fat:low': '补一点坚果或食用油',
+      'sleep:any': '今天训练别加组'
+    };
     let action = '今天的记录都在区间内，保持就好。';
     if (worst) {
       const proteinGap = Math.max(0, Math.round((src.proteinMin || 0) - sum.protein));
@@ -268,10 +270,15 @@
       else if (worst.key === 'fat' && src.fatMax) action = '脂肪超 ' + Math.round(Math.max(0, sum.fat - src.fatMax)) + ' g：之后改白灼/清蒸，少油。';
       else if (worst.key === 'sleep') action = '睡眠 ' + (worst.value === '未记录' ? '没记录' : worst.value) + '：今天训练强度降 10%，别加组。';
     }
+    let verdict;
     if (relax) {
-      verdict = '今天是本周的放松日：吃得比目标多一些，属于计划内，不算失败。';
+      // 放松日的动作单独留给 localCoachLine（问一句时的本地方案），页面上只显示合并后的那一句。
       action = '明后两天照常吃就行，不要用少吃或加练去「补回来」——那样更容易在周末反弹。';
+      verdict = '今天是本周的放松日：吃多一点属于计划内，明后两天照常吃，不用少吃或加练补回来。';
     }
+    else if (score === null) verdict = '还没有可评的记录：先记一餐和睡眠，我再帮你算。';
+    else if (worst && !worst.ok) verdict = `${band} · ${gapOf(worst)}，${STEP_TEXT[`${worst.key}:${worst.state || 'any'}`] || '先补这一项'}。`;
+    else verdict = `${band} · ${goodPart}，保持就好。`;
     return {items, worst, best, action, verdict, score, coverage, relax, weights: DAILY_CHECK_WEIGHTS, totals: {calories: Math.round(sum.calories), protein: Math.round(sum.protein), fat: Math.round(sum.fat), carbs: Math.round(sum.carbs)}};
   }
   /**
@@ -770,8 +777,7 @@
         + `<span class="check-bar-track"><span class="check-bar-fill" style="height:${pct}%"></span></span>`
         + `<small>${esc(item.label)}</small></div>`;
     }).join('') + '</div>'
-      + `<p class="check-verdict">${esc(check.verdict)}</p>`
-      + `<p class="check-action"><strong>今天优先：</strong>${esc(check.action)}</p>`;
+      + `<p class="check-verdict">${esc(check.verdict)}</p>`;
     // 2026-11-18：今日三样并入体检——缺哪项直接给入口，不再单独占一张卡。
     const trainingValue = habit.training === true || habit.training === 'true' ? 'true' : habit.training === false || habit.training === 'false' ? 'false' : '';
     const sleepValue = number(habit.sleep);
@@ -1279,51 +1285,25 @@
     box.innerHTML = annotateTerms(notes.map(note => `<p class="warn-line">${esc(note)}</p>`).join(''));
   }
 
-  let dailyThreeEditing = '';
-  function renderDailyThree() {
-    const form = $('#daily-three-form');
+  /**
+   * 记录·身体 的「今天两样」：体重与睡眠并排一行、一次保存（2026-11-18）。
+   * 原来要滚两张长表、按两次保存才能补齐当天这两项；现在面板一打开就是这两格。
+   */
+  function renderBodyQuick() {
+    const form = $('#body-quick-form');
     if (!form) return;
-    const tag = $('#daily-three-tag');
     const habit = (state.habits || []).find(row => row && row.date === activeDate) || {};
     const measurement = (state.measurements || []).find(row => row && row.date === activeDate) || {};
-    const training = habit.training === true || habit.training === 'true' ? 'true' : habit.training === false || habit.training === 'false' ? 'false' : '';
-    if (document.activeElement !== form.elements.training) form.elements.training.value = training;
-    if (document.activeElement !== form.elements.sleep) form.elements.sleep.value = number(habit.sleep) ?? '';
-    if (document.activeElement !== form.elements.weight) form.elements.weight.value = number(measurement.weight) ?? '';
     const sleep = number(habit.sleep), weight = number(measurement.weight);
-    const filled = [training !== '', sleep !== null, weight !== null].filter(Boolean).length;
-    // 三样都记过就收成一列只读摘要：这张卡在首屏占地大，展开态最容易误触。
-    let savedThisDay = false;
-    try {savedThisDay = localStorage.getItem(DAILY_THREE_KEY(activeDate)) === '1';} catch {}
-    // 2026-11-18：首屏改成「三样摘要」——默认收着，点一下才展开表单；美术展示优先，多一步没关系。
-    const collapsed = dailyThreeEditing !== activeDate;
-    const body = $('#daily-three-body'), summary = $('#daily-three-summary');
-    if (body) body.hidden = collapsed;
-    if (summary) {
-      summary.hidden = !collapsed;
-      if (collapsed) {
-        const rows = [
-          ['训练', training === 'true' ? '已训练' : training === 'false' ? '休息' : '未记录'],
-          ['睡眠', sleep === null ? '—' : `${fmt(sleep)} 小时`],
-          ['体重', weight === null ? '—' : `${fmt(weight)} kg`]
-        ];
-        const missing = [training === '' ? '训练' : '', sleep === null ? '睡眠' : '', weight === null ? '体重' : ''].filter(Boolean);
-        // 按钮直接点名缺的那一样：2/3 时写「补 体重」，比笼统的「记录三样」少想一步。
-        const openLabel = filled === 3 ? '修改' : filled === 0 ? '记录三样' : '补 ' + missing.join('、');
-        summary.innerHTML = '<div class="daily-three-stats">'
-          + rows.map(([label, value]) => `<div><span>${label}</span><b>${esc(value)}</b></div>`).join('')
-          + '</div>'
-          + `<button type="button" class="button subtle daily-three-open" data-daily-three-edit>${openLabel}</button>`;
-      }
-    }
-    if (tag) tag.textContent = filled === 0 ? '待记录' : filled === 3 ? '已记录三样' : `已记录 ${filled}/3`;
+    // 正在输入的那一格不覆盖：重渲染不该把用户刚打的字冲掉。
+    if (document.activeElement !== form.elements.weight) form.elements.weight.value = weight ?? '';
+    if (document.activeElement !== form.elements.sleep) form.elements.sleep.value = sleep ?? '';
+    const filled = [weight !== null, sleep !== null].filter(Boolean).length;
+    const tag = $('#body-quick-tag');
+    if (tag) tag.textContent = filled === 0 ? '待记录' : filled === 2 ? '已记录两样' : `已记录 ${filled}/2`;
+    const note = $('#body-quick-note');
+    if (note) note.textContent = `记到 ${activeDate.slice(5).replace('-', '/')} · 只填一项也行；同一天再填会更新。`;
   }
-  document.addEventListener('click', event => {
-    const edit = event.target.closest?.('[data-daily-three-edit]');
-    if (!edit) return;
-    dailyThreeEditing = activeDate;
-    renderDailyThree();
-  });
   /** One-tap copies: yesterday's meals first, then the most recent ones. */
   function copyCandidates() {
     const rows = (state.meals || []).filter(row => row && validDate(row.date) && !row.needsDate);
@@ -1347,7 +1327,7 @@
     const tag = $('#copy-meal-tag');
     if (tag) tag.textContent = rows.length ? `最近 ${rows.length} 餐` : '暂无可复制记录';
     box.innerHTML = rows.length ? rows.map(row => {
-      const label = `${row.date === shiftDay(activeDate,-1) ? '昨天' : String(row.date).slice(5)} · ${mealNames[row.mealType] || '餐食'} · ${row.name || '未命名'}`;
+      const label = `${row.date === shiftDay(activeDate,-1) ? '昨天' : String(row.date).slice(5)} · ${mealNames[row.mealType] || '餐食'} · ${stripQuickTag(row.name) || '未命名'}`;
       return `<button type="button" class="button subtle" data-copy-meal="${esc(row.id ?? '')}">${esc(label)}</button>`;
     }).join('') : empty('还没有可复制的餐食记录', '记下一餐后，这里会列出来供一键复制。');
   }
@@ -1359,6 +1339,7 @@
     delete copy.id;
     copy.date = activeDate;
     copy.source = 'quick-copy';
+    copy.name = stripQuickTag(source.name) || '未命名餐食';
     copy.mealTime = nowClock();
     copy.mealTimeSource = 'manual';
     delete copy.estimateId;
