@@ -159,6 +159,7 @@
 | 2026-11-17 | `tests/anchors-oil.test.mjs` ×3 | 「预览可改油量」→「油按菜归属、无单独输入」；用油上限断言改 `topOil`；预览提示语改为「请核对份量与克重」「照片看不到锅底积油」 | 用油并入每道菜的识别结果（每道菜自带 oilGrams 并已算进该菜热量），去掉单独填写，断言跟到新交互 |
 | 2026-11-17 | `tests/nutrition-math.test.mjs` ×2 | `NutritionMath.totals(…, oilGrams)` → `(…, oilToAdd)`；`mismatchNote(oilGrams)` → `(oilToAdd)` | 新格式下油已包含在各菜里，只对旧格式（顶层 oilGrams、菜里没有油）补一次油，避免重复计入 |
 | 2026-11-17 | `tests/training-draft.test.mjs` | 「跑步靠对位继承 distanceKm」→「跑步有自己的距离/时长输入框」 | 1.3.59 有氧动作有了 data-cardio 输入，旧的 previous.distanceKm 继承逻辑连同断言一起移除，改守新表单 |
+| 2026-11-17 | `tests/p0-p1-round.test.mjs` | 「下一餐吃 一掌心鸡胸 / 两个鸡蛋」→「下一餐补一份蛋白质（蛋、豆制品、奶或瘦肉）」 | 用户要求把「两掌心鸡胸」这类健身语境的食物例子换成更容易接触的说法，或只提醒注意饮食；1.3.62 去掉食物阶梯，断言改为守中性提示 |
 | 2026-11-17 | `tests/training-log.test.mjs` | 「runsByName 按名字继承」→「km/分钟来自有氧输入，且 runsByName 已删」 | 同上：有氧不再靠上一条记录猜距离，断言改为守着输入框而不是旧 hack |
 
 
