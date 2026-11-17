@@ -62,7 +62,7 @@ check('a cancel control exists', app.includes('data-draft-cancel'));
 check('undo is offered after writing', app.includes('data-draft-undo'));
 check('write merges with the day row', app.includes('exercises: [...existing, ...(draft.payload.exercises || [])]'));
 check('the draft is shown before the answer', app.includes('if (draft) showTrainingDraft(draft); else renderTrainingDraft(null);'));
-check('runs keep distance when the log is edited', app.includes('item.distanceKm = number(previous.distanceKm);'));
+check('runs keep distance through their own inputs', app.includes('function cardioRowHtml(item)') && app.includes('data-cardio="distance"') && app.includes('data-cardio="minutes"'));
 check('a one-tap training chip exists', app.includes('data-chat-train'));
 check('the chip shows the draft immediately', app.includes('showTrainingDraft(parseTrainingDraft(sample, activeDate));'));
 

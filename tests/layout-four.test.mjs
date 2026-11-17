@@ -65,8 +65,9 @@ check('today and historical meals share one bottom separator per row', /#today-m
   css.includes('.day-event{padding:var(--space-2) 0;border:0;border-bottom:1px solid var(--line)}'));
 check('daily three collapses into a summary once all three are recorded', html.includes('id="daily-three-summary"') && html.includes('id="daily-three-body"') &&
   app.includes('dailyThreeEditing') && app.includes('body.hidden = collapsed') && app.includes('data-daily-three-edit'));
-check('the folded more section keeps habits and advice inside it', html.indexOf('今天的小习惯') > html.indexOf('id="day-more"') &&
-  html.indexOf('给今天的一点建议') > html.indexOf('id="day-more"') && html.indexOf('给今天的一点建议') < html.indexOf('id="today-records-card"'));
+// 2026-11-17 用户要求「把今天的建议从更多收纳中移出至今天中」：小习惯仍留在更多里，建议回到主流程。
+check('habits stay in the folded more section, advice moves to the main flow', html.indexOf('今天的小习惯') > html.indexOf('id="day-more"') &&
+  html.indexOf('给今天的一点建议') < html.indexOf('id="day-more"') && html.indexOf('给今天的一点建议') < html.indexOf('id="today-records-card"'));
 check('quick copy is a header action rather than a second full-width button', app.includes("button.className = 'button subtle quick-record-action'") &&
   app.includes('heading.appendChild(button)') && !html.includes('id="energy-actions"'));
 check('quick record meal type is an in-dialog chip row, not a native select', app.includes('id="quick-record-type" role="radiogroup"') &&

@@ -154,5 +154,9 @@
 | 2026-11-11 | `tests/records-panels.test.mjs` | 训练 headings 前置「训练概览」 | 1.3.28 训练页新增概览卡，需归入训练面板 |
 | 2026-11-11 | `tests/render-guard.test.mjs` | render() 正则允许附加调用 | 1.3.28 renderBody 后追加 renderTrainingOverview，异常仍在同一 try 内 |
 | 2026-11-11 | `tests/training-log.test.mjs` / `training-presets.test.mjs` | 动作级校验文案 → 逐组校验；预填断言改 `setDetails` | 1.3.30 记录模型从「组数一个数」改为 `setDetails[]`，校验与预填都按组 |
+| 2026-11-17 | `tests/layout-four.test.mjs` | 「小习惯与建议都在 more 内」→「小习惯在 more 内、建议回到主流程」 | 用户要求「把今天的建议从更多收纳中移出至今天中」；1.3.59 把建议卡移到 更多 之前，断言跟到新位置 |
+| 2026-11-17 | `tests/advice-and-training-window.test.mjs` | 「训练建议卡在今天页」→「位于问答页 #view-chat 内且有 #chat-tabs 分段」 | 用户要求「将今日训练建议移至问答中」；1.3.59 把卡迁到问答页并加「问答 / 训练建议」分段 |
+| 2026-11-17 | `tests/training-draft.test.mjs` | 「跑步靠对位继承 distanceKm」→「跑步有自己的距离/时长输入框」 | 1.3.59 有氧动作有了 data-cardio 输入，旧的 previous.distanceKm 继承逻辑连同断言一起移除，改守新表单 |
+| 2026-11-17 | `tests/training-log.test.mjs` | 「runsByName 按名字继承」→「km/分钟来自有氧输入，且 runsByName 已删」 | 同上：有氧不再靠上一条记录猜距离，断言改为守着输入框而不是旧 hack |
 
 

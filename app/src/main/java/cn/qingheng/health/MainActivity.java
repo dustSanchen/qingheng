@@ -3615,6 +3615,13 @@ import java.util.concurrent.Executors;
                     double max = key.equals("sets") ? 30 : key.equals("reps") ? 200 : 500;
                     if (value > max) throw fail("动作的 " + key + " 超出合理范围（上限 " + trim(max) + "）");
                 }
+                // 有氧项没有组次：距离（km）与时长（分钟）单独卡范围。
+                for (String key : new String[]{"distanceKm", "durationMin"}) {
+                    if (!item.has(key) || item.isNull(key)) continue;
+                    double value = number(item, key);
+                    double max = key.equals("distanceKm") ? 200 : 600;
+                    if (value > max) throw fail("动作的 " + key + " 超出合理范围（上限 " + trim(max) + "）");
+                }
                 // 逐组记录：可选，最多 30 组，每组只允许次数与负重。
                 JSONArray setDetails = item.optJSONArray("setDetails");
                 if (setDetails != null) {

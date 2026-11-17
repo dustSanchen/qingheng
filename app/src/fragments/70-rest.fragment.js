@@ -152,7 +152,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.58';
+  const APP_VERSION = '1.3.60';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -393,7 +393,8 @@
       const row = [...document.querySelectorAll("#training-exercises [data-exercise-row]")]
         .find(node => String(($('[data-exercise="name"]', node) || {}).value || "").trim() === name);
       (row || $("#training-form"))?.scrollIntoView({block: "center", behavior: "smooth"});
-      row?.querySelector('[data-exercise="weight"]')?.focus();
+      const target = row ? (row.querySelector('[data-cardio="distance"]') || row.querySelector('[data-exercise="weight"]')) : null;
+      target?.focus();
     }, 220);
   }
 
@@ -1409,10 +1410,14 @@
       const date = shiftDay(weekStart, offset);
       const rows = exercisesFor(date);
       const volume = rows.reduce((sum, item) => sum + (Number(item.sets) || 0) * (Number(item.reps) || 0) * (Number(item.weight) || 0), 0);
-      days.push({date, count: rows.length, volume});
+      const km = rows.reduce((sum, item) => sum + (Number(item.distanceKm) || 0), 0);
+      const min = rows.reduce((sum, item) => sum + (Number(item.durationMin) || 0), 0);
+      days.push({date, count: rows.length, volume, km, min});
     }
     const sessions = days.filter(day => day.count > 0).length;
     const totalVolume = days.reduce((sum, day) => sum + day.volume, 0);
+    const totalKm = days.reduce((sum, day) => sum + day.km, 0);
+    const totalMin = days.reduce((sum, day) => sum + day.min, 0);
     // 上周同口径的容量：说明文字给「比上周」一个真参照，而不是只列数字。
     let prevVolume = 0;
     for (let offset = 0; offset < 7; offset++) {
@@ -1474,8 +1479,12 @@
     if (note) {
       const lines = [];
       if (sessions > 0) {
-        let line = '本周 ' + sessions + ' 练 · 容量 ' + fmt(totalVolume, 0) + ' kg';
-        if (prevVolume > 0) {
+        let line = '本周 ' + sessions + ' 练';
+        if (totalVolume > 0) line += ' · 容量 ' + fmt(totalVolume, 0) + ' kg';
+        if (totalKm > 0 || totalMin > 0) {
+          line += ' · 有氧 ' + [totalKm > 0 ? fmt(totalKm, 1) + ' km' : '', totalMin > 0 ? fmt(totalMin, 0) + ' 分钟' : ''].filter(Boolean).join(' · ');
+        }
+        if (prevVolume > 0 && totalVolume > 0) {
           const delta = totalVolume - prevVolume;
           const pct = Math.round(Math.abs(delta) / prevVolume * 100);
           line += '，比上周 ' + (delta >= 0 ? '+' : '−') + pct + '%';
@@ -1729,8 +1738,17 @@
   installRestDock();
   $('#rest-timer')?.addEventListener('click', () => startRestTimer(false));
   // 容量必须跟着输入走：以前只在增删组时重算，填完 10 次 × 60 kg 还挂着「—」，像没记上。
+  // 有氧行跟着距离/时长算配速；动作名改成「跑步」时整行切到有氧表单（2026-11-17）。
   $('#training-exercises')?.addEventListener('input', event => {
     const field = event.target;
+    if (field.matches?.('[data-exercise="name"]')) {
+      if (typeof syncExerciseMode === 'function') syncExerciseMode(field.closest?.('[data-exercise-row]'));
+      return;
+    }
+    if (field.matches?.('[data-cardio="distance"],[data-cardio="minutes"]')) {
+      if (typeof refreshCardioPace === 'function') refreshCardioPace(field.closest?.('[data-cardio-row]'));
+      return;
+    }
     if (!field.matches?.('[data-set="reps"],[data-set="weight"]')) return;
     const row = field.closest?.('[data-exercise-row]');
     if (row) refreshSetRow(row);

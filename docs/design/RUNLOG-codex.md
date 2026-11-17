@@ -744,3 +744,14 @@
 - 验收：test-all 64/64（新增 5 条断言：要点跟动作、清单列名、AI 理由、柱状图错帧、浮动药丸）；dev-loop 1.3.58/358 全绿（js errors none）；真机截图 docs/design/art/training-20261117-{1,2,3}-*.png；浏览器 mock（DPR3）确认 plan-why-ai 三条理由与上斜动作命中。
 - 未验：真机上「为什么这样排」的 AI 分支（本地今天没有 AI 清单，只在 mock 里种了一份验证）；药丸与极短列表的避让。
 - APK：dist/qingheng-1.3.58.apk（615 KB，sha256 1D6730B21B9D0D7243B227F7D7AE61F0CBD7E3C6BBDDB4A08943B9109E34D055）。
+
+## r101 · 2026-11-17 · 1.3.60（跑步记录、训练建议迁问答、建议移出更多）
+- 需求原话：「让应用可正常记录跑步数据。将今天中的“今日训练建议”功能移至问答中或问答中新增训练提问选项卡，以你为准。把今天的建议从更多收纳中移出至今天中」
+- 团队协作：按用户要求启用 Agent Teams，建了 task-1/2/3 并各派一个 codex 子代理（跑步记录 / 建议迁移）；两次都在 transport 阶段 429 失败、没落任何改动，改由主代理直接执行并保留任务板记录。
+- 跑步：数据层本来就有 distanceKm/durationMin，缺的是表单。日志行按动作名前缀识别有氧，切成「距离 km × 时长 分钟」+ 实时配速；读/存/校验按行区分，力量行仍要每组次数与负重，有氧行只要距离或时长；AI 计划「记录」加入后聚焦距离；课后总结与概览都补有氧口径（本周 1 练 · 有氧 2 km · 10 分钟，容量 0 时不再打 −100% 假跌幅）；Java 补 distanceKm ≤ 200、durationMin ≤ 600。
+- 问答：加「问答 / 训练建议」分段，两个 record-panel 分别装聊天卡与迁入的 #training-advice；新片段 72-chat-panels.fragment.js 负责切换与 localStorage 记忆，默认问答。
+- 今天：advice-card 从 day-more 剪出放回主流程（今日三样之后），更多摘要改为「身体近况 · 小习惯」。
+- 测试：4 条断言按新语义更新并登记 03-global-changes §5.1（layout-four 建议位置、advice-and-training-window 位置、training-draft 跑步输入、training-log 有氧输入）；test-all 64/64。
+- 真机 1.3.60：跑步 2 km/10 分钟保存成功、重启仍在、概览显示有氧口径；问答分段可切；今天建议卡在更多之前。截图 docs/design/art/training-20261117-{4,5,6}-*.png。
+- 未验：有氧空值保存的提示路径、输入「跑步」触发切换，均未在真机逐步走；概览柱状图未画 km。
+- APK：dist/qingheng-1.3.60.apk（615 KB，sha256 D4F9F66E07A6AEE71E45E20DD7A8F63062E7A7EC23BDD8E0C811A3AF96A6760A）。

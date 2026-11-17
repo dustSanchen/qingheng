@@ -568,14 +568,68 @@ const values = points.length<=7 ? points.map((item,i) => {
    * 一个动作 = 一张手账：编号 + 动作名（行标题，不套框）→ 每一组一行「次 × kg」→ 加一组 / 容量。
    * 删除放在动作名行右端与组行末尾，避免 44px 危险按钮压在标题行上方。
    */
+  /** 有氧动作（跑步 / 骑行 / 椭圆…）：没有组次负重，记距离与时长。只认前缀，别把「杠铃划船」当下肢有氧。 */
+  function isCardioName(name) {
+    const text = String(name || '').trim();
+    return /^(跑步|慢跑|快跑|快走|走路|散步|骑行|单车|椭圆|划船机|跳绳|爬楼|爬坡|有氧)/.test(text);
+  }
+  function isCardioItem(item) {
+    return isCardioName(item && item.name) || number(item && item.distanceKm) !== null || number(item && item.durationMin) !== null;
+  }
+  /** 配速按「分钟 / 公里」算，显示成 6'00"。 */
+  function fmtPace(minutesPerKm) {
+    const total = Math.round(minutesPerKm * 60);
+    return Math.floor(total / 60) + "'" + String(total % 60).padStart(2, '0') + '"';
+  }
+  function cardioRowHtml(item) {
+    const value = v => v === null || v === undefined ? '' : ` value="${Number(v)}"`;
+    return `<div class="cardio-row" data-cardio-row><span class="cardio-mark" aria-hidden="true">跑</span>`
+      + `<span class="set-values"><label class="set-value"><input data-cardio="distance" type="number" inputmode="decimal" min="0" max="200" step="0.1" placeholder="—" aria-label="距离公里"${value(item.distanceKm)}><small>km</small></label>`
+      + `<span class="set-times" aria-hidden="true">×</span>`
+      + `<label class="set-value is-kg"><input data-cardio="minutes" type="number" inputmode="numeric" min="0" max="600" step="1" placeholder="—" aria-label="时长分钟"${value(item.durationMin)}><small>分钟</small></label></span>`
+      + `<span class="cardio-pace" data-cardio-pace>配速 —</span></div>`;
+  }
+  /** 有氧行右侧的配速跟着两个输入走；容器可以是整行也可以是有氧行本身。 */
+  function refreshCardioPace(container) {
+    if (!container) return;
+    const row = container.matches?.('[data-cardio-row]') ? container : $('[data-cardio-row]', container);
+    if (!row) return;
+    const out = $('[data-cardio-pace]', row);
+    if (!out) return;
+    const km = number($('[data-cardio="distance"]', row)?.value);
+    const min = number($('[data-cardio="minutes"]', row)?.value);
+    out.textContent = km && min ? '配速 ' + fmtPace(min / km) : '配速 —';
+  }
+  /** 动作名改成「跑步」时当场换成有氧表单，改回力量动作再换回来。 */
+  function syncExerciseMode(row) {
+    if (!row) return;
+    const want = isCardioName($('[data-exercise="name"]', row)?.value) ? '1' : '0';
+    if ((row.dataset.cardio || '0') === want) return;
+    row.dataset.cardio = want;
+    const list = $('[data-set-list]', row), foot = $('.set-foot', row);
+    if (want === '1') {
+      if (list) list.innerHTML = cardioRowHtml({name: $('[data-exercise="name"]', row)?.value});
+      if (foot) foot.innerHTML = '<span class="row-meta">有氧记录</span>';
+    } else {
+      if (list) list.innerHTML = setRowHtml({reps: null, weight: null}, 0);
+      if (foot) foot.innerHTML = '<button type="button" class="text-button" data-set-add>＋ 加一组</button><span class="row-meta">容量 <b data-set-volume>—</b></span>';
+      refreshSetRow(row);
+    }
+    refreshCardioPace(row);
+  }
   function exerciseRowHtml(item, index) {
     const n = index + 1;
-    return `<div class="training-row" data-exercise-row="${index}" data-exercise-id="${esc(item.id || '')}">`
+    const cardio = isCardioItem(item);
+    const body = cardio ? cardioRowHtml(item) : trainingSetDetails(item).map(setRowHtml).join('');
+    const foot = cardio
+      ? '<span class="row-meta">有氧记录</span>'
+      : '<button type="button" class="text-button" data-set-add>＋ 加一组</button><span class="row-meta">容量 <b data-set-volume>—</b></span>';
+    return `<div class="training-row" data-exercise-row="${index}" data-exercise-id="${esc(item.id || '')}" data-cardio="${cardio ? 1 : 0}">`
       + `<div class="exercise-row-head"><span class="exercise-no" aria-hidden="true">${n}</span>`
       + `<label class="exercise-name"><input data-exercise="name" value="${esc(item.name || '')}" maxlength="60" placeholder="动作名，例如卧推" aria-label="第 ${n} 个动作名称"></label>`
       + `<button type="button" class="text-button exercise-remove" data-exercise-remove="${index}" aria-label="移除这个动作">移除</button></div>`
-      + `<div class="set-list" data-set-list>${trainingSetDetails(item).map(setRowHtml).join('')}</div>`
-      + `<div class="set-foot"><button type="button" class="text-button" data-set-add>＋ 加一组</button><span class="row-meta">容量 <b data-set-volume>—</b></span></div></div>`;
+      + `<div class="set-list" data-set-list>${body}</div>`
+      + `<div class="set-foot">${foot}</div></div>`;
   }
   /** 一组增删后重排序号、重算该动作容量；只改 UI，保存时才落库。 */
   function refreshSetRow(row) {
@@ -653,6 +707,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     const rows = Array.isArray(rowsOverride) ? rowsOverride : (exercises.length ? exercises : [{name: '', sets: 1, reps: null, weight: null}]);
     box.innerHTML = rows.map(exerciseRowHtml).join('');
     $$('[data-exercise-row]', box).forEach(refreshSetRow);
+    $$('[data-exercise-row]', box).filter(node => node.dataset.cardio === '1').forEach(node => refreshCardioPace(node));
     renderTrainingPresets();
     const tag = $('#training-tag');
     if (tag) tag.textContent = exercises.length ? `${TRAINING_TEMPLATES[template]} · ${exercises.length} 个动作` : row?.training === true ? '已练 · 动作未填' : '未记录';
@@ -664,48 +719,27 @@ const values = points.length<=7 ? points.map((item,i) => {
       .sort((a, b) => String(b.date).localeCompare(String(a.date)));
     if (!sessions.length) { notice('还没有可照抄的训练记录，先记一次。'); return; }
     const last = sessions[0];
-    renderTrainingLog(last.exercises.map(item => ({name: item.name, sets: item.sets, reps: item.reps, weight: item.weight})));
+    renderTrainingLog(last.exercises.map(item => ({name: item.name, sets: item.sets, reps: item.reps, weight: item.weight, distanceKm: item.distanceKm, durationMin: item.durationMin})));
     notice(`已照 ${last.date.slice(5)} 的训练填好；核对实际组次后点「保存训练」。`);
     $('#training-form')?.scrollIntoView({block: 'start', behavior: 'smooth'});
   }
   function readTrainingExercises() {
     const box = $('#training-exercises');
-    // 跑步的 km/分钟没有输入框，靠与已存记录对位继承。
-    // 对位优先用记录 id（增删行、同名动作都不会错挂），旧数据没有 id 时退回按动作名。
-    const previousById = new Map();
-    const runsByName = new Map();
-    for (const item of exercisesFor(activeDate)) {
-      const name = String(item && item.name || '').trim();
-      if (item.id) previousById.set(item.id, item);
-      if (!name || (number(item.distanceKm) === null && number(item.durationMin) === null)) continue;
-      if (!runsByName.has(name)) runsByName.set(name, []);
-      runsByName.get(name).push(item);
-    }
-    return [...box.querySelectorAll('[data-exercise-row]')].map(row => ({
-      id: row.dataset.exerciseId || '',
-      name: $('[data-exercise="name"]', row).value.trim().slice(0, 60),
-      setDetails: $$('[data-set-row]', row).map(set => ({
+    // 2026-11-17：有氧动作终于有输入框了（距离 / 时长），不再靠「与上次记录对位继承」。
+    return [...box.querySelectorAll('[data-exercise-row]')].map(row => {
+      const name = $('[data-exercise="name"]', row).value.trim().slice(0, 60);
+      // 没有 id 说明是新加的一行，给它一个，后续对位就靠它。
+      const id = row.dataset.exerciseId || ((typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'ex-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8));
+      if (row.dataset.cardio === '1') {
+        return {id, name, cardio: true, distanceKm: number($('[data-cardio="distance"]', row)?.value), durationMin: number($('[data-cardio="minutes"]', row)?.value), sets: 0, reps: null, weight: null, setDetails: []};
+      }
+      const setDetails = $$('[data-set-row]', row).map(set => ({
         reps: number($('[data-set="reps"]', set).value),
         weight: number($('[data-set="weight"]', set).value)
-      }))
-    })).map(item => {
-      item.sets = item.setDetails.length;
-      item.reps = item.setDetails[0] ? item.setDetails[0].reps : null;
-      const weights = item.setDetails.map(set => set.weight).filter(value => value !== null);
-      item.weight = weights.length ? Math.max(...weights) : null;
-      // 没有 id 说明是新加的一行，给它一个，后续对位就靠它。
-      if (!item.id) item.id = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'ex-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
-      let previous = previousById.get(item.id) || null;
-      if (!previous) {
-        const queue = runsByName.get(item.name);
-        previous = queue && queue.length ? queue.shift() : null;
-      }
-      if (previous && (number(previous.distanceKm) !== null || number(previous.durationMin) !== null)) {
-        item.distanceKm = number(previous.distanceKm);
-        item.durationMin = number(previous.durationMin);
-      }
-      return item;
-    }).filter(item => item.name || item.setDetails.some(set => set.reps !== null || set.weight !== null));
+      }));
+      const weights = setDetails.map(set => set.weight).filter(value => value !== null);
+      return {id, name, setDetails, sets: setDetails.length, reps: setDetails[0] ? setDetails[0].reps : null, weight: weights.length ? Math.max(...weights) : null};
+    }).filter(item => item.name || item.distanceKm !== null || item.durationMin !== null || item.setDetails.some(set => set.reps !== null || set.weight !== null));
   }
   function trainingVolumeOf(items) {
     let volume = 0;
@@ -736,9 +770,13 @@ const values = points.length<=7 ? points.map((item,i) => {
     const next = delta === null ? '下次同动作先持平，把每组次数做满。'
       : delta >= 0 ? '下次同动作试 +2.5 kg，或最后一组 +1 次。'
       : '这次容量低于上次；下次先把动作做满，不急着加重。';
+    const runs = (items || []).filter(item => item && item.cardio);
+    const runKm = runs.reduce((sum, item) => sum + (number(item.distanceKm) || 0), 0);
+    const runMin = runs.reduce((sum, item) => sum + (number(item.durationMin) || 0), 0);
     box.innerHTML = `<p class="plan-label">本次训练</p><div class="overview-grid"><div class="overview-stat"><small>容量</small><strong>${fmt(volume, 0)}<span> kg</span></strong></div>`
       + `<div class="overview-stat"><small>组数</small><strong>${sets}<span> 组</span></strong></div>`
       + `<div class="overview-stat"><small>对比上次</small><strong>${delta === null ? '首次' : (delta >= 0 ? '+' : '') + fmt(delta, 0)}<span>${delta === null ? '' : ' kg'}</span></strong></div></div>`
+      + (runs.length ? `<p class="fine-print">有氧：${runKm ? fmt(runKm, 1) + ' km' : ''}${runKm && runMin ? ' · ' : ''}${runMin ? fmt(runMin, 0) + ' 分钟' : ''}</p>` : '')
       + `<p class="fine-print">${next}</p>`;
     box.hidden = false;
   }
@@ -746,17 +784,32 @@ const values = points.length<=7 ? points.map((item,i) => {
   async function saveTrainingLog() {
     const form = $('#training-form'), message = $('.form-feedback', form), button = $('button[type=submit]', form);
     const exercises = readTrainingExercises();
-    const incomplete = exercises.find(item => !item.name || !item.setDetails.length
-      || item.setDetails.some(set => set.reps === null || set.weight === null));
-    if (incomplete) {
+    // 力量行仍要求每组次数与负重；有氧行只要距离或时长（2026-11-17 起跑步能单独记）。
+    const invalid = exercises.find(item => {
+      if (!item.name) return true;
+      if (item.cardio) return !(number(item.distanceKm) > 0 || number(item.durationMin) > 0);
+      return !item.setDetails.length || item.setDetails.some(set => set.reps === null || set.weight === null);
+    });
+    if (invalid) {
       const row = $$('[data-exercise-row]', form).find(node => {
         const name = $('[data-exercise="name"]', node).value.trim();
+        if (!name) return true;
+        if (node.dataset.cardio === '1') {
+          return !(number($('[data-cardio="distance"]', node)?.value) > 0 || number($('[data-cardio="minutes"]', node)?.value) > 0);
+        }
         const sets = $$('[data-set-row]', node);
-        return !name || !sets.length || sets.some(set => number($('[data-set="reps"]', set).value) === null || number($('[data-set="weight"]', set).value) === null);
+        return !sets.length || sets.some(set => number($('[data-set="reps"]', set).value) === null || number($('[data-set="weight"]', set).value) === null);
       });
-      const missing = row ? $$('[data-set="reps"], [data-set="weight"]', row).filter(field => number(field.value) === null) : [];
-      missing.forEach(field => markFieldInvalid(field, '请补全这一组。'));
-      feedback(message, '每个动作至少一组，每组都要填次数与负重；自重动作负重填 0，不想记的动作请先移除。', true);
+      const cardio = row?.dataset.cardio === '1';
+      const missing = !row ? []
+        : cardio
+          ? $$('[data-cardio="distance"], [data-cardio="minutes"]', row).filter(field => !(number(field.value) > 0))
+          : $$('[data-set="reps"], [data-set="weight"]', row).filter(field => number(field.value) === null);
+      if (cardio) missing.forEach(field => markFieldInvalid(field, '至少填距离或时长。'));
+      else missing.forEach(field => markFieldInvalid(field, '请补全这一组。'));
+      feedback(message, cardio
+        ? '有氧动作至少填距离或时长；不想记的动作请先移除。'
+        : '每个动作至少一组，每组都要填次数与负重；自重动作负重填 0，不想记的动作请先移除。', true);
       missing[0]?.focus();
       return;
     }
