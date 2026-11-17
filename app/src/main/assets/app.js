@@ -4869,12 +4869,19 @@ const values = points.length<=7 ? points.map((item,i) => {
     box.innerHTML = '<div class="check-grid">' + check.items.map(item => {
       // 区间内绿、接近青、差得多淡红；没记录的保持中性。
       const level = check.relax ? 'idle' : !item.evaluated ? 'idle' : item.ok || item.score >= 0.95 ? 'ok' : item.score >= 0.6 ? 'near' : 'off';
-      return `<div class="check-item ${level}"><span class="check-icon" aria-hidden="true">${metricIcon(item.label)}</span><small>${esc(item.label)}</small><strong>${esc(String(item.value))}</strong><em>${esc(item.target)}</em></div>`;
+      return `<div class="check-item ${level}"><span class="check-icon" aria-hidden="true">${metricIcon(item.label)}</span><small>${esc(item.label)}</small><strong>${esc(item.evaluated ? String(item.value) : '—')}</strong><em>${esc(item.target)}</em></div>`;
     }).join('') + '</div>'
       + `<p class="check-verdict">${esc(check.verdict)}</p>`
-      + `<p class="check-action"><strong>今天优先：</strong>${esc(check.action)}</p>`
-      + (() => {const rule = libraryRuleForMetric(check.worst && check.worst.key); return rule
-        ? '' : '';})();
+      + `<p class="check-action"><strong>今天优先：</strong>${esc(check.action)}</p>`;
+    // 2026-11-18：今日三样并入体检——缺哪项直接给入口，不再单独占一张卡。
+    const trainingValue = habit.training === true || habit.training === 'true' ? 'true' : habit.training === false || habit.training === 'false' ? 'false' : '';
+    const sleepValue = number(habit.sleep);
+    const weightLogged = (state.measurements || []).some(row => row && row.date === activeDate && number(row.weight) !== null);
+    const fixes = [];
+    if (!trainingValue) fixes.push('<button type="button" class="text-button" data-go="records">训练</button>');
+    if (sleepValue === null) fixes.push('<button type="button" class="text-button" data-go="records">睡眠</button>');
+    if (!weightLogged) fixes.push('<button type="button" class="text-button" data-go="records" data-focus="measurement-weight">体重</button>');
+    if (fixes.length) box.innerHTML += '<p class="check-missing">补记：' + fixes.join('、') + '</p>';
   }
 
   /** Two weeks of history -> next week's sessions, with a deload when the load ran hot. */
@@ -6132,7 +6139,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.78';
+  const APP_VERSION = '1.3.83';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}

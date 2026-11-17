@@ -163,3 +163,5 @@
 | 2026-11-17 | `tests/training-log.test.mjs` | 「runsByName 按名字继承」→「km/分钟来自有氧输入，且 runsByName 已删」 | 同上：有氧不再靠上一条记录猜距离，断言改为守着输入框而不是旧 hack |
 
 
+
+| 2026-11-18 | `tests/daily-three-copy.test.mjs`、`tests/layout-four.test.mjs` | 「三样卡存在 / 收起」改为「三样并入体检」：断言 today 不再有 `id="daily-three"`，且 app 含 `check-missing` | 用户要求今日三样与今日体检合并、减少卡片堆砌；训练/睡眠/体重入口改为体检卡的「补记」行与记录页表单 |

@@ -1750,3 +1750,14 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 /* 没记饮食时：能量卡只留目标、说明与四个入口，去掉两栏留白 */
 .energy-card.is-empty .energy-body{grid-template-columns:1fr;row-gap:var(--space-2)}
 .energy-card.is-empty .energy-detail p{margin:0 0 6px}
+.check-missing{margin:var(--space-1) 0 0;font-size:var(--text-sm);color:var(--muted)}
+.check-missing .text-button{margin:0 2px}
+
+/* 2026-11-18 体检四格去框：用发丝线与状态色表达，不再做四个方框 */
+.check-grid{gap:0;border-top:1px solid var(--line);margin-bottom:8px}
+.check-item{border:0;border-radius:0;background:transparent;padding:12px 6px;border-bottom:1px solid var(--line)}
+.check-item:nth-child(odd){border-right:1px solid var(--line)}
+.check-item.ok,.check-item.near,.check-item.off,.check-item.bad{background:transparent;border-color:var(--line)}
+.check-item.ok strong{color:var(--ok)}
+.check-item.near strong{color:var(--near)}
+.check-item.off strong,.check-item.bad strong{color:var(--danger)}
