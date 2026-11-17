@@ -62,7 +62,7 @@ check('empty templates use library moves', app.includes('exercises = libraryMove
 check('days carry suggested', app.includes('template, deload, exercises, suggested}'));
 check('the plan carries reasons', app.includes("typeof planWhy === 'function' ? planWhy("));
 check('the card renders the explanation', app.includes('为什么这样排') && app.includes('plan-why'));
-check('suggested movements are labelled', app.includes('plan-suggest'));
+check('suggested movements are labelled', app.includes("planDay.suggested ? '（训练库建议）' : ''"));
 
 // planWhy 真实执行
 const fnStart = app.indexOf('function planWhy(');
@@ -129,7 +129,8 @@ check('the digest source is registered', lib.sources.some(s => s.id === 'communi
 check('the digest note records the on-video slip', lib.sources.find(s => s.id === 'community-digest').note.includes('口误'));
 check('the digest rules exist', ['push-day-template','pull-day-template','legs-day-template','rest-pause-isolation','warmup-legs-detailed'].every(id => ids.has(id)));
 check('the generator uses the day templates', app.includes('libraryDayTemplate(template)') && app.includes('function libraryDayTemplate(template)'));
-check('plan items show RPE', app.includes("' · RPE ' + item.rpe"));
+// 2026-11-18：周条取代 7 行表格后，RPE 不再有逐行展示位；断言改为守「生成的计划里带着 RPE」。
+check('planned items carry RPE', app.includes('rpe: item.rpe || null'));
 
 check('the reference prescriptions block is gone', !app.includes('参考处方') && !app.includes('plan-ref'));
 

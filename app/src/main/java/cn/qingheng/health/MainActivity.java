@@ -2863,7 +2863,11 @@ import java.util.concurrent.Executors;
             throw fail("休息日下限高于训练日下限，请先改口径");
     }
 
-    /** Whether the habit row for that date says the user trained; null when unrecorded. */
+    /**
+     * Whether that date counts as a training day: yes when the day saved at least one named exercise
+     * (2026-11-18 — the manual「训练情况」switch is gone, the actions decide). null when no row exists,
+     * so "not recorded" never reads as "rest day confirmed".
+     */
     private Boolean trainedOn(String day) {
         try {
             JSONArray habits = state == null ? null : state.optJSONArray("habits");
@@ -2871,9 +2875,13 @@ import java.util.concurrent.Executors;
             for (int i = 0; i < habits.length(); i++) {
                 JSONObject row = habits.optJSONObject(i);
                 if (row == null || !day.equals(row.optString("date", ""))) continue;
-                Object trained = row.opt("training");
-                if (trained instanceof Boolean) return (Boolean) trained;
-                if (trained != null && !JSONObject.NULL.equals(trained)) return Boolean.parseBoolean(String.valueOf(trained));
+                JSONArray list = row.optJSONArray("exercises");
+                if (list == null) return false;
+                for (int j = 0; j < list.length(); j++) {
+                    JSONObject item = list.optJSONObject(j);
+                    if (item != null && item.optString("name", "").trim().length() > 0) return true;
+                }
+                return false;
             }
         } catch (Exception ignored) { }
         return null;

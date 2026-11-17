@@ -155,11 +155,11 @@
     const missing = [];
     if (number(p.age) === null) missing.push('年龄');
     if (plannedSessions() === null) missing.push('训练计划');
-    const trainingToday = (state.habits || []).some(row => row.date === localDate() && (row.training === true || row.training === 'true'));
+    const trainingToday = trainedOn(localDate());
     node.textContent = [
       `当前目标：${goal}`,
       `维持热量 ${number(p.referenceCalories) !== null ? fmt(p.referenceCalories, 0) + ' kcal' : '未测算'} · 训练日 ${fmt(range.trainingDay.min, 0)}~${fmt(range.trainingDay.max, 0)} kcal · 休息日 ${fmt(range.restDay.min, 0)}~${fmt(range.restDay.max, 0)} kcal`,
-      `今日按${trainingToday ? '训练日' : '休息日'}：${trainingToday ? fmt(range.trainingDay.min, 0) + '~' + fmt(range.trainingDay.max, 0) : fmt(range.restDay.min, 0) + '~' + fmt(range.restDay.max, 0)} kcal（在记录页把当天标为「已训练」后自动切换）`,
+      `今日按${trainingToday ? '训练日' : '休息日'}：${trainingToday ? fmt(range.trainingDay.min, 0) + '~' + fmt(range.trainingDay.max, 0) : fmt(range.restDay.min, 0) + '~' + fmt(range.restDay.max, 0)} kcal（记录页保存训练动作后自动切换）`,
       `蛋白质 ${fmt(p.proteinMin, 0)}~${fmt(p.proteinMax, 0)} g · 脂肪 ${fmt(p.fatMin, 0)}~${fmt(p.fatMax, 0)} g`,
       ...(missing.length ? [`⚠ 还缺 ${missing.join('、')}：训练计划为空时按久坐估算，到「记录→训练计划」保存后点「按目标重新测算」。`] : []),
       ...(temporary ? [`今日临时目标：热量 ${fmt(temporary.temporary.calorieTarget, 0)} kcal · 脂肪上限 ${fmt(temporary.temporary.fatMax, 0)} g；原目标不变，明日结束后恢复。`] : []),
@@ -502,6 +502,13 @@ const values = points.length<=7 ? points.map((item,i) => {
     return rows.slice().sort((a, b) => JSON.stringify(b).length - JSON.stringify(a).length)[0];
   }
   /**
+   * 当天算不算训练日：只看「有没有保存训练动作」（2026-11-18 用户要求：训练情况由动作判断，
+   * 不再让用户在「日常习惯」里手填）。动作删空就自动回落成休息日。
+   */
+  function trainedOn(date) {
+    return exercisesFor(date).some(item => item && String(item.name || '').trim());
+  }
+  /**
    * The measurement row for a date. 同一天只该有一行：写之前先拿到它，
    * 带上 id 就变成更新，否则「身体近况」按日期取第一条时会读到旧值（2026-11-18）。
    */
@@ -718,7 +725,9 @@ const values = points.length<=7 ? points.map((item,i) => {
     $$('[data-exercise-row]', box).filter(node => node.dataset.cardio === '1').forEach(node => refreshCardioPace(node));
     renderTrainingPresets();
     const tag = $('#training-tag');
-    if (tag) tag.textContent = exercises.length ? `${TRAINING_TEMPLATES[template]} · ${exercises.length} 个动作` : row?.training === true ? '已练 · 动作未填' : '未记录';
+    // 训练状态只认动作（2026-11-18）：「已练 · 动作未填」这个状态随手填开关一起消失，
+    // 旧数据里残留的 training:true 不再被当成练过。
+    if (tag) tag.textContent = exercises.length ? `${TRAINING_TEMPLATES[template]} · ${exercises.length} 个动作` : '未记录';
   }
   /** 照上一次训练预填表单（只改草稿，不落库）；主流健身 App 都靠这一下省掉重复输入。 */
   function repeatLastTraining() {

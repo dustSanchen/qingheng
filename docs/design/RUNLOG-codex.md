@@ -876,3 +876,15 @@
 - 未验证：体重分支的写库只做了代码与断言核对——真机没有输入体重（那会往真实记录里写一条假测量，且 app 没有删除测量行的入口）；只提交了「睡眠」这一支，走的是同一个处理器与同一个 upsert 助手。
 - 护栏修复（顺带）：`tools/dev-loop.ps1` 是无 BOM 的 UTF-8，Windows PowerShell 按 GBK 解码，把第 31 行中文注释和紧随其后的 `if ($Version -match ...) { $VersionCode = ... }` 并成了一行——于是 `$VersionCode` 一直是 0，「version sync」这步静默空转（0.0s、无输出），本轮就出现了「装机 1.3.91 / 关于页 1.3.90、versionCode 还是 390」。给脚本加 UTF-8 BOM 并把 sync 改成直接调用 node（跳过原因会打印），实测重新输出 `version synced to 1.3.92/392`。
 - APK：`dist/qingheng-1.3.92.apk`；回滚：`git revert <本轮提交>`。
+
+## r118 · 2026-11-18 · 1.3.95（训练日看动作；删训练情况；图标链接去下划线；计划从今天起）
+- 用户四条原话：「训练情况根据用户当天是否保存训练动作判断，不需要让用户主动填写」「删除日常习惯中的训练情况选项」「删除功能图标中的下划线」（补充：指图标入口里的跳转超链接文字）「将训练中的下周安排调整为本周安排，日期显示当日起后续日期训练计划安排」。
+- 训练日推导：新增 `trainedOn(date)`（当天有带名字的动作即训练日），取代手填的 `habit.training`。前端四处（热量区间 `intakeRangeForDate`、体检补记胶囊、今日小习惯、训练洞察）与原生两处（`MainActivity.trainedOn`、`AlarmReceiver` 的周报载荷）都改成读动作；训练日志的状态标签不再有「已练 · 动作未填」这一态。真机验证：保存跑步 2km/10min 后每日目标 1,848 按休息日 → **2,041 按训练日**，补训练胶囊消失（`build/v395-today.png`）；随后「清空今天的训练」把测试记录清掉，数据复原。
+- 删选项：「日常习惯」只剩日期 / 步数 / 饮水，并写明「训练日按当天保存的训练动作判断，不用在这里填」。手动填的 `training` 不再写入，旧数据里的 true 不再被认作练过。
+- 去下划线：体检补记胶囊是 `<a class="check-fix">`，浏览器默认下划线一直挂着（用户看到「补体重」下面有横线）。`.check-fix{text-decoration:none}`，图标入口里的链接文字不再带线；正文里的行内链接（如「去记一餐」）保持原样。
+- 计划从今天起：`planStartDate()` = 正在看的这一天，`renderWeekPlan` / `weekPlanToday` / 「换一版」共用；周条 7 格从今天排到 +6 天，标题回到「本周安排 · 11-18 起」。
+- 顺带修的两个洞：① 1.3.44 把 7 行表格换成周条时，「一键排课」按钮连同 handler 一起被留在了一段死表达式（`box.innerHTML = …; + '<div…'`）里，按钮从此不渲染——本轮删掉死表达式并把按钮接回来（`build/v393-plan2.png`）；② 能量卡「按训练日 / 按休息日」原本靠 `basis` 文本里找「训练」二字，有目标预设时 basis 讲的是口径，于是 2,041（训练日上限）会标成「按休息日」。改成读 `range.trained` 布尔值。
+- 断言：新增 `tests/plan-from-today.test.mjs`；改 training-day-budget（推导式取代手填标记）、training-library（RPE/「建议」跟着周条详情走）、records-panels（训练段标题少一条）；登记 §5.1。
+- 验收：test-all 66/66；aesthetic-audit 无阻塞项；dev-loop 1.3.95/395 装机 + smoke 无 JS 错误。真机截图：`build/v393-habit.png`（习惯表无训练情况）、`build/v393-plan3.png`（本周安排 · 11-18 起，7 格从今天）、`build/v395-today.png`（按训练日）、`build/v395-nav.png`（一键排课）。
+- 未验证：`trainedOn` 在原生侧（周报/推送）只做了代码核对与断言，没有真跑一次带训练的推送；计划与旧的「下周一」缓存键不同，旧缓存不会被读到，也没有清理（localStorage 里会留一条旧 key）。
+- APK：`dist/qingheng-1.3.95.apk`（623 KB）；回滚：`git revert <本轮提交>`。

@@ -1244,9 +1244,9 @@ function applyTrainingVisibility() {
   }
 function intakeRangeForDate(date = activeDate, profileOverride = null) {
     const profile = profileOverride || state?.profile || {}, rules = targetRules(profile);
-    const habit = (state?.habits || []).find(row => row && row.date === date);
-    const trained = habit ? (habit.training === true || habit.training === 'true' ? true : habit.training === false || habit.training === 'false' ? false : null) : null;
-    const useTraining = trained === true;
+    // 训练日只看动作（2026-11-18）：当天保存过训练动作就是训练日，不再读手填的训练情况。
+    const trained = typeof trainedOn === 'function' ? !!trainedOn(date) : false;
+    const useTraining = trained;
     const plan = computeTargets({
           sex: profile.sex,
           weight: number(profile.weight) ?? latestWeight(),
@@ -1262,7 +1262,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     const restDay = active ? active.restDay : {min: rules.restDayMin, max: rules.restDayMax};
     const basis = active
       ? `${goalLabel(profile.goal)}（按维持 ${active.tdee}${active.leanPlan ? ' 与有效缺口 ' + active.leanPlan.effectivePercent + '%' : ''}）`
-      : trained === null ? '当天未记录是否训练，按休息日区间' : useTraining ? '当天标记为训练日' : '当天标记为休息日';
+      : trained ? '已记录训练，按训练日区间' : '当天未记录训练，按休息日区间';
     return {
       min: useTraining ? trainingDay.min : restDay.min,
       max: useTraining ? trainingDay.max : restDay.max,
@@ -1294,6 +1294,8 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     profile.trainingDayMax = range.trainingDay.max;
     profile.restDayMin = range.restDay.min;
     profile.restDayMax = range.restDay.max;
-    profile.intakeRange = {min: range.min, max: range.max, basis: range.basis};
+    // trained 一起带出去：页面上「按训练日 / 按休息日」只该看这个布尔值，
+    // 不该去 basis 文本里找「训练」二字（有目标预设时 basis 讲的是口径，不写训练/休息）。
+    profile.intakeRange = {min: range.min, max: range.max, basis: range.basis, trained: !!range.trained};
     return profile;
   }

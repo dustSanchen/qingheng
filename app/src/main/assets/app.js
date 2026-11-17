@@ -1244,9 +1244,9 @@ function applyTrainingVisibility() {
   }
 function intakeRangeForDate(date = activeDate, profileOverride = null) {
     const profile = profileOverride || state?.profile || {}, rules = targetRules(profile);
-    const habit = (state?.habits || []).find(row => row && row.date === date);
-    const trained = habit ? (habit.training === true || habit.training === 'true' ? true : habit.training === false || habit.training === 'false' ? false : null) : null;
-    const useTraining = trained === true;
+    // 训练日只看动作（2026-11-18）：当天保存过训练动作就是训练日，不再读手填的训练情况。
+    const trained = typeof trainedOn === 'function' ? !!trainedOn(date) : false;
+    const useTraining = trained;
     const plan = computeTargets({
           sex: profile.sex,
           weight: number(profile.weight) ?? latestWeight(),
@@ -1262,7 +1262,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     const restDay = active ? active.restDay : {min: rules.restDayMin, max: rules.restDayMax};
     const basis = active
       ? `${goalLabel(profile.goal)}（按维持 ${active.tdee}${active.leanPlan ? ' 与有效缺口 ' + active.leanPlan.effectivePercent + '%' : ''}）`
-      : trained === null ? '当天未记录是否训练，按休息日区间' : useTraining ? '当天标记为训练日' : '当天标记为休息日';
+      : trained ? '已记录训练，按训练日区间' : '当天未记录训练，按休息日区间';
     return {
       min: useTraining ? trainingDay.min : restDay.min,
       max: useTraining ? trainingDay.max : restDay.max,
@@ -1294,7 +1294,9 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     profile.trainingDayMax = range.trainingDay.max;
     profile.restDayMin = range.restDay.min;
     profile.restDayMax = range.restDay.max;
-    profile.intakeRange = {min: range.min, max: range.max, basis: range.basis};
+    // trained 一起带出去：页面上「按训练日 / 按休息日」只该看这个布尔值，
+    // 不该去 basis 文本里找「训练」二字（有目标预设时 basis 讲的是口径，不写训练/休息）。
+    profile.intakeRange = {min: range.min, max: range.max, basis: range.basis, trained: !!range.trained};
     return profile;
   }
 /* Fragment of assets/app.js -- assembled by tools/assemble-app.ps1 in filename order.
@@ -1513,7 +1515,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     $('#calorie-target').textContent = target === null ? '—' : fmt(target, 0);
     const basisNode = $('#calorie-basis');
     if (basisNode) {
-      const basisWord = range ? (String(range.basis).indexOf('训练') >= 0 ? '按训练日' : '按休息日') : '按默认';
+      const basisWord = range ? (range.trained ? '按训练日' : '按休息日') : '按默认';
       basisNode.textContent = target === null ? '' : basisWord + ' · ±2%';
     }
     // 不截断：超出目标的部分要能被环和下方差额行看到。
@@ -1526,7 +1528,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     // 差值必须跟屏幕上显示的上下限同一口径：以前用 calorieTarget 算「超出区间上限」会多算。
     const floor = number(range ? range.min : p.calorieTarget);
     const cap = number(range ? range.max : p.calorieTarget);
-    $('#calorie-caption').textContent = !meals.length ? '还没有餐食记录，摄入量未知。' : totals.calories === null ? '部分餐食缺少热量，无法计算完整汇总。' : number(p.calorieTarget) === null ? '尚未设置每日热量目标。' : `${range ? `按${range.basis.startsWith('当天标记为训练') ? '训练日' : '休息日'}区间：` : ''}${totals.calories < floor ? `距区间下限还差 ${fmt(floor-totals.calories,0)} kcal` : totals.calories <= cap ? `在区间内，距上限 ${fmt(cap-totals.calories,0)} kcal` : `超出区间上限 ${fmt(totals.calories-cap,0)} kcal`}。`;
+    $('#calorie-caption').textContent = !meals.length ? '还没有餐食记录，摄入量未知。' : totals.calories === null ? '部分餐食缺少热量，无法计算完整汇总。' : number(p.calorieTarget) === null ? '尚未设置每日热量目标。' : `${range ? `按${range.trained ? '训练日' : '休息日'}区间：` : ''}${totals.calories < floor ? `距区间下限还差 ${fmt(floor-totals.calories,0)} kcal` : totals.calories <= cap ? `在区间内，距上限 ${fmt(cap-totals.calories,0)} kcal` : `超出区间上限 ${fmt(totals.calories-cap,0)} kcal`}。`;
     // What to do next, not just how far off the target is: a number without an action is useless.
     const actionBox = $('#calorie-action');
     if (actionBox) {
@@ -1581,7 +1583,8 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
       return `<div class="stat-cell"><span class="stat-label">${label}</span><div class="stat-number${shown === '—' ? ' is-empty' : ''}">${shown}<small>${shown === '—' ? '' : unit}</small></div>${delta ? `<span class="stat-delta">${esc(delta)}</span>` : ''}</div>`;
     }).join('') + `<p class="stat-when fine-print">${measured ? `最近测量 ${esc(measured)}${ago !== null && ago > 0 ? `（${ago} 天前）` : '（今天）'}` : '还没有身体测量'}</p>`;
     const habit = state.habits.find(item => item.date === activeDate) || {};
-    const training = habit.training === true || habit.training === 'true' ? '已训练' : habit.training === false || habit.training === 'false' ? '休息日' : habit.training ? String(habit.training) : '未记录';
+    // 训练情况由动作决定（2026-11-18）：不再读手填标记，只报「记了什么」。
+    const training = trainedOn(activeDate) ? '已训练' : '未记录';
     // SVG icons instead of ↗ ♧ ☾ ◇: those characters rendered differently on every ROM.
     const tiles = [
       ...(trainingEnabled() ? [['icon-glyph-training.svg', training, '训练']] : []),
@@ -3265,11 +3268,11 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     const missing = [];
     if (number(p.age) === null) missing.push('年龄');
     if (plannedSessions() === null) missing.push('训练计划');
-    const trainingToday = (state.habits || []).some(row => row.date === localDate() && (row.training === true || row.training === 'true'));
+    const trainingToday = trainedOn(localDate());
     node.textContent = [
       `当前目标：${goal}`,
       `维持热量 ${number(p.referenceCalories) !== null ? fmt(p.referenceCalories, 0) + ' kcal' : '未测算'} · 训练日 ${fmt(range.trainingDay.min, 0)}~${fmt(range.trainingDay.max, 0)} kcal · 休息日 ${fmt(range.restDay.min, 0)}~${fmt(range.restDay.max, 0)} kcal`,
-      `今日按${trainingToday ? '训练日' : '休息日'}：${trainingToday ? fmt(range.trainingDay.min, 0) + '~' + fmt(range.trainingDay.max, 0) : fmt(range.restDay.min, 0) + '~' + fmt(range.restDay.max, 0)} kcal（在记录页把当天标为「已训练」后自动切换）`,
+      `今日按${trainingToday ? '训练日' : '休息日'}：${trainingToday ? fmt(range.trainingDay.min, 0) + '~' + fmt(range.trainingDay.max, 0) : fmt(range.restDay.min, 0) + '~' + fmt(range.restDay.max, 0)} kcal（记录页保存训练动作后自动切换）`,
       `蛋白质 ${fmt(p.proteinMin, 0)}~${fmt(p.proteinMax, 0)} g · 脂肪 ${fmt(p.fatMin, 0)}~${fmt(p.fatMax, 0)} g`,
       ...(missing.length ? [`⚠ 还缺 ${missing.join('、')}：训练计划为空时按久坐估算，到「记录→训练计划」保存后点「按目标重新测算」。`] : []),
       ...(temporary ? [`今日临时目标：热量 ${fmt(temporary.temporary.calorieTarget, 0)} kcal · 脂肪上限 ${fmt(temporary.temporary.fatMax, 0)} g；原目标不变，明日结束后恢复。`] : []),
@@ -3612,6 +3615,13 @@ const values = points.length<=7 ? points.map((item,i) => {
     return rows.slice().sort((a, b) => JSON.stringify(b).length - JSON.stringify(a).length)[0];
   }
   /**
+   * 当天算不算训练日：只看「有没有保存训练动作」（2026-11-18 用户要求：训练情况由动作判断，
+   * 不再让用户在「日常习惯」里手填）。动作删空就自动回落成休息日。
+   */
+  function trainedOn(date) {
+    return exercisesFor(date).some(item => item && String(item.name || '').trim());
+  }
+  /**
    * The measurement row for a date. 同一天只该有一行：写之前先拿到它，
    * 带上 id 就变成更新，否则「身体近况」按日期取第一条时会读到旧值（2026-11-18）。
    */
@@ -3828,7 +3838,9 @@ const values = points.length<=7 ? points.map((item,i) => {
     $$('[data-exercise-row]', box).filter(node => node.dataset.cardio === '1').forEach(node => refreshCardioPace(node));
     renderTrainingPresets();
     const tag = $('#training-tag');
-    if (tag) tag.textContent = exercises.length ? `${TRAINING_TEMPLATES[template]} · ${exercises.length} 个动作` : row?.training === true ? '已练 · 动作未填' : '未记录';
+    // 训练状态只认动作（2026-11-18）：「已练 · 动作未填」这个状态随手填开关一起消失，
+    // 旧数据里残留的 training:true 不再被当成练过。
+    if (tag) tag.textContent = exercises.length ? `${TRAINING_TEMPLATES[template]} · ${exercises.length} 个动作` : '未记录';
   }
   /** 照上一次训练预填表单（只改草稿，不落库）；主流健身 App 都靠这一下省掉重复输入。 */
   function repeatLastTraining() {
@@ -4451,7 +4463,8 @@ const values = points.length<=7 ? points.map((item,i) => {
   }
 
   /**
-   * Next week's sessions from the last two weeks per exercise, with a graded progression.
+   * 七天训练安排从「今天」起算（2026-11-18 用户要求：不再排下一周，日期显示当日起的后续安排）。
+   * sessions from the last two weeks per exercise, with a graded progression.
    * lastByExercise: {name: {sets, reps, weight, date}}; acwr flag decides a deload.
    */
   function generateWeekPlan(input) {
@@ -4866,7 +4879,9 @@ const values = points.length<=7 ? points.map((item,i) => {
       const label = TRAINING_TEMPLATES[planDay.template] || planDay.template;
       const all = planDay.exercises || [];
       const names = all.slice(0, 3).map(item => item.name).join('、');
-      return prefix + label + (names ? ' · ' + names + (all.length > 3 ? ' 等 ' + all.length + ' 个' : '') : ' · 动作待定');
+      // 「建议」跟着走进周条详情：这些动作来自训练库（那天还没有记录），别让用户以为是自己的历史。
+      const hint = planDay.suggested ? '（训练库建议）' : '';
+      return prefix + label + hint + (names ? ' · ' + names + (all.length > 3 ? ' 等 ' + all.length + ' 个' : '') : ' · 动作待定');
     }
     return prefix + '休息';
   }
@@ -4896,14 +4911,15 @@ const values = points.length<=7 ? points.map((item,i) => {
     }).join('') + '</div>'
       + `<p class="check-verdict">${esc(check.verdict)}</p>`;
     // 2026-11-18：今日三样并入体检——缺哪项直接给入口，不再单独占一张卡。
-    const trainingValue = habit.training === true || habit.training === 'true' ? 'true' : habit.training === false || habit.training === 'false' ? 'false' : '';
+    // 训练情况由动作决定：没有当天动作就点名「补训练」，点了落到训练日志，不再有手填开关。
+    const trainedToday = trainedOn(activeDate);
     const sleepValue = number(habit.sleep);
     const weightLogged = (state.measurements || []).some(row => row && row.date === activeDate && number(row.weight) !== null);
     // 用 hash 链接跳转：不依赖运行时绑定，WebView 的合成 click 丢了也能走路由。
     const chip = (label, icon, focus) => `<a class="check-fix" href="#records"${focus ? ` data-focus="${focus}"` : ''}>`
       + `<img src="./${icon}" alt="" width="16" height="16">${label}</a>`;
     const fixes = [];
-    if (!trainingValue) fixes.push(chip('补训练', 'icon-glyph-training.svg', 'habit-training'));
+    if (!trainedToday) fixes.push(chip('补训练', 'icon-glyph-training.svg', 'training-form'));
     if (sleepValue === null) fixes.push(chip('补睡眠', 'icon-habit-sleep.svg', 'habit-sleep'));
     if (!weightLogged) fixes.push(chip('补体重', 'icon-glyph-balance.svg', 'measurement-weight'));
     if (fixes.length) box.innerHTML += '<div class="check-fix-row"><span>还差</span>' + fixes.join('') + '</div>';
@@ -5035,7 +5051,7 @@ const values = points.length<=7 ? points.map((item,i) => {
    */
   /** 本周计划整体是否存在、今天那一节是什么——休息日与「还没排」是两件事，不能混成一句话。 */
   function weekPlanToday() {
-    const weekStart = shiftDay(activeDate, 7 - weekdayIndex(activeDate));
+    const weekStart = planStartDate();
     let plan = (lastWeekPlan && lastWeekPlan.days) ? lastWeekPlan : null;
     if (!plan) {
       const cached = readWeekPlanCache(weekStart);
@@ -5230,9 +5246,13 @@ const values = points.length<=7 ? points.map((item,i) => {
     try { localStorage.setItem(WEEK_PLAN_KEY(week), JSON.stringify(value)); } catch {}
   }
   let forceWeekPlan = false;
-  /** 明确「重新生成」：清掉本周缓存并强制重算，偏好不变也能换一版。 */
+  /** 七天窗口的起点：就是正在看的这一天，不再跳到下周一。 */
+  function planStartDate() {
+    return validDate(activeDate) ? activeDate : localDate();
+  }
+  /** 明确「重新生成」：清掉本窗口缓存并强制重算，偏好不变也能换一版。 */
   function regenerateWeekPlan() {
-    const startDate = shiftDay(activeDate, 7 - weekdayIndex(activeDate));
+    const startDate = planStartDate();
     try { localStorage.removeItem(WEEK_PLAN_KEY(startDate)); } catch { }
     lastWeekPlan = null;
     forceWeekPlan = true;
@@ -5245,7 +5265,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     const stats = acwrFromDailyLoads(loads, activeDate);
     const lastByExercise = recentExerciseBaselines(14);
     const sessions = Math.max(1, Math.min(6, Math.round(number(effectiveProfileForDate(activeDate).training) || 3)));
-    const startDate = shiftDay(activeDate, 7 - weekdayIndex(activeDate));
+    const startDate = planStartDate();
     const fingerprint = weekPlanFingerprint(prefsForPlan(), lastByExercise, sessions);
     const cached = forceWeekPlan ? null : readWeekPlanCache(startDate);
     let plan, drifted = false;
@@ -5344,8 +5364,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     } else {
       // 2026-11-11 晚（用户：美术效果优先于表格结构）：本周安排不再是一张 7 行表格，
       // 而是一条 7 格周条——训练日一根绿短线、已练实心、今天加深；点某格在下面换一行详情。
-      // 周条画「计划所在的那一周」（startDate = 下一个周一），而不是今天所在的日历周：
-      // 以前标题写「本周安排」、内容却是下周的计划，所以计划日一根线都画不出来。
+      // 2026-11-18：周条改成「从今天起的 7 天」，与计划同日出发，标题也从「下周安排」改回「本周安排」。
       const weekStartPlan = startDate;
       const weekEndPlan = shiftDay(weekStartPlan, 7);
       const firstPlanDay = plan.days.length ? plan.days[0].date : activeDate;
@@ -5366,8 +5385,8 @@ const values = points.length<=7 ? points.map((item,i) => {
           + '<span class="week-num">' + esc(day.slice(8)) + '</span>'
           + '<span class="week-bar" aria-hidden="true"></span></button>');
       }
-      thisWeekHtml = '<h3 class="plan-sub">下周安排 · ' + esc(weekStartPlan.slice(5)) + ' 起</h3>'
-        + '<div class="week-strip" role="group" aria-label="下周训练安排，点一天看安排">' + cells.join("") + '</div>'
+      thisWeekHtml = '<h3 class="plan-sub">本周安排 · ' + esc(weekStartPlan.slice(5)) + ' 起</h3>'
+        + '<div class="week-strip" role="group" aria-label="从今天起的训练安排，点一天看安排">' + cells.join("") + '</div>'
         + '<p class="week-detail" id="week-detail">' + weekDetailHtml(weekDetailDay, plan) + '</p>';
     }
     const driftHtml = drifted ? '<p class="fine-print">记录有更新，本周安排已按最新数据重算。</p>' : '';
@@ -5377,13 +5396,12 @@ const values = points.length<=7 ? points.map((item,i) => {
     const adoptHtml = (!hasTodayList && todayPlan && todayPlan.exercises.length)
       ? '<button type="button" class="button subtle full-width" data-adopt-today>把今天这节采纳到今日清单</button>'
       : '';
-    box.innerHTML = annotateTerms(thisWeekHtml + explainHtml + acwrHtml + driftHtml + adoptHtml + suggestedNote);
-      + '<div class="plan-days">' + plan.days.map(day =>
-        `<div class="plan-day"><div class="plan-day-head"><strong>${esc(day.date.slice(5))}</strong><span>${esc(TRAINING_TEMPLATES[day.template] || day.template)}</span></div>`
-        + (day.exercises.length ? day.exercises.map(item =>
-          `<div class="plan-item"><span>${esc(item.name)}${day.suggested ? ' <small class="plan-suggest">建议</small>' : ''}</span><b>${item.sets} × ${item.reps}${item.rpe ? ' · RPE ' + item.rpe : ''}${item.weight !== null ? ' · ' + item.weight + ' kg' : ''}</b></div>`).join('')
-          : '<div class="plan-item"><span>还没有可安排的动作</span><b>—</b></div>') + '</div>').join('') + '</div>'
-      + `<div class="button-row"><button type="button" class="button primary" data-plan-schedule="1">一键排课</button></div>`;
+    // 一键排课：1.3.44 把 7 行表格换成周条时，这个按钮留在了一段死表达式里，handler 一直在、按钮再也
+    // 没渲染出来。2026-11-18 顺手接回来：写入的是「今天起 7 天」，确认框里写清日期。
+    const scheduleHtml = plan.days.length
+      ? '<div class="button-row"><button type="button" class="button subtle full-width" data-plan-schedule="1">一键排课 · 写入今天起 ' + plan.days.length + ' 次训练</button></div>'
+      : '';
+    box.innerHTML = annotateTerms(thisWeekHtml + explainHtml + acwrHtml + driftHtml + adoptHtml + suggestedNote + scheduleHtml);
   }
 
   /** Load and plateau warnings shown above the weight chart. */
@@ -6146,7 +6164,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.92';
+  const APP_VERSION = '1.3.95';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -7504,7 +7522,7 @@ function metricIcon(label) {
 
   const RECORD_PANELS = [
     {key: 'food', label: '饮食', headings: ['轻松记一餐', '最近的餐食记录', '复制一餐', '食品热量参考库', '手动记录餐食'], foldedHeadings: ['食品热量参考库', '手动记录餐食']},
-    {key: 'training', label: '训练', headings: ['训练概览', '训练计划', '今日顺序', '训练日志', '下周计划'], trainingOnly: true},
+    {key: 'training', label: '训练', headings: ['训练概览', '训练计划', '今日顺序', '训练日志'], trainingOnly: true},
     {key: 'body', label: '身体', headings: ['今天两样', '身体数据', '日常习惯']}
   ];
   const RECORD_PANEL_STORAGE = 'qingheng.recordsPanel';
@@ -7633,7 +7651,7 @@ function metricIcon(label) {
   // 两项「更多测量」与「日常习惯」都并进当天那一行：同一天只有一行测量、一行习惯（2026-11-18）。
   // 空着的格不再写成 null，否则只改腰围会把当天的体重冲掉。
   $('#measurement-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/measurements',form=>{const filled=Object.fromEntries(Object.entries(numericForm(form,['waist','bodyFat','muscle','visceralFat','bmr'])).filter(([,value])=>value!==null));if(!Object.keys(filled).length) throw new Error('请至少填写一项测量数据。');return {...(measurementRowFor(form.elements.date.value)||{}), date:form.elements.date.value, ...filled};});});
-  $('#habit-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/habits',form=>{const filled=Object.fromEntries(Object.entries(numericForm(form,['steps','water'])).filter(([,value])=>value!==null));const training=form.elements.training.value===''?null:form.elements.training.value==='true';if(training===null && !Object.keys(filled).length) throw new Error('请至少填写一项日常习惯。');return {...(habitRowFor(form.elements.date.value)||{}), date:form.elements.date.value, ...(training===null?{}:{training}), ...filled};});});
+  $('#habit-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/habits',form=>{const filled=Object.fromEntries(Object.entries(numericForm(form,['steps','water'])).filter(([,value])=>value!==null));if(!Object.keys(filled).length) throw new Error('请至少填写一项日常习惯。');return {...(habitRowFor(form.elements.date.value)||{}), date:form.elements.date.value, ...filled};});});
   // 记录页三种表单统一成「日期在最前、保存在最后」；训练日志原来没有日期输入，只能靠页面顶部的全局日期。
   $('#training-date')?.addEventListener('change', event => {
     const value = event.target.value;
@@ -8147,7 +8165,7 @@ feedback(message,'数据已导入。'+report);
     for (const row of rows) {last += row.lastVolume; prev += row.prevVolume;}
     if (prev > 0 && last > prev * 1.25) insights.push({tag: '容量', text: `本周总容量比上周高 ${fmt((last / prev - 1) * 100, 0)}%；如果连着两周都这样，下周减量 40% 当 deload`});
     if (!insights.length) {
-      const trained = (state.habits || []).some(row => row && row.date === localDate() && (row.training === true || row.training === 'true'));
+      const trained = trainedOn(localDate());
       insights.push({tag: '状态', text: trained ? '今天已训练；容量连续两周上升，说明渐进超负荷在生效。' : '今天还没记录训练；练完记一条，下周就能看出哪个动作停了。'});
     }
     return insights.slice(0, 3);

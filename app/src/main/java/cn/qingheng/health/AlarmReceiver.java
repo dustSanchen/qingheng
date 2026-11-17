@@ -451,16 +451,20 @@ public class AlarmReceiver extends BroadcastReceiver {
                     .put("proteinDays", proteinDays).put("fatDays", fatDays).put("calorieDays", calorieDays);
         }
 
-        /** Whether a habit row marks that date as a training day; null when unrecorded. */
+        /** Whether that date counts as a training day: it does when the day saved a named exercise. */
         Boolean trainedOn(String date) {
             JSONArray habits = state.optJSONArray("habits");
             if (habits == null) return null;
             for (int i = 0; i < habits.length(); i++) {
                 JSONObject row = habits.optJSONObject(i);
                 if (row == null || !date.equals(row.optString("date", ""))) continue;
-                Object trained = row.opt("training");
-                if (trained instanceof Boolean) return (Boolean) trained;
-                if (trained != null && !JSONObject.NULL.equals(trained)) return Boolean.parseBoolean(String.valueOf(trained));
+                JSONArray list = row.optJSONArray("exercises");
+                if (list == null) return false;
+                for (int j = 0; j < list.length(); j++) {
+                    JSONObject item = list.optJSONObject(j);
+                    if (item != null && item.optString("name", "").trim().length() > 0) return true;
+                }
+                return false;
             }
             return null;
         }
@@ -491,14 +495,19 @@ public class AlarmReceiver extends BroadcastReceiver {
                 if (!goal.isEmpty()) out.put("goal", goal);
             }
             // Whether that day was actually a training day decides which intake range applies.
+            // 训练日只看动作（2026-11-18）：当天保存过带名字的动作才算练了，手填开关已删除。
             try {
                 JSONArray habits = state.optJSONArray("habits");
                 if (habits != null) for (int i = 0; i < habits.length(); i++) {
                     JSONObject row = habits.optJSONObject(i);
                     if (row == null || !day.equals(row.optString("date", ""))) continue;
-                    Object trained = row.opt("training");
-                    if (trained instanceof Boolean) out.put("trainedToday", (Boolean) trained);
-                    else if (trained != null && !JSONObject.NULL.equals(trained)) out.put("trainedToday", Boolean.parseBoolean(String.valueOf(trained)));
+                    JSONArray exercises = row.optJSONArray("exercises");
+                    boolean named = false;
+                    if (exercises != null) for (int j = 0; j < exercises.length(); j++) {
+                        JSONObject item = exercises.optJSONObject(j);
+                        if (item != null && item.optString("name", "").trim().length() > 0) { named = true; break; }
+                    }
+                    out.put("trainedToday", named);
                 }
             } catch (Exception ignored) { }
             // The user's own anchor table, so a pushed suggestion uses the same numbers as the app.

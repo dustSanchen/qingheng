@@ -334,7 +334,8 @@
   }
 
   /**
-   * Next week's sessions from the last two weeks per exercise, with a graded progression.
+   * 七天训练安排从「今天」起算（2026-11-18 用户要求：不再排下一周，日期显示当日起的后续安排）。
+   * sessions from the last two weeks per exercise, with a graded progression.
    * lastByExercise: {name: {sets, reps, weight, date}}; acwr flag decides a deload.
    */
   function generateWeekPlan(input) {
@@ -749,7 +750,9 @@
       const label = TRAINING_TEMPLATES[planDay.template] || planDay.template;
       const all = planDay.exercises || [];
       const names = all.slice(0, 3).map(item => item.name).join('、');
-      return prefix + label + (names ? ' · ' + names + (all.length > 3 ? ' 等 ' + all.length + ' 个' : '') : ' · 动作待定');
+      // 「建议」跟着走进周条详情：这些动作来自训练库（那天还没有记录），别让用户以为是自己的历史。
+      const hint = planDay.suggested ? '（训练库建议）' : '';
+      return prefix + label + hint + (names ? ' · ' + names + (all.length > 3 ? ' 等 ' + all.length + ' 个' : '') : ' · 动作待定');
     }
     return prefix + '休息';
   }
@@ -779,14 +782,15 @@
     }).join('') + '</div>'
       + `<p class="check-verdict">${esc(check.verdict)}</p>`;
     // 2026-11-18：今日三样并入体检——缺哪项直接给入口，不再单独占一张卡。
-    const trainingValue = habit.training === true || habit.training === 'true' ? 'true' : habit.training === false || habit.training === 'false' ? 'false' : '';
+    // 训练情况由动作决定：没有当天动作就点名「补训练」，点了落到训练日志，不再有手填开关。
+    const trainedToday = trainedOn(activeDate);
     const sleepValue = number(habit.sleep);
     const weightLogged = (state.measurements || []).some(row => row && row.date === activeDate && number(row.weight) !== null);
     // 用 hash 链接跳转：不依赖运行时绑定，WebView 的合成 click 丢了也能走路由。
     const chip = (label, icon, focus) => `<a class="check-fix" href="#records"${focus ? ` data-focus="${focus}"` : ''}>`
       + `<img src="./${icon}" alt="" width="16" height="16">${label}</a>`;
     const fixes = [];
-    if (!trainingValue) fixes.push(chip('补训练', 'icon-glyph-training.svg', 'habit-training'));
+    if (!trainedToday) fixes.push(chip('补训练', 'icon-glyph-training.svg', 'training-form'));
     if (sleepValue === null) fixes.push(chip('补睡眠', 'icon-habit-sleep.svg', 'habit-sleep'));
     if (!weightLogged) fixes.push(chip('补体重', 'icon-glyph-balance.svg', 'measurement-weight'));
     if (fixes.length) box.innerHTML += '<div class="check-fix-row"><span>还差</span>' + fixes.join('') + '</div>';
@@ -918,7 +922,7 @@
    */
   /** 本周计划整体是否存在、今天那一节是什么——休息日与「还没排」是两件事，不能混成一句话。 */
   function weekPlanToday() {
-    const weekStart = shiftDay(activeDate, 7 - weekdayIndex(activeDate));
+    const weekStart = planStartDate();
     let plan = (lastWeekPlan && lastWeekPlan.days) ? lastWeekPlan : null;
     if (!plan) {
       const cached = readWeekPlanCache(weekStart);
@@ -1113,9 +1117,13 @@
     try { localStorage.setItem(WEEK_PLAN_KEY(week), JSON.stringify(value)); } catch {}
   }
   let forceWeekPlan = false;
-  /** 明确「重新生成」：清掉本周缓存并强制重算，偏好不变也能换一版。 */
+  /** 七天窗口的起点：就是正在看的这一天，不再跳到下周一。 */
+  function planStartDate() {
+    return validDate(activeDate) ? activeDate : localDate();
+  }
+  /** 明确「重新生成」：清掉本窗口缓存并强制重算，偏好不变也能换一版。 */
   function regenerateWeekPlan() {
-    const startDate = shiftDay(activeDate, 7 - weekdayIndex(activeDate));
+    const startDate = planStartDate();
     try { localStorage.removeItem(WEEK_PLAN_KEY(startDate)); } catch { }
     lastWeekPlan = null;
     forceWeekPlan = true;
@@ -1128,7 +1136,7 @@
     const stats = acwrFromDailyLoads(loads, activeDate);
     const lastByExercise = recentExerciseBaselines(14);
     const sessions = Math.max(1, Math.min(6, Math.round(number(effectiveProfileForDate(activeDate).training) || 3)));
-    const startDate = shiftDay(activeDate, 7 - weekdayIndex(activeDate));
+    const startDate = planStartDate();
     const fingerprint = weekPlanFingerprint(prefsForPlan(), lastByExercise, sessions);
     const cached = forceWeekPlan ? null : readWeekPlanCache(startDate);
     let plan, drifted = false;
@@ -1227,8 +1235,7 @@
     } else {
       // 2026-11-11 晚（用户：美术效果优先于表格结构）：本周安排不再是一张 7 行表格，
       // 而是一条 7 格周条——训练日一根绿短线、已练实心、今天加深；点某格在下面换一行详情。
-      // 周条画「计划所在的那一周」（startDate = 下一个周一），而不是今天所在的日历周：
-      // 以前标题写「本周安排」、内容却是下周的计划，所以计划日一根线都画不出来。
+      // 2026-11-18：周条改成「从今天起的 7 天」，与计划同日出发，标题也从「下周安排」改回「本周安排」。
       const weekStartPlan = startDate;
       const weekEndPlan = shiftDay(weekStartPlan, 7);
       const firstPlanDay = plan.days.length ? plan.days[0].date : activeDate;
@@ -1249,8 +1256,8 @@
           + '<span class="week-num">' + esc(day.slice(8)) + '</span>'
           + '<span class="week-bar" aria-hidden="true"></span></button>');
       }
-      thisWeekHtml = '<h3 class="plan-sub">下周安排 · ' + esc(weekStartPlan.slice(5)) + ' 起</h3>'
-        + '<div class="week-strip" role="group" aria-label="下周训练安排，点一天看安排">' + cells.join("") + '</div>'
+      thisWeekHtml = '<h3 class="plan-sub">本周安排 · ' + esc(weekStartPlan.slice(5)) + ' 起</h3>'
+        + '<div class="week-strip" role="group" aria-label="从今天起的训练安排，点一天看安排">' + cells.join("") + '</div>'
         + '<p class="week-detail" id="week-detail">' + weekDetailHtml(weekDetailDay, plan) + '</p>';
     }
     const driftHtml = drifted ? '<p class="fine-print">记录有更新，本周安排已按最新数据重算。</p>' : '';
@@ -1260,13 +1267,12 @@
     const adoptHtml = (!hasTodayList && todayPlan && todayPlan.exercises.length)
       ? '<button type="button" class="button subtle full-width" data-adopt-today>把今天这节采纳到今日清单</button>'
       : '';
-    box.innerHTML = annotateTerms(thisWeekHtml + explainHtml + acwrHtml + driftHtml + adoptHtml + suggestedNote);
-      + '<div class="plan-days">' + plan.days.map(day =>
-        `<div class="plan-day"><div class="plan-day-head"><strong>${esc(day.date.slice(5))}</strong><span>${esc(TRAINING_TEMPLATES[day.template] || day.template)}</span></div>`
-        + (day.exercises.length ? day.exercises.map(item =>
-          `<div class="plan-item"><span>${esc(item.name)}${day.suggested ? ' <small class="plan-suggest">建议</small>' : ''}</span><b>${item.sets} × ${item.reps}${item.rpe ? ' · RPE ' + item.rpe : ''}${item.weight !== null ? ' · ' + item.weight + ' kg' : ''}</b></div>`).join('')
-          : '<div class="plan-item"><span>还没有可安排的动作</span><b>—</b></div>') + '</div>').join('') + '</div>'
-      + `<div class="button-row"><button type="button" class="button primary" data-plan-schedule="1">一键排课</button></div>`;
+    // 一键排课：1.3.44 把 7 行表格换成周条时，这个按钮留在了一段死表达式里，handler 一直在、按钮再也
+    // 没渲染出来。2026-11-18 顺手接回来：写入的是「今天起 7 天」，确认框里写清日期。
+    const scheduleHtml = plan.days.length
+      ? '<div class="button-row"><button type="button" class="button subtle full-width" data-plan-schedule="1">一键排课 · 写入今天起 ' + plan.days.length + ' 次训练</button></div>'
+      : '';
+    box.innerHTML = annotateTerms(thisWeekHtml + explainHtml + acwrHtml + driftHtml + adoptHtml + suggestedNote + scheduleHtml);
   }
 
   /** Load and plateau warnings shown above the weight chart. */
