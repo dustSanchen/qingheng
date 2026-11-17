@@ -6091,7 +6091,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.62';
+  const APP_VERSION = '1.3.63';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -8473,6 +8473,15 @@ feedback(message,'数据已导入。'+report);
       const panel = button.dataset.chatPanel;
       apply(panel);
       try { localStorage.setItem(KEY, panel); } catch (error) { /* 隐私模式写不进去就算了 */ }
+      if (panel === 'training' && typeof renderTrainingInsights === 'function') renderTrainingInsights();
+    });
+    // 今天页「训练怎么排见 问答 · 训练建议」这类跨页链接：切到问答后顺手选好分段。
+    document.addEventListener('click', event => {
+      const link = event.target.closest?.('[data-go="chat"][data-chat-panel]');
+      if (!link) return;
+      const panel = link.dataset.chatPanel === 'training' ? 'training' : 'chat';
+      apply(panel);
+      try { localStorage.setItem(KEY, panel); } catch (error) { /* 同上 */ }
       if (panel === 'training' && typeof renderTrainingInsights === 'function') renderTrainingInsights();
     });
   }

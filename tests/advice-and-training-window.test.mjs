@@ -28,6 +28,8 @@ check('an empty day is explained', rest.includes('今天还没有生成建议'))
 // 2026-11-17 用户要求「将今日训练建议移至问答中」：训练建议卡现在位于问答页，不再是今天页的卡。
 check('the training window lives in the chat view', html.includes('id="training-advice"') && html.includes('id="training-advice-form"') &&
   html.indexOf('id="training-advice"') > html.indexOf('id="view-chat"') && html.indexOf('id="chat-tabs"') > html.indexOf('id="view-chat"'));
+check('the two advice entries point at each other', html.includes('data-go="chat" data-chat-panel="training"') &&
+  html.includes('data-go="today"') && app.includes('[data-go="chat"][data-chat-panel]'));
 check('it has three presets', rest.includes("'今天练什么最划算？'") && rest.includes("'只有 40 分钟，怎么排？'") && rest.includes("'昨晚没睡好，今天强度怎么调？'"));
 check('it uses the shared external consent', !html.includes('training-advice-consent') && rest.includes('externalConsent()'));
 check('the consent choice lives in settings', html.includes('id="settings-consent"') && html.includes('id="ob-allow"'));
