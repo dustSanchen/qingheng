@@ -154,7 +154,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.64';
+  const APP_VERSION = '1.3.66';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1403,29 +1403,36 @@
    */
   /** 训练概览：本周练了几次、总容量、今天蛋白放在同一屏，训练与饮食不再是两页。 */
   let lastOverviewSig = '';
-  function renderTrainingOverview() {
-    const grid = $('#training-overview-grid');
-    if (!grid) return;
-    const weekStart = shiftDay(activeDate, -((new Date(activeDate + 'T00:00:00').getDay() + 6) % 7));
+  /**
+   * 训练周统计的唯一口径（概览卡复用）：容量按 kg 逐日取整后求和；有 setDetails 用逐组 reps×weight，
+   * 没有 setDetails 的旧记录用 sets×reps×weight；有氧（只有距离/时长）不计容量。次数 = 当周有动作的天数。
+   */
+  function weekTrainingStats(weekStart) {
     const days = [];
     for (let offset = 0; offset < 7; offset++) {
       const date = shiftDay(weekStart, offset);
       const rows = exercisesFor(date);
-      const volume = rows.reduce((sum, item) => sum + (Number(item.sets) || 0) * (Number(item.reps) || 0) * (Number(item.weight) || 0), 0);
+      const raw = habitRowFor(date);
+      const volume = trainingVolumeOf(Array.isArray(raw?.exercises) ? raw.exercises : []);
       const km = rows.reduce((sum, item) => sum + (Number(item.distanceKm) || 0), 0);
       const min = rows.reduce((sum, item) => sum + (Number(item.durationMin) || 0), 0);
       days.push({date, count: rows.length, volume, km, min});
     }
-    const sessions = days.filter(day => day.count > 0).length;
-    const totalVolume = days.reduce((sum, day) => sum + day.volume, 0);
-    const totalKm = days.reduce((sum, day) => sum + day.km, 0);
-    const totalMin = days.reduce((sum, day) => sum + day.min, 0);
+    return {
+      days,
+      sessions: days.filter(day => day.count > 0).length,
+      totalVolume: Math.round(days.reduce((sum, day) => sum + day.volume, 0)),
+      totalKm: days.reduce((sum, day) => sum + day.km, 0),
+      totalMin: days.reduce((sum, day) => sum + day.min, 0)
+    };
+  }
+  function renderTrainingOverview() {
+    const grid = $('#training-overview-grid');
+    if (!grid) return;
+    const weekStart = shiftDay(activeDate, -((new Date(activeDate + 'T00:00:00').getDay() + 6) % 7));
+    const {days, sessions, totalVolume, totalKm, totalMin} = weekTrainingStats(weekStart);
     // 上周同口径的容量：说明文字给「比上周」一个真参照，而不是只列数字。
-    let prevVolume = 0;
-    for (let offset = 0; offset < 7; offset++) {
-      const rows = exercisesFor(shiftDay(weekStart, -7 + offset));
-      prevVolume += rows.reduce((sum, item) => sum + (Number(item.sets) || 0) * (Number(item.reps) || 0) * (Number(item.weight) || 0), 0);
-    }
+    const prevVolume = weekTrainingStats(shiftDay(weekStart, -7)).totalVolume;
     const meals = (state.meals || []).filter(row => row && row.date === activeDate);
     const totals = totalsFor(meals), p = effectiveProfileForDate(activeDate);
     const kcal = number(totals.calories), protein = number(totals.protein);
