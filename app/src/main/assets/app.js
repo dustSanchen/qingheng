@@ -944,6 +944,20 @@
     const role = kind === "error" ? ' role="alert"' : "";
     return `<div class="empty-state is-${esc(kind)}"${role}><span class="empty-icon" aria-hidden="true">${glyph}</span><p class="empty-title">${esc(text)}</p>${hint ? `<p class="empty-hint">${esc(hint)}</p>` : ""}</div>`;
   }
+  /**
+   * 五态空/加载/错误/超长/极端值的共享模板。结构固定：图标位（可省）、标题、一句说明、可选一个操作。
+   * kind: empty | loading | error | overflow | edge；未知 kind 按 empty 处理。文案由调用方给，这里不写营销语。
+   */
+  function stateBlock({kind = "empty", title = "", body = "", action = null} = {}) {
+    const k = ["empty", "loading", "error", "overflow", "edge"].includes(kind) ? kind : "empty";
+    const icon = k === "empty" ? '<img src="./icon-glyph-leaf.svg" alt="" width="32" height="32">'
+      : k === "error" ? "!" : k === "loading" ? "…" : k === "overflow" ? "⋯" : "◇";
+    const role = k === "error" ? ' role="alert"' : k === "loading" ? ' role="status" aria-live="polite"' : "";
+    const button = action && action.label
+      ? `<button type="button" class="text-button state-block-action"${action.go ? ` data-go="${esc(action.go)}"` : ""}${action.focus ? ` data-focus="${esc(action.focus)}"` : ""}>${esc(action.label)}</button>`
+      : "";
+    return `<div class="state-block" data-kind="${k}"${role}><span class="state-block-icon" aria-hidden="true">${icon}</span>${title ? `<p class="state-block-title">${esc(title)}</p>` : ""}${body ? `<p class="state-block-body">${esc(body)}</p>` : ""}${button}</div>`;
+  }
   function latestField(records, key) {return records.find(record => number(record[key]) !== null);}
   function targetAdjustmentForDate(date = activeDate) {
     const adjustment = state?.temporaryTargets;
@@ -3346,6 +3360,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
         + `<div class="row-side"><span class="row-kcal">${fmt(meal.calories,0)} <small>kcal</small></span></div></div>`;
     }).join('');
   }
+  // 未迁移到 stateBlock：仍用 empty()，待后续统一（五态模板只替换了今日时间轴、记录列表、体重趋势三处）。
   function renderMeals(container, meals, showDate) {
     container.innerHTML = meals.length ? mealRowsHtml(meals, showDate) : empty('还没有餐食记录。记下第一餐，从了解自己开始。');
   }
@@ -3362,7 +3377,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     $('#today-record-count').textContent = meals.length ? `${meals.length} 餐` : '暂无';
     container.innerHTML = entries.length
       ? entries.map(entry => entry.html).join('')
-      : '<p class="empty-note">今天还没有记录。记一餐，时间轴就会出现在这里。</p>';
+      : stateBlock({kind: 'empty', title: '今天还没有记录', body: '记一餐，时间轴就会出现在这里。'});
   }
   /**
    * The record list is grouped by day (the way 薄荷健康 shows 按天卡片) and capped at five meals until
@@ -3373,7 +3388,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
   function renderRecordMeals(rows) {
     const container = $('#record-meals');
     if (!container) return;
-    if (!rows.length) { container.innerHTML = empty('还没有餐食记录。记下第一餐，从了解自己开始。'); return; }
+    if (!rows.length) { container.innerHTML = stateBlock({kind: 'empty', title: '还没有餐食记录', body: '记下第一餐，从了解自己开始。'}); return; }
     const shown = recordMealsExpanded ? rows : rows.slice(0, RECORD_MEALS_COLLAPSED);
     const groups = new Map();
     for (const row of shown) {
@@ -3467,8 +3482,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     // 30 days. It reports direction only, never a medical verdict, and shows — for missing values.
     $('#stats-table').innerHTML = statsTableHtml();
     if (!points.length) {
-      $('#weight-chart').innerHTML = empty('记录第一笔体重，趋势从这里开始')
-        + '<button class="button subtle trend-empty-action" type="button" data-go="records" data-focus="measurement-weight">记录体重</button>';
+      $('#weight-chart').innerHTML = stateBlock({kind: 'empty', title: '记录第一笔体重', body: '趋势从这里开始；之后每次记录都会画进折线。', action: {label: '记录体重', go: 'records', focus: 'measurement-weight'}});
       $('#trend-stats').innerHTML = '';
       return;
     }
@@ -6091,7 +6105,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.63';
+  const APP_VERSION = '1.3.64';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -7557,6 +7571,13 @@ function metricIcon(label) {
     field.focus({preventScroll: true});
   }
   $$('[data-go]').forEach(button=>button.addEventListener('click',()=>{switchTab(button.dataset.go,true);if(button.dataset.focus) setTimeout(() => revealField(button.dataset.focus), 60);}));
+  // stateBlock 的操作按钮是运行时渲染的，初始绑定抓不到，这里统一委托（2026-11-17）。
+  document.addEventListener('click', event => {
+    const action = event.target.closest?.('.state-block-action[data-go]');
+    if (!action) return;
+    switchTab(action.dataset.go, true);
+    if (action.dataset.focus) setTimeout(() => revealField(action.dataset.focus), 60);
+  });
   // 运行时渲染的「日常习惯」行不在初始 [data-go] 绑定里；进记录页只滚动、不聚焦（不弹键盘）。
   document.addEventListener('click', event => {
     const jump = event.target.closest?.('[data-habit-jump]');
@@ -8473,15 +8494,6 @@ feedback(message,'数据已导入。'+report);
       const panel = button.dataset.chatPanel;
       apply(panel);
       try { localStorage.setItem(KEY, panel); } catch (error) { /* 隐私模式写不进去就算了 */ }
-      if (panel === 'training' && typeof renderTrainingInsights === 'function') renderTrainingInsights();
-    });
-    // 今天页「训练怎么排见 问答 · 训练建议」这类跨页链接：切到问答后顺手选好分段。
-    document.addEventListener('click', event => {
-      const link = event.target.closest?.('[data-go="chat"][data-chat-panel]');
-      if (!link) return;
-      const panel = link.dataset.chatPanel === 'training' ? 'training' : 'chat';
-      apply(panel);
-      try { localStorage.setItem(KEY, panel); } catch (error) { /* 同上 */ }
       if (panel === 'training' && typeof renderTrainingInsights === 'function') renderTrainingInsights();
     });
   }

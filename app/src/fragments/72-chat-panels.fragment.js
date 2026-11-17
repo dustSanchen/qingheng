@@ -28,15 +28,6 @@
       try { localStorage.setItem(KEY, panel); } catch (error) { /* 隐私模式写不进去就算了 */ }
       if (panel === 'training' && typeof renderTrainingInsights === 'function') renderTrainingInsights();
     });
-    // 今天页「训练怎么排见 问答 · 训练建议」这类跨页链接：切到问答后顺手选好分段。
-    document.addEventListener('click', event => {
-      const link = event.target.closest?.('[data-go="chat"][data-chat-panel]');
-      if (!link) return;
-      const panel = link.dataset.chatPanel === 'training' ? 'training' : 'chat';
-      apply(panel);
-      try { localStorage.setItem(KEY, panel); } catch (error) { /* 同上 */ }
-      if (panel === 'training' && typeof renderTrainingInsights === 'function') renderTrainingInsights();
-    });
   }
   if (typeof window !== 'undefined') window.installChatPanels = installChatPanels;
   installChatPanels();

@@ -266,6 +266,7 @@
         + `<div class="row-side"><span class="row-kcal">${fmt(meal.calories,0)} <small>kcal</small></span></div></div>`;
     }).join('');
   }
+  // 未迁移到 stateBlock：仍用 empty()，待后续统一（五态模板只替换了今日时间轴、记录列表、体重趋势三处）。
   function renderMeals(container, meals, showDate) {
     container.innerHTML = meals.length ? mealRowsHtml(meals, showDate) : empty('还没有餐食记录。记下第一餐，从了解自己开始。');
   }
@@ -282,7 +283,7 @@
     $('#today-record-count').textContent = meals.length ? `${meals.length} 餐` : '暂无';
     container.innerHTML = entries.length
       ? entries.map(entry => entry.html).join('')
-      : '<p class="empty-note">今天还没有记录。记一餐，时间轴就会出现在这里。</p>';
+      : stateBlock({kind: 'empty', title: '今天还没有记录', body: '记一餐，时间轴就会出现在这里。'});
   }
   /**
    * The record list is grouped by day (the way 薄荷健康 shows 按天卡片) and capped at five meals until
@@ -293,7 +294,7 @@
   function renderRecordMeals(rows) {
     const container = $('#record-meals');
     if (!container) return;
-    if (!rows.length) { container.innerHTML = empty('还没有餐食记录。记下第一餐，从了解自己开始。'); return; }
+    if (!rows.length) { container.innerHTML = stateBlock({kind: 'empty', title: '还没有餐食记录', body: '记下第一餐，从了解自己开始。'}); return; }
     const shown = recordMealsExpanded ? rows : rows.slice(0, RECORD_MEALS_COLLAPSED);
     const groups = new Map();
     for (const row of shown) {
@@ -387,8 +388,7 @@
     // 30 days. It reports direction only, never a medical verdict, and shows — for missing values.
     $('#stats-table').innerHTML = statsTableHtml();
     if (!points.length) {
-      $('#weight-chart').innerHTML = empty('记录第一笔体重，趋势从这里开始')
-        + '<button class="button subtle trend-empty-action" type="button" data-go="records" data-focus="measurement-weight">记录体重</button>';
+      $('#weight-chart').innerHTML = stateBlock({kind: 'empty', title: '记录第一笔体重', body: '趋势从这里开始；之后每次记录都会画进折线。', action: {label: '记录体重', go: 'records', focus: 'measurement-weight'}});
       $('#trend-stats').innerHTML = '';
       return;
     }

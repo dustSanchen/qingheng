@@ -3937,6 +3937,8 @@ import java.util.concurrent.Executors;
         // 顺序按用户要求：先看身材目标执行情况与今天摄入，再参考偏好，最后给动作。
         return "按这个顺序判断：先看用户的身材目标与目标区间执行得怎样，再看今天已记录的摄入与区间的关系，最后参考用户长期偏好（不能推荐与偏好冲突的食材）。"
                 + "接着输出 2~3 句：第一句必须是明确的评价——达标或接近就写一句肯定（例如「今天做得不错，蛋白只差一点」，不要只写「接近达标」这种中性词），差得多就说清差什么；后面 1~2 句给今天或明天能立刻执行的动作，以动词开头、不超过 40 字。"
+                + "如果 body.trainingToday 存在，用其中一句点评或给一条训练建议（练得够不够、强度怎么调、要不要休息），不超过 30 字；没有训练记录时不要硬编训练，也不要因为没记录就下结论。"
+                + "建议里不要点名具体食材或量词（不写「鸡胸」「两掌心」），用类别（蛋白质、主食、蔬菜、奶或豆制品）即可。"
                 + "不要复述界面上已经显示的热量、蛋白质、脂肪数字——用户正看着；不要两条都说同一件事。"
                 + "数据缺失就直说缺什么，不要当成 0；缺数据时不要凭空夸奖。不诊断、不处方、不推荐极端节食或断食。"
                 + "只输出这几句，不要开场白、标题、免责声明、编号或 Markdown 列表符号。";
@@ -4005,6 +4007,43 @@ import java.util.concurrent.Executors;
             Double baseline = null;
             for (JSONObject row : weights) if (recordDate(row).compareTo(from) <= 0) baseline = finite(row, "weight");
             if (baseline != null) out.put("weightChange14Days", finite(latest, "weight") - baseline);
+        }
+        // 训练上下文：建议卡除了吃与恢复，也要能就今天的训练说一句。
+        JSONArray habits = state.optJSONArray("habits");
+        if (habits != null) {
+            for (int i = 0; i < habits.length(); i++) {
+                JSONObject row = habits.optJSONObject(i);
+                if (row == null || !day.equals(row.optString("date", ""))) continue;
+                JSONArray exercises = row.optJSONArray("exercises");
+                if (exercises == null || exercises.length() == 0) break;
+                JSONObject training = new JSONObject();
+                training.put("count", exercises.length());
+                double volume = 0;
+                List<String> names = new ArrayList<>();
+                for (int j = 0; j < exercises.length(); j++) {
+                    JSONObject item = exercises.optJSONObject(j);
+                    if (item == null) continue;
+                    String name = item.optString("name", "").trim();
+                    if (!name.isEmpty() && names.size() < 4) names.add(name);
+                    double sets = item.optDouble("sets", 0), reps = item.optDouble("reps", 0), weight = item.optDouble("weight", 0);
+                    JSONArray details = item.optJSONArray("setDetails");
+                    if (details != null && details.length() > 0) {
+                        for (int k = 0; k < details.length(); k++) {
+                            JSONObject set = details.optJSONObject(k);
+                            if (set == null) continue;
+                            volume += set.optDouble("reps", 0) * set.optDouble("weight", 0);
+                        }
+                    } else {
+                        volume += sets * reps * weight;
+                    }
+                    if (item.has("distanceKm")) training.put("distanceKm", training.optDouble("distanceKm", 0) + item.optDouble("distanceKm", 0));
+                    if (item.has("durationMin")) training.put("durationMin", training.optDouble("durationMin", 0) + item.optDouble("durationMin", 0));
+                }
+                if (volume > 0) training.put("volumeKg", Math.round(volume));
+                if (!names.isEmpty()) training.put("names", android.text.TextUtils.join("、", names));
+                out.put("trainingToday", training);
+                break;
+            }
         }
         return out;
     }

@@ -1722,3 +1722,16 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 .overview-note-line+.overview-note-line{margin-top:2px}
 .overview-note-line.is-muted{color:var(--muted)}
 #training-overview-note .overview-note-line:first-child{color:var(--ink-soft)}
+
+/* 五态空/加载/错误/超长/极端值模板（stateBlock）。只用现有令牌；无渐变、阴影，圆角不超过 12px。 */
+.state-block{display:flex;flex-direction:column;align-items:center;gap:var(--space-2);padding:var(--space-4) var(--space-3);border:1px dashed var(--line);border-radius:var(--radius-md);background:var(--surface);color:var(--muted);text-align:center}
+.state-block-icon{display:inline-flex;align-items:center;justify-content:center;min-height:28px;color:var(--muted);opacity:.7;font-size:var(--text-md)}
+.state-block-icon img{display:block;width:32px;height:32px}
+.state-block-title{margin:0;color:var(--ink-soft);font-size:var(--text-md);font-weight:var(--fw-medium)}
+.state-block-body{margin:0;max-width:26em;color:var(--muted);font-size:var(--text-sm);line-height:1.55}
+.state-block-action{min-height:36px;font-size:var(--text-sm)}
+.state-block[data-kind="loading"]{border-style:solid}
+.state-block[data-kind="overflow"]{border-style:solid}
+.state-block[data-kind="edge"]{border-style:solid;border-left:3px solid var(--warn);background:var(--warn-soft)}
+.state-block[data-kind="error"]{border-style:solid;border-left:3px solid var(--danger);background:var(--danger-soft)}
+.state-block[data-kind="error"] .state-block-icon{color:var(--danger);opacity:1}
