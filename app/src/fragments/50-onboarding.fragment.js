@@ -814,6 +814,16 @@ const values = points.length<=7 ? points.map((item,i) => {
       return;
     }
     if (!exercises.length) {feedback(message, '还没有动作可保存；可以先用「清空今天的训练」。', true); return;}
+    // 2026-11-17：训练也加一步核对（身体保持直存）。先把这次会存进去的内容说清，再落库。
+    const setsCount = exercises.reduce((sum, item) => sum + (Array.isArray(item.setDetails) ? item.setDetails.length : (number(item.sets) || 0)), 0);
+    const volume = trainingVolumeOf(exercises);
+    const runKm = exercises.reduce((sum, item) => sum + (number(item.distanceKm) || 0), 0);
+    const runMin = exercises.reduce((sum, item) => sum + (number(item.durationMin) || 0), 0);
+    const summary = exercises.length + ' 个动作'
+      + (setsCount > 0 ? ' · ' + setsCount + ' 组' : '')
+      + (volume > 0 ? ' · 容量 ' + fmt(volume, 0) + ' kg' : '')
+      + (runKm > 0 || runMin > 0 ? ' · 有氧 ' + [runKm > 0 ? fmt(runKm, 1) + ' km' : '', runMin > 0 ? fmt(runMin, 0) + ' 分钟' : ''].filter(Boolean).join(' · ') : '');
+    if (!await askConfirm(summary, {title: '核对后保存', ok: '确认保存'})) return;
     if (button.disabled) return;
     button.disabled = true;
     feedback(message, '正在保存训练…');
