@@ -1746,3 +1746,7 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 .daily-three-stats span{font-size:var(--text-xs);letter-spacing:.04em;color:var(--muted)}
 .daily-three-stats b{font-size:var(--text-md);font-weight:var(--fw-medium);color:var(--ink);font-variant-numeric:tabular-nums}
 .daily-three-open{margin-top:var(--space-1);min-height:38px}
+
+/* 没记饮食时：能量卡只留目标、说明与四个入口，去掉两栏留白 */
+.energy-card.is-empty .energy-body{grid-template-columns:1fr;row-gap:var(--space-2)}
+.energy-card.is-empty .energy-detail p{margin:0 0 6px}

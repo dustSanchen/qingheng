@@ -1494,18 +1494,16 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
       const volume = typeof trainingVolumeOf === 'function' ? trainingVolumeOf(rows) : 0;
       trainingLine.hidden = !rows.length;
       trainingLine.textContent = rows.length ? `今天训练 ${rows.length} 个动作 · 容量 ${fmt(volume, 0)} kg` : '';
-      // 首屏一句结论：先给状态，再进下面的卡片看细节。
-      const brief = $('#today-brief');
-      if (brief) {
-        const proteinNow = number(totals.protein), proteinFloor = number(p.proteinMin);
-        brief.textContent = [
-          meals.length ? `今天 ${meals.length} 餐` : '今天还没记录',
-          proteinNow !== null && proteinFloor !== null ? `蛋白 ${fmt(proteinNow, 0)} / ${fmt(proteinFloor, 0)} g` : '',
-          rows.length ? `训练 ${rows.length} 个动作` : '训练未记'
-        ].filter(Boolean).join(' · ');
-      }
+
     }
     $('#calorie-value').textContent = fmt(totals.calories,0);
+    // 没记饮食时把空环与宏量格收起来：一屏只留「还没记」和记一餐的入口，别用空数字占版面。
+    const noFoodYet = !meals.length && totals.calories === null;
+    const ringNode = $('#energy-ring'), macroNode = $('#macro-summary');
+    if (ringNode) ringNode.hidden = noFoodYet;
+    if (macroNode) macroNode.hidden = noFoodYet;
+    const energyCard = ringNode ? ringNode.closest('.energy-card') : null;
+    if (energyCard) energyCard.classList.toggle('is-empty', noFoodYet);
     const range = p.intakeRange;
     // C 节：目标只给一个数，误差用 ±2% 说明，依据与数字同屏同步更新。
     const target = number(range ? range.max : p.calorieTarget);
@@ -5393,10 +5391,13 @@ const values = points.length<=7 ? points.map((item,i) => {
           ['睡眠', sleep === null ? '—' : `${fmt(sleep)} 小时`],
           ['体重', weight === null ? '—' : `${fmt(weight)} kg`]
         ];
+        const missing = [training === '' ? '训练' : '', sleep === null ? '睡眠' : '', weight === null ? '体重' : ''].filter(Boolean);
+        // 按钮直接点名缺的那一样：2/3 时写「补 体重」，比笼统的「记录三样」少想一步。
+        const openLabel = filled === 3 ? '修改' : filled === 0 ? '记录三样' : '补 ' + missing.join('、');
         summary.innerHTML = '<div class="daily-three-stats">'
           + rows.map(([label, value]) => `<div><span>${label}</span><b>${esc(value)}</b></div>`).join('')
           + '</div>'
-          + `<button type="button" class="button subtle daily-three-open" data-daily-three-edit>${filled === 3 ? '修改' : '记录三样'}</button>`;
+          + `<button type="button" class="button subtle daily-three-open" data-daily-three-edit>${openLabel}</button>`;
       }
     }
     if (tag) tag.textContent = filled === 0 ? '待记录' : filled === 3 ? '已记录三样' : `已记录 ${filled}/3`;
@@ -6131,7 +6132,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.75';
+  const APP_VERSION = '1.3.78';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}

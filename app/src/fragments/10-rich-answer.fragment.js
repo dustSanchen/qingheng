@@ -198,18 +198,16 @@
       const volume = typeof trainingVolumeOf === 'function' ? trainingVolumeOf(rows) : 0;
       trainingLine.hidden = !rows.length;
       trainingLine.textContent = rows.length ? `今天训练 ${rows.length} 个动作 · 容量 ${fmt(volume, 0)} kg` : '';
-      // 首屏一句结论：先给状态，再进下面的卡片看细节。
-      const brief = $('#today-brief');
-      if (brief) {
-        const proteinNow = number(totals.protein), proteinFloor = number(p.proteinMin);
-        brief.textContent = [
-          meals.length ? `今天 ${meals.length} 餐` : '今天还没记录',
-          proteinNow !== null && proteinFloor !== null ? `蛋白 ${fmt(proteinNow, 0)} / ${fmt(proteinFloor, 0)} g` : '',
-          rows.length ? `训练 ${rows.length} 个动作` : '训练未记'
-        ].filter(Boolean).join(' · ');
-      }
+
     }
     $('#calorie-value').textContent = fmt(totals.calories,0);
+    // 没记饮食时把空环与宏量格收起来：一屏只留「还没记」和记一餐的入口，别用空数字占版面。
+    const noFoodYet = !meals.length && totals.calories === null;
+    const ringNode = $('#energy-ring'), macroNode = $('#macro-summary');
+    if (ringNode) ringNode.hidden = noFoodYet;
+    if (macroNode) macroNode.hidden = noFoodYet;
+    const energyCard = ringNode ? ringNode.closest('.energy-card') : null;
+    if (energyCard) energyCard.classList.toggle('is-empty', noFoodYet);
     const range = p.intakeRange;
     // C 节：目标只给一个数，误差用 ±2% 说明，依据与数字同屏同步更新。
     const target = number(range ? range.max : p.calorieTarget);

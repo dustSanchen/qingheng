@@ -1287,10 +1287,13 @@
           ['睡眠', sleep === null ? '—' : `${fmt(sleep)} 小时`],
           ['体重', weight === null ? '—' : `${fmt(weight)} kg`]
         ];
+        const missing = [training === '' ? '训练' : '', sleep === null ? '睡眠' : '', weight === null ? '体重' : ''].filter(Boolean);
+        // 按钮直接点名缺的那一样：2/3 时写「补 体重」，比笼统的「记录三样」少想一步。
+        const openLabel = filled === 3 ? '修改' : filled === 0 ? '记录三样' : '补 ' + missing.join('、');
         summary.innerHTML = '<div class="daily-three-stats">'
           + rows.map(([label, value]) => `<div><span>${label}</span><b>${esc(value)}</b></div>`).join('')
           + '</div>'
-          + `<button type="button" class="button subtle daily-three-open" data-daily-three-edit>${filled === 3 ? '修改' : '记录三样'}</button>`;
+          + `<button type="button" class="button subtle daily-three-open" data-daily-three-edit>${openLabel}</button>`;
       }
     }
     if (tag) tag.textContent = filled === 0 ? '待记录' : filled === 3 ? '已记录三样' : `已记录 ${filled}/3`;
