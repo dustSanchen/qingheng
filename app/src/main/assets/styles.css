@@ -1739,3 +1739,10 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 
 /* 今天页首屏状态句：先给结论，再展开数字 */
 .today-brief{margin:0;padding:var(--space-2) 0;border-bottom:1px solid var(--line);font-size:var(--text-md);line-height:1.6;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+
+/* 今日三样摘要：首屏只给三格数字与一个入口 */
+.daily-three-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-2);margin:var(--space-1) 0 var(--space-2)}
+.daily-three-stats>div{display:flex;flex-direction:column;gap:2px}
+.daily-three-stats span{font-size:var(--text-xs);letter-spacing:.04em;color:var(--muted)}
+.daily-three-stats b{font-size:var(--text-md);font-weight:var(--fw-medium);color:var(--ink);font-variant-numeric:tabular-nums}
+.daily-three-open{margin-top:var(--space-1);min-height:38px}

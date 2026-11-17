@@ -154,7 +154,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.73';
+  const APP_VERSION = '1.3.75';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1851,6 +1851,7 @@
       }
       // 记过一次就收起来：这张卡在首屏占地大，展开态最容易误触。
       try {localStorage.setItem(DAILY_THREE_KEY(activeDate), '1');} catch {}
+      dailyThreeEditing = '';
       await loadState({quiet: true});
       feedback(message, `已记录：${saved.join('、')}。`);
     } catch (error) {feedback(message, error.message, true);}

@@ -5381,7 +5381,8 @@ const values = points.length<=7 ? points.map((item,i) => {
     // 三样都记过就收成一列只读摘要：这张卡在首屏占地大，展开态最容易误触。
     let savedThisDay = false;
     try {savedThisDay = localStorage.getItem(DAILY_THREE_KEY(activeDate)) === '1';} catch {}
-    const collapsed = (savedThisDay || filled === 3) && dailyThreeEditing !== activeDate;
+    // 2026-11-18：首屏改成「三样摘要」——默认收着，点一下才展开表单；美术展示优先，多一步没关系。
+    const collapsed = dailyThreeEditing !== activeDate;
     const body = $('#daily-three-body'), summary = $('#daily-three-summary');
     if (body) body.hidden = collapsed;
     if (summary) {
@@ -5392,8 +5393,10 @@ const values = points.length<=7 ? points.map((item,i) => {
           ['睡眠', sleep === null ? '—' : `${fmt(sleep)} 小时`],
           ['体重', weight === null ? '—' : `${fmt(weight)} kg`]
         ];
-        summary.innerHTML = rows.map(([label, value]) => `<div class="daily-three-row"><span>${label}</span><b>${esc(value)}</b></div>`).join('')
-          + '<button type="button" class="text-button" data-daily-three-edit>修改</button>';
+        summary.innerHTML = '<div class="daily-three-stats">'
+          + rows.map(([label, value]) => `<div><span>${label}</span><b>${esc(value)}</b></div>`).join('')
+          + '</div>'
+          + `<button type="button" class="button subtle daily-three-open" data-daily-three-edit>${filled === 3 ? '修改' : '记录三样'}</button>`;
       }
     }
     if (tag) tag.textContent = filled === 0 ? '待记录' : filled === 3 ? '已记录三样' : `已记录 ${filled}/3`;
@@ -6128,7 +6131,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.73';
+  const APP_VERSION = '1.3.75';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -7825,6 +7828,7 @@ function metricIcon(label) {
       }
       // 记过一次就收起来：这张卡在首屏占地大，展开态最容易误触。
       try {localStorage.setItem(DAILY_THREE_KEY(activeDate), '1');} catch {}
+      dailyThreeEditing = '';
       await loadState({quiet: true});
       feedback(message, `已记录：${saved.join('、')}。`);
     } catch (error) {feedback(message, error.message, true);}
