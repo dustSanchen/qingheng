@@ -68,6 +68,11 @@ adb shell dumpsys package cn.qingheng.health | Select-String 'versionName'
    备份请放 `backups/`，不要留在 `app/src/main/assets`。
 3. **报告里写「已完成」但其实没做**。规矩：总结里每条「已完成」都必须能指向一次具体的工具调用或一个文件证据；
    写总结前对着待办逐项核对，不拿「我打算做」的记忆冒充「我已经做」。
+4. **`.ps1` 工具必须存成 UTF-8 带 BOM**（2026-11-18）。`dev-loop.ps1` 曾是无 BOM 的 UTF-8，Windows PowerShell
+   按系统 ANSI（GBK）解码，一行中文注释把紧随其后的 `if ($Version -match ...)` 并进注释，`$VersionCode` 恒为 0，
+   「version sync」静默空转（0.0s、无输出）——于是出现「装机 1.3.91 / 关于页 1.3.90」。改 .ps1 后先
+   `powershell -NoProfile -Command "[System.Management.Automation.Language.Parser]::ParseFile(...)"` 或直接跑
+   `dev-loop -Version X -SkipBuild -SkipInstall -SkipTests`，确认它打印了 `version synced to X/Y`。
 
 ## 双皮肤约束
 
