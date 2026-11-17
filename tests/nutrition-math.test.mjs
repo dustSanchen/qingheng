@@ -73,8 +73,8 @@ check('bad values are replaced, near misses kept', lines.fixed === '500,530', li
 const main = fs.readFileSync('app/src/main/java/cn/qingheng/health/MainActivity.java', 'utf8');
 const app = fs.readFileSync('app/src/main/assets/app.js', 'utf8');
 check('the hard failure is gone', !main.includes('API 营养总量与明细不一致'));
-check('the estimate uses the canonical totals', main.includes('NutritionMath.totals(itemValues, oilGrams)'));
-check('a mismatch becomes a note', main.includes('NutritionMath.mismatchNote(oilGrams)'));
+check('the estimate uses the canonical totals', main.includes('NutritionMath.totals(itemValues, oilToAdd)'));
+check('a mismatch becomes a note', main.includes('NutritionMath.mismatchNote(oilToAdd)'));
 check('the preview adds the oil too', app.includes('totals.calories = (totals.calories ?? 0) + oil * 9;'));
 check('the save path uses the same helper', app.includes('const totals=estimateTotals(items);'));
 

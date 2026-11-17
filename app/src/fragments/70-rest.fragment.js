@@ -52,7 +52,7 @@
   }
   function readItems(validate=false) {
     const rows=$$('.estimate-item'); if(!rows.length) {if(validate) throw new Error('请至少保留一项食物。');return [];}
-    return rows.map(row => {const item={};$$('[data-item-field]',row).forEach(input=>{if(validate && !input.reportValidity()) throw new Error('请补全食物名称并填写有效的非负数值。');item[input.dataset.itemField]=input.dataset.itemField==='name'?input.value.trim():number(input.value);});if(validate && !item.name) {markFieldInvalid($('[data-item-field="name"]', row), '请填写食物名称。'); throw new Error('请填写食物名称。');}return item;});
+    return rows.map(row => {const item={};$$('[data-item-field]',row).forEach(input=>{if(validate && !input.reportValidity()) throw new Error('请补全食物名称并填写有效的非负数值。');item[input.dataset.itemField]=input.dataset.itemField==='name'?input.value.trim():number(input.value);});const oil=number(row.dataset.oil);if(oil>0)item.oilGrams=oil;if(validate && !item.name) {markFieldInvalid($('[data-item-field="name"]', row), '请填写食物名称。'); throw new Error('请填写食物名称。');}return item;});
   }
   /** Canonical totals for the draft: line items plus the cooking oil that was estimated separately. */
   /** Carbs a row does not state but its calories imply; mirrors NutritionMath.inferredCarbs on the client. */
@@ -69,7 +69,9 @@
     // for a 261 kcal bowl of rice. The saved record applies the same rule server-side.
     const patched = (items || []).map(item => ({...item, carbs: carbOfItem(item)}));
     const totals = totalsFor(patched);
-    const oil = number(draft?.oilGrams) ?? 0;
+    // 用油按菜归属后，油已经算在各菜的 calories/fat 里；只有旧草稿（菜里没有 oilGrams）才把整餐油再加一次。
+    const itemsOil = (patched || []).reduce((sum, item) => sum + (number(item.oilGrams) || 0), 0);
+    const oil = itemsOil > 0 ? 0 : (number(draft?.oilGrams) ?? 0);
     if (oil > 0) {
       totals.calories = (totals.calories ?? 0) + oil * 9;
       totals.fat = (totals.fat ?? 0) + oil;
@@ -152,7 +154,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.60';
+  const APP_VERSION = '1.3.61';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1977,12 +1979,6 @@
   $('#estimate-items').addEventListener('input',event=>{
     const input=event.target.closest('[data-item-field]');if(!input)return;
     if(input.dataset.itemField==='grams'){const grams=number(input.value);if(grams>0)scaleEstimateItem(input.closest('.estimate-item'),grams);}
-    updatePreviewTotals();
-  });
-  document.addEventListener('input',event=>{
-    if(event.target.id!=='estimate-oil-input'||!draft)return;
-    const grams=number(event.target.value);
-    draft.oilGrams=grams===null?0:Math.max(0,Math.min(500,grams));
     updatePreviewTotals();
   });
   $('#estimate-items').addEventListener('click',event=>{

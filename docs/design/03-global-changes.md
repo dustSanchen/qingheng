@@ -156,6 +156,8 @@
 | 2026-11-11 | `tests/training-log.test.mjs` / `training-presets.test.mjs` | 动作级校验文案 → 逐组校验；预填断言改 `setDetails` | 1.3.30 记录模型从「组数一个数」改为 `setDetails[]`，校验与预填都按组 |
 | 2026-11-17 | `tests/layout-four.test.mjs` | 「小习惯与建议都在 more 内」→「小习惯在 more 内、建议回到主流程」 | 用户要求「把今天的建议从更多收纳中移出至今天中」；1.3.59 把建议卡移到 更多 之前，断言跟到新位置 |
 | 2026-11-17 | `tests/advice-and-training-window.test.mjs` | 「训练建议卡在今天页」→「位于问答页 #view-chat 内且有 #chat-tabs 分段」 | 用户要求「将今日训练建议移至问答中」；1.3.59 把卡迁到问答页并加「问答 / 训练建议」分段 |
+| 2026-11-17 | `tests/anchors-oil.test.mjs` ×3 | 「预览可改油量」→「油按菜归属、无单独输入」；用油上限断言改 `topOil`；预览提示语改为「请核对份量与克重」「照片看不到锅底积油」 | 用油并入每道菜的识别结果（每道菜自带 oilGrams 并已算进该菜热量），去掉单独填写，断言跟到新交互 |
+| 2026-11-17 | `tests/nutrition-math.test.mjs` ×2 | `NutritionMath.totals(…, oilGrams)` → `(…, oilToAdd)`；`mismatchNote(oilGrams)` → `(oilToAdd)` | 新格式下油已包含在各菜里，只对旧格式（顶层 oilGrams、菜里没有油）补一次油，避免重复计入 |
 | 2026-11-17 | `tests/training-draft.test.mjs` | 「跑步靠对位继承 distanceKm」→「跑步有自己的距离/时长输入框」 | 1.3.59 有氧动作有了 data-cardio 输入，旧的 previous.distanceKm 继承逻辑连同断言一起移除，改守新表单 |
 | 2026-11-17 | `tests/training-log.test.mjs` | 「runsByName 按名字继承」→「km/分钟来自有氧输入，且 runsByName 已删」 | 同上：有氧不再靠上一条记录猜距离，断言改为守着输入框而不是旧 hack |
 

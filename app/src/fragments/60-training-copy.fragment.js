@@ -1488,23 +1488,20 @@
       return `<p class="fine-print">本地参考：${fmt(per100.calories,0)} kcal/100g · ${esc(basis)}${range}。${esc(model.note || '')}</p>`;
     };
     // Each row keeps its original estimate as a ratio baseline, so repeated gram edits never accumulate rounding drift.
-    $('#estimate-items').innerHTML=view.items.map(item => `<div class="estimate-item" data-base-grams="${Number(item.grams)}"><div class="estimate-item-head"><label>食物名称<input data-item-field="name" value="${esc(item.name)}" maxlength="120" required></label><div class="estimate-item-actions"><button type="button" class="recalc-item" title="按克重和每 100g 数据重算" aria-label="按克重重算${esc(item.name)}"><span class="inline-icon" aria-hidden="true"><img src="./icon-refresh.svg" alt="" width="17" height="17"></span></button><button type="button" class="remove-item" title="移除这项" aria-label="移除${esc(item.name)}">×</button></div></div>${modelNote(item)}<div class="form-grid">${fields.map(([key,label]) => `<label>${label}<input data-item-field="${key}" type="number" value="${Number(item[key])}" ${key === 'grams' ? '' : `data-base-value="${Number(item[key])}"`} min="0" max="20000" step="0.01" required></label>`).join('')}</div></div>`).join('');
+    $('#estimate-items').innerHTML=view.items.map(item => `<div class="estimate-item" data-base-grams="${Number(item.grams)}" data-oil="${Number(item.oilGrams)||0}"><div class="estimate-item-head"><label>食物名称<input data-item-field="name" value="${esc(item.name)}" maxlength="120" required></label><div class="estimate-item-actions"><button type="button" class="recalc-item" title="按克重和每 100g 数据重算" aria-label="按克重重算${esc(item.name)}"><span class="inline-icon" aria-hidden="true"><img src="./icon-refresh.svg" alt="" width="17" height="17"></span></button><button type="button" class="remove-item" title="移除这项" aria-label="移除${esc(item.name)}">×</button></div></div>${modelNote(item)}${number(item.oilGrams)>0?`<p class="fine-print estimate-item-oil">这道菜的用油 ${fmt(item.oilGrams,0)} g，已含在热量与脂肪里。</p>`:''}<div class="form-grid">${fields.map(([key,label]) => `<label>${label}<input data-item-field="${key}" type="number" value="${Number(item[key])}" ${key === 'grams' ? '' : `data-base-value="${Number(item[key])}"`} min="0" max="20000" step="0.01" required></label>`).join('')}</div></div>`).join('');
     $('#estimate-source').textContent=`${view.source==='api'?'外部模型':'本地估算'} · ${view.confidence==='medium'?'中等':'低'}置信度${restored?' · 已恢复未确认草稿':''}`;
     const uncertainty=number(view.uncertaintyPercent) ?? 15;
     draft.uncertaintyPercent=uncertainty; draft.oilGrams=number(view.oilGrams) ?? 0;
-    // 油是整条估算链最虚的一环：给一个可改的数，用户看到「炒菜只记了 5g」就能当场修正。
-    let oilBox=$('#estimate-oil');
-    if(!oilBox){
-      oilBox=document.createElement('label');oilBox.id='estimate-oil';oilBox.className='estimate-oil';
-      oilBox.innerHTML='烹调用油 · g<input id="estimate-oil-input" type="number" min="0" max="500" step="1" inputmode="decimal">';
-      $('#estimate-totals').before(oilBox);
-    }
-    const oilInput=$('#estimate-oil-input');
-    if(oilInput)oilInput.value=fmt(draft.oilGrams,0);
+    // 用油按菜归属：模型的每道菜自己带 oilGrams，且已算进那道菜的热量；顶层数只用于展示。
+    const itemsOil=(view.items||[]).reduce((sum,item)=>sum+(number(item.oilGrams)||0),0);
     const totalCalories=totalsFor(view.items).calories;
     const interval=`估算区间：约 ${fmt(totalCalories*(1-uncertainty/100),0)}–${fmt(totalCalories*(1+uncertainty/100),0)} kcal（±${fmt(uncertainty,0)}%）`;
-    const oilNote=draft.oilGrams>0?`已计入烹调用油 ${fmt(draft.oilGrams,0)} g（约 ${fmt(draft.oilGrams*9,0)} kcal）`:'照片无法判断用油量；如果这餐是炒菜，请补上后用油量，否则热量会偏低。';
-    const lowNote='识别结果可能有偏差，请核对份量与用油；不确定的项按常见份量取中位值即可，不必刻意往高报。';
+    const oilNote=itemsOil>0
+      ? `用油已按菜计入 ${fmt(itemsOil,0)} g（约 ${fmt(itemsOil*9,0)} kcal），已含在各菜的热量与脂肪里，不用再单独加`
+      : draft.oilGrams>0
+        ? `已计入烹调用油 ${fmt(draft.oilGrams,0)} g（约 ${fmt(draft.oilGrams*9,0)} kcal）`
+        : '照片看不到锅底积油；红烧、干煸这类已按方法取中位值，清蒸白灼按 0 计';
+    const lowNote='识别结果可能有偏差，请核对份量与克重；不确定的项按常见份量取中位值即可，不必刻意往高报。';
     $('#estimate-notes').innerHTML=[interval,oilNote,lowNote].concat(Array.isArray(view.notes)?view.notes:[]).map(note=>`<li>${esc(note)}</li>`).join('');
     $('#estimate-name').value=view.name || view.items.map(item=>item.name).join('、').slice(0,120);
     $('#estimate-preview').hidden=false;

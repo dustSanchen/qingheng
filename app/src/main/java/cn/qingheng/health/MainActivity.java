@@ -3456,6 +3456,9 @@ import java.util.concurrent.Executors;
             JSONObject clean = new JSONObject().put("name", item.getString("name"));
             clean.put("grams", number(item, "grams"));
             for (String k : new String[]{"calories", "protein", "carbs", "fat"}) clean.put(k, number(item, k));
+            // 用油按菜归属：每道菜的油写在该菜上，并已算进它的热量与脂肪。
+            Double itemOil = finite(item, "oilGrams");
+            if (itemOil != null && itemOil > 0) clean.put("oilGrams", Math.min(300, itemOil));
             // Fiber is optional. Keeping it on the item is what makes the 2 kcal/g reconciliation live:
             // without this the prompt's fiber field would be dropped and NutritionMath would only see 4/4/9.
             Double fiberField = finite(item, "fiber");
@@ -3465,10 +3468,18 @@ import java.util.concurrent.Executors;
         }
         Object notes = parsed.opt("notes");
         if (!(notes instanceof String) || ((String)notes).length() > 4000) throw fail("API 备注格式不正确");
-        // Oil is read first, because it is part of the meal's totals and must not look like a mismatch.
-        double oilGrams = 0;
-        if (parsed.has("oilGrams") && !parsed.isNull("oilGrams")) oilGrams = number(parsed, "oilGrams");
-        if (oilGrams > 500) throw fail("API 用油量超出合理范围");
+        // Oil: newer estimates attach it to each dish (already inside that dish's kcal/fat); older ones
+        // only carry one meal-level number. Never add both, or every meal with per-dish oil doubles.
+        double topOil = 0;
+        if (parsed.has("oilGrams") && !parsed.isNull("oilGrams")) topOil = number(parsed, "oilGrams");
+        if (topOil > 500) throw fail("API 用油量超出合理范围");
+        double itemsOil = 0;
+        for (int i = 0; i < items.length(); i++) {
+            Double value = finite(items.getJSONObject(i), "oilGrams");
+            if (value != null && value > 0) itemsOil += value;
+        }
+        double oilGrams = itemsOil > 0 ? itemsOil : topOil;
+        double oilToAdd = itemsOil > 0 ? 0 : topOil;
         // One canonical total: the line items plus the cooking oil. The model's own totals are only
         // checked for agreement; a disagreement becomes a note instead of throwing the call away.
         double[][] itemValues = new double[items.length()][cn.qingheng.health.store.NutritionMath.FIELDS];
@@ -3523,7 +3534,7 @@ import java.util.concurrent.Executors;
                 energyReconciled = true;
             }
         }
-        double[] derived = cn.qingheng.health.store.NutritionMath.totals(itemValues, oilGrams);
+        double[] derived = cn.qingheng.health.store.NutritionMath.totals(itemValues, oilToAdd);
         String[] keys = {"calories", "protein", "carbs", "fat"};
         boolean mismatch = false;
         for (int i = 0; i < keys.length; i++) {
@@ -3544,7 +3555,7 @@ import java.util.concurrent.Executors;
             if (drafts.size() >= 1000) drafts.clear();
             drafts.add(id);
         }
-        if (mismatch) notes = notes + "；" + cn.qingheng.health.store.NutritionMath.mismatchNote(oilGrams);
+        if (mismatch) notes = notes + "；" + cn.qingheng.health.store.NutritionMath.mismatchNote(oilToAdd);
         if (carbsInferred) notes = notes + "；有食物没给碳水，已按剩余热量反推";
         if (energyReconciled) notes = notes + "；有食物的热量与三大营养素对不上，已按 4/4/9 重算";
         if (energyReconciled && hasFiber) notes = notes + "（膳食纤维按 2 kcal/g）";

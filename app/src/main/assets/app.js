@@ -5556,23 +5556,20 @@ const values = points.length<=7 ? points.map((item,i) => {
       return `<p class="fine-print">本地参考：${fmt(per100.calories,0)} kcal/100g · ${esc(basis)}${range}。${esc(model.note || '')}</p>`;
     };
     // Each row keeps its original estimate as a ratio baseline, so repeated gram edits never accumulate rounding drift.
-    $('#estimate-items').innerHTML=view.items.map(item => `<div class="estimate-item" data-base-grams="${Number(item.grams)}"><div class="estimate-item-head"><label>食物名称<input data-item-field="name" value="${esc(item.name)}" maxlength="120" required></label><div class="estimate-item-actions"><button type="button" class="recalc-item" title="按克重和每 100g 数据重算" aria-label="按克重重算${esc(item.name)}"><span class="inline-icon" aria-hidden="true"><img src="./icon-refresh.svg" alt="" width="17" height="17"></span></button><button type="button" class="remove-item" title="移除这项" aria-label="移除${esc(item.name)}">×</button></div></div>${modelNote(item)}<div class="form-grid">${fields.map(([key,label]) => `<label>${label}<input data-item-field="${key}" type="number" value="${Number(item[key])}" ${key === 'grams' ? '' : `data-base-value="${Number(item[key])}"`} min="0" max="20000" step="0.01" required></label>`).join('')}</div></div>`).join('');
+    $('#estimate-items').innerHTML=view.items.map(item => `<div class="estimate-item" data-base-grams="${Number(item.grams)}" data-oil="${Number(item.oilGrams)||0}"><div class="estimate-item-head"><label>食物名称<input data-item-field="name" value="${esc(item.name)}" maxlength="120" required></label><div class="estimate-item-actions"><button type="button" class="recalc-item" title="按克重和每 100g 数据重算" aria-label="按克重重算${esc(item.name)}"><span class="inline-icon" aria-hidden="true"><img src="./icon-refresh.svg" alt="" width="17" height="17"></span></button><button type="button" class="remove-item" title="移除这项" aria-label="移除${esc(item.name)}">×</button></div></div>${modelNote(item)}${number(item.oilGrams)>0?`<p class="fine-print estimate-item-oil">这道菜的用油 ${fmt(item.oilGrams,0)} g，已含在热量与脂肪里。</p>`:''}<div class="form-grid">${fields.map(([key,label]) => `<label>${label}<input data-item-field="${key}" type="number" value="${Number(item[key])}" ${key === 'grams' ? '' : `data-base-value="${Number(item[key])}"`} min="0" max="20000" step="0.01" required></label>`).join('')}</div></div>`).join('');
     $('#estimate-source').textContent=`${view.source==='api'?'外部模型':'本地估算'} · ${view.confidence==='medium'?'中等':'低'}置信度${restored?' · 已恢复未确认草稿':''}`;
     const uncertainty=number(view.uncertaintyPercent) ?? 15;
     draft.uncertaintyPercent=uncertainty; draft.oilGrams=number(view.oilGrams) ?? 0;
-    // 油是整条估算链最虚的一环：给一个可改的数，用户看到「炒菜只记了 5g」就能当场修正。
-    let oilBox=$('#estimate-oil');
-    if(!oilBox){
-      oilBox=document.createElement('label');oilBox.id='estimate-oil';oilBox.className='estimate-oil';
-      oilBox.innerHTML='烹调用油 · g<input id="estimate-oil-input" type="number" min="0" max="500" step="1" inputmode="decimal">';
-      $('#estimate-totals').before(oilBox);
-    }
-    const oilInput=$('#estimate-oil-input');
-    if(oilInput)oilInput.value=fmt(draft.oilGrams,0);
+    // 用油按菜归属：模型的每道菜自己带 oilGrams，且已算进那道菜的热量；顶层数只用于展示。
+    const itemsOil=(view.items||[]).reduce((sum,item)=>sum+(number(item.oilGrams)||0),0);
     const totalCalories=totalsFor(view.items).calories;
     const interval=`估算区间：约 ${fmt(totalCalories*(1-uncertainty/100),0)}–${fmt(totalCalories*(1+uncertainty/100),0)} kcal（±${fmt(uncertainty,0)}%）`;
-    const oilNote=draft.oilGrams>0?`已计入烹调用油 ${fmt(draft.oilGrams,0)} g（约 ${fmt(draft.oilGrams*9,0)} kcal）`:'照片无法判断用油量；如果这餐是炒菜，请补上后用油量，否则热量会偏低。';
-    const lowNote='识别结果可能有偏差，请核对份量与用油；不确定的项按常见份量取中位值即可，不必刻意往高报。';
+    const oilNote=itemsOil>0
+      ? `用油已按菜计入 ${fmt(itemsOil,0)} g（约 ${fmt(itemsOil*9,0)} kcal），已含在各菜的热量与脂肪里，不用再单独加`
+      : draft.oilGrams>0
+        ? `已计入烹调用油 ${fmt(draft.oilGrams,0)} g（约 ${fmt(draft.oilGrams*9,0)} kcal）`
+        : '照片看不到锅底积油；红烧、干煸这类已按方法取中位值，清蒸白灼按 0 计';
+    const lowNote='识别结果可能有偏差，请核对份量与克重；不确定的项按常见份量取中位值即可，不必刻意往高报。';
     $('#estimate-notes').innerHTML=[interval,oilNote,lowNote].concat(Array.isArray(view.notes)?view.notes:[]).map(note=>`<li>${esc(note)}</li>`).join('');
     $('#estimate-name').value=view.name || view.items.map(item=>item.name).join('、').slice(0,120);
     $('#estimate-preview').hidden=false;
@@ -5992,7 +5989,7 @@ function metricIcon(label) {
   }
   function readItems(validate=false) {
     const rows=$$('.estimate-item'); if(!rows.length) {if(validate) throw new Error('请至少保留一项食物。');return [];}
-    return rows.map(row => {const item={};$$('[data-item-field]',row).forEach(input=>{if(validate && !input.reportValidity()) throw new Error('请补全食物名称并填写有效的非负数值。');item[input.dataset.itemField]=input.dataset.itemField==='name'?input.value.trim():number(input.value);});if(validate && !item.name) {markFieldInvalid($('[data-item-field="name"]', row), '请填写食物名称。'); throw new Error('请填写食物名称。');}return item;});
+    return rows.map(row => {const item={};$$('[data-item-field]',row).forEach(input=>{if(validate && !input.reportValidity()) throw new Error('请补全食物名称并填写有效的非负数值。');item[input.dataset.itemField]=input.dataset.itemField==='name'?input.value.trim():number(input.value);});const oil=number(row.dataset.oil);if(oil>0)item.oilGrams=oil;if(validate && !item.name) {markFieldInvalid($('[data-item-field="name"]', row), '请填写食物名称。'); throw new Error('请填写食物名称。');}return item;});
   }
   /** Canonical totals for the draft: line items plus the cooking oil that was estimated separately. */
   /** Carbs a row does not state but its calories imply; mirrors NutritionMath.inferredCarbs on the client. */
@@ -6009,7 +6006,9 @@ function metricIcon(label) {
     // for a 261 kcal bowl of rice. The saved record applies the same rule server-side.
     const patched = (items || []).map(item => ({...item, carbs: carbOfItem(item)}));
     const totals = totalsFor(patched);
-    const oil = number(draft?.oilGrams) ?? 0;
+    // 用油按菜归属后，油已经算在各菜的 calories/fat 里；只有旧草稿（菜里没有 oilGrams）才把整餐油再加一次。
+    const itemsOil = (patched || []).reduce((sum, item) => sum + (number(item.oilGrams) || 0), 0);
+    const oil = itemsOil > 0 ? 0 : (number(draft?.oilGrams) ?? 0);
     if (oil > 0) {
       totals.calories = (totals.calories ?? 0) + oil * 9;
       totals.fat = (totals.fat ?? 0) + oil;
@@ -6092,7 +6091,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.60';
+  const APP_VERSION = '1.3.61';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -7917,12 +7916,6 @@ function metricIcon(label) {
   $('#estimate-items').addEventListener('input',event=>{
     const input=event.target.closest('[data-item-field]');if(!input)return;
     if(input.dataset.itemField==='grams'){const grams=number(input.value);if(grams>0)scaleEstimateItem(input.closest('.estimate-item'),grams);}
-    updatePreviewTotals();
-  });
-  document.addEventListener('input',event=>{
-    if(event.target.id!=='estimate-oil-input'||!draft)return;
-    const grams=number(event.target.value);
-    draft.oilGrams=grams===null?0:Math.max(0,Math.min(500,grams));
     updatePreviewTotals();
   });
   $('#estimate-items').addEventListener('click',event=>{

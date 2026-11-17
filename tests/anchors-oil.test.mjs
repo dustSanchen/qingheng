@@ -56,7 +56,7 @@ check('estimator prompt explains why', prompts.includes('两边抵消'));
 check('estimator returns oil separately', prompts.includes('\\"oilGrams\\":0') && main.includes('oilIncluded'));
 check('estimator returns an uncertainty', prompts.includes('\\"uncertaintyPercent\\":15'));
 check('the prompt states the oil error sensitivity', prompts.includes('每 5 g 约 45 kcal') && prompts.includes('先逐道写油量再相加'));
-check('the preview oil amount is editable', training.includes('id="estimate-oil-input"') && rest.includes("event.target.id!=='estimate-oil-input'"));
+check('oil is attached to each dish, not edited separately', training.includes('data-oil=') && !training.includes('estimate-oil-input'));
 check('the estimate contract no longer asks the model for totals', !prompts.includes('\\"totals\\":{') && prompts.includes('不要 totals'));
 check('recalc re-estimates from the edited name and grams', html.includes('id="item-recalc-name"') && app.includes("text:`${name} ${grams} g`") && app.includes('noDraft:true'));
 check('a recalc that only wants numbers leaves no draft behind', main.includes('b.optBoolean("noDraft", false)') && main.includes('drafts.add(id);'));
@@ -81,7 +81,7 @@ check('estimate progress uses actions instead of a seconds ticker',
   !estimatePage.includes('已等 ${') && !estimatePage.includes('已收到 ${seen.length}'));
 check('interval bounds are computed for display', main.includes('draft.put(k + "Low"') && main.includes('draft.put(k + "High"'));
 check('an absurd uncertainty falls back to 15', main.includes('if (uncertainty <= 0 || uncertainty > 60) uncertainty = 15;'));
-check('oil is bounded', main.includes('if (oilGrams > 500) throw fail'));
+check('oil is bounded', main.includes('if (topOil > 500) throw fail'));
 check('oil fields survive record validation', main.includes('"oilGrams", "oilSpoons", "oilAddedKcal", "oilAddedFat", "uncertaintyPercent"'));
 check('the advice payload carries anchors', /targets\.put\("anchors", adviceAnchors\)/.test(main));
 check('the chat context carries anchors', /context\.put\("anchors", anchors\)/.test(main));
@@ -110,8 +110,8 @@ check('a confirmed estimate keeps its oil amount', /number\(draft\.oilGrams\)>0\
 // --- the interval and the warning reach the user ---------------------------------------------------
 check('the preview shows the estimate interval', app.includes('估算区间：约 '));
 check('the preview warns that photo estimates may drift', app.includes('不必刻意往高报'));
-check('the preview says what to check', app.includes('请核对份量与用油'));
-check('the preview calls out missing oil', app.includes('照片无法判断用油量'));
+check('the preview says what to check', app.includes('请核对份量与克重'));
+check('the preview calls out dish oil', app.includes('照片看不到锅底积油'));
 check('the preview states the oil that was counted', app.includes('已计入烹调用油'));
 
 console.log('\nFAIL total: ' + fail);
