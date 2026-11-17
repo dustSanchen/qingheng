@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>轻衡 · 每一天，轻一点</title>
+<meta name="description" content="轻衡是一本只存在你手机里的健康账：饮食、训练、身体三栏记在一处，615 KB，断网也能用。">
+<!-- 静态页：不依赖 CDN、字体文件或构建步骤；直接打开或用 GitHub Pages 托管。 -->
+<style>
+:root{
+  --bg:#F6F1E7;
+  --surface:#EFE8DA;
+  --ink:#2A2622;
+  --ink-2:#6E6459;
+  --line:rgba(42,38,34,.16);
+  --accent:#3B5D4F;
+  --fs-h1:52px;
+  --fs-h2:24px;
+  --fs-h3:19px;
+  --fs-body:16.5px;
+  --fs-label:12px;
+  --space-1:8px;
+  --space-2:16px;
+  --space-3:24px;
+  --space-4:32px;
+  --space-5:48px;
+  --space-6:64px;
+  --r-1:2px;
+  --dur:240ms;
+  --ease:ease-out;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font:400 var(--fs-body)/1.75 "Segoe UI","Microsoft YaHei",sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+img{display:block;max-width:100%;height:auto}
+a{color:var(--ink);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
+a:hover{color:var(--accent)}
+a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.wrap{max-width:1120px;margin:0 auto;padding:0 var(--space-3)}
+.skip{position:absolute;left:-9999px}
+.skip:focus{left:var(--space-3);top:var(--space-2);z-index:10;background:var(--surface);padding:var(--space-1) var(--space-2)}
+
+/* 页眉：一条发丝线，贴顶 */
+.site-head{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.site-head .wrap{display:flex;align-items:center;justify-content:space-between;min-height:64px;gap:var(--space-3);flex-wrap:wrap;padding-block:8px}
+.brand{font:500 20px/1.2 "Iowan Old Style",Georgia,"Songti SC",SimSun,serif;text-decoration:none;letter-spacing:-.01em}
+.brand small{font:600 var(--fs-label)/1 "Segoe UI","Microsoft YaHei",sans-serif;letter-spacing:.06em;color:var(--ink-2);margin-left:var(--space-1);text-transform:uppercase}
+.site-head nav{display:flex;gap:var(--space-3);flex-wrap:wrap}
+.site-head nav a{font:600 var(--fs-label)/1 "Segoe UI","Microsoft YaHei",sans-serif;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;color:var(--ink-2)}
+.site-head nav a:hover{color:var(--accent)}
+
+/* 首屏：不放大图，先把一句话说清 */
+.hero{padding-block:var(--space-6) var(--space-5)}
+.kicker{font:600 var(--fs-label)/1.4 "Segoe UI","Microsoft YaHei",sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);margin:0 0 var(--space-2)}
+h1,h2,h3{font-family:"Iowan Old Style",Georgia,"Songti SC",SimSun,serif;font-weight:500}
+h1{margin:0;font-size:var(--fs-h1);line-height:1.18;letter-spacing:-.01em}
+.deck{max-width:680px;margin:var(--space-3) 0 0;font-size:20px;line-height:1.7;color:var(--ink-2)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-3);margin-top:var(--space-5);border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:var(--space-3) 0}
+.stats strong{display:block;font:400 32px/1.2 "Segoe UI","Microsoft YaHei",sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stats strong span{display:inline;font:inherit}
+.stats div > span{display:block;margin-top:4px;font:600 var(--fs-label)/1.4 "Segoe UI","Microsoft YaHei",sans-serif;letter-spacing:.06em;color:var(--ink-2);text-transform:uppercase}
+.meta{margin:var(--space-2) 0 0;font-size:14px;color:var(--ink-2)}
+
+.band{padding-block:var(--space-6);border-top:1px solid var(--line)}
+.band h2{margin:0 0 var(--space-3);font-size:var(--fs-h2);line-height:1.3}
+.lede{max-width:680px;margin:0 0 var(--space-4);color:var(--ink-2)}
+
+/* 亮点：左文右图，一条线分隔 */
+.feature{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:var(--space-5);padding:var(--space-4) 0;border-top:1px solid var(--line);align-items:start}
+.feature:first-of-type{border-top:0;padding-top:0}
+.feature h3{margin:0 0 var(--space-1);font-size:var(--fs-h3);line-height:1.4}
+.feature p{margin:0 0 var(--space-1);max-width:620px}
+.feature .note{font-size:14px;color:var(--ink-2)}
+figure{margin:0}
+figure img{border:1px solid var(--line)}
+figcaption{margin-top:var(--space-1);font-size:13px;line-height:1.5;color:var(--ink-2)}
+
+/* 设计：时间线式列表 */
+.rounds{list-style:none;margin:0;padding:0}
+.rounds li{display:grid;grid-template-columns:96px minmax(0,1fr);gap:var(--space-3);padding:var(--space-3) 0;border-top:1px solid var(--line)}
+.rounds .date{font:600 var(--fs-label)/1.4 "Segoe UI","Microsoft YaHei",sans-serif;letter-spacing:.06em;color:var(--ink-2);padding-top:4px}
+.rounds h3{margin:0 0 4px;font-size:17px;line-height:1.45}
+.rounds p{margin:0;font-size:15.5px;color:var(--ink-2)}
+blockquote{margin:var(--space-5) 0 0;padding:var(--space-2) var(--space-3);border-left:3px solid var(--accent);background:var(--surface);font:italic 400 20px/1.6 "Iowan Old Style",Georgia,"Songti SC",SimSun,serif;max-width:680px}
+
+/* 工程：横线表 */
+table{width:100%;border-collapse:collapse;margin-top:var(--space-3);font-size:15px}
+th{background:var(--surface);text-align:left;font:600 var(--fs-label)/1.4 "Segoe UI","Microsoft YaHei",sans-serif;letter-spacing:.06em;padding:10px 12px;border-bottom:1px solid var(--line)}
+td{padding:12px;border-bottom:1px solid var(--line);vertical-align:top}
+tbody tr:last-child td{border-bottom:0}
+td:first-child{width:120px;color:var(--ink-2)}
+.fine{margin-top:var(--space-3);font-size:13px;line-height:1.7;color:var(--ink-2)}
+
+/* 截图墙 */
+.gallery{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-3);margin-top:var(--space-4)}
+
+/* 仓库 */
+.cta{display:grid;gap:var(--space-2)}
+.button{display:inline-block;justify-self:start;border:1px solid var(--accent);border-radius:var(--r-1);padding:12px 22px;font:600 var(--fs-label)/1 "Segoe UI","Microsoft YaHei",sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);text-decoration:none;transition:background-color var(--dur) var(--ease),color var(--dur) var(--ease)}
+.button:hover,.button:focus-visible{background:var(--accent);color:var(--bg)}
+
+footer{padding:var(--space-4) 0 var(--space-6);border-top:1px solid var(--line);font-size:13px;line-height:1.7;color:var(--ink-2)}
+
+/* 入场：只动透明度，240ms。默认可见；JS 先把视口外的段落压暗，滚到再亮起，超时兜底。 */
+.reveal{transition:opacity var(--dur) var(--ease)}
+.reveal.is-hidden{opacity:0}
+.reveal.is-in{opacity:1}
+.reveal[data-delay="1"]{transition-delay:60ms}
+.reveal[data-delay="2"]{transition-delay:120ms}
+@media print{.reveal,.reveal.is-hidden{opacity:1!important}}
+
+@media (max-width:820px){
+  .feature{grid-template-columns:1fr}
+  .feature figure{max-width:320px}
+  .gallery{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .rounds li{grid-template-columns:72px minmax(0,1fr)}
+  .stats{grid-template-columns:1fr;gap:var(--space-2)}
+}
+@media (max-width:520px){
+  h1{font-size:40px}
+  .gallery{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{transition:none!important;animation:none!important}
+  .reveal,html.js .reveal{opacity:1}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">跳到正文</a>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="#top">轻衡 <small>Qingheng</small></a>
+    <nav aria-label="页面导航">
+      <a href="#highlights">亮点</a>
+      <a href="#design">设计</a>
+      <a href="#engineering">工程</a>
+      <a href="#repo">仓库</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero wrap" id="top">
+    <p class="kicker">Android · 本地优先 · 无账号</p>
+    <h1>每一天，<br>轻一点。</h1>
+    <p class="deck">一本只存在你手机里的健康账。饮食、训练、身体三栏记在一处；615 KB，断网也能用，不上传任何记录。</p>
+    <div class="stats" aria-label="项目数据">
+      <div><strong><span data-count="615">615</span> KB</strong><span>安装包</span></div>
+      <div><strong><span data-count="64">64</span></strong><span>自动化测试</span></div>
+      <div><strong><span data-count="0">0</span></strong><span>外部 SDK</span></div>
+    </div>
+    <p class="meta">v1.3.60 · Android 8.0+ · 单 Activity + WebView</p>
+  </section>
+
+  <section class="band wrap" id="highlights">
+    <p class="kicker">产品亮点</p>
+    <h2>每天真正会用到的四件事</h2>
+
+    <div class="feature reveal">
+      <div>
+        <h3>训练日志：每组的数字是主角</h3>
+        <p>10 次 × 60 kg 写在一条线上，单位只跟一次；容量随输入实时算，不用等到保存才看见这一组的份量。</p>
+        <p class="note">组间休息是底栏上方的浮动药丸，点一下开始 90 秒，环形进度跟着秒数走。</p>
+      </div>
+      <figure>
+        <img src="assets/log.png" alt="训练日志：一组一行，写清次数与负重" width="578" height="1255" loading="lazy">
+        <figcaption>一组一行；休息药丸在训练动作的视野里，不用滚回顶部。</figcaption>
+      </figure>
+    </div>
+
+    <div class="feature reveal">
+      <div>
+        <h3>有氧也记得下</h3>
+        <p>跑步、骑行、椭圆按距离与时长记，配速自动算。本周概览写「1 练 · 有氧 2 km · 10 分钟」，不把有氧塞进容量里凑数。</p>
+        <p class="note">保存后重启仍在；距离和时长都空着时，保存会提示补一项。</p>
+      </div>
+      <figure>
+        <img src="assets/run.png" alt="有氧记录：距离、时长与配速" width="578" height="1255" loading="lazy">
+        <figcaption>距离 × 时长，配速实时给；这是多数健身 App 会漏掉的一行。</figcaption>
+      </figure>
+    </div>
+
+    <div class="feature reveal">
+      <div>
+        <h3>问答与训练建议分开</h3>
+        <p>问答页分「问答 / 训练建议」：一个问吃与恢复，一个只看今天练什么。外部 AI 只在你点按钮并同意后调用，按 token 计费。</p>
+        <p class="note">没配置 key 时，训练计划仍由本地规则生成，不会因为没网就空着。</p>
+      </div>
+      <figure>
+        <img src="assets/chat.png" alt="问答页的问答与训练建议分段" width="578" height="1255" loading="lazy">
+        <figcaption>分段记住上次的选择；训练建议卡收在问答里，不再挤在今天页。</figcaption>
+      </figure>
+    </div>
+
+    <div class="feature reveal">
+      <div>
+        <h3>训练计划讲得清为什么</h3>
+        <p>「下一个训练日的动作要点」逐条点名动作；「为什么这样排」先列 AI 当时给的理由，再列这一周的规则依据，两块分开写。</p>
+        <p class="note">要点跟着那天实际要做的动作走，不是模板话。</p>
+      </div>
+      <figure>
+        <img src="assets/cues.png" alt="动作要点：每条点名一个动作" width="578" height="1255" loading="lazy">
+        <figcaption>三条要点对应三个动作；名称右对齐一列，读成一张清单。</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="band wrap" id="design">
+    <p class="kicker">设计思路</p>
+    <h2>先把表格改成一页手账</h2>
+    <p class="lede">训练页重做了六轮，方向始终是同一个：先让内容有美术表达，再谈对齐。每轮只改一个决定，改完上真机看。</p>
+
+    <ol class="rounds">
+      <li class="reveal"><span class="date">v1.3.44</span><div><h3>便签堆叠 → 一圈发丝线</h3><p>三边透明加底边强调，在 480 dpi 上底边圆角悬空，每个输入框像两张叠着的便签。改成浅底加 1px 线，只留一圈边界。</p></div></li>
+      <li class="reveal"><span class="date">v1.3.47</span><div><h3>动效先定档，再谈手感</h3><p>140 / 220 / 320ms 三档、ease-out、位移不超过 8px；数字滚动首帧不表演，reduced-motion 全部归零。</p></div></li>
+      <li class="reveal"><span class="date">v1.3.58</span><div><h3>要点与理由都可追溯</h3><p>要点从「每个模板两条固定话」改成逐动作从训练库取；「为什么这样排」先读用户用 AI 排的那份清单，再列规则依据。</p></div></li>
+      <li class="reveal"><span class="date">v1.3.58</span><div><h3>休息按钮进入训练视野</h3><p>从卡片底部搬到固定药丸，环形进度加剩余时间；只在记组视野内或计时中出现，滚到保存按钮时不挡点击。</p></div></li>
+      <li class="reveal"><span class="date">v1.3.60</span><div><h3>跑步终于能记了</h3><p>数据层早就支持距离与时长，缺的只是表单。补上按行区分的有氧表单与配速，概览补有氧口径，不再只看容量。</p></div></li>
+      <li class="reveal"><span class="date">v1.3.60</span><div><h3>建议回到今天</h3><p>「给今天的一点建议」从「更多」移回主流程；训练建议卡迁到问答页，用分段收好，今天页只留每天要看的东西。</p></div></li>
+    </ol>
+
+    <blockquote class="reveal">「美术效果优先于表格结构。」<br><span style="font-size:14px;font-style:normal;color:var(--ink-2)">—— 训练页重做时的取舍记录</span></blockquote>
+
+    <div class="gallery">
+      <figure class="reveal"><img src="assets/overview.png" alt="训练概览：本周训练次数、容量与今日蛋白" width="578" height="1255" loading="lazy"><figcaption>概览只回答三件事：练了几次、容量多少、蛋白够不够。</figcaption></figure>
+      <figure class="reveal" data-delay="1"><img src="assets/rest.png" alt="组间休息浮动药丸与环形进度" width="578" height="1255" loading="lazy"><figcaption>休息药丸：点一下开始，环形进度走完自动收起。</figcaption></figure>
+      <figure class="reveal" data-delay="2"><img src="assets/advice.png" alt="今天页：给今天的一点建议回到主流程" width="578" height="1255" loading="lazy"><figcaption>建议回到今天页主流程；「更多」里只留身体近况与小习惯。</figcaption></figure>
+    </div>
+  </section>
+
+  <section class="band wrap" id="engineering">
+    <p class="kicker">工程</p>
+    <h2>小、可解释、可回滚</h2>
+    <table>
+      <thead><tr><th scope="col">项</th><th scope="col">现状</th></tr></thead>
+      <tbody>
+        <tr><td>安装包</td><td>615 KB（v1.3.60）</td></tr>
+        <tr><td>自动化测试</td><td>64 项：HTML 结构、CSS 令牌、行为断言</td></tr>
+        <tr><td>外部依赖</td><td>0 个 SDK；动画是自带的 motion/mini（40 KB，构建时校验 sha256）</td></tr>
+        <tr><td>数据位置</td><td>本机 state.json 为权威，SQLite 只做镜像；备份由你自己导出</td></tr>
+        <tr><td>离线数据</td><td>150 条食材与示例菜、训练原则库；不联网也能查</td></tr>
+        <tr><td>AI 调用</td><td>用户自己的 key；首次授权一次，之后在设置里管理，按 token 计费</td></tr>
+      </tbody>
+    </table>
+    <p class="fine">app.js 由 14 个片段按文件名拼装生成，改片段、不手改生成物；每轮改动先在真机看，再推两个远端。</p>
+  </section>
+
+  <section class="band wrap cta" id="repo">
+    <p class="kicker">仓库</p>
+    <h2>代码在 GitHub</h2>
+    <p>仓库是私有的。这一页是纯静态文件，放在 <code>site/</code> 下，不依赖 CDN、字体或构建步骤。</p>
+    <a class="button" href="https://github.com/dustSanchen/qingheng">打开仓库</a>
+    <p class="fine">页面不加载第三方脚本、不使用 cookie；所有截图来自真机。</p>
+  </section>
+</main>
+
+<footer class="wrap">
+  轻衡不是医疗器械，也不替代医生；记录与建议仅供参考。<br>
+  © 2026 轻衡 · 每一天，轻一点
+</footer>
+
+<script>
+(function () {
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var nodes = [].slice.call(document.querySelectorAll('.reveal'));
+  function show(node) { node.classList.remove('is-hidden'); node.classList.add('is-in'); }
+  if (reduce || /[?&]nofx\b/.test(location.search) || !('IntersectionObserver' in window)) {
+    nodes.forEach(show);
+  } else {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        show(entry.target);
+        io.unobserve(entry.target);
+      });
+    }, { rootMargin: '0px 0px -10% 0px', threshold: 0.1 });
+    nodes.forEach(function (node) { node.classList.add('is-hidden'); io.observe(node); });
+    // 兜底：1.5s 后仍在视口里的段落直接亮起（打印、截图、异常环境都不会留下空白）。
+    setTimeout(function () {
+      nodes.forEach(function (node) {
+        if (node.classList.contains('is-in')) return;
+        var rect = node.getBoundingClientRect();
+        if (rect.top < window.innerHeight && rect.bottom > 0) show(node);
+      });
+    }, 1500);
+  }
+
+  // 数字只滚一次；减少动态时直接给终值。
+  var counters = [].slice.call(document.querySelectorAll('[data-count]'));
+  function settle(el) { el.textContent = el.getAttribute('data-count'); }
+  if (reduce) { counters.forEach(settle); return; }
+  var seen = false;
+  function roll() {
+    if (seen) return;
+    seen = true;
+    counters.forEach(function (el) {
+      var target = Number(el.getAttribute('data-count')) || 0;
+      if (!target) { settle(el); return; }
+      var start = performance.now();
+      function step(now) {
+        var t = Math.min(1, (now - start) / 600);
+        el.textContent = String(Math.round(target * (1 - Math.pow(1 - t, 3))));
+        if (t < 1) requestAnimationFrame(step);
+        else settle(el);
+      }
+      requestAnimationFrame(step);
+    });
+  }
+  var stats = document.querySelector('.stats');
+  if (!stats || !('IntersectionObserver' in window)) { roll(); return; }
+  var so = new IntersectionObserver(function (entries) {
+    if (entries.some(function (e) { return e.isIntersecting; })) { roll(); so.disconnect(); }
+  }, { threshold: 0.4 });
+  so.observe(stats);
+})();
+</script>
+<noscript><style>.reveal{opacity:1}</style></noscript>
+</body>
+</html>

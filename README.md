@@ -4,6 +4,8 @@
 
 ![Version](https://img.shields.io/badge/version-1.3.60-informational) ![Tests](https://img.shields.io/badge/tests-64%20%2F%2064-green) ![MinSdk](https://img.shields.io/badge/minSdk-26-blue) ![TargetSdk](https://img.shields.io/badge/targetSdk-35-blue) ![APK](https://img.shields.io/badge/APK-615%20KB-lightgrey)
 
+产品页（纯静态，可直接打开）：[`site/index.html`](site/index.html)
+
 ## 项目定位
 
 - **本地优先**：记录默认只写本机，离线可用；没有账号、没有云端、没有同步服务器。
