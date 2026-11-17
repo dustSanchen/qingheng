@@ -4866,10 +4866,13 @@ const values = points.length<=7 ? points.map((item,i) => {
       tag.textContent = check.relax ? '放松日 · 本周 1/1' : check.score === null ? '待记录' : check.score + ' 分';
       tag.classList.toggle('is-relax', !!check.relax);
     }
-    box.innerHTML = '<div class="check-grid">' + check.items.map(item => {
-      // 区间内绿、接近青、差得多淡红；没记录的保持中性。
+    // 2026-11-18：体检不再复述热量/蛋白/脂肪数字（能量卡已有），改成四根竖向完成度条 + 结论。
+    box.innerHTML = '<div class="check-bars" role="img" aria-label="今日体检四项完成度">' + check.items.map(item => {
       const level = check.relax ? 'idle' : !item.evaluated ? 'idle' : item.ok || item.score >= 0.95 ? 'ok' : item.score >= 0.6 ? 'near' : 'off';
-      return `<div class="check-item ${level}"><span class="check-icon" aria-hidden="true">${metricIcon(item.label)}</span><small>${esc(item.label)}</small><strong>${esc(item.evaluated ? String(item.value) : '—')}</strong><em>${esc(item.target)}</em></div>`;
+      const pct = level === 'idle' ? 0 : Math.max(6, Math.round(Math.max(0, Math.min(1, item.score ?? 0)) * 100));
+      return `<div class="check-bar ${level}"><span class="check-bar-icon" aria-hidden="true">${metricIcon(item.label)}</span>`
+        + `<span class="check-bar-track"><span class="check-bar-fill" style="height:${pct}%"></span></span>`
+        + `<small>${esc(item.label)}</small></div>`;
     }).join('') + '</div>'
       + `<p class="check-verdict">${esc(check.verdict)}</p>`
       + `<p class="check-action"><strong>今天优先：</strong>${esc(check.action)}</p>`;
@@ -4877,13 +4880,21 @@ const values = points.length<=7 ? points.map((item,i) => {
     const trainingValue = habit.training === true || habit.training === 'true' ? 'true' : habit.training === false || habit.training === 'false' ? 'false' : '';
     const sleepValue = number(habit.sleep);
     const weightLogged = (state.measurements || []).some(row => row && row.date === activeDate && number(row.weight) !== null);
-    const chip = (label, icon, focus) => `<button type="button" class="check-fix" data-go="records"${focus ? ` data-focus="${focus}"` : ''}>`
-      + `<img src="./${icon}" alt="" width="16" height="16">${label}</button>`;
+    // 用 hash 链接跳转：不依赖运行时绑定，WebView 的合成 click 丢了也能走路由。
+    const chip = (label, icon, focus) => `<a class="check-fix" href="#records"${focus ? ` data-focus="${focus}"` : ''}>`
+      + `<img src="./${icon}" alt="" width="16" height="16">${label}</a>`;
     const fixes = [];
     if (!trainingValue) fixes.push(chip('补训练', 'icon-glyph-training.svg', 'habit-training'));
     if (sleepValue === null) fixes.push(chip('补睡眠', 'icon-habit-sleep.svg', 'habit-sleep'));
     if (!weightLogged) fixes.push(chip('补体重', 'icon-glyph-balance.svg', 'measurement-weight'));
     if (fixes.length) box.innerHTML += '<div class="check-fix-row"><span>还差</span>' + fixes.join('') + '</div>';
+    // 运行时渲染的节点直接绑定，避免委托在某些 WebView 里拿不到合成 click（2026-11-18）。
+    box.querySelectorAll('.check-fix').forEach(button => {
+      button.dataset.goBound = '1';
+      button.addEventListener('click', () => {
+        if (button.dataset.focus) setTimeout(() => revealField(button.dataset.focus), 160);
+      });
+    });
   }
 
   /** Two weeks of history -> next week's sessions, with a deload when the load ran hot. */
@@ -6141,7 +6152,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.84';
+  const APP_VERSION = '1.3.90';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -7613,11 +7624,12 @@ function metricIcon(label) {
     field.scrollIntoView({block, behavior: 'smooth'});
     field.focus({preventScroll: true});
   }
-  $$('[data-go]').forEach(button=>button.addEventListener('click',()=>{switchTab(button.dataset.go,true);if(button.dataset.focus) setTimeout(() => revealField(button.dataset.focus), 60);}));
-  // stateBlock 的操作按钮是运行时渲染的，初始绑定抓不到，这里统一委托（2026-11-17）。
+  $$('[data-go]').forEach(button => {button.dataset.goBound = '1'; button.addEventListener('click', () => {switchTab(button.dataset.go, true); if (button.dataset.focus) setTimeout(() => revealField(button.dataset.focus), 60);});});
+  // 运行时渲染的 [data-go]（stateBlock 操作、体检补记胶囊等）初始绑定抓不到，统一委托；
+  // 初始已绑定的按钮打上 goBound 标记，避免双触发（2026-11-18）。
   document.addEventListener('click', event => {
-    const action = event.target.closest?.('.state-block-action[data-go]');
-    if (!action) return;
+    const action = event.target.closest?.('[data-go]');
+    if (!action || action.dataset.goBound === '1') return;
     switchTab(action.dataset.go, true);
     if (action.dataset.focus) setTimeout(() => revealField(action.dataset.focus), 60);
   });

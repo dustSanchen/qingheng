@@ -154,7 +154,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.84';
+  const APP_VERSION = '1.3.90';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1626,11 +1626,12 @@
     field.scrollIntoView({block, behavior: 'smooth'});
     field.focus({preventScroll: true});
   }
-  $$('[data-go]').forEach(button=>button.addEventListener('click',()=>{switchTab(button.dataset.go,true);if(button.dataset.focus) setTimeout(() => revealField(button.dataset.focus), 60);}));
-  // stateBlock 的操作按钮是运行时渲染的，初始绑定抓不到，这里统一委托（2026-11-17）。
+  $$('[data-go]').forEach(button => {button.dataset.goBound = '1'; button.addEventListener('click', () => {switchTab(button.dataset.go, true); if (button.dataset.focus) setTimeout(() => revealField(button.dataset.focus), 60);});});
+  // 运行时渲染的 [data-go]（stateBlock 操作、体检补记胶囊等）初始绑定抓不到，统一委托；
+  // 初始已绑定的按钮打上 goBound 标记，避免双触发（2026-11-18）。
   document.addEventListener('click', event => {
-    const action = event.target.closest?.('.state-block-action[data-go]');
-    if (!action) return;
+    const action = event.target.closest?.('[data-go]');
+    if (!action || action.dataset.goBound === '1') return;
     switchTab(action.dataset.go, true);
     if (action.dataset.focus) setTimeout(() => revealField(action.dataset.focus), 60);
   });
