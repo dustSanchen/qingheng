@@ -198,6 +198,16 @@
       const volume = typeof trainingVolumeOf === 'function' ? trainingVolumeOf(rows) : 0;
       trainingLine.hidden = !rows.length;
       trainingLine.textContent = rows.length ? `今天训练 ${rows.length} 个动作 · 容量 ${fmt(volume, 0)} kg` : '';
+      // 首屏一句结论：先给状态，再进下面的卡片看细节。
+      const brief = $('#today-brief');
+      if (brief) {
+        const proteinNow = number(totals.protein), proteinFloor = number(p.proteinMin);
+        brief.textContent = [
+          meals.length ? `今天 ${meals.length} 餐` : '今天还没记录',
+          proteinNow !== null && proteinFloor !== null ? `蛋白 ${fmt(proteinNow, 0)} / ${fmt(proteinFloor, 0)} g` : '',
+          rows.length ? `训练 ${rows.length} 个动作` : '训练未记'
+        ].filter(Boolean).join(' · ');
+      }
     }
     $('#calorie-value').textContent = fmt(totals.calories,0);
     const range = p.intakeRange;

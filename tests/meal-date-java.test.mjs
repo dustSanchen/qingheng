@@ -136,7 +136,7 @@ check('entering a sub-page pushes history for the system back button', app.inclu
 check('restoring the tab ignores the sub-page', /function restoreTab\(\) \{\s*const fromHash = parseHash\(\)\.tab;/.test(app));
 check('hub summaries are refreshed from state', app.includes('function renderHub()') && app.includes('renderHub();'));
 check('the storage panel is driven by the new route', app.includes("api(remirror ? '/api/storage-remirror' : '/api/storage-status'"));
-check('the app version is a single constant', app.includes("const APP_VERSION = '1.3.71'"));
+check('the app version is a single constant', app.includes("const APP_VERSION = '1.3.73'"));
 check('the shown version matches the build script', (() => {
   const shown = /const APP_VERSION = '([0-9.]+)'/.exec(app);
   const built = /\$Version='([0-9.]+)'/.exec(fs.readFileSync('build.ps1', 'utf8'));
