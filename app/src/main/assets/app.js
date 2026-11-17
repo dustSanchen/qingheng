@@ -935,6 +935,7 @@
   }
   function sumMeals(meals, key) {return meals.length && meals.every(meal => number(meal[key]) !== null) ? meals.reduce((sum, meal) => sum + Number(meal[key]),0) : null;}
   function totalsFor(meals) {return Object.fromEntries(['calories','protein','fat','carbs'].map(key => [key,sumMeals(meals,key)]));}
+  // 未迁移（保留 empty()）：餐食列表 renderMeals、搜索无结果、生活建议与推送建议空态、通知权限 denied。新的空态请用 stateBlock()。
   function empty(text, hint = "", kind = "empty") {
     // 三态空状态：empty=还没有数据 / denied=没有权限 / error=加载失败；图标与语气随状态变化。
     // 空态改用图像语言里的「叶」符号（24 网格 / 1.5px 圆头），与其它态共用一套几何；
@@ -945,18 +946,20 @@
     return `<div class="empty-state is-${esc(kind)}"${role}><span class="empty-icon" aria-hidden="true">${glyph}</span><p class="empty-title">${esc(text)}</p>${hint ? `<p class="empty-hint">${esc(hint)}</p>` : ""}</div>`;
   }
   /**
-   * 五态空/加载/错误/超长/极端值的共享模板。结构固定：图标位（可省）、标题、一句说明、可选一个操作。
-   * kind: empty | loading | error | overflow | edge；未知 kind 按 empty 处理。文案由调用方给，这里不写营销语。
+   * 五态统一模板：kind ∈ empty / loading / error / overflow / edge。
+   * 结构固定：图标位（可省）→ 标题（缺什么）→ 一句说明（下一步做什么）→ 一个可选操作。
+   * action = {label, go?, focus?}：go 是标签页名，由 70-rest 的委托处理点击。
    */
-  function stateBlock({kind = "empty", title = "", body = "", action = null} = {}) {
-    const k = ["empty", "loading", "error", "overflow", "edge"].includes(kind) ? kind : "empty";
-    const icon = k === "empty" ? '<img src="./icon-glyph-leaf.svg" alt="" width="32" height="32">'
-      : k === "error" ? "!" : k === "loading" ? "…" : k === "overflow" ? "⋯" : "◇";
-    const role = k === "error" ? ' role="alert"' : k === "loading" ? ' role="status" aria-live="polite"' : "";
+  const STATE_BLOCK_KINDS = ['empty', 'loading', 'error', 'overflow', 'edge'];
+  const STATE_BLOCK_GLYPH = {error: '!', overflow: '…', edge: '~'};
+  function stateBlock({kind = 'empty', title = '', body = '', action = null} = {}) {
+    const k = STATE_BLOCK_KINDS.includes(kind) ? kind : 'empty';
+    const role = k === 'error' ? ' role="alert"' : k === 'loading' ? ' role="status" aria-live="polite"' : '';
+    const glyph = STATE_BLOCK_GLYPH[k] ? `<span class="state-block-icon" aria-hidden="true">${STATE_BLOCK_GLYPH[k]}</span>` : '';
     const button = action && action.label
-      ? `<button type="button" class="text-button state-block-action"${action.go ? ` data-go="${esc(action.go)}"` : ""}${action.focus ? ` data-focus="${esc(action.focus)}"` : ""}>${esc(action.label)}</button>`
-      : "";
-    return `<div class="state-block" data-kind="${k}"${role}><span class="state-block-icon" aria-hidden="true">${icon}</span>${title ? `<p class="state-block-title">${esc(title)}</p>` : ""}${body ? `<p class="state-block-body">${esc(body)}</p>` : ""}${button}</div>`;
+      ? `<button type="button" class="text-button state-block-action"${action.go ? ` data-go="${esc(action.go)}"` : ''}${action.focus ? ` data-focus="${esc(action.focus)}"` : ''}>${esc(action.label)}</button>`
+      : '';
+    return `<div class="state-block" data-kind="${k}"${role}>${glyph}${title ? `<p class="state-block-title">${esc(title)}</p>` : ''}${body ? `<p class="state-block-body">${esc(body)}</p>` : ''}${button}</div>`;
   }
   function latestField(records, key) {return records.find(record => number(record[key]) !== null);}
   function targetAdjustmentForDate(date = activeDate) {
@@ -6454,7 +6457,7 @@ function metricIcon(label) {
     if (!plan || !plan.length) {
       if (tag) tag.textContent = "未生成";
       if (summary) { summary.hidden = true; summary.textContent = ""; }
-      box.innerHTML = '<p class="muted">还没有生成顺序。勾选同意后点「用 AI 排今天」。</p>';
+      box.innerHTML = stateBlock({kind: 'empty', title: '今天还没有排训练顺序', body: '勾选同意后点「用 AI 排今天」，结果会出现在这里。'});
       const allBox = $("#ai-plan-all"); if (allBox) allBox.hidden = true;
       return;
     }

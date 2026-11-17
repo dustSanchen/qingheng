@@ -503,7 +503,7 @@
     if (!plan || !plan.length) {
       if (tag) tag.textContent = "未生成";
       if (summary) { summary.hidden = true; summary.textContent = ""; }
-      box.innerHTML = '<p class="muted">还没有生成顺序。勾选同意后点「用 AI 排今天」。</p>';
+      box.innerHTML = stateBlock({kind: 'empty', title: '今天还没有排训练顺序', body: '勾选同意后点「用 AI 排今天」，结果会出现在这里。'});
       const allBox = $("#ai-plan-all"); if (allBox) allBox.hidden = true;
       return;
     }

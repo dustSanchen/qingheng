@@ -1426,7 +1426,6 @@ html{scroll-padding-bottom:calc(var(--tabbar-safe,96px) + 16px)}
 .chart-hit-area:focus{outline:none}
 .chart-hit-area:focus-visible{stroke:var(--ring-focus-color);stroke-width:2}
 .trend-point-tip{position:absolute;top:var(--space-2);left:var(--space-2);right:var(--space-2);z-index:1;margin:0;padding:var(--space-2) var(--space-3);border-left:2px solid var(--accent);background:var(--surface-soft);color:var(--body-text);font-size:var(--text-sm);line-height:1.5;overflow-wrap:anywhere;pointer-events:none}
-.trend-empty-action{display:flex;min-width:min(220px,100%);margin:0 auto}
 
 /* ---- 2026-10-30 shared app header ------------------------------------------------------------ */
 .app-header{padding:14px 0 12px;margin-bottom:4px;border-bottom:1px solid var(--line)}
@@ -1722,16 +1721,14 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 .overview-note-line+.overview-note-line{margin-top:2px}
 .overview-note-line.is-muted{color:var(--muted)}
 #training-overview-note .overview-note-line:first-child{color:var(--ink-soft)}
-
-/* 五态空/加载/错误/超长/极端值模板（stateBlock）。只用现有令牌；无渐变、阴影，圆角不超过 12px。 */
-.state-block{display:flex;flex-direction:column;align-items:center;gap:var(--space-2);padding:var(--space-4) var(--space-3);border:1px dashed var(--line);border-radius:var(--radius-md);background:var(--surface);color:var(--muted);text-align:center}
-.state-block-icon{display:inline-flex;align-items:center;justify-content:center;min-height:28px;color:var(--muted);opacity:.7;font-size:var(--text-md)}
-.state-block-icon img{display:block;width:32px;height:32px}
-.state-block-title{margin:0;color:var(--ink-soft);font-size:var(--text-md);font-weight:var(--fw-medium)}
-.state-block-body{margin:0;max-width:26em;color:var(--muted);font-size:var(--text-sm);line-height:1.55}
-.state-block-action{min-height:36px;font-size:var(--text-sm)}
-.state-block[data-kind="loading"]{border-style:solid}
-.state-block[data-kind="overflow"]{border-style:solid}
-.state-block[data-kind="edge"]{border-style:solid;border-left:3px solid var(--warn);background:var(--warn-soft)}
-.state-block[data-kind="error"]{border-style:solid;border-left:3px solid var(--danger);background:var(--danger-soft)}
-.state-block[data-kind="error"] .state-block-icon{color:var(--danger);opacity:1}
+/* 五态统一模板 stateBlock()：只用现有令牌，无渐变/阴影，圆角不超过 --radius-md(12px)。 */
+.state-block{display:flex;flex-direction:column;align-items:flex-start;gap:var(--space-1);padding:var(--space-3) var(--space-4);border:1px solid var(--line);border-radius:var(--radius-md);background:var(--surface);color:var(--muted)}
+.state-block-icon{font-size:var(--text-md);line-height:1;color:var(--muted)}
+.state-block-title{margin:0;color:var(--ink-soft);font-weight:var(--fw-medium)}
+.state-block-body{margin:0;font-size:var(--text-sm);line-height:1.55}
+.state-block-action{margin-top:var(--space-1);min-height:36px;padding:0;font-size:var(--text-sm)}
+.state-block[data-kind="loading"],.state-block[data-kind="overflow"]{border-style:dashed}
+.state-block[data-kind="edge"]{border-left:3px solid var(--warn);background:var(--warn-soft)}
+.state-block[data-kind="edge"] .state-block-icon{color:var(--warn)}
+.state-block[data-kind="error"]{border-left:3px solid var(--danger);background:var(--danger-soft)}
+.state-block[data-kind="error"] .state-block-icon{color:var(--danger)}
