@@ -3678,23 +3678,40 @@ const values = points.length<=7 ? points.map((item,i) => {
     }, 0);
     const out = $('[data-set-volume]', row); if (out) out.textContent = volume > 0 ? fmt(volume, 0) + ' kg' : '—';
   }
+  /** 增删动作后统一重排序号：行前的数字、移除按钮与输入框的 aria-label 都跟着行序走。 */
+  function renumberExerciseRows() {
+    const box = $('#training-exercises');
+    if (!box) return;
+    $$('[data-exercise-row]', box).forEach((row, index) => {
+      row.dataset.exerciseRow = String(index);
+      const no = $('.exercise-no', row);
+      if (no) no.textContent = String(index + 1);
+      const remove = $('[data-exercise-remove]', row);
+      if (remove) { remove.dataset.exerciseRemove = String(index); remove.setAttribute('aria-label', '移除第 ' + (index + 1) + ' 个动作'); }
+      const name = $('[data-exercise="name"]', row);
+      if (name) name.setAttribute('aria-label', '第 ' + (index + 1) + ' 个动作名称');
+    });
+  }
   /** Adds one exercise row, optionally pre-filled; shared by the 添加动作 button and the preset chips. */
   function appendExerciseRow(name, values) {
     const box = $('#training-exercises');
     if (!box) return null;
     const index = box.querySelectorAll('[data-exercise-row]').length;
     if (index >= 12) {notice('一次最多记录 12 个动作。', true); return null;}
-    const row = document.createElement('div');
-    row.className = 'training-row';
-    row.dataset.exerciseRow = String(index);
-    row.innerHTML = exerciseRowHtml({
+    // exerciseRowHtml 自己就带 .training-row 外壳：这里只做临时容器，取出那一行再加进列表。
+    // （1.3.44 起这里多包了一层 .training-row，导致每加一个动作多出一行空白、编号跳号。）
+    const holder = document.createElement('div');
+    holder.innerHTML = exerciseRowHtml({
       name: name || '',
       id: '',
       sets: values && values.sets,
       reps: values && values.reps,
       weight: values && values.weight
     }, index);
+    const row = holder.firstElementChild;
+    if (!row) return null;
     box.append(row);
+    renumberExerciseRows();
     return row;
   }
   /** Chips for the selected template. 小号胶囊：它们是「快捷方式」，不该和主行动一样重。 */
@@ -4518,6 +4535,146 @@ const values = points.length<=7 ? points.map((item,i) => {
       .filter(Boolean)
       .map(rule => rule.claim.split('；')[0]);
   }
+  /** 去掉器械/姿态前缀，留下动作本体（卧推 / 硬拉 / 划船…），用来和训练库对名。 */
+  function exerciseCore(name) {
+    let text = String(name || '').replace(/\s+/g, '');
+    const prefix = /^(杠铃|哑铃|器械|固定器械|固定|坐姿|站姿|俯身|仰卧|上斜|下斜|单臂|单手|双臂|绳索|钢线|高位|颈前|对握|平板|斜板|反握|正握|罗马尼亚|保加利亚|双杠)/;
+    for (let i = 0; i < 2; i += 1) text = text.replace(prefix, '');
+    return text.length >= 2 ? text : String(name || '').replace(/\s+/g, '');
+  }
+  /** 对名用的候选词：全名、逐层去掉器械/姿态前缀后的形态，以及被去掉的修饰词本身
+   *  （哑铃上斜卧推 → 上斜卧推 / 卧推 / 上斜 / 哑铃），这样「上斜」这类线索也能命中。 */
+  function cueTokens(name) {
+    const raw = String(name || '').replace(/\s+/g, '');
+    const prefix = /^(杠铃|哑铃|器械|固定器械|固定|坐姿|站姿|俯身|仰卧|上斜|下斜|单臂|单手|双臂|绳索|钢线|高位|颈前|对握|平板|斜板|反握|正握|罗马尼亚|保加利亚|双杠)/;
+    const tokens = new Set([raw]);
+    let text = raw;
+    for (let i = 0; i < 3; i += 1) {
+      const head = (text.match(prefix) || [])[0];
+      if (!head || text.length - head.length < 2) break;
+      tokens.add(head);
+      text = text.slice(head.length);
+      tokens.add(text);
+    }
+    return [...tokens].filter(token => token.length >= 2);
+  }
+  /** 一条要点别超过两行：到句号或 46 字为止。 */
+  function trimCue(text) {
+    const clean = String(text || '').replace(/\s+/g, ' ').trim();
+    const first = clean.split('。')[0].split('；')[0].trim();
+    if (first.length <= 46) return first;
+    return first.slice(0, 46).replace(/[，、：]$/, '') + '…';
+  }
+  /** 从一条规则里挑「能照做」的那半句：先挑提到这个动作的分句，再挑有动作要求的，最后用第一句。 */
+  function pickCueClause(text, tokens) {
+    const parts = String(text || '').split(/[；。]/).map(part => part.trim()).filter(Boolean);
+    const named = (tokens || []).length
+      ? parts.find(part => tokens.some(token => part.indexOf(token) >= 0))
+      : null;
+    if (named) return named;
+    const actionable = parts.find(part => /(要|别|先|可以|守|留|建议|每组|每次|次数|组数|RPE|激活|热身|握距|开肘|幅度|退阶|曲肘)/.test(part));
+    return actionable || parts[0] || '';
+  }
+  /**
+   * 动作要点跟着「那天实际要做的动作」走，命中顺序按「说得有多准」排：
+   * ⓪ 带修饰的动作（上斜哑铃卧推）先用「上斜/上斜哑铃」这类词找，免得回落到泛泛的「卧推」；
+   * ① 以这个动作开头的规则（「划船时过度肩胛后缩…」）；
+   * ② 模板要点里点名这个动作的那条（上斜/深蹲/引体都覆盖得到）；
+   * ③ 规则里提到它、且标签与今天的分化对得上；
+   * ④ 都没有就返回 null，由调用方补通用提醒。
+   */
+  function cueForExercise(name, family) {
+    const lib = trainingLibrary();
+    if (!lib) return null;
+    const raw = String(name || '').trim();
+    if (!raw) return null;
+    const core = exerciseCore(raw);
+    const tokens = cueTokens(raw);
+    const specific = raw.replace(/\s+/g, '') !== core ? tokens.filter(token => token !== core && token.indexOf(core) < 0) : [];
+    const order = Array.isArray(lib.priority) ? lib.priority : [];
+    const rank = source => { const index = order.indexOf(source); return index < 0 ? 9 : index; };
+    const rules = lib.rules || [];
+    const startsWith = (rule, list) => list.some(token => String(rule.claim || '').indexOf(token) === 0);
+    const mentions = (rule, list) => list.some(token => String(rule.claim || '').indexOf(token) >= 0);
+    const bodyText = rule => trimCue(pickCueClause(rule.claim, [raw].concat(tokens)));
+    // ⓪ 修饰词优先：长的先试（上斜卧推 > 上斜 > 哑铃），免得回落到泛泛的「卧推」
+    if (specific.length) {
+      const ordered = specific.slice().sort((a, b) => b.length - a.length);
+      for (const token of ordered) {
+        const head = rules
+          .filter(rule => String(rule.claim || '').indexOf(token) === 0)
+          .sort((a, b) => rank(a.source) - rank(b.source));
+        if (head.length) {
+          const text = bodyText(head[0]);
+          if (text) return {name: raw, text};
+        }
+      }
+      for (const token of ordered) {
+        for (const key of Object.keys(lib.dayTemplates || {})) {
+          const hit = (lib.dayTemplates[key].cues || []).find(cue => String(cue).indexOf(token) >= 0);
+          if (hit) {
+            const text = trimCue(hit);
+            if (text) return {name: raw, text};
+          }
+        }
+      }
+    }
+    // ① 以动作本体/全名开头的规则
+    const heads = rules.filter(rule => startsWith(rule, tokens)).sort((a, b) => rank(a.source) - rank(b.source));
+    if (heads.length) {
+      const text = bodyText(heads[0]);
+      if (text) return {name: raw, text};
+    }
+    // ② 模板要点里点名这个动作的
+    const templates = lib.dayTemplates || {};
+    for (const key of Object.keys(templates)) {
+      const hit = (templates[key].cues || []).find(cue => mentions({claim: cue}, tokens));
+      if (hit) {
+        const text = trimCue(hit);
+        if (text) return {name: raw, text};
+      }
+    }
+    // ③ 规则里提到它、且标签与分化对得上
+    const tagged = rules
+      .filter(rule => (family || []).some(tag => (rule.tags || []).indexOf(tag) >= 0) && mentions(rule, tokens))
+      .sort((a, b) => rank(a.source) - rank(b.source));
+    if (tagged.length) {
+      const text = bodyText(tagged[0]);
+      if (text) return {name: raw, text};
+    }
+    return null;
+  }
+  /** 计划某一天的要点：最多 3 条，每条点名对应的动作；命中不足时补通用提醒。 */
+  function libraryCuesFor(day) {
+    if (!day) return [];
+    const family = {push: ['push', 'shoulder', 'main', 'intensity'], pull: ['pull', 'shoulder', 'main', 'intensity'], legs: ['legs', 'warmup', 'main', 'intensity']}[day.template] || [];
+    const out = [];
+    const seen = new Set();
+    for (const item of (day.exercises || [])) {
+      const cue = cueForExercise(item && item.name, family);
+      if (!cue || !cue.text || seen.has(cue.text)) continue;
+      seen.add(cue.text);
+      out.push(cue);
+      if (out.length >= 3) break;
+    }
+    if (out.length < 3) {
+      for (const item of (day.exercises || [])) {
+        if (out.length >= 3) break;
+        const name = String(item && item.name || '').trim();
+        if (!name || out.some(cue => cue.name === name)) continue;
+        out.push({name, text: '做到接近力竭前停；动作变形就结束这一组'});
+      }
+    }
+    return out;
+  }
+  /** 某一天用户用 AI 排的那份清单（含它给的理由）。 */
+  function aiPlanEntries(day) {
+    if (!day) return [];
+    try {
+      const list = typeof aiPlanStore === 'function' ? aiPlanStore(day) : null;
+      return Array.isArray(list) ? list.filter(item => item && item.name) : [];
+    } catch (error) { return []; }
+  }
   /** Which library rule answers the weakest metric of the day. */
   function libraryRuleForMetric(key) {
     const map = {calories: 'weekly-rate', protein: 'protein-preserve', fat: 'protein-preserve',
@@ -4989,23 +5146,47 @@ const values = points.length<=7 ? points.map((item,i) => {
     })();
     const suggestedNote = plan.days.some(day => day.suggested) ? '<p class="fine-print">带「建议」的动作来自训练库（该模板你还没有记录），先按 3 组建立基线。</p>' : '';
     // 依据与说明沉到默认折叠的 details 里：首屏只留数据。
+    // 要点与理由都跟着「今天或下一个训练日」走：周计划第一天是周一，直接用 days[0] 会在休息日
+    // 弹出与今天无关的提示，读起来像凭空冒出来的警告。
+    const cueDay = plan.days.find(day => day.date === activeDate)
+      || plan.days.find(day => day.date > activeDate)
+      || plan.days[0];
+    // 先回答「你排的那份清单为什么这么排」：AI 排的顺序带着它自己给的理由；
+    // 没有 AI 清单时，才解释这一周按规则是怎么来的。
+    const aiEntries = (() => {
+      const wanted = [cueDay && cueDay.date, activeDate].filter(Boolean);
+      for (const day of wanted) {
+        const list = aiPlanEntries(day);
+        if (list.length) return {day, list};
+      }
+      return null;
+    })();
+    const aiWhy = aiEntries
+      ? '<p class="plan-why-lead">' + esc(aiEntries.day === activeDate ? '今天这份顺序' : aiEntries.day.slice(5) + ' 这份顺序')
+        + '是用 AI 排的，它给的理由：</p>'
+        + '<ol class="plan-why-ai">' + aiEntries.list.slice(0, 6).map(item =>
+          '<li><b>' + esc(item.name) + '</b><span>' + esc(item.reason || '按训练库安排') + '</span></li>').join('') + '</ol>'
+      : '';
     const why = '<details class="plan-why"><summary>为什么这样排</summary>'
+      + aiWhy
+      + '<p class="plan-why-lead">' + (aiWhy ? '这一周的框架按训练库与你最近两周的记录生成：' : '这一周按训练库与你最近两周的记录生成：') + '</p>'
       + '<p>' + esc(plan.note) + '</p>'
       + (Array.isArray(plan.reasons) ? plan.reasons.map(reason =>
         '<p>' + esc(reason.text) + '</p>').join('') : '')
       + '</details>';
-    // 要点跟着「今天或下一个训练日」走：周计划第一天是周一，直接用 days[0] 会在休息日弹出
-    // 「侧平举下放」这种与今天无关的提示，读起来像凭空冒出来的警告。
-    const cueDay = plan.days.find(day => day.date === activeDate)
-      || plan.days.find(day => day.date > activeDate)
-      || plan.days[0];
-    const cues = (typeof libraryCues === 'function' && cueDay) ? libraryCues(cueDay.template) : [];
+    // 要点跟着「今天或下一个训练日」走：优先按那天实际要做的动作点名给要点。
+    const cues = (typeof libraryCuesFor === 'function' && cueDay) ? libraryCuesFor(cueDay) : [];
+    const templateCues = !cues.length && (typeof libraryCues === 'function' && cueDay) ? libraryCues(cueDay.template) : [];
     const cueToday = !!(cueDay && cueDay.date === activeDate);
+    const cueLabel = esc((cueToday ? "今天" : "下一个训练日") + "（" + (TRAINING_TEMPLATES[cueDay.template] || cueDay.template) + "）的动作要点");
     const cueHtml = cues.length
-      ? '<details class="plan-cue-block"' + (cueToday ? ' open' : '') + '><summary>'
-        + esc((cueToday ? "今天" : "下一个训练日") + "（" + (TRAINING_TEMPLATES[cueDay.template] || cueDay.template) + "）的动作要点")
-        + '</summary>' + annotateTerms('<p class="plan-cue">' + cues.map(cue => esc(cue)).join('；') + '</p>') + '</details>'
-      : '';
+      ? '<details class="plan-cue-block"' + (cueToday ? ' open' : '') + '><summary>' + cueLabel + '</summary>'
+        + '<ul class="plan-cue-list">' + cues.map(cue =>
+          '<li><b>' + esc(cue.name) + '</b><span class="plan-cue-text">' + annotateTerms(esc(cue.text)) + '</span></li>').join('') + '</ul></details>'
+      : (templateCues.length
+        ? '<details class="plan-cue-block"' + (cueToday ? ' open' : '') + '><summary>' + cueLabel + '</summary>'
+          + annotateTerms('<p class="plan-cue">' + templateCues.map(cue => esc(cue)).join('；') + '</p>') + '</details>'
+        : '');
     // 本周安排：完全按用户偏好生成；没有偏好就不出方案。
     const planBox = $("#week-plan");
     if (planBox && !planBox.dataset.adoptWired) {
@@ -5858,7 +6039,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.47';
+  const APP_VERSION = '1.3.58';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -7105,6 +7286,7 @@ function metricIcon(label) {
    * bar on top, one short screen per intent.
    */
   /** 训练概览：本周练了几次、总容量、今天蛋白放在同一屏，训练与饮食不再是两页。 */
+  let lastOverviewSig = '';
   function renderTrainingOverview() {
     const grid = $('#training-overview-grid');
     if (!grid) return;
@@ -7118,30 +7300,81 @@ function metricIcon(label) {
     }
     const sessions = days.filter(day => day.count > 0).length;
     const totalVolume = days.reduce((sum, day) => sum + day.volume, 0);
+    // 上周同口径的容量：说明文字给「比上周」一个真参照，而不是只列数字。
+    let prevVolume = 0;
+    for (let offset = 0; offset < 7; offset++) {
+      const rows = exercisesFor(shiftDay(weekStart, -7 + offset));
+      prevVolume += rows.reduce((sum, item) => sum + (Number(item.sets) || 0) * (Number(item.reps) || 0) * (Number(item.weight) || 0), 0);
+    }
     const meals = (state.meals || []).filter(row => row && row.date === activeDate);
     const totals = totalsFor(meals), p = effectiveProfileForDate(activeDate);
     const kcal = number(totals.calories), protein = number(totals.protein);
     const target = number(p.intakeRange ? p.intakeRange.max : p.calorieTarget);
     const proteinMin = number(p.proteinMin);
     // 三个数不再同字号：容量是这张卡的主数字，次数是注脚，蛋白是跨域的副指标。
-    grid.innerHTML = '<div class="overview-stat is-lead"><small>本周容量</small><strong>' + (totalVolume > 0 ? fmt(totalVolume, 0) : '—') + '<span>' + (totalVolume > 0 ? ' kg' : '') + '</span></strong></div>'
-      + '<div class="overview-stat"><small>本周训练</small><strong>' + sessions + '<span> 次</span></strong></div>'
-      + '<div class="overview-stat is-cross"><small>今日蛋白</small><strong>' + (protein === null ? '—' : fmt(protein, 0))
-      + '<span>' + (proteinMin ? (protein === null ? '目标 ' + fmt(proteinMin, 0) + ' g' : ' / ' + fmt(proteinMin, 0) + ' g') : ' g') + '</span></strong></div>';
+    // 节点只建一次，之后只改数字：这样 data-count 能把旧值缓到新值（首帧仍是直接落值）。
+    if (!grid.dataset.wired) {
+      grid.dataset.wired = '1';
+      grid.innerHTML = '<div class="overview-stat is-lead"><small>本周容量</small><strong><b class="ov-num" data-count>—</b><span data-unit></span></strong></div>'
+        + '<div class="overview-stat"><small>本周训练</small><strong><b class="ov-num" data-count>—</b><span data-unit></span></strong></div>'
+        + '<div class="overview-stat is-cross"><small>今日蛋白</small><strong><b class="ov-num" data-count>—</b><span data-unit></span></strong></div>';
+      if (typeof installCountRoll === 'function') installCountRoll(grid);
+    }
+    const setStat = (index, value, unit) => {
+      const stat = grid.children[index];
+      if (!stat) return;
+      const number = stat.querySelector('b.ov-num'), label = stat.querySelector('[data-unit]');
+      if (label) label.textContent = unit || '';
+      if (number) number.textContent = value === null ? '—' : fmt(value, 0);
+    };
+    setStat(0, totalVolume > 0 ? totalVolume : null, totalVolume > 0 ? ' kg' : '');
+    setStat(1, sessions, ' 次');
+    setStat(2, protein, protein === null
+      ? (proteinMin ? '目标 ' + fmt(proteinMin, 0) + ' g' : '')
+      : (proteinMin ? ' / ' + fmt(proteinMin, 0) + ' g' : ''));
     const peak = Math.max(1, ...days.map(day => day.volume));
     const bars = $('#training-overview-bars');
+    // 只有这一周的训练数据真的变了才重播：切 tab、存一餐都重播一遍会显得吵。
+    const motionReduced = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    const barsSig = days.map(day => Math.round(day.volume)).join(',') + '|' + sessions;
+    const animateBars = barsSig !== lastOverviewSig && !motionReduced;
+    lastOverviewSig = barsSig;
     if (bars) {
       // 柱子只画「练了的天」，空天留一条基线；有容量的柱子头顶标数，图才读得出信息而不只是装饰。
+      // 起手 0 高度、逐根 40ms 归位，让「这一周的形状」是长出来的，不是刷出来的。
+      const pctOf = day => day.volume ? Math.max(8, Math.round(day.volume / peak * 100)) : 2;
       bars.innerHTML = days.map(day => '<div class="ov-bar' + (day.date === activeDate ? ' is-today' : '') + (day.count ? ' has-data' : '') + '">'
         + '<b class="ov-bar-value">' + (day.volume > 0 ? fmt(day.volume, 0) : '') + '</b>'
-        + '<span style="height:' + (day.volume ? Math.max(8, Math.round(day.volume / peak * 100)) : 2) + '%"></span>'
+        + '<span data-h="' + pctOf(day) + '" style="height:' + (animateBars ? 0 : pctOf(day)) + '%"></span>'
         + '<small>' + '日一二三四五六'[new Date(day.date + 'T00:00:00').getDay()] + '</small></div>').join('');
+      if (animateBars) {
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          Array.prototype.forEach.call(bars.querySelectorAll('.ov-bar span'), (bar, index) => {
+            bar.style.transitionDelay = (index * 40) + 'ms';
+            bar.style.height = bar.dataset.h + '%';
+          });
+        }));
+      }
     }
+    // 说明分两行：第一行讲训练与对照，第二行讲饮食——不再把两件事挤成一句。
     const note = $('#training-overview-note');
     if (note) {
-      note.innerHTML = kcal === null
-        ? (sessions === 0 ? '本周还没训练 · ' : '') + '今天还没记饮食 · <button type="button" class="text-button inline-link" data-panel-go="food">去记一餐</button>'
-        : '今天摄入 ' + fmt(kcal, 0) + (target ? ' / ' + fmt(target, 0) : '') + ' kcal · 蛋白 ' + fmt(protein || 0, 0) + ' g' + (proteinMin ? '（目标 ' + fmt(proteinMin, 0) + ' g 起）' : '') + '。';
+      const lines = [];
+      if (sessions > 0) {
+        let line = '本周 ' + sessions + ' 练 · 容量 ' + fmt(totalVolume, 0) + ' kg';
+        if (prevVolume > 0) {
+          const delta = totalVolume - prevVolume;
+          const pct = Math.round(Math.abs(delta) / prevVolume * 100);
+          line += '，比上周 ' + (delta >= 0 ? '+' : '−') + pct + '%';
+        }
+        lines.push(line);
+      } else {
+        lines.push(prevVolume > 0 ? '本周还没训练（上周 ' + fmt(prevVolume, 0) + ' kg）' : '本周还没训练');
+      }
+      lines.push(kcal === null
+        ? '今天还没记饮食 · <button type="button" class="text-button inline-link" data-panel-go="food">去记一餐</button>'
+        : '今天摄入 ' + fmt(kcal, 0) + (target ? ' / ' + fmt(target, 0) : '') + ' kcal · 蛋白 ' + fmt(protein || 0, 0) + (proteinMin ? ' / ' + fmt(proteinMin, 0) + ' g' : ' g'));
+      note.innerHTML = lines.map((line, index) => '<span class="overview-note-line' + (index ? ' is-muted' : '') + '">' + line + '</span>').join('');
       if (!note.dataset.wired) {
         note.dataset.wired = '1';
         note.addEventListener('click', event => {
@@ -7305,25 +7538,82 @@ function metricIcon(label) {
   });
   $('#training-template')?.addEventListener('change', () => renderTrainingPresets());
   $('#training-repeat')?.addEventListener('click', () => repeatLastTraining());
-  let restTick = 0, restEnd = 0;
-  /** 组间休息：标记一组完成后自动开 90s；再点按钮取消。按钮显示剩余时间，不是泛称。 */
+  // 组间休息从卡片底部的工具行挪到「训练动作视野内」：固定小药丸，上下滚动都看得见，
+  // 键盘弹起时也随布局视口上移；只有训练日志在视野里或计时进行中才出现（2026-11-17）。
+  let restTick = 0, restEnd = 0, restExercisesInView = false, restActionsInView = false, restDockWired = false;
+  const REST_SECONDS = 90;
+  const REST_RING_C = 2 * Math.PI * 11.5;
+  function syncRestDock() {
+    const dock = $('#rest-dock');
+    if (!dock) return;
+    // 计时中常驻；空转时只在「正在记组」的视野里出现——滚到预设/保存按钮时不挡点击。
+    dock.classList.toggle('is-in', !!restTick || (restExercisesInView && !restActionsInView));
+  }
+  /** 计时与药丸一起画：剩余时间、环形进度、aria-label 同源。 */
+  function paintRest(left) {
+    const button = $('#rest-timer');
+    if (!button) return;
+    const label = $('[data-rest-label]');
+    const text = left > 0 ? `休息 ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` : '休息 90s';
+    if (label && label.textContent !== text) {
+      label.textContent = text;
+      // 每秒一次的小归位：只动秒数那一行，不做整块闪动；reduced-motion 下动画被媒体查询关掉。
+      if (left > 0) {
+        label.removeAttribute('data-tick');
+        void label.offsetWidth;
+        label.setAttribute('data-tick', '');
+      }
+    }
+    button.classList.toggle('is-running', left > 0);
+    button.setAttribute('aria-label', left > 0
+      ? `组间休息还剩 ${Math.floor(left / 60)} 分 ${left % 60} 秒，点一下结束`
+      : '开始 90 秒组间休息');
+    const ring = $('#rest-timer .rest-ring-fill');
+    if (ring) ring.style.strokeDashoffset = String(REST_RING_C * Math.max(0, Math.min(1, 1 - left / REST_SECONDS)));
+    button.dataset.left = String(left);
+    syncRestDock();
+  }
+  /** 组间休息：标记一组完成后自动开 90s；再点按钮取消。 */
   function startRestTimer(restart = false) {
     const button = $('#rest-timer');
     if (!button) return;
     if (restTick) {
-      if (!restart) { clearInterval(restTick); restTick = 0; button.textContent = '休息 90s'; button.setAttribute('aria-label', '开始 90 秒组间休息'); return; }
+      if (!restart) { clearInterval(restTick); restTick = 0; paintRest(0); return; }
       clearInterval(restTick); restTick = 0;
     }
     restEnd = Date.now() + 90000;
     const paint = () => {
       const left = Math.max(0, Math.ceil((restEnd - Date.now()) / 1000));
-      button.textContent = left ? `休息 ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` : '休息 90s';
-      button.setAttribute('aria-label', left ? `组间休息还剩 ${Math.floor(left / 60)} 分 ${left % 60} 秒，点一下结束` : '开始 90 秒组间休息');
+      paintRest(left);
       if (!left) { clearInterval(restTick); restTick = 0; }
     };
     paint();
     restTick = setInterval(paint, 1000);
   }
+  function installRestDock() {
+    const exercises = $('#training-exercises');
+    const actions = $('#training-form .log-actions');
+    const dock = $('#rest-dock');
+    if (!exercises || !actions || !dock || restDockWired) return;
+    restDockWired = true;
+    paintRest(0);
+    if ('IntersectionObserver' in window) {
+      const io = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          const on = entry.isIntersecting;
+          if (entry.target === exercises) restExercisesInView = on;
+          if (entry.target === actions) restActionsInView = on;
+          syncRestDock();
+        });
+      }, {threshold: 0.01, rootMargin: '0px 0px -96px 0px'});
+      io.observe(exercises);
+      io.observe(actions);
+    } else {
+      restExercisesInView = true;
+      syncRestDock();
+    }
+  }
+  installRestDock();
   $('#rest-timer')?.addEventListener('click', () => startRestTimer(false));
   // 容量必须跟着输入走：以前只在增删组时重算，填完 10 次 × 60 kg 还挂着「—」，像没记上。
   $('#training-exercises')?.addEventListener('input', event => {
@@ -7364,6 +7654,7 @@ function metricIcon(label) {
     const button = event.target.closest?.('[data-exercise-remove]');
     if (!button) return;
     button.closest('[data-exercise-row]')?.remove();
+    if (typeof renumberExerciseRows === 'function') renumberExerciseRows();
   });
   $('#training-form')?.addEventListener('submit', event => {event.preventDefault(); saveTrainingLog().catch(error => notice(error.message, true));});
   $('#training-clear')?.addEventListener('click', async () => {
@@ -8104,8 +8395,9 @@ feedback(message,'数据已导入。'+report);
   //  - tabular figures, so the ring does not jitter while digits change width;
   //  - a render that lands mid-roll continues from what is on screen, and a watchdog guarantees the
   //    final number even if the vendored runtime misbehaves.
-  (function installCountRoll(){
-    const nodes = Array.prototype.slice.call(document.querySelectorAll('[data-count]'));
+  function installCountRoll(root){
+    const scope = root && root.querySelectorAll ? root : document;
+    const nodes = Array.prototype.slice.call(scope.querySelectorAll('[data-count]'));
     if (!nodes.length) return;
     const lib = window.MotionLib && typeof window.MotionLib.animate === 'function' ? window.MotionLib : null;
     const reduced = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -8119,6 +8411,9 @@ feedback(message,'数据已导入。'+report);
     const format = (value) => Math.round(value).toLocaleString('zh-CN');
 
     nodes.forEach((node) => {
+      // 重新调用时只挂新节点：训练概览每次渲染都会换掉自己的数字节点。
+      if (node.dataset.countWired === '1') return;
+      node.dataset.countWired = '1';
       let shown = read(node);       // 最后一次渲染写入的目标值
       let displayed = shown;        // 屏幕此刻的值（滚动途中会落后于目标）
       let writing = 0;              // 自己写入的次数，用来把外部渲染的写入摘出来
@@ -8178,7 +8473,8 @@ feedback(message,'数据已导入。'+report);
         roll(displayed === null ? next : displayed, next);
       }).observe(node, { childList: true, characterData: true, subtree: true });
     });
-  })();
+  }
+  installCountRoll(document);
 
   // ---- Card entrance ---------------------------------------------------------------------------
   // 首帧不表演：切到某个 tab 时才让这个 tab 的卡片按真实顺序依次归位 6px。

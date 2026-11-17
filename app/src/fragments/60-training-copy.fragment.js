@@ -520,6 +520,146 @@
       .filter(Boolean)
       .map(rule => rule.claim.split('；')[0]);
   }
+  /** 去掉器械/姿态前缀，留下动作本体（卧推 / 硬拉 / 划船…），用来和训练库对名。 */
+  function exerciseCore(name) {
+    let text = String(name || '').replace(/\s+/g, '');
+    const prefix = /^(杠铃|哑铃|器械|固定器械|固定|坐姿|站姿|俯身|仰卧|上斜|下斜|单臂|单手|双臂|绳索|钢线|高位|颈前|对握|平板|斜板|反握|正握|罗马尼亚|保加利亚|双杠)/;
+    for (let i = 0; i < 2; i += 1) text = text.replace(prefix, '');
+    return text.length >= 2 ? text : String(name || '').replace(/\s+/g, '');
+  }
+  /** 对名用的候选词：全名、逐层去掉器械/姿态前缀后的形态，以及被去掉的修饰词本身
+   *  （哑铃上斜卧推 → 上斜卧推 / 卧推 / 上斜 / 哑铃），这样「上斜」这类线索也能命中。 */
+  function cueTokens(name) {
+    const raw = String(name || '').replace(/\s+/g, '');
+    const prefix = /^(杠铃|哑铃|器械|固定器械|固定|坐姿|站姿|俯身|仰卧|上斜|下斜|单臂|单手|双臂|绳索|钢线|高位|颈前|对握|平板|斜板|反握|正握|罗马尼亚|保加利亚|双杠)/;
+    const tokens = new Set([raw]);
+    let text = raw;
+    for (let i = 0; i < 3; i += 1) {
+      const head = (text.match(prefix) || [])[0];
+      if (!head || text.length - head.length < 2) break;
+      tokens.add(head);
+      text = text.slice(head.length);
+      tokens.add(text);
+    }
+    return [...tokens].filter(token => token.length >= 2);
+  }
+  /** 一条要点别超过两行：到句号或 46 字为止。 */
+  function trimCue(text) {
+    const clean = String(text || '').replace(/\s+/g, ' ').trim();
+    const first = clean.split('。')[0].split('；')[0].trim();
+    if (first.length <= 46) return first;
+    return first.slice(0, 46).replace(/[，、：]$/, '') + '…';
+  }
+  /** 从一条规则里挑「能照做」的那半句：先挑提到这个动作的分句，再挑有动作要求的，最后用第一句。 */
+  function pickCueClause(text, tokens) {
+    const parts = String(text || '').split(/[；。]/).map(part => part.trim()).filter(Boolean);
+    const named = (tokens || []).length
+      ? parts.find(part => tokens.some(token => part.indexOf(token) >= 0))
+      : null;
+    if (named) return named;
+    const actionable = parts.find(part => /(要|别|先|可以|守|留|建议|每组|每次|次数|组数|RPE|激活|热身|握距|开肘|幅度|退阶|曲肘)/.test(part));
+    return actionable || parts[0] || '';
+  }
+  /**
+   * 动作要点跟着「那天实际要做的动作」走，命中顺序按「说得有多准」排：
+   * ⓪ 带修饰的动作（上斜哑铃卧推）先用「上斜/上斜哑铃」这类词找，免得回落到泛泛的「卧推」；
+   * ① 以这个动作开头的规则（「划船时过度肩胛后缩…」）；
+   * ② 模板要点里点名这个动作的那条（上斜/深蹲/引体都覆盖得到）；
+   * ③ 规则里提到它、且标签与今天的分化对得上；
+   * ④ 都没有就返回 null，由调用方补通用提醒。
+   */
+  function cueForExercise(name, family) {
+    const lib = trainingLibrary();
+    if (!lib) return null;
+    const raw = String(name || '').trim();
+    if (!raw) return null;
+    const core = exerciseCore(raw);
+    const tokens = cueTokens(raw);
+    const specific = raw.replace(/\s+/g, '') !== core ? tokens.filter(token => token !== core && token.indexOf(core) < 0) : [];
+    const order = Array.isArray(lib.priority) ? lib.priority : [];
+    const rank = source => { const index = order.indexOf(source); return index < 0 ? 9 : index; };
+    const rules = lib.rules || [];
+    const startsWith = (rule, list) => list.some(token => String(rule.claim || '').indexOf(token) === 0);
+    const mentions = (rule, list) => list.some(token => String(rule.claim || '').indexOf(token) >= 0);
+    const bodyText = rule => trimCue(pickCueClause(rule.claim, [raw].concat(tokens)));
+    // ⓪ 修饰词优先：长的先试（上斜卧推 > 上斜 > 哑铃），免得回落到泛泛的「卧推」
+    if (specific.length) {
+      const ordered = specific.slice().sort((a, b) => b.length - a.length);
+      for (const token of ordered) {
+        const head = rules
+          .filter(rule => String(rule.claim || '').indexOf(token) === 0)
+          .sort((a, b) => rank(a.source) - rank(b.source));
+        if (head.length) {
+          const text = bodyText(head[0]);
+          if (text) return {name: raw, text};
+        }
+      }
+      for (const token of ordered) {
+        for (const key of Object.keys(lib.dayTemplates || {})) {
+          const hit = (lib.dayTemplates[key].cues || []).find(cue => String(cue).indexOf(token) >= 0);
+          if (hit) {
+            const text = trimCue(hit);
+            if (text) return {name: raw, text};
+          }
+        }
+      }
+    }
+    // ① 以动作本体/全名开头的规则
+    const heads = rules.filter(rule => startsWith(rule, tokens)).sort((a, b) => rank(a.source) - rank(b.source));
+    if (heads.length) {
+      const text = bodyText(heads[0]);
+      if (text) return {name: raw, text};
+    }
+    // ② 模板要点里点名这个动作的
+    const templates = lib.dayTemplates || {};
+    for (const key of Object.keys(templates)) {
+      const hit = (templates[key].cues || []).find(cue => mentions({claim: cue}, tokens));
+      if (hit) {
+        const text = trimCue(hit);
+        if (text) return {name: raw, text};
+      }
+    }
+    // ③ 规则里提到它、且标签与分化对得上
+    const tagged = rules
+      .filter(rule => (family || []).some(tag => (rule.tags || []).indexOf(tag) >= 0) && mentions(rule, tokens))
+      .sort((a, b) => rank(a.source) - rank(b.source));
+    if (tagged.length) {
+      const text = bodyText(tagged[0]);
+      if (text) return {name: raw, text};
+    }
+    return null;
+  }
+  /** 计划某一天的要点：最多 3 条，每条点名对应的动作；命中不足时补通用提醒。 */
+  function libraryCuesFor(day) {
+    if (!day) return [];
+    const family = {push: ['push', 'shoulder', 'main', 'intensity'], pull: ['pull', 'shoulder', 'main', 'intensity'], legs: ['legs', 'warmup', 'main', 'intensity']}[day.template] || [];
+    const out = [];
+    const seen = new Set();
+    for (const item of (day.exercises || [])) {
+      const cue = cueForExercise(item && item.name, family);
+      if (!cue || !cue.text || seen.has(cue.text)) continue;
+      seen.add(cue.text);
+      out.push(cue);
+      if (out.length >= 3) break;
+    }
+    if (out.length < 3) {
+      for (const item of (day.exercises || [])) {
+        if (out.length >= 3) break;
+        const name = String(item && item.name || '').trim();
+        if (!name || out.some(cue => cue.name === name)) continue;
+        out.push({name, text: '做到接近力竭前停；动作变形就结束这一组'});
+      }
+    }
+    return out;
+  }
+  /** 某一天用户用 AI 排的那份清单（含它给的理由）。 */
+  function aiPlanEntries(day) {
+    if (!day) return [];
+    try {
+      const list = typeof aiPlanStore === 'function' ? aiPlanStore(day) : null;
+      return Array.isArray(list) ? list.filter(item => item && item.name) : [];
+    } catch (error) { return []; }
+  }
   /** Which library rule answers the weakest metric of the day. */
   function libraryRuleForMetric(key) {
     const map = {calories: 'weekly-rate', protein: 'protein-preserve', fat: 'protein-preserve',
@@ -991,23 +1131,47 @@
     })();
     const suggestedNote = plan.days.some(day => day.suggested) ? '<p class="fine-print">带「建议」的动作来自训练库（该模板你还没有记录），先按 3 组建立基线。</p>' : '';
     // 依据与说明沉到默认折叠的 details 里：首屏只留数据。
+    // 要点与理由都跟着「今天或下一个训练日」走：周计划第一天是周一，直接用 days[0] 会在休息日
+    // 弹出与今天无关的提示，读起来像凭空冒出来的警告。
+    const cueDay = plan.days.find(day => day.date === activeDate)
+      || plan.days.find(day => day.date > activeDate)
+      || plan.days[0];
+    // 先回答「你排的那份清单为什么这么排」：AI 排的顺序带着它自己给的理由；
+    // 没有 AI 清单时，才解释这一周按规则是怎么来的。
+    const aiEntries = (() => {
+      const wanted = [cueDay && cueDay.date, activeDate].filter(Boolean);
+      for (const day of wanted) {
+        const list = aiPlanEntries(day);
+        if (list.length) return {day, list};
+      }
+      return null;
+    })();
+    const aiWhy = aiEntries
+      ? '<p class="plan-why-lead">' + esc(aiEntries.day === activeDate ? '今天这份顺序' : aiEntries.day.slice(5) + ' 这份顺序')
+        + '是用 AI 排的，它给的理由：</p>'
+        + '<ol class="plan-why-ai">' + aiEntries.list.slice(0, 6).map(item =>
+          '<li><b>' + esc(item.name) + '</b><span>' + esc(item.reason || '按训练库安排') + '</span></li>').join('') + '</ol>'
+      : '';
     const why = '<details class="plan-why"><summary>为什么这样排</summary>'
+      + aiWhy
+      + '<p class="plan-why-lead">' + (aiWhy ? '这一周的框架按训练库与你最近两周的记录生成：' : '这一周按训练库与你最近两周的记录生成：') + '</p>'
       + '<p>' + esc(plan.note) + '</p>'
       + (Array.isArray(plan.reasons) ? plan.reasons.map(reason =>
         '<p>' + esc(reason.text) + '</p>').join('') : '')
       + '</details>';
-    // 要点跟着「今天或下一个训练日」走：周计划第一天是周一，直接用 days[0] 会在休息日弹出
-    // 「侧平举下放」这种与今天无关的提示，读起来像凭空冒出来的警告。
-    const cueDay = plan.days.find(day => day.date === activeDate)
-      || plan.days.find(day => day.date > activeDate)
-      || plan.days[0];
-    const cues = (typeof libraryCues === 'function' && cueDay) ? libraryCues(cueDay.template) : [];
+    // 要点跟着「今天或下一个训练日」走：优先按那天实际要做的动作点名给要点。
+    const cues = (typeof libraryCuesFor === 'function' && cueDay) ? libraryCuesFor(cueDay) : [];
+    const templateCues = !cues.length && (typeof libraryCues === 'function' && cueDay) ? libraryCues(cueDay.template) : [];
     const cueToday = !!(cueDay && cueDay.date === activeDate);
+    const cueLabel = esc((cueToday ? "今天" : "下一个训练日") + "（" + (TRAINING_TEMPLATES[cueDay.template] || cueDay.template) + "）的动作要点");
     const cueHtml = cues.length
-      ? '<details class="plan-cue-block"' + (cueToday ? ' open' : '') + '><summary>'
-        + esc((cueToday ? "今天" : "下一个训练日") + "（" + (TRAINING_TEMPLATES[cueDay.template] || cueDay.template) + "）的动作要点")
-        + '</summary>' + annotateTerms('<p class="plan-cue">' + cues.map(cue => esc(cue)).join('；') + '</p>') + '</details>'
-      : '';
+      ? '<details class="plan-cue-block"' + (cueToday ? ' open' : '') + '><summary>' + cueLabel + '</summary>'
+        + '<ul class="plan-cue-list">' + cues.map(cue =>
+          '<li><b>' + esc(cue.name) + '</b><span class="plan-cue-text">' + annotateTerms(esc(cue.text)) + '</span></li>').join('') + '</ul></details>'
+      : (templateCues.length
+        ? '<details class="plan-cue-block"' + (cueToday ? ' open' : '') + '><summary>' + cueLabel + '</summary>'
+          + annotateTerms('<p class="plan-cue">' + templateCues.map(cue => esc(cue)).join('；') + '</p>') + '</details>'
+        : '');
     // 本周安排：完全按用户偏好生成；没有偏好就不出方案。
     const planBox = $("#week-plan");
     if (planBox && !planBox.dataset.adoptWired) {

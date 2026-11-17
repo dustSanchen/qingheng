@@ -12,8 +12,9 @@
   //  - tabular figures, so the ring does not jitter while digits change width;
   //  - a render that lands mid-roll continues from what is on screen, and a watchdog guarantees the
   //    final number even if the vendored runtime misbehaves.
-  (function installCountRoll(){
-    const nodes = Array.prototype.slice.call(document.querySelectorAll('[data-count]'));
+  function installCountRoll(root){
+    const scope = root && root.querySelectorAll ? root : document;
+    const nodes = Array.prototype.slice.call(scope.querySelectorAll('[data-count]'));
     if (!nodes.length) return;
     const lib = window.MotionLib && typeof window.MotionLib.animate === 'function' ? window.MotionLib : null;
     const reduced = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -27,6 +28,9 @@
     const format = (value) => Math.round(value).toLocaleString('zh-CN');
 
     nodes.forEach((node) => {
+      // 重新调用时只挂新节点：训练概览每次渲染都会换掉自己的数字节点。
+      if (node.dataset.countWired === '1') return;
+      node.dataset.countWired = '1';
       let shown = read(node);       // 最后一次渲染写入的目标值
       let displayed = shown;        // 屏幕此刻的值（滚动途中会落后于目标）
       let writing = 0;              // 自己写入的次数，用来把外部渲染的写入摘出来
@@ -86,7 +90,8 @@
         roll(displayed === null ? next : displayed, next);
       }).observe(node, { childList: true, characterData: true, subtree: true });
     });
-  })();
+  }
+  installCountRoll(document);
 
   // ---- Card entrance ---------------------------------------------------------------------------
   // 首帧不表演：切到某个 tab 时才让这个 tab 的卡片按真实顺序依次归位 6px。

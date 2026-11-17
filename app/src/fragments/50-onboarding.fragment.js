@@ -598,23 +598,40 @@ const values = points.length<=7 ? points.map((item,i) => {
     }, 0);
     const out = $('[data-set-volume]', row); if (out) out.textContent = volume > 0 ? fmt(volume, 0) + ' kg' : '—';
   }
+  /** 增删动作后统一重排序号：行前的数字、移除按钮与输入框的 aria-label 都跟着行序走。 */
+  function renumberExerciseRows() {
+    const box = $('#training-exercises');
+    if (!box) return;
+    $$('[data-exercise-row]', box).forEach((row, index) => {
+      row.dataset.exerciseRow = String(index);
+      const no = $('.exercise-no', row);
+      if (no) no.textContent = String(index + 1);
+      const remove = $('[data-exercise-remove]', row);
+      if (remove) { remove.dataset.exerciseRemove = String(index); remove.setAttribute('aria-label', '移除第 ' + (index + 1) + ' 个动作'); }
+      const name = $('[data-exercise="name"]', row);
+      if (name) name.setAttribute('aria-label', '第 ' + (index + 1) + ' 个动作名称');
+    });
+  }
   /** Adds one exercise row, optionally pre-filled; shared by the 添加动作 button and the preset chips. */
   function appendExerciseRow(name, values) {
     const box = $('#training-exercises');
     if (!box) return null;
     const index = box.querySelectorAll('[data-exercise-row]').length;
     if (index >= 12) {notice('一次最多记录 12 个动作。', true); return null;}
-    const row = document.createElement('div');
-    row.className = 'training-row';
-    row.dataset.exerciseRow = String(index);
-    row.innerHTML = exerciseRowHtml({
+    // exerciseRowHtml 自己就带 .training-row 外壳：这里只做临时容器，取出那一行再加进列表。
+    // （1.3.44 起这里多包了一层 .training-row，导致每加一个动作多出一行空白、编号跳号。）
+    const holder = document.createElement('div');
+    holder.innerHTML = exerciseRowHtml({
       name: name || '',
       id: '',
       sets: values && values.sets,
       reps: values && values.reps,
       weight: values && values.weight
     }, index);
+    const row = holder.firstElementChild;
+    if (!row) return null;
     box.append(row);
+    renumberExerciseRows();
     return row;
   }
   /** Chips for the selected template. 小号胶囊：它们是「快捷方式」，不该和主行动一样重。 */

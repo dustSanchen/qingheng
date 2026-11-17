@@ -1672,3 +1672,48 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 @media (prefers-reduced-motion: no-preference){
   .view:not([hidden]):not(.from-left):not(.from-right){animation:viewFade var(--dur-2) var(--ease-opus) both}
 }
+
+/* ---- 组间休息药丸（2026-11-17）-------------------------------------------------------------
+   从卡片底部的工具行搬到「训练动作视野内」：固定在底栏上方，滚到哪都看得见；键盘弹起时
+   随布局视口上移。只有训练日志在视野里、或计时正在进行时才出现，不常驻。 */
+.rest-dock{position:fixed;right:16px;bottom:calc(76px + env(safe-area-inset-bottom));z-index:calc(var(--z-tabbar) + 1);pointer-events:none;opacity:0;transform:translateY(6px);transition:opacity var(--dur-2) var(--ease-opus),transform var(--dur-2) var(--ease-opus)}
+.rest-dock.is-in{opacity:1;transform:none;pointer-events:auto}
+.rest-pill{display:inline-flex;align-items:center;gap:6px;min-height:42px;padding:0 12px 0 8px;border:1px solid var(--line);border-radius:999px;background:var(--paper);color:var(--ink-soft);box-shadow:var(--elev-2);font-size:var(--text-sm);font-variant-numeric:tabular-nums;transition:background var(--dur-base),border-color var(--dur-base),color var(--dur-base)}
+.rest-pill:active{transform:scale(.98)}
+.rest-pill.is-running{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.rest-ring{display:block;width:22px;height:22px;flex:0 0 auto}
+.rest-ring svg{display:block;width:22px;height:22px;transform:rotate(-90deg)}
+.rest-ring circle{fill:none;stroke-width:2.4;stroke-linecap:round}
+.rest-ring-track{stroke:var(--line)}
+.rest-ring-fill{stroke:var(--accent);stroke-dasharray:72.26;stroke-dashoffset:72.26;opacity:0;transition:stroke-dashoffset 1s linear,opacity var(--dur-2) var(--ease-opus)}
+.rest-pill.is-running .rest-ring-track{stroke:var(--on-accent);opacity:.35}
+.rest-pill.is-running .rest-ring-fill{stroke:var(--on-accent);opacity:1}
+.rest-label{display:block;min-width:64px;white-space:nowrap;text-align:left}
+.rest-label>span{display:block}
+/* 每秒一次的小归位：只让秒数那一行回位，不做整块闪动。 */
+[data-tick]{animation:restTick .3s var(--ease-opus)}
+@keyframes restTick{from{opacity:.45;transform:translateY(3px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){
+  .rest-dock,.rest-ring-fill{transition:none}
+  [data-tick]{animation:none}
+}
+
+/* ---- 动作要点 / 为什么这样排（2026-11-17）------------------------------------------------ */
+.plan-cue-list{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.plan-cue-list li{display:flex;flex-direction:row;align-items:baseline;gap:8px;font-size:var(--text-sm);line-height:1.55;color:var(--body-text)}
+.plan-cue-list li b{flex:0 0 6em;text-align:right;color:var(--ink);font-weight:var(--fw-semibold)}
+.plan-cue-text{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}
+.plan-why-lead{margin:10px 0 4px;font-size:var(--text-xs);color:var(--muted)}
+.plan-why-ai{list-style:none;margin:0 0 8px;padding:0;display:flex;flex-direction:column;gap:6px}
+.plan-why-ai li{font-size:var(--text-sm);line-height:1.5;color:var(--body-text)}
+.plan-why-ai li b{display:block;font-weight:var(--fw-semibold);color:var(--ink)}
+.plan-why-ai li span{display:block;margin-top:1px;font-size:var(--text-xs);color:var(--muted);overflow-wrap:anywhere}
+
+/* ---- 概览动效与说明（2026-11-17）-------------------------------------------------------- */
+.ov-bar span{transition:height .42s var(--ease-opus)}
+@media (prefers-reduced-motion:reduce){.ov-bar span{transition:none}}
+.ov-num{font:inherit;font-weight:inherit;font-variant-numeric:tabular-nums}
+.overview-note-line{display:block}
+.overview-note-line+.overview-note-line{margin-top:2px}
+.overview-note-line.is-muted{color:var(--muted)}
+#training-overview-note .overview-note-line:first-child{color:var(--ink-soft)}

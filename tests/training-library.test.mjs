@@ -153,6 +153,12 @@ check('topic routing exists', app.includes('const LIBRARY_ROUTES') && app.includ
 check('the question routes to the right rules', app.includes('libraryLookup(question, 8)'));
 check('cues exist per template', app.includes('function libraryCues(template)') && app.includes("legs: ['leg-warmup-six-moves'"));
 check('the plan shows cues', app.includes('plan-cue') && app.includes('const cues ='));
+// 2026-11-17：要点与理由都要跟着「那天实际要做的动作 / 用户排的那份清单」走。
+check('cues follow the actual exercises', app.includes('function libraryCuesFor(day)') && app.includes('function cueForExercise(name, family)'));
+check('the cue list names each movement', app.includes('plan-cue-list') && app.includes('plan-cue-text'));
+check('the why block reflects the AI order', app.includes('function aiPlanEntries(day)') && app.includes('plan-why-ai'));
+check('the overview animates its bars', app.includes('const animateBars =') && app.includes('transitionDelay'));
+check('the rest timer is a floating pill', app.includes('function syncRestDock()') && app.includes('function installRestDock()'));
 
 // really run the routing: 腹肌 → abs rules, 减脂 → fatloss rules
 const routeStart = app.indexOf('const LIBRARY_ROUTES');
