@@ -788,3 +788,10 @@
 - ⑦ 五态模板起底（codex 子代理协作）：新增 stateBlock({kind,title,body,action}) 与 .state-block 五态样式，迁移今日时间轴、记录列表、体重趋势三处空态；
 - 待办：剩余设计逻辑项（五态、记录页隐喻、计划解释合并、口径、收纳规则、首屏顺序）继续按顺序推进，皮肤暂不做。
 - APK：dist/qingheng-1.3.64.apk（615 KB）。
+
+## r106 · 2026-11-17 · 1.3.66（口径统一走了一半；计划解释合并回退）
+- ⑥ 概览口径：70-rest 抽出 `weekTrainingStats(weekStart)`，本周与上周容量都走 `trainingVolumeOf`（有 setDetails 按逐组、否则 sets×reps×weight、有氧不计容量），概览不再用旧的整条汇总公式。
+- ⑤ 计划解释合并：codex 子代理把「要点 / 为什么这样排」合并成一个 details，但真机验证发现两块解释整段消失（只剩动作列表），已用 `git stash` 回退该文件，保留在 stash「plan-merge-revert」里待重做。
+- ⑦ 五态模板：1.3.64 已落 stateBlock + 三处空态迁移。
+- 待续：⑤ 重做（带真机折叠验证）、⑥ 趋势 weeklyVolume 还走旧公式（在 50-onboarding，改动需连带 deload 判断）、③⑨②。
+- 验证：test-all 64/64；dev-loop 1.3.66/366 全绿。
