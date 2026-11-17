@@ -840,7 +840,8 @@ const values = points.length<=7 ? points.map((item,i) => {
       const week = localDate(monday);
       for (const item of row.exercises) {
         const name = String(item?.name ?? '').trim();
-        const volume = exerciseVolume(item);
+        // 2026-11-17：与训练概览同口径——有 setDetails 按逐组算，旧记录退回 sets×reps×weight。
+        const volume = trainingVolumeOf([item]);
         if (!name || volume === null) continue;
         if (!byExercise.has(name)) byExercise.set(name, new Map());
         const weeks = byExercise.get(name);

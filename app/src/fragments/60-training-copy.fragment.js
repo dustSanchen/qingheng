@@ -1152,26 +1152,25 @@
         + '<ol class="plan-why-ai">' + aiEntries.list.slice(0, 6).map(item =>
           '<li><b>' + esc(item.name) + '</b><span>' + esc(item.reason || '按训练库安排') + '</span></li>').join('') + '</ol>'
       : '';
-    const why = '<details class="plan-why"><summary>为什么这样排</summary>'
-      + aiWhy
-      + '<p class="plan-why-lead">' + (aiWhy ? '这一周的框架按训练库与你最近两周的记录生成：' : '这一周按训练库与你最近两周的记录生成：') + '</p>'
+    // 2026-11-17：要点与依据合成一块「这份计划怎么来的」，不再让用户读两处。
+    const whyBody = aiWhy
+      + '<p class="plan-why-lead">为什么这样排：' + (aiWhy ? '这一周的框架按训练库与你最近两周的记录生成。' : '这一周按训练库与你最近两周的记录生成。') + '</p>'
       + '<p>' + esc(plan.note) + '</p>'
       + (Array.isArray(plan.reasons) ? plan.reasons.map(reason =>
-        '<p>' + esc(reason.text) + '</p>').join('') : '')
-      + '</details>';
+        '<p>' + esc(reason.text) + '</p>').join('') : '');
     // 要点跟着「今天或下一个训练日」走：优先按那天实际要做的动作点名给要点。
     const cues = (typeof libraryCuesFor === 'function' && cueDay) ? libraryCuesFor(cueDay) : [];
     const templateCues = !cues.length && (typeof libraryCues === 'function' && cueDay) ? libraryCues(cueDay.template) : [];
     const cueToday = !!(cueDay && cueDay.date === activeDate);
     const cueLabel = esc((cueToday ? "今天" : "下一个训练日") + "（" + (TRAINING_TEMPLATES[cueDay.template] || cueDay.template) + "）的动作要点");
-    const cueHtml = cues.length
-      ? '<details class="plan-cue-block"' + (cueToday ? ' open' : '') + '><summary>' + cueLabel + '</summary>'
-        + '<ul class="plan-cue-list">' + cues.map(cue =>
-          '<li><b>' + esc(cue.name) + '</b><span class="plan-cue-text">' + annotateTerms(esc(cue.text)) + '</span></li>').join('') + '</ul></details>'
+    const cueBody = cues.length
+      ? '<ul class="plan-cue-list">' + cues.map(cue =>
+        '<li><b>' + esc(cue.name) + '</b><span class="plan-cue-text">' + annotateTerms(esc(cue.text)) + '</span></li>').join('') + '</ul>'
       : (templateCues.length
-        ? '<details class="plan-cue-block"' + (cueToday ? ' open' : '') + '><summary>' + cueLabel + '</summary>'
-          + annotateTerms('<p class="plan-cue">' + templateCues.map(cue => esc(cue)).join('；') + '</p>') + '</details>'
+        ? annotateTerms('<p class="plan-cue">' + templateCues.map(cue => esc(cue)).join('；') + '</p>')
         : '');
+    const explainHtml = '<details class="plan-why plan-cue-block"' + (cueToday ? ' open' : '') + '><summary>' + (cueBody ? cueLabel : '这份计划怎么来的') + '</summary>'
+      + cueBody + whyBody + '</details>';
     // 本周安排：完全按用户偏好生成；没有偏好就不出方案。
     const planBox = $("#week-plan");
     if (planBox && !planBox.dataset.adoptWired) {
@@ -1235,7 +1234,7 @@
     const adoptHtml = (!hasTodayList && todayPlan && todayPlan.exercises.length)
       ? '<button type="button" class="button subtle full-width" data-adopt-today>把今天这节采纳到今日清单</button>'
       : '';
-    box.innerHTML = annotateTerms(thisWeekHtml + cueHtml + acwrHtml + driftHtml + adoptHtml + suggestedNote + why);
+    box.innerHTML = annotateTerms(thisWeekHtml + explainHtml + acwrHtml + driftHtml + adoptHtml + suggestedNote);
       + '<div class="plan-days">' + plan.days.map(day =>
         `<div class="plan-day"><div class="plan-day-head"><strong>${esc(day.date.slice(5))}</strong><span>${esc(TRAINING_TEMPLATES[day.template] || day.template)}</span></div>`
         + (day.exercises.length ? day.exercises.map(item =>

@@ -795,3 +795,9 @@
 - ⑦ 五态模板：1.3.64 已落 stateBlock + 三处空态迁移。
 - 待续：⑤ 重做（带真机折叠验证）、⑥ 趋势 weeklyVolume 还走旧公式（在 50-onboarding，改动需连带 deload 判断）、③⑨②。
 - 验证：test-all 64/64；dev-loop 1.3.66/366 全绿。
+
+## r107 · 2026-11-17 · 1.3.67（计划解释合并重做完成；趋势与概览同口径）
+- ⑤ 重做：把「下一个训练日的动作要点」与「为什么这样排」合成一个 details（class 同时保留 plan-cue-block 与 plan-why），展开顺序为要点 → AI 理由 → 「为什么这样排：」框架依据；不再有两个折叠块。
+- ⑥ 收尾：weeklyVolume 改用 trainingVolumeOf（有 setDetails 按逐组，旧记录退回 sets×reps×weight），趋势页与概览同口径。
+- 验证：真机展开合并块，要点列表、AI 理由、框架依据都在（build/v367-c.png）；test-all 64/64；dev-loop 1.3.67/367 全绿。
+- 备注：合并块里 cueDay 是下一个训练日、AI 理由可能来自今天，文案已分别写「今天这份顺序…」「这一周的框架…」；若要进一步分清，可给两块各加日期标签。

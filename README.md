@@ -2,7 +2,7 @@
 
 一个把「记录」认真做好的本地优先 Android 健康应用：饮食、训练、身体数据与睡眠饮水都留在手机里，需要 AI 时再按你的明确同意调用你自己的模型服务。
 
-![Version](https://img.shields.io/badge/version-1.3.66-informational) ![Tests](https://img.shields.io/badge/tests-64%20%2F%2064-green) ![MinSdk](https://img.shields.io/badge/minSdk-26-blue) ![TargetSdk](https://img.shields.io/badge/targetSdk-35-blue) ![APK](https://img.shields.io/badge/APK-615%20KB-lightgrey)
+![Version](https://img.shields.io/badge/version-1.3.67-informational) ![Tests](https://img.shields.io/badge/tests-64%20%2F%2064-green) ![MinSdk](https://img.shields.io/badge/minSdk-26-blue) ![TargetSdk](https://img.shields.io/badge/targetSdk-35-blue) ![APK](https://img.shields.io/badge/APK-615%20KB-lightgrey)
 
 产品页（纯静态，可直接打开）：[`site/index.html`](site/index.html)
 
