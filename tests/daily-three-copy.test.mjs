@@ -13,7 +13,7 @@ const css = fs.readFileSync('app/src/main/assets/styles.css', 'utf8');
 const main = fs.readFileSync('app/src/main/java/cn/qingheng/health/MainActivity.java', 'utf8');
 
 // --- today's three things ---------------------------------------------------------------------------
-check('the three things merged into the check card', !html.includes('id="daily-three"') && app.includes('check-missing') && app.includes('补记：'));
+check('the three things merged into the check card', !html.includes('id="daily-three"') && app.includes('check-fix-row') );
 check('it asks for exactly the three documented things', html.includes('name="training"') && html.includes('name="sleep"') && html.includes('name="weight"'));
 check('cooking oil is explained in spoons', html.includes('1 勺≈10 g≈90 kcal'));
 check('weight is asked for under the documented conditions', html.includes('空腹、同一状态'));

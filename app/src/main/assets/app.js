@@ -4863,7 +4863,7 @@ const values = points.length<=7 ? points.map((item,i) => {
       proteinMin: number(profile.proteinMin), proteinMax: number(profile.proteinMax),
       fatMin: number(profile.fatMin), fatMax: number(profile.fatMax)});
     if (tag) {
-      tag.textContent = check.relax ? '放松日 · 本周 1/1' : check.score === null ? '待记录' : '达标 ' + check.score + '/100 · 已评 ' + check.items.filter(item => item.evaluated).length + '/' + check.items.length;
+      tag.textContent = check.relax ? '放松日 · 本周 1/1' : check.score === null ? '待记录' : check.score + ' 分';
       tag.classList.toggle('is-relax', !!check.relax);
     }
     box.innerHTML = '<div class="check-grid">' + check.items.map(item => {
@@ -4877,11 +4877,13 @@ const values = points.length<=7 ? points.map((item,i) => {
     const trainingValue = habit.training === true || habit.training === 'true' ? 'true' : habit.training === false || habit.training === 'false' ? 'false' : '';
     const sleepValue = number(habit.sleep);
     const weightLogged = (state.measurements || []).some(row => row && row.date === activeDate && number(row.weight) !== null);
+    const chip = (label, icon, focus) => `<button type="button" class="check-fix" data-go="records"${focus ? ` data-focus="${focus}"` : ''}>`
+      + `<img src="./${icon}" alt="" width="16" height="16">${label}</button>`;
     const fixes = [];
-    if (!trainingValue) fixes.push('<button type="button" class="text-button" data-go="records">训练</button>');
-    if (sleepValue === null) fixes.push('<button type="button" class="text-button" data-go="records">睡眠</button>');
-    if (!weightLogged) fixes.push('<button type="button" class="text-button" data-go="records" data-focus="measurement-weight">体重</button>');
-    if (fixes.length) box.innerHTML += '<p class="check-missing">补记：' + fixes.join('、') + '</p>';
+    if (!trainingValue) fixes.push(chip('补训练', 'icon-glyph-training.svg', 'habit-training'));
+    if (sleepValue === null) fixes.push(chip('补睡眠', 'icon-habit-sleep.svg', 'habit-sleep'));
+    if (!weightLogged) fixes.push(chip('补体重', 'icon-glyph-balance.svg', 'measurement-weight'));
+    if (fixes.length) box.innerHTML += '<div class="check-fix-row"><span>还差</span>' + fixes.join('') + '</div>';
   }
 
   /** Two weeks of history -> next week's sessions, with a deload when the load ran hot. */
@@ -6139,7 +6141,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.83';
+  const APP_VERSION = '1.3.84';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}

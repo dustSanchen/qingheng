@@ -847,3 +847,10 @@
 - 断言：daily-three-copy 与 layout-four 中「三样卡存在/收起」改为「三样并入体检」，已登记 03-global-changes §5.1；test-all 64/64。
 - 验证：真机首屏为 手记条 → 今日能量（空态紧凑）→ 今日体检（发丝线四格 + 补记行），无三样卡；dev-loop 1.3.83/383 全绿。
 - 说明：1.3.80/1.3.81 曾因把 `chr(8212)` 字面写进 JS 导致整屏报错（chr is not defined），1.3.82 修正为字符串。
+
+## r115 · 2026-11-18 · 1.3.84（体检只留一行分数；补记换成带图标的胶囊）
+- 体检 tag：从「达标 100/100 · 已评 1/4」改成只显示「N 分」，去掉与四格重复的已评计数；待记录时仍显示「待记录」。
+- 补记：从一行纯文字改成带图标的胶囊——训练用 icon-glyph-training、睡眠用 icon-habit-sleep、体重用 icon-glyph-balance；行首写「还差」。
+- 快速记录：习惯表单补了 `id="habit-training"` / `id="habit-sleep"`，胶囊带 data-focus，点到就落到对应字段；体重仍落 measurement-weight。
+- 断言：daily-three-copy / layout-four 的类名从 check-missing 改为 check-fix-row；test-all 64/64。
+- 验证：真机体检显示「29 分」，补记行是「还差 秤 补体重」胶囊；dev-loop 1.3.84/384 全绿。

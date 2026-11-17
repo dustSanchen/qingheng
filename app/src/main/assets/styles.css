@@ -1761,3 +1761,8 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 .check-item.ok strong{color:var(--ok)}
 .check-item.near strong{color:var(--near)}
 .check-item.off strong,.check-item.bad strong{color:var(--danger)}
+/* 体检补记：带图标的胶囊入口，点一下就到对应字段 */
+.check-fix-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;font-size:var(--text-sm);color:var(--muted)}
+.check-fix{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--ink-soft);font:inherit;font-size:var(--text-sm)}
+.check-fix img{opacity:.72}
+.check-fix:active{background:var(--surface)}
