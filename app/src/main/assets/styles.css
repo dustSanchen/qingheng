@@ -1732,3 +1732,7 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 .state-block[data-kind="edge"] .state-block-icon{color:var(--warn)}
 .state-block[data-kind="error"]{border-left:3px solid var(--danger);background:var(--danger-soft)}
 .state-block[data-kind="error"] .state-block-icon{color:var(--danger)}
+
+/* 训练日志的日期行：标签不换行，输入框自适应 */
+.log-date .log-template span{flex:0 0 auto;white-space:nowrap}
+.log-date .log-template input[type=date]{width:auto;max-width:100%;min-height:38px}

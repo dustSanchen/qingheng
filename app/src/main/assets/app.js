@@ -6108,7 +6108,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.68';
+  const APP_VERSION = '1.3.70';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -7599,6 +7599,12 @@ function metricIcon(label) {
   $('#trend-range').addEventListener('change',renderTrends);$('#refresh-advice').addEventListener('click',refreshAdvice);
   $('#measurement-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/measurements',form=>{const values=numericForm(form,['weight','waist','bodyFat','muscle','visceralFat','bmr']);if(Object.values(values).every(value=>value===null)) throw new Error('请至少填写一项测量数据。');return {date:form.elements.date.value,...values};});});
   $('#habit-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/habits',form=>{const values=numericForm(form,['steps','sleep','water']);const training=form.elements.training.value===''?null:form.elements.training.value==='true';if(training===null && Object.values(values).every(value=>value===null)) throw new Error('请至少填写一项日常习惯。');return {date:form.elements.date.value,training,...values};});});
+  // 记录页三种表单统一成「日期在最前、保存在最后」；训练日志原来没有日期输入，只能靠页面顶部的全局日期。
+  $('#training-date')?.addEventListener('change', event => {
+    const value = event.target.value;
+    if (validDate(value)) setActiveDate(value);
+    else event.target.value = activeDate;
+  });
   $('#training-add')?.addEventListener('click', () => {
     // 以前这里手写了一套「组数 / 每组次数 / 负重」旧字段，与逐组模型不兼容——
     // 点「添加动作」加出来的行没有 [data-set-row]，保存时会被判为「每组都要填次数与负重」。
