@@ -357,6 +357,10 @@
     // Spread the sessions over the week: Mon/Tue/Thu/Fri/Sat pattern.
     const slots = [[0], [0, 3], [0, 2, 4], [0, 1, 3, 5], [0, 1, 2, 4, 5], [0, 1, 2, 3, 4, 6]][sessions - 1];
     const deload = src.acwrFlag === 'high';
+    const goal = String(src.goal || '');
+    // 目标对应的训练要求来自同一张表（docs/design/27-evidence-requirements.md）：
+    // 增肌期主动把当天第一个动作多排 1 组；减脂/薄肌不靠加量，按证据保量即可。
+    const goalPreset = typeof GOAL_PRESETS === 'object' ? GOAL_PRESETS[goal] : null;
     const lastByExercise = src.lastByExercise || {};
     const byTemplate = {push: [], pull: [], legs: [], other: []};
     for (const [name, row] of Object.entries(lastByExercise)) {
@@ -376,9 +380,11 @@
         if (!deload && suggested !== null && suggested <= weight) suggested = loadableWeightKg(name, weight + 2.5);
       }
       const baseReps = Number(row.reps) || 8;
+      const firstOfTemplate = byTemplate[template].length === 0;
+      const gainBonus = goalPreset && goal === 'gain' && !deload && firstOfTemplate ? 1 : 0;
       byTemplate[template].push({
         name,
-        sets: Math.max(2, Number(row.sets) - (deload ? 1 : 0)),
+        sets: Math.min(5, Math.max(2, Number(row.sets) - (deload ? 1 : 0)) + gainBonus),
         reps: bodyweight && !deload ? baseReps + 1 : baseReps,
         weight: suggested,
         ...(bodyweight ? {bodyweight: true} : {})
@@ -946,7 +952,7 @@
         const baselines = recentExerciseBaselines(14);
         const sessions = Math.max(1, Math.min(6, Math.round(number(effectiveProfileForDate(activeDate).training) || 3)));
         const flag = (acwrFromDailyLoads(dailyLoads(28), activeDate) || {}).flag || "ok";
-        plan = generateWeekPlan({startDate: weekStart, sessions, lastByExercise: baselines, acwrFlag: flag});
+        plan = generateWeekPlan({startDate: weekStart, sessions, lastByExercise: baselines, acwrFlag: flag, goal: (state.profile || {}).goal});
         if (plan) writeWeekPlanCache(weekStart, {plan, fingerprint: weekPlanFingerprint(prefsForPlan(), baselines, sessions), savedAt: Date.now()});
       } catch { plan = null; }
     }
@@ -1156,7 +1162,7 @@
     if (cached && cached.plan && cached.fingerprint === fingerprint) {
       plan = cached.plan; // 指纹没变：照用上次的结果，计划是被「约定」过的
     } else {
-      plan = generateWeekPlan({startDate, sessions, lastByExercise, acwrFlag: stats ? stats.flag : 'ok'});
+      plan = generateWeekPlan({startDate, sessions, lastByExercise, acwrFlag: stats ? stats.flag : 'ok', goal: (state.profile || {}).goal});
       drifted = !!(cached && cached.plan);
       if (plan) writeWeekPlanCache(startDate, {plan, fingerprint, savedAt: Date.now()});
     }
@@ -1274,6 +1280,15 @@
         + '<p class="week-detail" id="week-detail">' + weekDetailHtml(weekDetailDay, plan) + '</p>';
     }
     const driftHtml = drifted ? '<p class="fine-print">记录有更新，本周安排已按最新数据重算。</p>' : '';
+    // 目标对应的训练要求（组数 / 次数 / RIR）：和 docs/design/27-evidence-requirements.md 同一张表，
+    // 增肌与减脂的要求不同，页面上直接写出来，别让用户自己猜「这次该练几组」。
+    const goalPreset = typeof GOAL_PRESETS === 'object' ? GOAL_PRESETS[(state.profile || {}).goal] : null;
+    const goalRequirementHtml = goalPreset && goalPreset.muscleSetsPerWeek
+      ? '<p class="fine-print">' + esc('本周要求（' + goalLabelOf((state.profile || {}).goal) + '）：每个大肌群 '
+        + goalPreset.muscleSetsPerWeek[0] + '~' + goalPreset.muscleSetsPerWeek[1] + ' 组 · 每组 '
+        + goalPreset.reps[0] + '~' + goalPreset.reps[1] + ' 次 · RIR '
+        + goalPreset.rir[0] + '~' + goalPreset.rir[1]) + '</p>'
+      : '';
     // 采纳入口：今天有安排且今日清单还空着时，一键把它变成今日清单——否则用户要自己把
     // 数据层里的安排重录一遍。已有 AI 清单时不出现：AI 排的优先级高于周计划。
     const hasTodayList = (() => { try { const raw = localStorage.getItem(AI_PLAN_KEY(activeDate)); const list = raw ? JSON.parse(raw) : null; return Array.isArray(list) && list.length > 0; } catch { return false; } })();
@@ -1285,7 +1300,7 @@
     const scheduleHtml = plan.days.length
       ? '<div class="button-row"><button type="button" class="button subtle full-width" data-plan-schedule="1">一键排课 · 写入今天起 ' + plan.days.length + ' 次训练</button></div>'
       : '';
-    box.innerHTML = annotateTerms(thisWeekHtml + explainHtml + acwrHtml + driftHtml + adoptHtml + suggestedNote + scheduleHtml);
+    box.innerHTML = annotateTerms(thisWeekHtml + goalRequirementHtml + explainHtml + acwrHtml + driftHtml + adoptHtml + suggestedNote + scheduleHtml);
   }
 
   /** Load and plateau warnings shown above the weight chart. */

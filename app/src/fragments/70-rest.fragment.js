@@ -154,7 +154,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.98';
+  const APP_VERSION = '1.3.99';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -630,6 +630,12 @@
         "信息：目标=" + (GOAL_LABEL[profile.goal] || "未填") + "；体重=" + (profile.weight || "未填") + "kg；每周练=" + (prefs && prefs.days ? prefs.days : (plannedSessions() || "未填")) + "；分化=" + (prefs ? prefs.split : "未填") + "；器械=" + (prefs ? (typeof GEAR_LABELS === "object" && GEAR_LABELS[prefs.gear] ? GEAR_LABELS[prefs.gear] : prefs.gear) : "未填")
           + "；时长=" + (prefs ? prefs.minutes : 45) + " 分钟。"
           + (prefs && prefs.gear === "mixed" ? "器械不限：请在同一份清单里混用杠铃、哑铃、固定器械与自重，不要全部用同一种器械。" : ""),
+        // 目标对应的训练要求（同一份表：docs/design/27-evidence-requirements.md）
+        (() => {
+          const preset = typeof GOAL_PRESETS === "object" ? GOAL_PRESETS[profile.goal] : null;
+          if (!preset || !preset.muscleSetsPerWeek) return "";
+          return "训练要求（按目标，必须满足）：每个大肌群每周 " + preset.muscleSetsPerWeek[0] + "~" + preset.muscleSetsPerWeek[1] + " 组；每组 " + preset.reps[0] + "~" + preset.reps[1] + " 次；RIR " + preset.rir[0] + "~" + preset.rir[1] + "（离力竭留几次）；单次课的总组数装进上面的时长。";
+        })(),
         baselineText ? "上周最近记录（供渐进参考，不要盲目加量）：" + baselineText + "。" : "",
         library ? "训练规则（必须遵守）：\n" + library : "",
         done.length ? ("今天已记录：" + done.join("；") + "。") : "今天还没有训练记录。",

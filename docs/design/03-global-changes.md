@@ -172,3 +172,5 @@
 | 2026-11-18 | `tests/training-log.test.mjs` | 保存校验文案「每组都要填次数与负重；自重动作负重填 0」→「每组填次数；配重动作还要填负重，自重动作负重留空即可」 | 自重动作不再要求填重量（1.3.98），校验文案必须跟实现一致 |
 | 2026-11-18 | `tests/ci-and-versions.test.mjs`、`tests/modularization.test.mjs` | `PROMPT_VERSION = 8` → `= 9` | AI 排今天的提示词新增「器械动作写清是哪种」「自重不要编重量」两句，版本号随提示词一起升 |
 | 2026-11-18 | 新增 `tests/training-bodyweight.test.mjs` | 自重判定（含负重变体与别名）、`loadableWeightKg` 的杠铃/器械档位、`trainingStatsOf` 三口径、器械卧推说明匹配、记录与分析文案 | 用户要求区分卧推与器械卧推、让无配重项目可记录并进分析；行为断言从产物抽函数跑，不靠字符串冒充验证 |
+| 2026-11-18 | `tests/lean-targets.test.mjs` ×3、`tests/targets.test.mjs` ×2、`tests/training-library.test.mjs` | 蛋白带 upper 2.2/2.4/2.5 → 2.4/2.6/2.6；三件套行数 5 → 7（新增训练要求、体重速率）；「13 个来源」→「至少 13 个来源」 | 用户要求按目标接上权威要求：增肌盈余改为 −10%（10~20% 区间，Iraki 2019）；缺口期蛋白上限按 Helms/Morton 口径放到 2.6；证据补录新增 5 个来源，来源数不再是固定 13 |
+| 2026-11-18 | 新增 `tests/goal-requirements.test.mjs` | 文档表格与 `GOAL_PRESETS` 逐格比对（组数/次数/RIR/速率）、方向性（减脂比增肌掉得快、增肌量最大、缺口期蛋白更高）、5 条引用链接、页面与 AI 请求用到同一张表 | 目标要求表是新的单一来源，必须能被脚本校验；数字改了文档没改就失败 |

@@ -901,3 +901,16 @@
 - 验收：test-all 67/67；aesthetic-audit 无阻塞项；dev-loop 1.3.98/398 装机 + smoke 无 JS 错误。真机：`build/v398-log.png`（引体/双臂杠屈伸显示「自重」、容量按次）、`build/v398-confirm.png`（核对框「5 个动作 · 15 组 · 容量 2,720 kg · 自重 30 次」）、`build/top.png`（本周 2 练 · 容量 2,815 kg · 自重 24 次）。测试记录已用「清空今天的训练」还原（`build/clear3.png`）。
 - 未解释：真机这次「核对框 30 次自重 → 概览 24 次」对不上 6 次；数据是我在表单里反复加/删组次的测试记录，静态断言覆盖了统计函数，但没有在真机复现出一个干净的对照。
 - APK：`dist/qingheng-1.3.98.apk`（623 KB）；回滚：`git revert <本轮提交>`。
+
+## r120 · 2026-11-18 · 1.3.99（目标要求接上证据表：组数/RIR/速率，训练与饮食同一张表）
+- 用户原话：「请结合全网优质数据库或视频拆解，为健身编排提供更权威有效的数据库，且针对用户当前的身材目标提高或降低相应要求。饮食摄入同理。」
+- 证据表：新增 `docs/design/27-evidence-requirements.md`，把「每个目标练多少组、每组多少次、离力竭留几次、每周涨/掉多少」写成一张可查的表，每个数字都带来源：
+  Schoenfeld 2017 剂量-反应元回归（10+ 组/周）[DOI](https://doi.org/10.1080/02640414.2016.1210197)、Baz-Valle 2022 容量系统综述（约 18~20 组略优但更疲劳）[PMID](https://europepmc.org/article/MED/35291645)、ACSM 2026 立场声明（接近力竭比绝对重量更关键）[PMC](https://pmc.ncbi.nlm.nih.gov/articles/PMC12965823/)、Morton 2018 蛋白元回归（1.6 g/kg 平台、上界 2.2）[DOI](https://doi.org/10.1136/bjsports-2017-097608)、Iraki 2019 off-season（10~20% 盈余、每周 +0.25~0.5%）[DOI](https://doi.org/10.3390/sports7070154)。
+- 目标要求：`GOAL_PRESETS` 每个目标新增 `muscleSetsPerWeek / reps / rir / ratePctPerWeek`，并按证据改了三处旧数字：增肌盈余 −8% → −10%（落进 10~20% 区间）、蛋白带 gain 1.6~2.2、recomp 2.0~2.4、cut 2.3~2.6、lean 2.2~2.6（缺口期按去脂体重口径折算）。
+- 用到的地方：训练计划卡多一行「本周要求（目标）：每个大肌群 x~y 组 · 每组 a~b 次 · RIR c~d」；AI 排今天的请求里带同一行要求；「身体档案与目标」的测算结果多两行（训练要求 / 体重速率，含按当前区间的实际速率，超带只提示不改数）；非 AI 周计划在增肌期给当天第一个动作 +1 组（上限 5 组），减脂/薄肌不加量。
+- 数据库：`training-principles.js` 末尾追加 5 条证据规则 + 5 个新来源（带 url），priority 排在中文三分化之后、社区口述之前；`training-library` 的「13 个来源」改成「至少 13」。
+- 版本：`RULES_VERSION` 1 → 2（口径表变了，关于页现在显示 口径 v2）；`PROMPT_VERSION` 仍为 9。
+- 断言：新增 `tests/goal-requirements.test.mjs`（文档表格与 `GOAL_PRESETS` 逐格比对、方向性检查、引用链接、提示词与页面用到同一张表）；改 lean-targets / targets（蛋白带上界与两行新文案）、training-library（来源数）。
+- 验收：test-all 68/68；aesthetic-audit 无阻塞项；dev-loop 1.3.99/399 装机 + smoke 无 JS 错误。真机 `build/v399-req.png`：计划卡显示「本周要求（薄肌（线条））：每个大肌群 12~18 组 · 每组 8~15 次 · RIR 1~2」。
+- 未验证：真机上没有重新点「按目标重新测算」，所以「训练要求 / 体重速率」两行只有断言与文档核对，没截到图；证据规则目前只进「建议库/计划要点」的引用池，没有在真机点开逐条看。
+- APK：`dist/qingheng-1.3.99.apk`；回滚：`git revert <本轮提交>`。

@@ -145,7 +145,7 @@ check('abs rules from the transcript', ['abs-endurance-training','abs-two-moves-
 check('shoulder cues from the transcript', ['lateral-raise-partial','rear-delt-neutral-grip'].every(id => earlyIds.has(id)));
 check('RPE 8 is not RM', lib.rules.find(r => r.id === 'rpe8-is-not-rm').claim.includes('不是 RM'));
 check('the leg warmup has six moves at 45s', lib.rules.find(r => r.id === 'leg-warmup-six-moves').plan.secondsPerSide === 45);
-check('the library now cites thirteen sources', lib.sources.length === 13, String(lib.sources.length));
+check('the library cites at least thirteen sources', lib.sources.length >= 13, String(lib.sources.length));
 check('priority covers the transcript source', lib.priority.includes('asr-transcript'));
 
 

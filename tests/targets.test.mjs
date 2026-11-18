@@ -47,12 +47,12 @@ check('cut goes below the old 2000 floor', cutRef.trainingDay.max < 2000 && cutR
 
 // Protein and fat come from the 口径, not from the goal.
 check('protein lower bound is 2.0 g/kg', ref.proteinMin === Math.round(64.3 * 2.0), ref.proteinMin);
-check('protein upper bound is 2.2 g/kg', ref.proteinMax === Math.round(64.3 * 2.2), ref.proteinMax);
+check('protein upper bound is 2.4 g/kg', ref.proteinMax === Math.round(64.3 * 2.4), ref.proteinMax);
 check('protein never dips below the documented 130 g floor at this weight', ref.proteinMin >= 128, ref.proteinMin);
 check('fat floor honours the 50 g rule', ref.fatMin >= 50, ref.fatMin);
 check('fat ideal range is 55~70 g by default', ref.fatMin === 55 && ref.fatMax === 70, `${ref.fatMin}~${ref.fatMax}`);
 check('carbs derive from the training-day ceiling', ref.carbs === Math.max(0, Math.round((ref.budget - ref.proteinMid * 4 - ref.fatMid * 9) / 4)), ref.carbs);
-check('every line is present for the 三件套 display', ref.lines.length === 5 && ref.lines[0].includes('维持热量') && ref.lines[1].includes('训练日'), ref.lines.length);
+check('every line is present for the 三件套 display', ref.lines.length === 7 && ref.lines[0].includes('维持热量') && ref.lines[1].includes('训练日') && ref.lines[5].includes('训练要求') && ref.lines[6].includes('体重速率'), ref.lines.length);
 check('the basis is stated in the first line', /活动系数 1\.375/.test(ref.lines[0]), ref.lines[0]);
 
 // Female BMR constant must be -161.

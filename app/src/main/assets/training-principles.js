@@ -24,7 +24,7 @@ window.TRAINING_PRINCIPLES = {
    *   P3 ALEX健身频道 —— 有氧执行与热身细节
    *   饮食/热量/蛋白口径始终以 App 规则为准，不被建议库覆盖。
    */
-  priority: ['cdg-2022', 'cswz-2024', 'issn-2017', 'helms-2014', 'aasm-2015', 'csr-2023', 'asr-transcript', 'ksw-tcy-3split', 'community-digest', 'hrss-channel', 'tcy-channel', 'ksw-channel', 'alex-channel'],
+  priority: ['cdg-2022', 'cswz-2024', 'issn-2017', 'helms-2014', 'aasm-2015', 'csr-2023', 'asr-transcript', 'ksw-tcy-3split', 'acsm-2026', 'schoenfeld-2017', 'baz-valle-2022', 'morton-2018', 'iraki-2019', 'community-digest', 'hrss-channel', 'tcy-channel', 'ksw-channel', 'alex-channel'],
   conflictPolicy: '营养与睡眠的口径以学会立场声明（ISSN / AASM）优先；训练计划与强度听三分化；解剖与动作细节听好人松松与谭成义；有氧与拉伸听 ALEX；热量、蛋白、缺口硬底线始终由 App 规则兜底，任何来源都不得下调。',
 
   sources: [
@@ -1334,3 +1334,34 @@ window.TRAINING_PRINCIPLES = {
     }
   ]
 };
+
+/**
+ * 2026-11-18 证据补录：训练编排与饮食要求的数字要有出处。
+ * 追加在数据对象之后，不改原有条目（原有条目带社区口述来源，这批是期刊/学会立场）。
+ * 与 docs/design/27-evidence-requirements.md 一一对应。
+ */
+window.TRAINING_PRINCIPLES.sources.push(
+  {id: 'schoenfeld-2017', label: 'Schoenfeld, Ogborn & Krieger. Dose-response relationship between weekly resistance training volume and increases in muscle mass: a systematic review and meta-analysis.', kind: '论文', ref: 'J Sports Sci 2017;35(11):1073-1082', via: 'DOI 10.1080/02640414.2016.1210197', url: 'https://doi.org/10.1080/02640414.2016.1210197', level: 'A（系统综述+元回归）', priority: 1},
+  {id: 'baz-valle-2022', label: 'Baz-Valle et al. A Systematic Review of The Effects of Different Resistance Training Volumes on Muscle Hypertrophy.', kind: '论文', ref: 'J Hum Kinet 2022', via: 'PMID 35291645', url: 'https://europepmc.org/article/MED/35291645', level: 'A（系统综述）', priority: 1},
+  {id: 'morton-2018', label: 'Morton et al. A systematic review, meta-analysis and meta-regression of the effect of protein supplementation on resistance training-induced gains in muscle mass and strength.', kind: '论文', ref: 'Br J Sports Med 2018;52:376-384', via: 'DOI 10.1136/bjsports-2017-097608', url: 'https://doi.org/10.1136/bjsports-2017-097608', level: 'A（系统综述+元回归）', priority: 1},
+  {id: 'iraki-2019', label: 'Iraki, Fitschen, Espinar & Helms. Nutrition Recommendations for Bodybuilders in the Off-Season: A Narrative Review.', kind: '论文', ref: 'Sports (Basel) 2019;7(7):154', via: 'DOI 10.3390/sports7070154', url: 'https://doi.org/10.3390/sports7070154', level: 'B（叙述性综述）', priority: 1},
+  {id: 'acsm-2026', label: 'ACSM Position Stand. Resistance Training Prescription for Muscle Function, Hypertrophy, and Physical Performance in Healthy Adults: An Overview of Reviews.', kind: '立场声明', ref: 'Med Sci Sports Exerc（综述总览）', via: 'PMC12965823', url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC12965823/', level: 'A（学会立场）', priority: 0}
+);
+
+window.TRAINING_PRINCIPLES.rules.push(
+  {id: 'volume-dose-response', topic: '训练结构', tags: ['general', 'volume', 'hypertrophy'],
+   claim: '每周每个肌群的正式组与肌肥大是剂量-反应关系：10 组/周以上优于更低量，20 组/周以内收益递减但有上限证据仍不明确；新手从 10~12 组起步，进阶再到 16~20 组。',
+   source: 'schoenfeld-2017', confidence: '中高（元回归）', plan: {setsPerMusclePerWeek: [10, 20]}},
+  {id: 'volume-high-vs-moderate', topic: '训练结构', tags: ['general', 'volume', 'hypertrophy'],
+   claim: '高容量（约 18~20 组/周/肌群）在训练满一年以上的人群里，肌肥大略优于中等容量（约 12 组），但差异不大、疲劳更大；先把动作质量与恢复稳住再加量。',
+   source: 'baz-valle-2022', confidence: '中（系统综述）', plan: {setsPerMusclePerWeek: [12, 20]}},
+  {id: 'proximity-to-failure', topic: '强度控制', tags: ['general', 'intensity', 'rir'],
+   claim: '增肌的关键是离力竭足够近（RIR 0~3），而不是绝对重量：同一次数范围内，越接近力竭刺激越足，但所有组都到力竭会拖慢恢复、影响后续训练量。',
+   source: 'acsm-2026', confidence: '中高（综述总览）', plan: {rir: [0, 3], rirMainLift: [1, 2]}},
+  {id: 'protein-in-deficit', topic: '饮食配合', tags: ['general', 'protein', 'cut'],
+   claim: '热量缺口期蛋白要更高：按去脂体重 2.3~3.1 g/kg（多数人折算约 2.0~2.6 g/kg 体重），比维持期的 1.6~2.2 g/kg 更能保住肌肉。',
+   source: 'morton-2018', confidence: '中高（元回归，缺口期结论部分外推）', plan: {proteinPerKg: [2.0, 2.6]}},
+  {id: 'off-season-surplus', topic: '饮食配合', tags: ['general', 'gain', 'surplus'],
+   claim: '增肌期用 10~20% 的温和盈余，体重每周涨 0.25~0.5%；涨得更快多半是多出来的脂肪，之后还要还。',
+   source: 'iraki-2019', confidence: '中（叙述性综述）', plan: {surplusPercent: [10, 20], ratePctPerWeek: [0.25, 0.5]}}
+);

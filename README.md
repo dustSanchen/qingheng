@@ -2,7 +2,7 @@
 
 一个把「记录」认真做好的本地优先 Android 健康应用：饮食、训练、身体数据与睡眠饮水都留在手机里，需要 AI 时再按你的明确同意调用你自己的模型服务。
 
-![Version](https://img.shields.io/badge/version-1.3.98-informational) ![Tests](https://img.shields.io/badge/tests-67%20%2F%2067-green) ![MinSdk](https://img.shields.io/badge/minSdk-26-blue) ![TargetSdk](https://img.shields.io/badge/targetSdk-35-blue) ![APK](https://img.shields.io/badge/APK-623%20KB-lightgrey)
+![Version](https://img.shields.io/badge/version-1.3.99-informational) ![Tests](https://img.shields.io/badge/tests-68%20%2F%2068-green) ![MinSdk](https://img.shields.io/badge/minSdk-26-blue) ![TargetSdk](https://img.shields.io/badge/targetSdk-35-blue) ![APK](https://img.shields.io/badge/APK-627%20KB-lightgrey)
 
 产品页（纯静态，可直接打开）：[`site/index.html`](site/index.html)
 
@@ -29,7 +29,7 @@
 - 三套皮肤：纸感（暖米底、衬线标题）、账本（近白、无衬线、数据优先）、夜间（暗底，手动切换）。
 - 线用三档、字号六档、圆角三档；图标 24 网格 / 1.5 描边 / 每枚最多一个微型记号。
 - 展开/收起做 0.28–0.46s 的不对称过渡，`prefers-reduced-motion` 下全部关闭。
-- 67 个测试文件守住结构、口径、可访问性与数据契约，全量跑一轮约 10 秒。
+- 68 个测试文件守住结构、口径、可访问性与数据契约，全量跑一轮约 10 秒。
 
 ## 隐私与数据
 
@@ -58,7 +58,7 @@ tools\assemble-app.ps1
 node tools/test-all.mjs
 
 # 版本号 + 测试 + 打包 + 装机 + 冒烟（约 30s）
-tools\dev-loop.ps1 -Version 1.3.98 -VersionCode 398
+tools\dev-loop.ps1 -Version 1.3.99 -VersionCode 399
 ```
 
 - 版本规则：`1.<minor>.<patch>`，patch 两位补零、逢百进一；`dev-loop` 会同步片段常量、`build.ps1` 默认值与测试字面量。

@@ -26,14 +26,14 @@ const base = {sex: 'male', weight: 64.6, height: 166, age: 24, training: 3};
 const recomp = computeTargets({...base, goal: 'recomp'});
 check('recomp ranges stay below TDEE and above zero', recomp.trainingDay.max <= recomp.tdee && recomp.restDay.max <= recomp.tdee && recomp.trainingDay.min > 0,
   `training ${recomp.trainingDay.min}~${recomp.trainingDay.max} / rest ${recomp.restDay.min}~${recomp.restDay.max}`);
-check('recomp keeps 2.0~2.2 g/kg protein', recomp.proteinMin === 129 && recomp.proteinMax === 142, `${recomp.proteinMin}~${recomp.proteinMax}`);
+check('recomp keeps 2.0~2.4 g/kg protein', recomp.proteinMin === 129 && recomp.proteinMax === 155, `${recomp.proteinMin}~${recomp.proteinMax}`);
 check('recomp TDEE unchanged', recomp.tdee === 2157 && recomp.bmr === 1569, `bmr ${recomp.bmr} tdee ${recomp.tdee}`);
 check('recomp has no floor key any more', !('floor' in recomp) && !('intakeFloor' in recomp.rules));
 
 // --- the lean preset exists and is named ------------------------------------------------------------
 check('a lean preset exists', Boolean(GOAL_PRESETS.lean) && GOAL_PRESETS.lean.deficitPercent === 12);
 check('lean has a display label', GOAL_LABEL.lean === '薄肌（线条）');
-check('lean raises protein to 2.2~2.4 g/kg', GOAL_PRESETS.lean.proteinPerKgMin === 2.2 && GOAL_PRESETS.lean.proteinPerKgMax === 2.4);
+check('lean raises protein to 2.2~2.6 g/kg', GOAL_PRESETS.lean.proteinPerKgMin === 2.2 && GOAL_PRESETS.lean.proteinPerKgMax === 2.6);
 
 // --- the lean plan on the user's real numbers -------------------------------------------------------
 const lean = computeTargets({...base, goal: 'lean'});
@@ -55,7 +55,7 @@ check('lean line shows the weekly average deficit', lean.lines.some(l => l.inclu
 // --- each goal actually differs ---------------------------------------------------------------------
 const cut = computeTargets({...base, goal: 'cut'});
 check('cut is deeper than recomp', cut.trainingDay.max < recomp.trainingDay.max, `${cut.trainingDay.max} < ${recomp.trainingDay.max}`);
-check('cut protein is 2.3~2.5 g/kg', cut.proteinPerKgMin === 2.3 && cut.proteinPerKgMax === 2.5, `${cut.proteinPerKgMin}~${cut.proteinPerKgMax}`);
+check('cut protein is 2.3~2.6 g/kg', cut.proteinPerKgMin === 2.3 && cut.proteinPerKgMax === 2.6, `${cut.proteinPerKgMin}~${cut.proteinPerKgMax}`);
 const maintain = computeTargets({...base, goal: 'maintain'});
 check('maintain protein is 1.6~2.0 g/kg', maintain.proteinMin === Math.round(64.6 * 1.6) && maintain.proteinMax === Math.round(64.6 * 2.0), `${maintain.proteinMin}~${maintain.proteinMax}`);
 check('maintain sits around maintenance', Math.abs(maintain.weeklyAverageDeficit) <= 3, `${maintain.weeklyAverageDeficit}%`);

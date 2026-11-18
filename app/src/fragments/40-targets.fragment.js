@@ -13,13 +13,19 @@
   /**
    * Goal presets: the deficit each goal plans (negative = surplus) and the protein band it needs.
    * 蛋白带由目标直接决定；缺口上限仍是唯一硬约束，不再有 2000 kcal 的统一地板。
+   *
+   * additions 2026-11-18（口径来自 docs/design/27-evidence-requirements.md）：
+   *  - muscleSetsPerWeek：每个大肌群每周的正式组范围（Schoenfeld 2017 剂量-反应；Baz-Valle 2022 综述）
+   *  - rir：离力竭留几次（RIR），ACSM 2026 综述与 Refalo 2023 都指向「接近力竭」比绝对重量更关键
+   *  - reps：每组次数范围（6~30 次在同等努力下增肌差异小，Schoenfeld 2021）
+   *  - ratePctPerWeek：每周体重变化目标（减脂 0.5~1%；增肌 0.25~0.5%）
    */
   const GOAL_PRESETS = {
-    gain:     {deficitPercent: -8, proteinPerKgMin: 2.0, proteinPerKgMax: 2.2},
-    recomp:   {deficitPercent: 8,  proteinPerKgMin: 2.0, proteinPerKgMax: 2.2},
-    cut:      {deficitPercent: 18, proteinPerKgMin: 2.3, proteinPerKgMax: 2.5},
-    maintain: {deficitPercent: 0,  proteinPerKgMin: 1.6, proteinPerKgMax: 2.0},
-    lean:     {deficitPercent: 12, proteinPerKgMin: 2.2, proteinPerKgMax: 2.4}
+    gain:     {deficitPercent: -10, proteinPerKgMin: 1.6, proteinPerKgMax: 2.2, muscleSetsPerWeek: [14, 20], rir: [1, 3], reps: [6, 12], ratePctPerWeek: [0.25, 0.5]},
+    recomp:   {deficitPercent: 8,   proteinPerKgMin: 2.0, proteinPerKgMax: 2.4, muscleSetsPerWeek: [10, 16], rir: [1, 2], reps: [6, 15], ratePctPerWeek: [0, 0.25]},
+    cut:      {deficitPercent: 18,  proteinPerKgMin: 2.3, proteinPerKgMax: 2.6, muscleSetsPerWeek: [10, 16], rir: [1, 2], reps: [6, 15], ratePctPerWeek: [0.5, 1]},
+    maintain: {deficitPercent: 0,   proteinPerKgMin: 1.6, proteinPerKgMax: 2.0, muscleSetsPerWeek: [10, 16], rir: [2, 3], reps: [6, 15], ratePctPerWeek: [0, 0.25]},
+    lean:     {deficitPercent: 12,  proteinPerKgMin: 2.2, proteinPerKgMax: 2.6, muscleSetsPerWeek: [12, 18], rir: [1, 2], reps: [8, 15], ratePctPerWeek: [0.5, 0.7]}
   };
   // 只有这四个仍允许口径覆盖；训练日/休息日区间永远由目标预设算，避免第二套口径。
   const RULE_KEYS = ['deficitCapPercent', 'fatFloorG', 'fatIdealMinG', 'fatIdealMaxG'];
@@ -48,6 +54,10 @@
       if (value !== null && value > 0) rules[key] = value;
     }
     return rules;
+  }
+  /** 目标中文名：口径行与警告共用界面那份标签（GOAL_LABEL 在本片段后段定义，函数调用时已初始化）。 */
+  function goalLabelOf(goal) {
+    return {gain: '增肌', cut: '减脂', recomp: '增肌同时减脂', maintain: '保持身材', lean: '薄肌（线条）'}[goal] || '饮食';
   }
   /**
    * Mifflin-St Jeor BMR -> activity TDEE -> intake ranges straight from the user's own 口径.
@@ -98,7 +108,7 @@
     }
     // non-lean goal ranges：区间只按目标预设算，不再接受手填的日区间覆盖。
     if (goal !== 'lean') {
-      const gap = goal === 'gain' ? -8 : preset.deficitPercent;
+      const gap = preset.deficitPercent;
       const centre = Math.round(tdee * (1 - Math.min(gap, cap) / 100));
       trainingDay = {min: Math.round(centre * 0.98), max: Math.round(centre * 1.04)};
       restDay = {min: Math.round(centre * 0.95), max: Math.round(centre * 1.01)};
@@ -139,12 +149,32 @@
       if (leanPlan.effectivePercent < 8) warnings.push(`有效缺口只有 ${leanPlan.effectivePercent}%，线条变化会很慢（每月约 -${leanPlan.fatPerMonth} kg 脂肪）；可以延长周期或提高维持热量`);
       if (leanPlan.lossRatePercent !== null && leanPlan.lossRatePercent > 0.7) warnings.push(`每周减重 ${leanPlan.lossRatePercent}% 体重，超过保肌的安全上限 0.5~0.7%/周；薄肌要慢，快减必掉肌肉`);
     }
+    // 目标对应的训练要求（2026-11-18）：每个大肌群的周组数、每组的次数区间、离力竭留几次。
+    // 数字与 docs/design/27-evidence-requirements.md 同一张表，改一处必须同改。
+    const trainingTargets = {
+      muscleSetsPerWeek: preset.muscleSetsPerWeek,
+      reps: preset.reps,
+      rir: preset.rir,
+      sessions: {min: 3, max: 6}
+    };
+    const ratePctPerWeek = preset.ratePctPerWeek;
+    const {weeklyLossFromRate} = (() => {
+      const expected = Math.round(((tdee - weeklyAverage) * 7 / 7700) * 100) / 100;
+      return {weeklyLossFromRate: w > 0 ? Math.round(Math.abs(expected) / w * 1000) / 10 : null};
+    })();
+    if (ratePctPerWeek && weeklyLossFromRate !== null) {
+      const [lo, hi] = ratePctPerWeek;
+      if (weeklyLossFromRate > hi) warnings.push(`按当前区间推算每周变化 ${weeklyLossFromRate}% 体重，高于「${goalLabelOf(goal)}」的 ${lo}~${hi}%/周：把缺口调小或延长周期`);
+      if (weeklyLossFromRate < lo && (goal === 'cut' || goal === 'lean')) warnings.push(`按当前区间推算每周变化 ${weeklyLossFromRate}% 体重，低于 ${lo}%/周：线条变化会很慢，可以延长周期`);
+    }
     const lines = [
       `维持热量（TDEE）：约 ${tdee} kcal／天（基础代谢 ${bmr} × 活动系数 ${factor}${trainingOff ? '（不健身）' : trainingUnset ? '（没有训练计划，按久坐）' : `，按每周 ${sessions} 次训练`}）`,
       `目标摄入：训练日 ${trainingDay.min}~${trainingDay.max} kcal／天；休息日 ${restDay.min}~${restDay.max} kcal／天（周均 ${weeklyAverage}，相当于缺口 ${weeklyAverageDeficit}%）`,
       `与维持热量相比：训练日缺口 ${trainingDeficit}%，休息日缺口 ${restDeficit}%（口径：缺口 ≤ 维持的 ${cap}%）`,
       `蛋白质：${proteinMin}~${proteinMax} g（${proteinPerKgMin}~${proteinPerKgMax} g/kg，按目标）· 脂肪：${fatMin}~${fatMax} g（不低于 ${rules.fatFloorG} g）`,
-      `碳水：约 ${carbs} g（按训练日上限 ${budget} kcal 推算剩余热量）`
+      `碳水：约 ${carbs} g（按训练日上限 ${budget} kcal 推算剩余热量）`,
+      `训练要求（${goalLabelOf(goal)}）：每个大肌群 ${trainingTargets.muscleSetsPerWeek[0]}~${trainingTargets.muscleSetsPerWeek[1]} 组/周 · 每组 ${trainingTargets.reps[0]}~${trainingTargets.reps[1]} 次 · RIR ${trainingTargets.rir[0]}~${trainingTargets.rir[1]}（离力竭留几次）`,
+      `体重速率：每周 ${ratePctPerWeek[0]}~${ratePctPerWeek[1]}%（约 ${Math.round(w * ratePctPerWeek[0] / 100 * 100) / 100}~${Math.round(w * ratePctPerWeek[1] / 100 * 100) / 100} kg），按当前区间推算约 ${weeklyLossFromRate}%`
     ];
     if (leanPlan) {
       // 提高维持热量是唯一不碰口径的加速杠杆。
@@ -168,6 +198,7 @@
       trainingDeficit, restDeficit, weeklyAverage, weeklyAverageDeficit,
       // 1 kg of fat is ~7700 kcal, so the weekly gap converts to a rate the trend can grade against.
       expectedWeeklyKg: Math.round(((tdee - weeklyAverage) * 7 / 7700) * 100) / 100,
+      trainingTargets, ratePctPerWeek, weeklyRatePercent: weeklyLossFromRate,
       leanPlan,
       warnings,
       provisional: trainingUnset,
