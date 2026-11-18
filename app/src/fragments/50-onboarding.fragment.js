@@ -548,6 +548,18 @@ const values = points.length<=7 ? points.map((item,i) => {
     return BODYWEIGHT_MOVES.test(text);
   }
   /**
+   * 复合动作（多关节、能上大重量）：组间休息要长一些。孤立动作（弯举、侧平举、下压…）短一些。
+   * 只用于「休息多久」这一个判断，不参与容量与进阶（2026-11-18）。
+   */
+  const COMPOUND_MOVES = /(卧推|深蹲|硬拉|划船|推举|肩推|引体|下拉|腿举|臀推|臀桥|分腿蹲|保加利亚|罗马尼亚|早安式|双杠|臂屈伸|推胸|推肩|农夫|壶铃|高脚杯|硬拉)/;
+  const ISOLATION_MOVES = /(侧平举|前平举|飞鸟|夹胸|弯举|下压|提踵|卷腹|平板支撑|腿屈伸|腿弯举|后束|面拉|直臂)/;
+  function isCompoundMove(name) {
+    const text = String(name || '').trim();
+    if (!text) return false;
+    if (ISOLATION_MOVES.test(text)) return false;
+    return COMPOUND_MOVES.test(text);
+  }
+  /**
    * 一次训练的三个口径：kg 容量、总组数、自重次数。
    * 自重的次数单独计数，不乘一个假想体重去冒充 kg 容量——缺什么就报什么，但组次要进分析。
    */

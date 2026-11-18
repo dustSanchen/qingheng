@@ -154,7 +154,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.99';
+  const APP_VERSION = '1.4.00';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1703,8 +1703,66 @@
   // 组间休息从卡片底部的工具行挪到「训练动作视野内」：固定小药丸，上下滚动都看得见，
   // 键盘弹起时也随布局视口上移；只有训练日志在视野里或计时进行中才出现（2026-11-17）。
   let restTick = 0, restEnd = 0, restExercisesInView = false, restActionsInView = false, restDockWired = false;
+  /** 默认休息秒数（没选具体动作、直接点药丸时用）；具体动作按 restSecondsFor 决定。 */
   const REST_SECONDS = 90;
+  let restLength = REST_SECONDS;
   const REST_RING_C = 2 * Math.PI * 11.5;
+  /**
+   * 组间休息时长按动作与目标给（证据见 docs/design/27-evidence-requirements.md）：
+   * 复合/大重量 120~150s，孤立 60~90s，自重 75~90s，有氧没有组间休息。
+   * 增肌与保持用长档，减脂/薄肌用短档——缺口期恢复更慢，不需要把休息拉得更长。
+   */
+  function restSecondsFor(name) {
+    if (typeof isCardioName === 'function' && isCardioName(name)) return 0;
+    const goal = (state.profile || {}).goal || '';
+    const longGoal = goal === 'gain' || goal === 'maintain';
+    if (typeof isCompoundMove === 'function' && isCompoundMove(name)) return longGoal ? 150 : 120;
+    if (typeof isBodyweightMove === 'function' && isBodyweightMove(name)) return longGoal ? 90 : 75;
+    return longGoal ? 90 : 60;
+  }
+  /**
+   * 计时结束的提示音：两枚短促的正弦音（E6 → A6），合成器直接出，不打包音频文件。
+   * WebView 的自动播放策略要求先有用户手势：解锁放在开始计时那一下（primeRestAudio），
+   * 否则到点时 AudioContext 仍是 suspended，会一声不响。
+   */
+  let restAudio = null;
+  function primeRestAudio() {
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return null;
+      if (!restAudio) restAudio = new Ctx();
+      if (restAudio.state === 'suspended' && restAudio.resume) restAudio.resume().catch(() => {});
+      return restAudio;
+    } catch { return null; }
+  }
+  function playRestChime() {
+    const ctx = primeRestAudio();
+    if (!ctx) return false;
+    try {
+      const now = ctx.currentTime;
+      const master = ctx.createGain();
+      master.gain.setValueAtTime(0.0001, now);
+      master.gain.exponentialRampToValueAtTime(0.35, now + 0.015);
+      master.gain.exponentialRampToValueAtTime(0.0001, now + 0.62);
+      master.connect(ctx.destination);
+      [[1318.5, 0], [1760, 0.15]].forEach(([freq, delay]) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + delay);
+        gain.gain.setValueAtTime(0.0001, now + delay);
+        gain.gain.exponentialRampToValueAtTime(1, now + delay + 0.008);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + 0.36);
+        osc.connect(gain);
+        gain.connect(master);
+        osc.start(now + delay);
+        osc.stop(now + delay + 0.4);
+      });
+      // 有振动马达就轻碰一下：健身房戴耳机时这是第二重提示。
+      if (navigator.vibrate) { try { navigator.vibrate(120); } catch { } }
+      return true;
+    } catch { return false; }
+  }
   function syncRestDock() {
     const dock = $('#rest-dock');
     if (!dock) return;
@@ -1716,7 +1774,7 @@
     const button = $('#rest-timer');
     if (!button) return;
     const label = $('[data-rest-label]');
-    const text = left > 0 ? `休息 ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` : '休息 90s';
+    const text = left > 0 ? `休息 ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` : `休息 ${restLength}s`;
     if (label && label.textContent !== text) {
       label.textContent = text;
       // 每秒一次的小归位：只动秒数那一行，不做整块闪动；reduced-motion 下动画被媒体查询关掉。
@@ -1729,25 +1787,37 @@
     button.classList.toggle('is-running', left > 0);
     button.setAttribute('aria-label', left > 0
       ? `组间休息还剩 ${Math.floor(left / 60)} 分 ${left % 60} 秒，点一下结束`
-      : '开始 90 秒组间休息');
+      : `开始 ${restLength} 秒组间休息`);
     const ring = $('#rest-timer .rest-ring-fill');
-    if (ring) ring.style.strokeDashoffset = String(REST_RING_C * Math.max(0, Math.min(1, 1 - left / REST_SECONDS)));
+    if (ring) ring.style.strokeDashoffset = String(REST_RING_C * Math.max(0, Math.min(1, 1 - left / Math.max(1, restLength))));
     button.dataset.left = String(left);
     syncRestDock();
   }
-  /** 组间休息：标记一组完成后自动开 90s；再点按钮取消。 */
-  function startRestTimer(restart = false) {
+  /**
+   * 组间休息：标记一组完成后按那个动作的时长自动开始；再点按钮取消。
+   * seconds 传 0（有氧）就不计时。
+   */
+  function startRestTimer(restart = false, seconds = REST_SECONDS) {
     const button = $('#rest-timer');
     if (!button) return;
+    const length = Math.max(0, Math.round(Number(seconds) || 0));
+    if (!length) { return; }
+    restLength = length;
+    primeRestAudio();
     if (restTick) {
       if (!restart) { clearInterval(restTick); restTick = 0; paintRest(0); return; }
       clearInterval(restTick); restTick = 0;
     }
-    restEnd = Date.now() + 90000;
+    restEnd = Date.now() + length * 1000;
     const paint = () => {
       const left = Math.max(0, Math.ceil((restEnd - Date.now()) / 1000));
       paintRest(left);
-      if (!left) { clearInterval(restTick); restTick = 0; }
+      if (!left) {
+        clearInterval(restTick);
+        restTick = 0;
+        // 到点只响一次：先清掉计时器再播音，避免下一帧重复触发。
+        playRestChime();
+      }
     };
     paint();
     restTick = setInterval(paint, 1000);
@@ -1776,7 +1846,7 @@
     }
   }
   installRestDock();
-  $('#rest-timer')?.addEventListener('click', () => startRestTimer(false));
+  $('#rest-timer')?.addEventListener('click', () => startRestTimer(false, restLength));
   // 容量必须跟着输入走：以前只在增删组时重算，填完 10 次 × 60 kg 还挂着「—」，像没记上。
   // 有氧行跟着距离/时长算配速；动作名改成「跑步」时整行切到有氧表单（2026-11-17）。
   $('#training-exercises')?.addEventListener('input', event => {
@@ -1799,7 +1869,12 @@
       const set = done.closest('[data-set-row]');
       const on = set.classList.toggle('is-done');
       done.setAttribute('aria-pressed', String(on));
-      if (on) startRestTimer(true);
+      if (on) {
+        // 按这一行的动作决定休息多久（复合/孤立/自重不同）；有氧行不计时。
+        const row = done.closest('[data-exercise-row]');
+        const name = row ? String($('[data-exercise="name"]', row)?.value || '') : '';
+        startRestTimer(true, restSecondsFor(name));
+      }
       return;
     }
     const addSet = event.target.closest?.('[data-set-add]');

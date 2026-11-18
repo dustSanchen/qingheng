@@ -914,3 +914,13 @@
 - 验收：test-all 68/68；aesthetic-audit 无阻塞项；dev-loop 1.3.99/399 装机 + smoke 无 JS 错误。真机 `build/v399-req.png`：计划卡显示「本周要求（薄肌（线条））：每个大肌群 12~18 组 · 每组 8~15 次 · RIR 1~2」。
 - 未验证：真机上没有重新点「按目标重新测算」，所以「训练要求 / 体重速率」两行只有断言与文档核对，没截到图；证据规则目前只进「建议库/计划要点」的引用池，没有在真机点开逐条看。
 - APK：`dist/qingheng-1.3.99.apk`；回滚：`git revert <本轮提交>`。
+
+## r121 · 2026-11-18 · 1.4.00（组间休息：到点提示音 + 时长按动作与目标）
+- 用户原话：「为倒计时结束添加清脆的音效（例如dsh单次任务执行完毕时的音效），提醒用户计时结束，同时确认计时能否根据健身项目不同而不同。」
+- 音效：Web Audio 合成的两枚正弦音（E6 1318.5 Hz → A6 1760 Hz，间隔 150 ms，各约 0.4 s），不打包音频文件、不调用系统音量；有振动马达时再轻碰 120 ms。自动播放策略要求手势：标记「组完成」那一下先 `primeRestAudio()` 解锁，否则到点 AudioContext 仍是 suspended、一声不响。缺 AudioContext 时安静地不响（返回 false），不抛错。
+- 时长：`restSecondsFor(name)` 按动作与目标给——复合/大重量 120~150 s、孤立 60~90 s、自重 75~90 s、有氧不计时；增肌与保持用长档，减脂/薄肌用短档（缺口期恢复更慢）。`startRestTimer(restart, seconds)` 接受时长，环形进度与 aria-label 都跟实际时长走（以前写死 90）。
+- 证据：新增 `docs/design/27-evidence-requirements.md` 第 4 节，引 Grgic 2018 休息间隔系统综述（Sports Med, DOI 10.1007/s40279-017-0788-x）与 ACSM 2026 综述；标注「长休息优于 1 分钟」的适用范围。
+- 断言：新增 `tests/rest-timer.test.mjs`（含行为断言：用假 AudioContext 跑 `playRestChime`，确认排了 2 个 sine 振荡器、起停与包络、振动一次、无 AudioContext 时返回 false）；改 `structure-phase`（`restEnd` 不再是写死的 90000、点组完成要带 `restSecondsFor(name)`）。
+- 验收：test-all 69/69；aesthetic-audit 无阻塞项；dev-loop 1.4.00/400 装机 + smoke 无 JS 错误。真机：`build/v400-rest.png`（卧推标记完成后药丸显示「休息 1:59」，即 120 s 复合档）、`build/v400-iso2.png`（空白/短档动作 60 s）、`build/v400-done.png`（计时归零后药丸回到「休息 60s」，长度记住上一次）。
+- 未验证：**我听不到声音**，所以「到点真的响」只做了两件事——用假 AudioContext 断言音频图正确、真机确认计时归零时应用进程（pid 10191）有 48 kHz 立体声 AudioTrack 在跑；没有录音或频谱证据。另外页面切后台时 WebView 会节流定时器，声音可能晚几秒（已写进文档）。
+- APK：`dist/qingheng-1.4.00.apk`（627 KB）；回滚：`git revert <本轮提交>`。

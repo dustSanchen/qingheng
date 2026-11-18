@@ -46,7 +46,7 @@ check('the doc cites the volume meta-analysis', doc.includes('10.1080/02640414.2
 check('the doc cites the protein meta-analysis', doc.includes('10.1136/bjsports-2017-097608'));
 check('the doc cites the off-season review', doc.includes('10.3390/sports7070154'));
 check('the doc cites the ACLM/ACSM overview', doc.includes('PMC12965823'));
-check('the doc explains the limits', doc.includes('## 4. 已知局限'));
+check('the doc explains the limits', doc.includes('## 5. 已知局限'));
 
 // --- 证据补录进了规则库 -------------------------------------------------------------------------
 check('the library carries the new sources', ['schoenfeld-2017', 'baz-valle-2022', 'morton-2018', 'iraki-2019', 'acsm-2026'].every(id => lib.includes(`id: '${id}'`)));

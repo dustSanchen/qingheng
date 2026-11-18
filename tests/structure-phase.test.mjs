@@ -70,13 +70,13 @@ check('training records are per set',
   onboarding.includes('setDetails') && main.includes('JSONArray setDetails = item.optJSONArray("setDetails")')
   && onboarding.includes('renderTrainingSummary'));
 check('rest timer and plan actions exist',
-  html.includes('id="rest-timer"') && rest.includes('restEnd = Date.now() + 90000')
+  html.includes('id="rest-timer"') && rest.includes('restEnd = Date.now() + length * 1000')
   && rest.includes('data-ai-swap') && html.includes('id="ai-plan-postpone"'));
 check('diet and training link both ways',
   html.includes('id="today-training-line"') && rich.includes("trainingLine.textContent"));
 
 check('each set can be marked done and starts the rest timer',
-  onboarding.includes('data-set-done') && rest.includes('startRestTimer(true)'));
+  onboarding.includes('data-set-done') && rest.includes('startRestTimer(true, restSecondsFor(name))'));
 check('swapping an exercise re-rounds the load',
   rest.includes('loadableWeightKg(item.name, number(item.weight))'));
 
