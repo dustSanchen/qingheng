@@ -25,7 +25,7 @@ check('up to twelve exercises are allowed', app.includes("if (index >= 12) {noti
 // 「逐字段 aria-invalid + 聚焦第一个缺失项」，语义未变，故改断言到现役实现。
 check('an incomplete exercise is refused instead of stored',
   app.includes("markFieldInvalid(field, '请补全这一组。')")
-  && app.includes("'每个动作至少一组，每组都要填次数与负重；自重动作负重填 0，不想记的动作请先移除。'")
+  && app.includes("'每个动作至少一组、每组填次数；配重动作还要填负重，自重动作负重留空即可。'")
   && app.includes('missing[0]?.focus();'));
 check('saving marks the day as trained', app.includes('await api(\'/api/habits\', {...existing, date: activeDate, training: true, template:'));
 check('the log keeps other fields of the day row', app.includes('const existing = habitRowFor(activeDate) || {};'));

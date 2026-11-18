@@ -535,9 +535,52 @@ const values = points.length<=7 ? points.map((item,i) => {
     if (sets === null || reps === null || weight === null) return null;
     return sets * reps * weight;
   }
+  /**
+   * 自重动作（2026-11-18）：没有外部配重也能记，负重留空不算缺项。
+   * 只按动作名判断，且带「负重 / 哑铃 / 杠铃 / 壶铃 / 配重 / 史密斯」的变体不算自重
+   * （负重引体向上、杠铃臀桥还是要填重量）。
+   */
+  const BODYWEIGHT_MOVES = /(引体向上|俯卧撑|双杠臂屈伸|双臂杠屈伸|平板支撑|卷腹|悬垂举腿|山羊挺身|臀桥|自重|空手)/;
+  function isBodyweightMove(name) {
+    const text = String(name || '').trim();
+    if (!text) return false;
+    if (/(负重|加片|哑铃|杠铃|壶铃|配重|史密斯|器械)/.test(text)) return false;
+    return BODYWEIGHT_MOVES.test(text);
+  }
+  /**
+   * 一次训练的三个口径：kg 容量、总组数、自重次数。
+   * 自重的次数单独计数，不乘一个假想体重去冒充 kg 容量——缺什么就报什么，但组次要进分析。
+   */
+  function trainingStatsOf(items) {
+    const out = {volume: 0, sets: 0, bodyweightReps: 0};
+    for (const item of (items || [])) {
+      if (!item) continue;
+      const hasDetails = Array.isArray(item.setDetails) && item.setDetails.length > 0;
+      const bodyweight = isBodyweightMove(item.name);
+      if (!hasDetails) {
+        // 旧记录只有「组数 / 次数 / 重量」三个数：按 sets × reps × weight 计，别把它当成一组。
+        const sets = number(item.sets), reps = number(item.reps), weight = number(item.weight);
+        out.sets += Math.max(0, Math.round(sets || 0));
+        if (!(sets > 0) || reps === null) continue;
+        if (weight !== null && weight > 0) out.volume += sets * reps * weight;
+        else if (bodyweight) out.bodyweightReps += sets * reps;
+        continue;
+      }
+      out.sets += item.setDetails.length;
+      for (const set of item.setDetails) {
+        const reps = number(set && set.reps), weight = number(set && set.weight);
+        if (reps === null) continue;
+        if (weight !== null && weight > 0) out.volume += reps * weight;
+        else if (bodyweight) out.bodyweightReps += reps;
+      }
+    }
+    out.volume = Math.round(out.volume);
+    out.bodyweightReps = Math.round(out.bodyweightReps);
+    return out;
+  }
   /** Common lifts per template, ordered the way most people train them. */
   const EXERCISE_PRESETS = {
-    push: ['卧推', '上斜哑铃卧推', '哑铃肩推', '侧平举', '绳索下压', '双杠臂屈伸'],
+    push: ['卧推', '器械卧推', '上斜哑铃卧推', '哑铃肩推', '侧平举', '绳索下压', '双杠臂屈伸'],
     pull: ['引体向上', '杠铃划船', '高位下拉', '面拉', '哑铃弯举', '直臂下压'],
     legs: ['深蹲', '硬拉', '腿举', '保加利亚分腿蹲', '罗马尼亚硬拉', '提踵', '卷腹', '平板支撑'],
     other: ['农夫行走', '壶铃摇摆', '有氧 20 分钟', '拉伸 10 分钟']
@@ -560,10 +603,16 @@ const values = points.length<=7 ? points.map((item,i) => {
   }
   /** 一组一条：旧记录没有 setDetails 时，用 sets/次/负重复制出同样多组。 */
   function trainingSetDetails(item) {
+    const bodyweight = isBodyweightMove(item && item.name);
+    // 自重动作的 0 kg 只是「没配重」的另一种写法：显示成空，别让用户看到「0 kg」以为填漏了。
+    const normWeight = value => {
+      const weight = number(value);
+      return bodyweight && weight !== null && weight <= 0 ? null : weight;
+    };
     const details = Array.isArray(item && item.setDetails) ? item.setDetails : null;
-    if (details && details.length) return details.slice(0, 30).map(set => ({reps: number(set.reps), weight: number(set.weight)}));
+    if (details && details.length) return details.slice(0, 30).map(set => ({reps: number(set.reps), weight: normWeight(set.weight)}));
     const count = Math.max(1, Math.min(30, Math.round(number(item && item.sets) || 1)));
-    return Array.from({length: count}, () => ({reps: number(item && item.reps), weight: number(item && item.weight)}));
+    return Array.from({length: count}, () => ({reps: number(item && item.reps), weight: normWeight(item && item.weight)}));
   }
   function setRowHtml(set, index) {
     const n = index + 1;
@@ -619,7 +668,7 @@ const values = points.length<=7 ? points.map((item,i) => {
   function syncExerciseMode(row) {
     if (!row) return;
     const want = isCardioName($('[data-exercise="name"]', row)?.value) ? '1' : '0';
-    if ((row.dataset.cardio || '0') === want) return;
+    if ((row.dataset.cardio || '0') === want) {refreshSetRow(row); return;}
     row.dataset.cardio = want;
     const list = $('[data-set-list]', row), foot = $('.set-foot', row);
     if (want === '1') {
@@ -649,6 +698,8 @@ const values = points.length<=7 ? points.map((item,i) => {
   /** 一组增删后重排序号、重算该动作容量；只改 UI，保存时才落库。 */
   function refreshSetRow(row) {
     const sets = $$('[data-set-row]', row);
+    const bodyweight = isBodyweightMove($('[data-exercise="name"]', row)?.value);
+    let repsTotal = 0;
     sets.forEach((set, index) => {
       const n = index + 1;
       const no = $('.set-no', set); if (no) no.textContent = String(n);
@@ -659,13 +710,20 @@ const values = points.length<=7 ? points.map((item,i) => {
       const reps = $('[data-set="reps"]', set);
       if (reps) reps.setAttribute('aria-label', '第 ' + n + ' 组次数');
       const weight = $('[data-set="weight"]', set);
-      if (weight) weight.setAttribute('aria-label', '第 ' + n + ' 组负重公斤');
+      if (weight) {
+        weight.setAttribute('aria-label', '第 ' + n + ' 组负重公斤');
+        // 自重动作的负重格写「自重」：不是漏填，而是这个动作本来就没有配重（也可填负重引体用的片重）。
+        weight.placeholder = bodyweight ? '自重' : '—';
+        weight.closest('.set-value')?.classList.toggle('is-bodyweight', bodyweight);
+      }
+      repsTotal += number($('[data-set="reps"]', set)?.value) || 0;
     });
     const volume = sets.reduce((sum, set) => {
       const reps = number($('[data-set="reps"]', set)?.value), weight = number($('[data-set="weight"]', set)?.value);
       return reps !== null && weight !== null ? sum + reps * weight : sum;
     }, 0);
-    const out = $('[data-set-volume]', row); if (out) out.textContent = volume > 0 ? fmt(volume, 0) + ' kg' : '—';
+    const out = $('[data-set-volume]', row);
+    if (out) out.textContent = volume > 0 ? fmt(volume, 0) + ' kg' : bodyweight && repsTotal > 0 ? fmt(repsTotal, 0) + ' 次' : '—';
   }
   /** 增删动作后统一重排序号：行前的数字、移除按钮与输入框的 aria-label 都跟着行序走。 */
   function renumberExerciseRows() {
@@ -777,22 +835,28 @@ const values = points.length<=7 ? points.map((item,i) => {
   function renderTrainingSummary(items) {
     const box = $('#training-summary');
     if (!box) return;
-    const volume = trainingVolumeOf(items);
-    const sets = (items || []).reduce((sum, item) => sum + (Array.isArray(item.setDetails) ? item.setDetails.length : (number(item.sets) || 0)), 0);
+    const stats = typeof trainingStatsOf === 'function' ? trainingStatsOf(items) : {volume: trainingVolumeOf(items), sets: 0, bodyweightReps: 0};
+    const volume = stats.volume;
+    const sets = stats.sets || (items || []).reduce((sum, item) => sum + (Array.isArray(item.setDetails) ? item.setDetails.length : (number(item.sets) || 0)), 0);
     const previous = (state.habits || [])
       .filter(row => row && row.date < activeDate && Array.isArray(row.exercises) && row.exercises.length)
       .sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
     const before = previous ? trainingVolumeOf(previous.exercises) : null;
     const delta = before === null ? null : volume - before;
-    const next = delta === null ? '下次同动作先持平，把每组次数做满。'
+    // 自重课没有 kg 容量：不拿「容量 0」去和上次比，改成比次数。
+    const bodyweightOnly = volume === 0 && stats.bodyweightReps > 0;
+    const next = bodyweightOnly
+      ? '自重动作：下次同动作每组 +1 次，或最后一组加 1 组。'
+      : delta === null ? '下次同动作先持平，把每组次数做满。'
       : delta >= 0 ? '下次同动作试 +2.5 kg，或最后一组 +1 次。'
       : '这次容量低于上次；下次先把动作做满，不急着加重。';
     const runs = (items || []).filter(item => item && item.cardio);
     const runKm = runs.reduce((sum, item) => sum + (number(item.distanceKm) || 0), 0);
     const runMin = runs.reduce((sum, item) => sum + (number(item.durationMin) || 0), 0);
-    box.innerHTML = `<p class="plan-label">本次训练</p><div class="overview-grid"><div class="overview-stat"><small>容量</small><strong>${fmt(volume, 0)}<span> kg</span></strong></div>`
+    box.innerHTML = `<p class="plan-label">本次训练</p><div class="overview-grid"><div class="overview-stat"><small>容量</small><strong>${bodyweightOnly ? '—' : fmt(volume, 0)}<span>${bodyweightOnly ? ' 自重课' : ' kg'}</span></strong></div>`
       + `<div class="overview-stat"><small>组数</small><strong>${sets}<span> 组</span></strong></div>`
-      + `<div class="overview-stat"><small>对比上次</small><strong>${delta === null ? '首次' : (delta >= 0 ? '+' : '') + fmt(delta, 0)}<span>${delta === null ? '' : ' kg'}</span></strong></div></div>`
+      + `<div class="overview-stat"><small>对比上次</small><strong>${bodyweightOnly ? '首次' : delta === null ? '首次' : (delta >= 0 ? '+' : '') + fmt(delta, 0)}<span>${bodyweightOnly ? '' : delta === null ? '' : ' kg'}</span></strong></div></div>`
+      + (stats.bodyweightReps > 0 ? `<p class="fine-print">自重 ${fmt(stats.bodyweightReps, 0)} 次（按次数计，不折算成 kg）。</p>` : '')
       + (runs.length ? `<p class="fine-print">有氧：${runKm ? fmt(runKm, 1) + ' km' : ''}${runKm && runMin ? ' · ' : ''}${runMin ? fmt(runMin, 0) + ' 分钟' : ''}</p>` : '')
       + `<p class="fine-print">${next}</p>`;
     box.hidden = false;
@@ -801,11 +865,12 @@ const values = points.length<=7 ? points.map((item,i) => {
   async function saveTrainingLog() {
     const form = $('#training-form'), message = $('.form-feedback', form), button = $('button[type=submit]', form);
     const exercises = readTrainingExercises();
-    // 力量行仍要求每组次数与负重；有氧行只要距离或时长（2026-11-17 起跑步能单独记）。
+    // 力量行要求每组「次数」；负重只有配重动作才必填——自重动作（引体、俯卧撑、平板支撑…）留空即可。
     const invalid = exercises.find(item => {
       if (!item.name) return true;
       if (item.cardio) return !(number(item.distanceKm) > 0 || number(item.durationMin) > 0);
-      return !item.setDetails.length || item.setDetails.some(set => set.reps === null || set.weight === null);
+      const bodyweight = isBodyweightMove(item.name);
+      return !item.setDetails.length || item.setDetails.some(set => set.reps === null || (!bodyweight && set.weight === null));
     });
     if (invalid) {
       const row = $$('[data-exercise-row]', form).find(node => {
@@ -815,30 +880,34 @@ const values = points.length<=7 ? points.map((item,i) => {
           return !(number($('[data-cardio="distance"]', node)?.value) > 0 || number($('[data-cardio="minutes"]', node)?.value) > 0);
         }
         const sets = $$('[data-set-row]', node);
-        return !sets.length || sets.some(set => number($('[data-set="reps"]', set).value) === null || number($('[data-set="weight"]', set).value) === null);
+        const bodyweight = isBodyweightMove(name);
+        return !sets.length || sets.some(set => number($('[data-set="reps"]', set).value) === null || (!bodyweight && number($('[data-set="weight"]', set).value) === null));
       });
       const cardio = row?.dataset.cardio === '1';
+      const bodyweightRow = !cardio && row ? isBodyweightMove($('[data-exercise="name"]', row)?.value) : false;
       const missing = !row ? []
         : cardio
           ? $$('[data-cardio="distance"], [data-cardio="minutes"]', row).filter(field => !(number(field.value) > 0))
-          : $$('[data-set="reps"], [data-set="weight"]', row).filter(field => number(field.value) === null);
+          : $$(bodyweightRow ? '[data-set="reps"]' : '[data-set="reps"], [data-set="weight"]', row).filter(field => number(field.value) === null);
       if (cardio) missing.forEach(field => markFieldInvalid(field, '至少填距离或时长。'));
       else missing.forEach(field => markFieldInvalid(field, '请补全这一组。'));
       feedback(message, cardio
         ? '有氧动作至少填距离或时长；不想记的动作请先移除。'
-        : '每个动作至少一组，每组都要填次数与负重；自重动作负重填 0，不想记的动作请先移除。', true);
+        : '每个动作至少一组、每组填次数；配重动作还要填负重，自重动作负重留空即可。', true);
       missing[0]?.focus();
       return;
     }
     if (!exercises.length) {feedback(message, '还没有动作可保存；可以先用「清空今天的训练」。', true); return;}
     // 2026-11-17：训练也加一步核对（身体保持直存）。先把这次会存进去的内容说清，再落库。
     const setsCount = exercises.reduce((sum, item) => sum + (Array.isArray(item.setDetails) ? item.setDetails.length : (number(item.sets) || 0)), 0);
-    const volume = trainingVolumeOf(exercises);
+    const stats = trainingStatsOf(exercises);
+    const volume = stats.volume;
     const runKm = exercises.reduce((sum, item) => sum + (number(item.distanceKm) || 0), 0);
     const runMin = exercises.reduce((sum, item) => sum + (number(item.durationMin) || 0), 0);
     const summary = exercises.length + ' 个动作'
       + (setsCount > 0 ? ' · ' + setsCount + ' 组' : '')
       + (volume > 0 ? ' · 容量 ' + fmt(volume, 0) + ' kg' : '')
+      + (stats.bodyweightReps > 0 ? ' · 自重 ' + fmt(stats.bodyweightReps, 0) + ' 次' : '')
       + (runKm > 0 || runMin > 0 ? ' · 有氧 ' + [runKm > 0 ? fmt(runKm, 1) + ' km' : '', runMin > 0 ? fmt(runMin, 0) + ' 分钟' : ''].filter(Boolean).join(' · ') : '');
     if (!await askConfirm(summary, {title: '核对后保存', ok: '确认保存'})) return;
     if (button.disabled) return;

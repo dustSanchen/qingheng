@@ -18,7 +18,7 @@ package cn.qingheng.health.ai;
  */
 public final class Prompts {
     /** Bump when any prompt text below changes. v8: 建议卡固定「评价 + 动作」两句，删掉重复的数据说明。 */
-    public static final int PROMPT_VERSION = 8;
+    public static final int PROMPT_VERSION = 9;
     /** Bump when the 口径 defaults themselves change. v1: floor/deficit cap/ranges/macro floors. */
     public static final int RULES_VERSION = 1;
 

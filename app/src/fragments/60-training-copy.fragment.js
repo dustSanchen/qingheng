@@ -321,7 +321,11 @@
     const kg = Number(desired);
     const text = String(name || '');
     if (!Number.isFinite(kg) || kg <= 0) return null;
-    if (/(负重)?(引体向上|俯卧撑|平板支撑|卷腹|悬垂举腿|双杠臂屈伸)/.test(text) && !/负重/.test(text)) return null;
+    // 自重动作没有「装得出来的重量」这回事（负重引体这类带前缀的变体仍会走到下面的分支）。
+    const bodyweight = typeof isBodyweightMove === 'function'
+      ? isBodyweightMove(name)
+      : /(引体向上|俯卧撑|平板支撑|卷腹|悬垂举腿|双杠臂屈伸)/.test(text) && !/负重/.test(text);
+    if (bodyweight) return null;
     const barbell = /杠铃/.test(text) || (!/(哑铃|器械|绳索|史密斯|龙门)/.test(text)
       && /(卧推|深蹲|硬拉|划船|推举|肩推|罗马尼亚|臀推|臀桥|早安|箭步|实力举|借力推)/.test(text));
     if (barbell) {
@@ -361,7 +365,9 @@
       if (Number.isFinite(Number(row.durationMin)) || Number.isFinite(Number(row.distanceKm))) continue;
       const template = /(深蹲|硬拉|腿|提踵)/.test(name) ? 'legs' : /(划船|引体|下拉|弯举|面拉)/.test(name) ? 'pull' : /(卧推|肩推|侧平举|下压|臂屈伸)/.test(name) ? 'push' : 'other';
       const weight = Number(row.weight);
-      let suggested = Number.isFinite(weight) && weight > 0
+      // 自重动作（引体、俯卧撑、平板支撑…）不按 kg 加重：重量留空，下次每组 +1 次。
+      const bodyweight = typeof isBodyweightMove === 'function' && isBodyweightMove(name);
+      let suggested = !bodyweight && Number.isFinite(weight) && weight > 0
         ? Math.round((deload ? weight * 0.9 : weight * 1.025) * 2) / 2
         : null;
       if (suggested !== null) {
@@ -369,7 +375,14 @@
         // +2.5% 对轻重量可能落回同一档（60 kg → 61.5 → 装不出 → 60），这时至少进一档，不能原地不动。
         if (!deload && suggested !== null && suggested <= weight) suggested = loadableWeightKg(name, weight + 2.5);
       }
-      byTemplate[template].push({name, sets: Math.max(2, Number(row.sets) - (deload ? 1 : 0)), reps: Number(row.reps) || 8, weight: suggested});
+      const baseReps = Number(row.reps) || 8;
+      byTemplate[template].push({
+        name,
+        sets: Math.max(2, Number(row.sets) - (deload ? 1 : 0)),
+        reps: bodyweight && !deload ? baseReps + 1 : baseReps,
+        weight: suggested,
+        ...(bodyweight ? {bodyweight: true} : {})
+      });
     }
     const days = [];
     rotation(sessions).forEach((template, index) => {
@@ -400,7 +413,7 @@
       templateId: 'push-day-template'}) : [];
     return {startDate: start, sessions, deload, days, reasons,
       note: deload ? '本周负荷偏高（ACWR > 1.5），按减载周安排：负重 ×0.9、组数 −1。'
-        : '按上周重量 +2.5% 安排，重量留空的动作表示上周没记到负重。'};
+        : '按上周重量 +2.5% 安排；自重动作不加重，按次数进阶（下次每组 +1 次）；重量留空的动作表示上周没记到负重。'};
   }
 
   /** The model-free one-liner used when a request does not need an LLM at all. */

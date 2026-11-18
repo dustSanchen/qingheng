@@ -34,7 +34,7 @@ check('the anchor generator stays a real tool', exists('tools/build-anchors.mjs'
 const main = read('app/src/main/java/cn/qingheng/health/MainActivity.java');
 const prompts = read('app/src/main/java/cn/qingheng/health/ai/Prompts.java');
 const routes = read('app/src/main/java/cn/qingheng/health/bridge/MetaRoutes.java');
-check('a prompt version exists', prompts.includes('public static final int PROMPT_VERSION = 8;'));
+check('a prompt version exists', prompts.includes('public static final int PROMPT_VERSION = 9;'));
 check('a 口径 version exists', prompts.includes('public static final int RULES_VERSION = 1;'));
 check('the versions explain themselves', main.includes('which prompt produced an answer') && main.includes('which 口径 the numbers were computed with'));
 check('a versions route exists', routes.includes('path.equals("/api/versions")') && main.includes('MetaRoutes.handle(path, get, post, b, this)'));

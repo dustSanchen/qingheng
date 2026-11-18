@@ -169,3 +169,6 @@
 | 2026-11-18 | 新增 `tests/body-quick.test.mjs` | 快速记录餐名去后缀（生成端 + 显示端）、首页无拍照胶囊、体检只有一行点评（含 `dailyCheck` 行为断言）、今天两样一次保存且同一天只留一行测量 | 同上；四条反馈各留一组断言，防止回退到叠后缀、双按钮、重复行 |
 | 2026-11-18 | `tests/training-day-budget.test.mjs` ×5、`tests/training-library.test.mjs` ×2、`tests/records-panels.test.mjs` | 「训练日读 habit.training」→「读当天是否有带名字的动作」（`trainedOn`）；能量卡训练日/休息日改读 `range.trained`；RPE 与「建议」从已删除的 7 行表格断言改为「计划数据带 RPE + 周条详情带（训练库建议）」；训练段标题去掉不存在的「下周计划」 | 用户要求训练情况由动作判断、不再手填；1.3.44 的周条让旧表格断言守的是死代码，本轮一并跟到现役实现 |
 | 2026-11-18 | 新增 `tests/plan-from-today.test.mjs` | 训练日推导（前端 4 处 + 原生 2 处）、习惯表无训练情况、图标链接 `text-decoration:none`、七天窗口从今天起算且标题为「本周安排」、一键排课按钮重新渲染 | 同上四条；另防止「一键排课」再次被死表达式吞掉 |
+| 2026-11-18 | `tests/training-log.test.mjs` | 保存校验文案「每组都要填次数与负重；自重动作负重填 0」→「每组填次数；配重动作还要填负重，自重动作负重留空即可」 | 自重动作不再要求填重量（1.3.98），校验文案必须跟实现一致 |
+| 2026-11-18 | `tests/ci-and-versions.test.mjs`、`tests/modularization.test.mjs` | `PROMPT_VERSION = 8` → `= 9` | AI 排今天的提示词新增「器械动作写清是哪种」「自重不要编重量」两句，版本号随提示词一起升 |
+| 2026-11-18 | 新增 `tests/training-bodyweight.test.mjs` | 自重判定（含负重变体与别名）、`loadableWeightKg` 的杠铃/器械档位、`trainingStatsOf` 三口径、器械卧推说明匹配、记录与分析文案 | 用户要求区分卧推与器械卧推、让无配重项目可记录并进分析；行为断言从产物抽函数跑，不靠字符串冒充验证 |

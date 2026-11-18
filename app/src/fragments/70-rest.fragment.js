@@ -154,7 +154,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.3.95';
+  const APP_VERSION = '1.3.98';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -357,12 +357,15 @@
     for (const item of wanted) {
       const name = String(item.name).trim().slice(0, 60);
       if (names.has(name)) continue;
+      // 自重动作的 weight 0 归一成 null：模型常把「没有配重」写成 0，别让它变成一条 0 kg 记录。
+      const rawWeight = number(item.weight);
+      const weight = typeof isBodyweightMove === "function" && isBodyweightMove(name) && rawWeight !== null && rawWeight <= 0 ? null : rawWeight;
       const record = {
         id: (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : "ex-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8),
         name,
         sets: number(item.sets) === null ? null : number(item.sets),
         reps: number(item.reps) === null ? null : number(item.reps),
-        weight: number(item.weight) === null ? null : number(item.weight)
+        weight
       };
       // 有氧项没有组次重量，改记距离与时长，训练日志那边才有东西可显示。
       if (number(item.distanceKm) !== null) record.distanceKm = number(item.distanceKm);
@@ -1407,15 +1410,17 @@
       const date = shiftDay(weekStart, offset);
       const rows = exercisesFor(date);
       const raw = habitRowFor(date);
-      const volume = trainingVolumeOf(Array.isArray(raw?.exercises) ? raw.exercises : []);
+      const stats = trainingStatsOf(Array.isArray(raw?.exercises) ? raw.exercises : []);
+      const volume = stats.volume;
       const km = rows.reduce((sum, item) => sum + (Number(item.distanceKm) || 0), 0);
       const min = rows.reduce((sum, item) => sum + (Number(item.durationMin) || 0), 0);
-      days.push({date, count: rows.length, volume, km, min});
+      days.push({date, count: rows.length, volume, bwReps: stats.bodyweightReps, km, min});
     }
     return {
       days,
       sessions: days.filter(day => day.count > 0).length,
       totalVolume: Math.round(days.reduce((sum, day) => sum + day.volume, 0)),
+      totalBwReps: Math.round(days.reduce((sum, day) => sum + day.bwReps, 0)),
       totalKm: days.reduce((sum, day) => sum + day.km, 0),
       totalMin: days.reduce((sum, day) => sum + day.min, 0)
     };
@@ -1424,9 +1429,10 @@
     const grid = $('#training-overview-grid');
     if (!grid) return;
     const weekStart = shiftDay(activeDate, -((new Date(activeDate + 'T00:00:00').getDay() + 6) % 7));
-    const {days, sessions, totalVolume, totalKm, totalMin} = weekTrainingStats(weekStart);
+    const {days, sessions, totalVolume, totalBwReps, totalKm, totalMin} = weekTrainingStats(weekStart);
     // 上周同口径的容量：说明文字给「比上周」一个真参照，而不是只列数字。
-    const prevVolume = weekTrainingStats(shiftDay(weekStart, -7)).totalVolume;
+    const prevWeek = weekTrainingStats(shiftDay(weekStart, -7));
+    const prevVolume = prevWeek.totalVolume, prevBwReps = prevWeek.totalBwReps;
     const meals = (state.meals || []).filter(row => row && row.date === activeDate);
     const totals = totalsFor(meals), p = effectiveProfileForDate(activeDate);
     const kcal = number(totals.calories), protein = number(totals.protein);
@@ -1448,24 +1454,31 @@
       if (label) label.textContent = unit || '';
       if (number) number.textContent = value === null ? '—' : fmt(value, 0);
     };
-    setStat(0, totalVolume > 0 ? totalVolume : null, totalVolume > 0 ? ' kg' : '');
+    // 只有自重动作的一周没有 kg 容量：主数字换成「自重 N 次」，不留一个像没练的破折号。
+    const leadLabel = grid.children[0]?.querySelector('small');
+    if (leadLabel) leadLabel.textContent = totalVolume > 0 ? '本周容量' : totalBwReps > 0 ? '本周自重' : '本周容量';
+    setStat(0, totalVolume > 0 ? totalVolume : totalBwReps > 0 ? totalBwReps : null,
+      totalVolume > 0 ? ' kg' : totalBwReps > 0 ? ' 次' : '');
     setStat(1, sessions, ' 次');
     setStat(2, protein, protein === null
       ? (proteinMin ? '目标 ' + fmt(proteinMin, 0) + ' g' : '')
       : (proteinMin ? ' / ' + fmt(proteinMin, 0) + ' g' : ''));
-    const peak = Math.max(1, ...days.map(day => day.volume));
+    // 一根柱子只能有一种单位：整周有 kg 容量就画容量，全是自重就画次数，不混着画。
+    const barMetric = totalVolume > 0 ? 'volume' : totalBwReps > 0 ? 'bw' : 'volume';
+    const barValue = day => barMetric === 'bw' ? day.bwReps : day.volume;
+    const peak = Math.max(1, ...days.map(barValue));
     const bars = $('#training-overview-bars');
     // 只有这一周的训练数据真的变了才重播：切 tab、存一餐都重播一遍会显得吵。
     const motionReduced = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-    const barsSig = days.map(day => Math.round(day.volume)).join(',') + '|' + sessions;
+    const barsSig = days.map(day => Math.round(barValue(day))).join(',') + '|' + sessions + '|' + barMetric;
     const animateBars = barsSig !== lastOverviewSig && !motionReduced;
     lastOverviewSig = barsSig;
     if (bars) {
-      // 柱子只画「练了的天」，空天留一条基线；有容量的柱子头顶标数，图才读得出信息而不只是装饰。
+      // 柱子只画「练了的天」，空天留一条基线；有数值的柱子头顶标数，图才读得出信息而不只是装饰。
       // 起手 0 高度、逐根 40ms 归位，让「这一周的形状」是长出来的，不是刷出来的。
-      const pctOf = day => day.volume ? Math.max(8, Math.round(day.volume / peak * 100)) : 2;
+      const pctOf = day => barValue(day) ? Math.max(8, Math.round(barValue(day) / peak * 100)) : 2;
       bars.innerHTML = days.map(day => '<div class="ov-bar' + (day.date === activeDate ? ' is-today' : '') + (day.count ? ' has-data' : '') + '">'
-        + '<b class="ov-bar-value">' + (day.volume > 0 ? fmt(day.volume, 0) : '') + '</b>'
+        + '<b class="ov-bar-value">' + (barValue(day) > 0 ? fmt(barValue(day), 0) : '') + '</b>'
         + '<span data-h="' + pctOf(day) + '" style="height:' + (animateBars ? 0 : pctOf(day)) + '%"></span>'
         + '<small>' + '日一二三四五六'[new Date(day.date + 'T00:00:00').getDay()] + '</small></div>').join('');
       if (animateBars) {
@@ -1484,6 +1497,7 @@
       if (sessions > 0) {
         let line = '本周 ' + sessions + ' 练';
         if (totalVolume > 0) line += ' · 容量 ' + fmt(totalVolume, 0) + ' kg';
+        if (totalBwReps > 0) line += ' · 自重 ' + fmt(totalBwReps, 0) + ' 次';
         if (totalKm > 0 || totalMin > 0) {
           line += ' · 有氧 ' + [totalKm > 0 ? fmt(totalKm, 1) + ' km' : '', totalMin > 0 ? fmt(totalMin, 0) + ' 分钟' : ''].filter(Boolean).join(' · ');
         }
@@ -1494,7 +1508,8 @@
         }
         lines.push(line);
       } else {
-        lines.push(prevVolume > 0 ? '本周还没训练（上周 ' + fmt(prevVolume, 0) + ' kg）' : '本周还没训练');
+        const prevText = prevVolume > 0 ? '（上周 ' + fmt(prevVolume, 0) + ' kg）' : prevBwReps > 0 ? '（上周自重 ' + fmt(prevBwReps, 0) + ' 次）' : '';
+        lines.push('本周还没训练' + prevText);
       }
       lines.push(kcal === null
         ? '今天还没记饮食 · <button type="button" class="text-button inline-link" data-panel-go="food">去记一餐</button>'
