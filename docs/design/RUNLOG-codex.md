@@ -1102,3 +1102,12 @@ otifyHealthResult、两个桥方法、/api/health-connect/* 路由、healthConne
 - 验收：test-all 72/72；dev-loop 1.4.16/416 装机成功、smoke 无 JS 错误。
 - 未验证：真机上错误条与 44px 触达的视觉未截图；历史日仍按当前档案重算（本轮未改，属有意口径）。
 - APK：dist/qingheng-1.4.16.apk（638173 B，sha256 5f93aa4916cde296b2a22659ff0c6c794c4ead67458cac82960a9f5135359c16）。
+
+## r138 · 2026-11-19 · 1.4.17（审视建议批次 4：测试可信度与资源缓存）
+- 测试可信度：新增 	ests/secret-store.test.mjs（用 android.jar 编译真实 SecretStore，跑 sanitize 的 BOM/NBSP/零宽/Bearer/引号/空白/null 六种输入）与 	ests/sync-version.test.mjs（把三处文件复制到临时目录，跑真实 sync-version.mjs 校验三处改写 + 二次运行字节不变）。测试总数 72 → 74。
+- 资源缓存：同一安装内不变的图片/图标（svg/png/jpg/webp/ico/gif/woff）改为 max-age=604800, immutable；HTML/JS/CSS 仍 
+o-store，升级后不会拿到旧代码。
+- 断言：两个新测试自证；README/展示页测试数改 74。
+- 验收：test-all 74/74；dev-loop 1.4.17/417 装机成功、smoke 无 JS 错误。
+- 未做（留待后续）：底栏 backdrop-filter 去模糊、32 个零引用 CSS 与 10 个死符号、历史日按当前档案重算、docs/dist/tests 归档。
+- APK：dist/qingheng-1.4.17.apk（638176 B，sha256 1a2de97ff916c9645d09b5ff5eb67bc1d2239e2b27773a6b2dee25c5e07be66b）。

@@ -646,7 +646,10 @@ import java.util.concurrent.Executors;
         if (path.startsWith("android_asset/")) path = path.substring("android_asset/".length());
         Map<String,String> headers = new HashMap<>();
         headers.put("X-Content-Type-Options", "nosniff");
-        headers.put("Cache-Control", "no-store");
+        // 图片/图标不会在同一个安装内变化：缓存一周，避免每次冷启动重新解码 1 MB 资源；
+                // HTML/JS/CSS 仍走 no-store，保证升级后拿到新代码。
+                boolean immutableAsset = path.matches("(?i).*\\.(svg|png|jpe?g|webp|ico|gif|woff2?)$");
+                headers.put("Cache-Control", immutableAsset ? "max-age=604800, immutable" : "no-store");
         // Bridge is available only to bundled scripts. Remote frames, script injection, network and object embeds are blocked.
         headers.put("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: content:; font-src 'self' data:; connect-src 'none'; frame-src 'none'; child-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'");
         try {

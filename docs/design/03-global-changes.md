@@ -210,3 +210,4 @@
 | 2026-11-19 | `tests/onboarding-backup.test.mjs` | 新增 4 条：Esc 关闭快速记录、加载失败给重试条、同意指路到数据管理、44px 触达 | 审视建议 #10/#11/#12 |
 | 2026-11-19 | `tests/ci-and-versions.test.mjs` | 新增 3 条：v3 清理 HC 字段、导入带 anchors/临时目标、平台期过滤未来体重 | 审视建议 #8/#9 |
 | 2026-11-19 | `tests/structure-phase.test.mjs` | 版本断言 2 → 3 | state 形状变更 |
+| 2026-11-19 | 新增 `tests/secret-store.test.mjs`、`tests/sync-version.test.mjs` | 密钥清洗与版本同步从字符串断言改为真实编译/执行；测试数 72 → 74 | 审视建议 #12：关键纯函数零行为测试 |
