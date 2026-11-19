@@ -1917,6 +1917,12 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 .train-overview>.train-overview-head{display:flex;align-items:center;min-height:44px;cursor:pointer;font-size:var(--text-sm);color:var(--muted);letter-spacing:.04em}
 .train-overview[open]>.train-overview-head{color:var(--ink-soft)}
 
+/* 整餐用油三档（1.4.59）：油由本地按烹饪方式算，整餐只在这里调一次 */
+.oil-level{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;margin:var(--space-2) 0 0}
+.oil-level-label{font-size:var(--text-xs);color:var(--muted);letter-spacing:.04em}
+.oil-level button{min-height:44px;padding:0 var(--space-3);border:1px solid var(--line);border-radius:var(--shape-ctrl-radius);background:transparent;color:var(--ink-soft);font:inherit;font-size:var(--text-sm)}
+.oil-level button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+
 /* 记录可信度只存内部（1.4.58），不再有可见样式 */
 
 /* 我的页（1.4.52）：一个副页只留一张卡，卡内用发丝线分区——入口预算从 14 张降到 8 张 */

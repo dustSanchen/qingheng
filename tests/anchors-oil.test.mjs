@@ -53,9 +53,10 @@ check('the generator refuses to emit a thin table', generator.includes('parsed t
 // --- estimation must not under-report -------------------------------------------------------------
 check('estimator prompt asks for the median, not a high bias', prompts.includes('不要系统性往高报'));
 check('estimator prompt explains why', prompts.includes('两边抵消'));
-check('estimator returns oil separately', prompts.includes('\\"oilGrams\\":0') && main.includes('oilIncluded'));
+// 1.4.59：油不再由模型给克数——模型只说烹饪方式，油由本地按方式×克重算。
+check('the estimator names the cooking method instead of oil grams', prompts.includes('每道菜必须给 method') && prompts.includes('不要输出 oilGrams') && main.includes('clean.put("method", method)'));
 check('estimator returns an uncertainty', prompts.includes('\\"uncertaintyPercent\\":15'));
-check('the prompt states the oil error sensitivity', prompts.includes('每 5 g 约 45 kcal') && prompts.includes('先逐道写油量再相加'));
+check('the prompt fixes the cooking-method vocabulary', prompts.includes('炒/爆炒/红烧/干锅/煎/炸/油淋/烤/蒸/煮/炖/凉拌/白灼/生食/其他') && prompts.includes('不要一律写成炒'));
 check('oil is attached to each dish, not edited separately', training.includes('data-oil=') && !training.includes('estimate-oil-input'));
 check('the estimate contract no longer asks the model for totals', !prompts.includes('\\"totals\\":{') && prompts.includes('不要 totals'));
 check('recalc re-estimates from the edited name and grams', html.includes('id="item-recalc-name"') && app.includes("text:`${name} ${grams} g`") && app.includes('noDraft:true'));
@@ -110,7 +111,7 @@ check('a confirmed estimate keeps its oil amount', /number\(draft\.oilGrams\)>0\
 check('the preview shows the estimate interval', app.includes('估算区间：约 '));
 check('the preview warns that photo estimates may drift', app.includes('不必刻意往高报'));
 check('the preview says what to check', app.includes('请核对份量与克重'));
-check('the preview calls out dish oil', app.includes('照片看不到锅底积油'));
+check('the preview explains the dish-level oil estimate', app.includes('用油按菜式与克重估算') && app.includes('整餐可调「少 / 一般 / 多」'));
 check('the preview states the oil that was counted', app.includes('已计入烹调用油'));
 
 console.log('\nFAIL total: ' + fail);

@@ -3372,6 +3372,9 @@ import java.util.concurrent.Executors;
                 throw fail("API 食物名称格式不正确");
             JSONObject clean = new JSONObject().put("name", item.getString("name"));
             clean.put("grams", number(item, "grams"));
+            // 烹饪方式：油量由应用按 method + 克重本地算（1.4.59），所以这个字段必须留下来。
+            String method = item.optString("method", "").trim();
+            if (!method.isEmpty() && method.length() <= 8) clean.put("method", method);
             for (String k : new String[]{"calories", "protein", "carbs", "fat"}) clean.put(k, number(item, k));
             // 用油按菜归属：每道菜的油写在该菜上，并已算进它的热量与脂肪。
             Double itemOil = finite(item, "oilGrams");
