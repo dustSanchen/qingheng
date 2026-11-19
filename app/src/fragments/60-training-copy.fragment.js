@@ -1253,6 +1253,23 @@
     return map;
   }
   /**
+   * 需要「减」的时候必须向下取：可装重量会把 47.5 抬回 50、把 15.2 抬回 16，等于没减。
+   * 大步退到真能装出来且低于原重量为止。
+   */
+  function reduceLoadableWeightKg(name, desired, original) {
+    let target = number(desired);
+    let kg = typeof loadableWeightKg === 'function' ? loadableWeightKg(name, target) : target;
+    let guard = 0;
+    // 按 1 kg 往下探，让可装重量自己找到下一个更低档（杠铃 5 kg 一档、哑铃 2 kg 一档都能落对）。
+    while (kg !== null && number(original) > 0 && kg >= number(original) && guard < 8) {
+      guard += 1;
+      target = target - 1;
+      if (!(target > 0)) break;
+      kg = typeof loadableWeightKg === 'function' ? loadableWeightKg(name, target) : target;
+    }
+    return kg && kg > 0 ? kg : null;
+  }
+  /**
    * 这次该做多少：上次 ≥8 次且 21 天内练过 → 进一档；6~7 次 → 持平；≤5 次 → 退一档；
    * 超过 21 天没练持平，超过 60 天退 5%。不冲、也不原地躺着。
    */
@@ -1266,11 +1283,10 @@
     if (validDate(lastDate) && validDate(activeDate)) {
       gap = Math.round((new Date(activeDate + 'T00:00:00') - new Date(lastDate + 'T00:00:00')) / 86400000);
     }
-    let kg = last;
-    if (gap > 60) kg = last * 0.95;
-    else if (gap > 21) kg = last;
-    else if (reps !== null && reps >= 8) kg = Math.min(last * 1.1, last + step);
-    else if (reps !== null && reps > 0 && reps <= 5) kg = last - step;
+    if (gap > 60) return reduceLoadableWeightKg(name, last * 0.95, last);
+    if (gap > 21) return typeof loadableWeightKg === 'function' ? loadableWeightKg(name, last) : last;
+    if (reps !== null && reps > 0 && reps <= 5) return reduceLoadableWeightKg(name, last - step, last);
+    const kg = reps !== null && reps >= 8 ? Math.min(last * 1.1, last + step) : last;
     const loadable = typeof loadableWeightKg === 'function' ? loadableWeightKg(name, kg) : Math.round(kg * 2) / 2;
     return loadable && loadable > 0 ? loadable : null;
   }

@@ -26,7 +26,7 @@ check('saving a log asks for the missing effort answer', app.includes('今天练
 check('a recent deload signal exists', app.includes('function effortSignal') && app.includes("level: \"deload\""));
 check('two tired sessions or one tooMuch trigger deload', app.includes("last === \"tooMuch\" || heavy >= 2"));
 check('two light sessions trigger a push', app.includes("light >= 2 && heavy === 0"));
-check('deload trims one set and 5% of the load', /applyEffortSignalToPlan[\s\S]{0,700}Math\.max\(2,[\s\S]{0,200}\* 0\.95/.test(app));
+check('deload trims a set and lowers the load for real', /applyEffortSignalToPlan[\s\S]{0,700}Math\.max\(1,[\s\S]{0,300}reduceLoadableWeightKg/.test(app));
 check('push adds one set to the first compound', app.includes('Math.min(5, (Number(first.sets) || 3) + 1)'));
 check('the plan runs through the effort signal', app.includes('applyEffortSignalToPlan(parseAiPlanReply('));
 check('the prompt carries the effort feedback', app.includes('最近强度反馈（用户自己点的）：') && app.includes('按降载排：每个配重动作少一组'));

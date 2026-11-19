@@ -25,7 +25,7 @@ check('bodyweight moves are still allowed to carry no kg', app.includes('自重�
 // --- 补齐与渐进 -------------------------------------------------------------------------------------------
 check('a missing weight falls back to the planned weight', app.includes('function planWeightFor') && app.includes('plannedWeightFor(row && row.name)'));
 check('progression is step-based and capped at +10%', app.includes('Math.min(last * 1.1, last + step)') && app.includes('const step = LOWER_BODY.test'));
-check('long layoffs deload instead of adding', app.includes('if (gap > 60) kg = last * 0.95') && app.includes('else if (gap > 21) kg = last'));
+check('long layoffs deload instead of adding', app.includes('if (gap > 60) return reduceLoadableWeightKg') && app.includes('if (gap > 21) return'));
 check('a first timer starts from bodyweight ratios', app.includes("const bodyweight = number((state.profile || {}).weight)") && app.includes('WEIGHT_RATIOS'));
 check('a same-family transfer is discounted to 85%', app.includes('* 0.85'));
 check('swapping an exercise recomputes its weight', /item\.name = pool\[index % pool\.length\];[\s\S]{0,500}plannedWeightFor\(item\.name\)/.test(app));

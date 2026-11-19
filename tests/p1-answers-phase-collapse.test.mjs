@@ -33,7 +33,7 @@ check('week eight triggers a review', targets.includes('已满 8 周') && target
 
 // --- P1-7 record page --------------------------------------------------------------------------------
 check('low-frequency cards collapse', app.includes('function installCardCollapse()'));
-check('habit, food and manual cards are the targets', app.includes("'#habit-form'") && app.includes("'#food-search'") && app.includes("'#manual-meal-form'"));
+check('habit card is the only folded one left', app.includes("'#habit-form'") && !app.includes("'#food-search'") && !app.includes("'#manual-meal-form'"));
 check('collapsing is idempotent', app.includes("card.dataset.collapsed === '1'"));
 check('it runs at boot', app.includes('installCardCollapse(); installTrainingAdvice();'));
 

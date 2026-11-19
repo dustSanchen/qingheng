@@ -48,8 +48,8 @@ for (const key of ['calories', 'protein', 'fat', 'carbs']) assert(html.includes(
 assert.match(app, /function setupCollapsibleSections\(\)/);
 assert.match(app, /body\.hidden = collapsed/);
 assert.match(app, /button\.setAttribute\('aria-expanded'/);
-assert.match(app, /anchor:'#food-search'/);
-assert.match(app, /anchor:'#manual-meal-form'/);
+assert.doesNotMatch(app, /anchor:'#food-search'/);
+assert.doesNotMatch(app, /anchor:'#manual-meal-form'/);
 assert.match(app, /anchor:'#settings-form'/);
 assert.match(app, /anchor:'#push-history'/);
 assert.match(app, /anchor:'#export-data'/);

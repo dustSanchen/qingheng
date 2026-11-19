@@ -233,3 +233,7 @@
 | 2026-11-19 | `tests/training-log.test.mjs` | 补重量断言 `baselineWeightFor` → `planWeightFor` / `plannedWeightFor` | 14 天同名记录方案改为三层兜底 |
 | 2026-11-19 | `tests/ai-plan-focus.test.mjs` | askAiPlan 窗口 6000 → 9000 字符 | 提示词加了负重规则后函数变长，finally 被切到窗口外 |
 | 2026-11-19 | 新增 `tests/effort-feedback.test.mjs` | 21 条：四档强度反馈落库、近 7 天阈值、降载/加量、要求进提示词、教练说明解析 | 训练后询问强度并影响排课；用户可对当天计划提要求 |
+| 2026-11-19 | 新增 `tests/plan-reply-behavior.test.mjs` + `tests/fixtures/plan-reply-1.4.44.json` | 用真机回复跑解析/兜底/渐进/降载全链路；抓出降载加组与取整吞减重两个 bug | 字符串断言守不住计算口径 |
+| 2026-11-19 | 新增 `tests/boot-integrity.test.mjs` | 启动行调用的函数必须存在 | 删 searchFoods 后残留调用导致 1.4.46 首版启动即 ReferenceError |
+| 2026-11-19 | `tests/tdee-calibration.test.mjs` | 新增完整日门槛、部分记录日剔除、OMAD 不误杀、>10% 差额文案 | 校准分账 |
+| 2026-11-19 | `tests/records-panels` / `meal-recalc-collapse` / `p1-answers-phase-collapse` / `body-quick` / `food-database` / `anchors-oil` / `daily-three-copy` / `meal-date-context` / `onboarding-backup` | 随两张折叠卡与「记一餐」空态入口移除同步改口径 | 入口预算 |

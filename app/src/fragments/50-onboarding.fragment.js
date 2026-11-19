@@ -284,7 +284,7 @@
     $('#today-record-count').textContent = meals.length ? `${meals.length} 餐` : '暂无';
     container.innerHTML = entries.length
       ? entries.map(entry => entry.html).join('')
-      : stateBlock({kind: 'empty', title: '今天还没有记录', body: '记一餐，时间轴就会出现在这里。', action: {label: '记一餐', go: 'records', focus: 'meal-text'}});
+      : stateBlock({kind: 'empty', title: '今天还没有记录', body: '记一餐，时间轴就会出现在这里；上方「记一餐」直接开始。'});
   }
   /**
    * The record list is grouped by day (the way 薄荷健康 shows 按天卡片) and capped at five meals until

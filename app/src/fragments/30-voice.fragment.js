@@ -115,8 +115,6 @@
   });
   function setupCollapsibleSections() {
     const specs = [
-      {anchor:'#food-search', collapsed:true},
-      {anchor:'#manual-meal-form', collapsed:true},
       {anchor:'#settings-form', collapsed:true},
       {anchor:'#push-history', collapsed:true},
       {anchor:'#export-data', collapsed:true}

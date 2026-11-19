@@ -64,7 +64,7 @@ check('weight and sleep keep their jump targets', html.includes('id="measurement
 check('the two fields sit in one two-column row', html.includes('<div class="quick-two">') && css.includes('.quick-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))'));
 check('one primary button saves the pair', html.includes('id="body-quick-form"') && /<button class="button primary full-width" type="submit">保存今天<\/button>/.test(html));
 check('weight is no longer asked twice', !html.slice(html.indexOf('id="measurement-form"'), html.indexOf('id="habit-form"')).includes('name="weight"'));
-check('sleep is no longer asked twice', !html.slice(html.indexOf('id="habit-form"'), html.indexOf('id="manual-meal-form"')).includes('name="sleep"'));
+check('sleep is no longer asked twice', !html.slice(html.indexOf('id="habit-form"'), html.indexOf('id="training-log"')).includes('name="sleep"'));
 check('the secondary forms keep a quiet button', html.includes('<button class="button subtle" type="submit">保存身体记录</button>') && html.includes('<button class="button subtle" type="submit">保存日常习惯</button>'));
 check('the pair is pre-filled from the day being viewed', app.includes('function renderBodyQuick()') && app.includes('form.elements.weight.value = weight ?? \'\'') && app.includes('form.elements.sleep.value = sleep ?? \'\''));
 check('saving the pair writes both collections', app.includes("await api('/api/habits', {...(habitRowFor(activeDate) || {}), date: activeDate, sleep});") && app.includes("await api('/api/measurements', {...(measurementRowFor(activeDate) || {}), date: activeDate, weight});"));

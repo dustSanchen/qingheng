@@ -276,16 +276,29 @@
   function calibratedTdee(maxDays = 21) {
     const meals = Array.isArray(state.meals) ? state.meals : [];
     const byDay = new Map();
+    const countByDay = new Map();
     for (const meal of meals) {
       const date = String(meal.date || '');
       if (!validDate(date)) continue;
       const kcal = number(meal.calories);
       if (kcal === null) continue;
       byDay.set(date, (byDay.get(date) || 0) + kcal);
+      countByDay.set(date, (countByDay.get(date) || 0) + 1);
     }
-    const intakeDays = [...byDay.keys()].sort().slice(-maxDays);
+    const allDays = [...byDay.keys()].sort().slice(-maxDays);
+    if (allDays.length < 14) {
+      return {ok: false, reason: `有热量的记录只有 ${allDays.length} 天，至少需要 14 天`};
+    }
+    // 校准分账：只把「那天吃得基本记全」的日子纳入平均摄入。
+    // 只记一两餐的日子会把平均摄入拉低，最后被读成「代谢低」——那其实是少记，不是代谢。
+    // 完整日门槛按这个人自己的中位餐数算（0.8 倍，至少 1 餐），一天只吃一顿的人也不会被误杀。
+    const counts = allDays.map(date => countByDay.get(date) || 1).sort((a, b) => a - b);
+    const typicalMeals = counts[Math.floor(counts.length / 2)];
+    const completeFloor = Math.max(1, Math.ceil(typicalMeals * 0.8));
+    const intakeDays = allDays.filter(date => (countByDay.get(date) || 1) >= completeFloor);
+    const skippedDays = allDays.length - intakeDays.length;
     if (intakeDays.length < 14) {
-      return {ok: false, reason: `有热量的记录只有 ${intakeDays.length} 天，至少需要 14 天`};
+      return {ok: false, reason: `记录基本完整的天只有 ${intakeDays.length} 天（另有 ${skippedDays} 天只记了一部分），至少需要 14 天`};
     }
     const from = intakeDays[0], to = intakeDays[intakeDays.length - 1];
     const points = (Array.isArray(state.measurements) ? state.measurements : [])
@@ -297,7 +310,8 @@
     }
     const spanDays = Math.max(1, Math.round((Date.parse(points[points.length - 1].date) - Date.parse(points[0].date)) / 86400000));
     const deltaKg = points[points.length - 1].weight - points[0].weight;
-    const meanIntake = [...byDay.entries()].filter(([date]) => date >= from && date <= to).reduce((sum, [, kcal]) => sum + kcal, 0) / intakeDays.length;
+    // 只加完整日的摄入：以前把「只吃了一餐的那天」也当整天算，等于替用户少算热量。
+    const meanIntake = intakeDays.reduce((sum, date) => sum + (byDay.get(date) || 0), 0) / intakeDays.length;
     const tdee = Math.round(meanIntake - deltaKg * 7700 / spanDays);
     return {
       ok: true,
@@ -306,6 +320,9 @@
       deltaKg: Math.round(deltaKg * 10) / 10,
       spanDays,
       days: intakeDays.length,
+      skippedDays,
+      typicalMeals,
+      completeFloor,
       from, to
     };
   }
@@ -347,9 +364,14 @@
     form.elements.fatMax.value = result.fatMax;
     // The formula TDEE is a starting point; the log-derived one is what the plan should trust.
     const calibration = calibratedTdee();
+    const gapKcal = calibration.ok ? calibration.tdee - result.tdee : 0;
+    const gapPercent = calibration.ok && result.tdee > 0 ? Math.round(Math.abs(gapKcal) / result.tdee * 100) : 0;
     const calibrationLine = calibration.ok
-      ? `实测维持热量：约 ${calibration.tdee} kcal（${calibration.days} 天记录，平均摄入 ${calibration.meanIntake}，${calibration.spanDays} 天体重变化 ${calibration.deltaKg} kg）`
-        + (Math.abs(calibration.tdee - result.tdee) >= 120 ? `；与公式值 ${result.tdee} 相差 ${calibration.tdee - result.tdee > 0 ? '+' : ''}${calibration.tdee - result.tdee} kcal，以实测为准` : '；与公式值一致')
+      ? `实测维持热量：约 ${calibration.tdee} kcal（${calibration.days} 天完整记录，平均摄入 ${calibration.meanIntake}，${calibration.spanDays} 天体重变化 ${calibration.deltaKg} kg`
+        + (calibration.skippedDays > 0 ? `；另有 ${calibration.skippedDays} 天只记了一部分，未计入` : '') + '）'
+        + (gapPercent >= 10
+          ? `；与公式值 ${result.tdee} 相差 ${gapKcal > 0 ? '+' : ''}${gapKcal} kcal（${gapPercent}%）——差这么多通常是摄入记录不全（少记了油、零食或饮料），先补全几天的记录再决定信哪个`
+          : Math.abs(gapKcal) >= 120 ? `；与公式值 ${result.tdee} 相差 ${gapKcal > 0 ? '+' : ''}${gapKcal} kcal，以实测为准` : '；与公式值一致')
       : `还测不出实测维持热量：${calibration.reason}（记录满 2~3 周再回来看）`;
     status.className = 'target-status';
     const phase = leanPhase(result.goal, state.profile && state.profile.leanPhaseStartedAt);

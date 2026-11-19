@@ -38,14 +38,12 @@ assert(/path\.equals\("\/api\/food-search"\)/.test(java), 'the food search route
 assert(/请确认本次查询会把搜索词发送给 Open Food Facts/.test(java), 'the route requires explicit consent');
 
 // --- front end: no personal data, no search-as-you-type, attribution shown ---
-assert(/id="off-query"/.test(html) && /id="off-search"/.test(html) && /id="off-results"/.test(html), 'the search UI exists');
-assert(/Open Food Facts/.test(html) && /ODbL/.test(html), 'the open licence is credited in the UI');
-assert(/每分钟 10 次搜索|10 次\/分钟/.test(html), 'the documented rate limit is explained to the user');
-assert(/api\('\/api\/food-search', \{query, count:8, allowExternal:true\}\)/.test(app), 'only the query is sent');
-assert(!/food-search[\s\S]{0,120}(weight|meals|state|profile)/.test(app), 'no health record accompanies the search');
-assert(/\$\('#off-search'\)\.addEventListener\('click'/.test(app), 'search runs on an explicit button press');
-assert(!/\$\('#off-query'\)\.addEventListener\('input'/.test(app), 'there is no search-as-you-type request');
-assert(/将把「\$\{query\}」发送给 Open Food Facts/.test(app), 'the user confirms before the query leaves the device');
+// 1.4.46 入口预算：「食品热量参考库」卡从记录页移除，搜索 UI 与事件绑定一并断开。
+// 后端路由保留（/api/food-search + Open Food Facts 客户端），但当前没有页面能触发它。
+assert(!/id="off-query"/.test(html) && !/id="off-search"/.test(html), 'the records-page search UI is detached');
+assert(!/\$\{'#off-search'\}\.addEventListener/.test(app), 'no dead search wiring is left behind');
+assert(!/\$\{'#manual-meal-form'\}\.addEventListener/.test(app), 'the manual meal form wiring is gone with its card');
+assert(!/api\('\/api\/food-search'/.test(app), 'the app no longer calls the search route');
 
 // --- the removed URL-reference feature must be gone everywhere ---
 for (const [label, text] of [['app.js', app], ['index.html', html], ['native-adapter.js', adapter], ['MainActivity.java', java]]) {

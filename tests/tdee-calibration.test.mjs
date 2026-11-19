@@ -66,6 +66,45 @@ sandbox.state = {meals: [{date: '2026-10-01'}, {date: 'bad-date', calories: 2000
 const junk = calibratedTdee();
 check('junk rows do not count as data', junk.ok === false, junk.reason);
 
+// --- 3b. 校准分账：只记了一两餐的日子不能拉低平均摄入 ---------------------------------------------------
+/** 每天 4 餐 × perMeal；partial 的那几天只记 1 餐。 */
+function buildMeals(days, perMeal, partialIndexes, partialKcal) {
+  const meals = [];
+  const measurements = [];
+  const startDate = new Date('2026-10-01T00:00:00Z');
+  for (let i = 0; i < days; i++) {
+    const date = new Date(startDate.getTime() + i * 86400000).toISOString().slice(0, 10);
+    if (partialIndexes.includes(i)) {
+      meals.push({date, calories: partialKcal});
+    } else {
+      for (let m = 0; m < 4; m++) meals.push({date, calories: perMeal});
+    }
+    measurements.push({date, weight: 64.6});
+  }
+  return {meals, measurements};
+}
+// 15 天记全（4 × 500 = 2000） + 6 天只记一餐 300：平均摄入必须只算完整日
+const partial = [0, 2, 4, 6, 8, 10];
+sandbox.state = buildMeals(21, 500, partial, 300);
+const split = calibratedTdee();
+check('partial days are excluded from the mean intake', split.ok && Math.abs(split.meanIntake - 2000) <= 5, split.ok ? `mean ${split.meanIntake}` : split.reason);
+check('the calibration still lands on maintenance', split.ok && Math.abs(split.tdee - 2000) <= 10, split.ok ? `${split.tdee} kcal` : '');
+check('it reports how many days were skipped', split.ok && split.skippedDays === 6 && split.days === 15, split.ok ? `days ${split.days} / skipped ${split.skippedDays}` : '');
+// 13 天记全 + 8 天只记一餐 → 完整日不足 14 天，必须拒绝并说明原因，不能拿残缺数据算
+const mostlyPartial = [0, 2, 4, 6, 8, 10, 12, 14];
+sandbox.state = buildMeals(21, 500, mostlyPartial, 300);
+const tooSparse = calibratedTdee();
+check('too few complete days is refused, naming the reason', tooSparse.ok === false && tooSparse.reason.includes('完整') && tooSparse.reason.includes('14'), tooSparse.reason);
+// 一天只吃一顿的人（OMAD）不该被门槛误杀：中位餐数就是 1
+sandbox.state = build(21, 1800, Array(21).fill(64.6));
+const omad = calibratedTdee();
+check('one-meal-a-day users still calibrate', omad.ok && omad.days === 21 && typeof omad.typicalMeals === 'number', omad.ok ? `meals ${omad.typicalMeals}` : omad.reason);
+
+// --- 3c. 差额过大时的文案：提示摄入记录不全，而不是直接说“以实测为准” ----------------------------------
+const targetsSource = fs.readFileSync('app/src/fragments/40-targets.fragment.js', 'utf8');
+check('a >10% gap is explained as under-recording', targetsSource.includes('差这么多通常是摄入记录不全'));
+check('the big-gap branch runs before the "trust the measured" branch', targetsSource.indexOf('gapPercent >= 10') < targetsSource.indexOf('以实测为准'));
+
 // --- 4. the four-session lever is inside the floor -----------------------------------------------------
 const targets = fs.readFileSync('app/src/fragments/40-targets.fragment.js', 'utf8');
 check('the lean plan names the training-frequency lever', targets.includes('训练频率杠杆'));

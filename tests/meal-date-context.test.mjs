@@ -149,9 +149,9 @@ assert.match(app, /draft\.mealTime=mealTime; draft\.mealTimeSource='manual';/, '
 assert.match(app, /mealTime:draft\.mealTime,/, 'the saved meal carries the confirmed time');
 assert.match(app, /mealTime:quickTime, mealTimeSource:'manual'/, 'a quick copy also records when it was eaten');
 // Step 2 changed the manual submit shape: values are read first so cooking oil can be added once.
-assert.match(app, /mealTimeSource:'manual',\.\.\.values/, 'the manual form records its own time');
+assert.doesNotMatch(app, /mealTimeSource:'manual',\.\.\.values/, 'the manual entry path is gone (1.4.46 entry budget)');
 assert.match(app, /esc\(meal\.mealTime\)/, 'the meal list shows the meal time');
-assert.match(html, /name="mealTime" type="time"/, 'the manual meal form asks for the time');
+assert.match(html, /id="estimate-meal-time"/, 'the estimate card still asks for the time');
 
 // --- Voice: own listening sheet, with the system screen only as a fallback ----------------------
 for (const id of ['voice-sheet', 'voice-bars', 'voice-status', 'voice-text', 'voice-cancel', 'voice-done']) assert(ids.includes(id), `the page defines #${id}`);
@@ -175,7 +175,7 @@ assert.match(css, /input:not\(\[type=checkbox\]\):not\(\[type=radio\]\),select,t
 assert.match(css, /\.list-row\{display:flex;align-items:flex-start;gap:12px;/, 'every row list shares one row shell');
 assert.match(css, /button\.food-result\.list-row\{/, 'the food library uses the same row shell');
 assert.match(app, /class="meal-row list-row"/, 'meal and chat rows adopt the shared shell');
-assert.match(app, /class="food-result list-row"/, 'food results adopt the shared shell');
+assert.doesNotMatch(app, /class="food-result list-row"/, 'the food-library renderer is gone (1.4.46)');
 assert.equal((app.match(/class="meal-row list-row"/g) || []).length, 4, 'today, records, push history and today-advice all use it');
 assert.match(app, /role="listitem"/, 'rows keep list semantics');
 assert.match(html, /id="record-meals" role="list" aria-label=/, 'list containers keep accessible names');

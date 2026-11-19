@@ -1353,3 +1353,15 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 真机验证（1.4.45 / 3cba2bdc）：训练分段可见「练下来」四档；点「刚好」后提示「已记下：练下来刚好。下次排课会参考」，刷新后该 chip 保持选中（`aria-pressed`）——写入的是当天 habit 行，不是临时变量。截图 `build/v145-effort.png`、`build/v145-effort-saved.png`、`build/v145-plan-ui2.png`。
 - 未验证：降载/加量链路没有用真实的两天「累 / 太轻」记录触发过（单次反馈按设计不改变清单）；「教练说明」要等一次被模型否决的要求才会出现；ledger / night 皮肤未看。
 - APK：`dist/qingheng-1.4.45.apk`，646,366 B，sha256 `5701ef6e657c9e74e532ca9186c5192d660f878d0c1d1fb03af0dd2e2fa416ac`。
+## r168 · 2026-11-19 · 1.4.46（校准分账 / 行为测试 / 入口预算）
+- 用户原话：「校准分账…行为测试…入口预算…都按你说的做」。
+- 校准分账（40-targets）：`calibratedTdee` 只纳入「那天吃得基本记全」的日子——按这个人自己的中位餐数 ×0.8（至少 1 餐）算完整门槛，只记一两餐的日子不进平均摄入，并回报 `skippedDays`。完整日不足 14 天就明确拒绝。差额 ≥10% 时文案改成「差这么多通常是摄入记录不全（少记了油、零食或饮料），先补全几天再决定信哪个」，不再直接说「以实测为准」。修的是同一个体重曲线分不清「代谢低」和「少记了」的问题。
+- 行为测试：新增 `tests/fixtures/plan-reply-1.4.44.json`（真机 1.4.44 那份清单原样存下）+ `tests/plan-reply-behavior.test.mjs`，用 vm 切出真实函数跑全链路：解析 → 缺重量三层兜底 → 渐进 → 强度降载 → 本地记忆。**这份测试当场抓到两个真 bug**：①降载用 `Math.max(2, sets-1)` 会把只有 1 组的孤立动作「减」成 2 组；②减重被「装得出来」的取整吞掉（50−2.5=47.5→回到 50、16→15.2→回到 16），等于没减。修法：降载改 `Math.max(1, …)`，新增 `reduceLoadableWeightKg` 按 1 kg 往下探，直到落到更低档。
+- 入口预算：新增 `tests/boot-integrity.test.mjs`（启动行调用的函数必须真的存在）——这条是被自己的事故逼出来的：删 `searchFoods()` 时启动行还剩一句调用，1.4.46 首版一启动就 ReferenceError、页面停在「正在计算…」骨架态，而 77 个测试全绿。
+- 砍卡：记录页移除「食品热量参考库」「手动记录餐食」两张折叠卡（连同搜索/在线查询/手动记录的 DOM 与事件绑定）；`RECORD_PANELS` 饮食段只剩 轻松记一餐 / 最近的餐食记录 / 复制一餐，`installCardCollapse` 的分组清空。后端 `/api/food-search` 与 Open Food Facts 客户端保留但当前无入口（后续要么做成「我的 → 食品参考」子页，要么连后端起删）。
+- 记一餐入口收敛：今日时间轴空态的 `action: {label:'记一餐'}` 删掉，改文案指向上方唯一的「记一餐」按钮；全站可点入口剩 2 个（今日动作条、训练卡的「还没记饮食 · 去记一餐」）。
+- 断言：新增 2 个测试文件；`records-panels` / `meal-recalc-collapse` / `p1-answers-phase-collapse` / `body-quick` / `food-database` / `anchors-oil` / `daily-three-copy` / `meal-date-context` / `onboarding-backup` / `tdee-calibration` 同步改口径。测试 78/78。
+- 真机验证（1.4.46 / 3cba2bdc）：首页数据完整（5 餐 · 1,823 kcal）、记录页饮食段三张卡、无「食品热量参考库 / 手动记录餐食」。截图 `build/v146-home3.png`、`build/v146-food.png`。
+- 未验证：食品参考库与手动录入在真机上的「移除后有没有空白」只看了列表区域，没有逐屏翻到底；`/api/food-search` 现在是死路由，没有清理 Java 侧。
+- APK：`dist/qingheng-1.4.46.apk`，646366 B，sha256 `869736ad69c9aadcd0db313e6eb4844ac723354e873942f94aee61cb9e71c0a0`。- 入口预算审计工具：新增 `tools/entry-budget-audit.mjs`（只读，WARN 不阻断，退出码与 aesthetic-audit 一致；`--json` 供以后接 CI）。判据写死在脚本里：只数可点击入口（button/a 文案、stateBlock action、quick-chip 数据项、check-fix 补录、data-focus 指向），标题与提示文案不算；`记录一餐` 与 `记一餐` 合并为同一动作，避免改文案绕过预算。
+- 入口预算基线（2026-11-19 21:57，1.4.46）：记一餐 2 处 PASS（今日动作条 + 饮食空态「去记一餐」）、复制一餐 1 处 PASS；**记训练 3 处、记身体 4 处 WARN**；卡片数 today 6 / chat 3 / trends 4 PASS，**records 10、profile 14 WARN**。这张表就是下一轮清理的队列——先合并记身体四处（记录身体数据 / 空态记录体重 / 体检补体重 / 今日 chip），再收 records 与 profile 的卡片数。

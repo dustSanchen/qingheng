@@ -154,7 +154,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.45';
+  const APP_VERSION = '1.4.46';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -485,9 +485,10 @@
     if (signal.level === "deload") {
       for (const item of plan) {
         if (!item || item.bodyweight || Number(item.distanceKm) > 0) continue;
-        item.sets = Math.max(2, (Number(item.sets) || 0) - 1);
-        if (Number(item.weight) > 0 && typeof loadableWeightKg === "function") {
-          const kg = loadableWeightKg(item.name, Number(item.weight) * 0.95);
+        // 少一组，但别把只有 1 组的孤立动作「减」成 2 组（以前 Math.max(2, 0) 会越减越多）。
+        item.sets = Math.max(1, (Number(item.sets) || 1) - 1);
+        if (Number(item.weight) > 0 && typeof reduceLoadableWeightKg === "function") {
+          const kg = reduceLoadableWeightKg(item.name, Number(item.weight) * 0.95, Number(item.weight));
           if (kg > 0) { item.weight = kg; item.weightSource = "deload"; }
         }
       }
@@ -1713,7 +1714,7 @@
   }
 
   const RECORD_PANELS = [
-    {key: 'food', label: '饮食', headings: ['轻松记一餐', '最近的餐食记录', '复制一餐', '食品热量参考库', '手动记录餐食'], foldedHeadings: ['食品热量参考库', '手动记录餐食']},
+    {key: 'food', label: '饮食', headings: ['轻松记一餐', '最近的餐食记录', '复制一餐']},
     {key: 'training', label: '训练', headings: ['训练概览', '训练计划', '今日顺序', '训练日志'], trainingOnly: true},
     {key: 'body', label: '身体', headings: ['今天两样', '身体数据', '日常习惯']}
   ];
@@ -2164,17 +2165,6 @@
     $('#export-data').click();
     setTimeout(() => {button.disabled = false; refreshBackupStatus().catch(() => {});}, 1500);
   });
-  $('#manual-meal-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/meals',form=>{if(!form.elements.name.value.trim()) {markFieldInvalid(form.elements.name, '请填写餐食名称。'); throw new Error('请填写餐食名称。');}const manualTime=form.elements.mealTime.value;
-      if(!clockPattern.test(manualTime)) {markFieldInvalid(form.elements.mealTime, '请填写有效的进餐时间（HH:mm）。'); throw new Error('请填写有效的进餐时间（HH:mm）。');}
-      const values=numericForm(form,['calories','protein','fat','carbs']);
-      // Cooking oil is its own line: 1 spoon = 10 g = 90 kcal and 10 g fat. It is added exactly once,
-      // at creation, and the amount is stored so the record stays explainable (and re-editable).
-      const spoons=number(form.elements.oilSpoons.value) ?? 0;
-      const oilGrams=Math.round(spoons*10);
-      const oilKcal=Math.round(oilGrams*9);
-      const extra=oilGrams>0?{oilGrams,oilSpoons:spoons,oilAddedKcal:oilKcal,oilAddedFat:oilGrams,
-        calories:(values.calories ?? 0)+oilKcal, fat:(values.fat ?? 0)+oilGrams}:{};
-      return {date:form.elements.date.value,mealType:form.elements.mealType.value,mealTime:manualTime,name:form.elements.name.value.trim(),mealTimeSource:'manual',...values,...extra,source:'manual',items:[]};});});
   $('#profile-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/profile',form=>{
     const values=numericForm(form,['height','age','calorieTarget','referenceCalories','proteinMin','proteinMax','fatMin','fatMax']);
     if(values.proteinMin>values.proteinMax || values.fatMin>values.fatMax) {if(values.proteinMin>values.proteinMax) {markFieldInvalid(form.elements.proteinMin, '蛋白质下限不能高于上限。'); markFieldInvalid(form.elements.proteinMax, '蛋白质上限不能低于下限。');} if(values.fatMin>values.fatMax) {markFieldInvalid(form.elements.fatMin, '脂肪下限不能高于上限。'); markFieldInvalid(form.elements.fatMax, '脂肪上限不能低于下限。');} throw new Error('目标下限不能高于上限。');}
@@ -2526,13 +2516,12 @@ feedback(message,'数据已导入。'+report);
     });
   }
   /**
-   * 记录页有九张卡片，低频的几张占了半屏。把它们收进默认折叠的 details，卡片内部的渲染逻辑不动。
+   * 记录页低频卡片的折叠位（1.4.46 起清空）。
+   * 「食品热量参考库」「手动记录餐食」已按入口预算移除：估算卡本身就能描述任意餐食与克重，
+   * 这两张卡解决的是同一个低频需求，却各占一个折叠标题。留空数组，机制保留给以后真正的低频卡。
    */
   function installCardCollapse() {
-    const groups = [
-      ['#food-search', '食品热量参考库（本地，不消耗 token）'],
-      ['#manual-meal-form', '手动记录餐食（已知营养数据）']
-    ];
+    const groups = [];
     for (const [selector, label] of groups) {
       const anchor = document.querySelector(selector);
       const card = anchor && anchor.closest('article.card');
@@ -2814,4 +2803,4 @@ feedback(message,'数据已导入。'+report);
   installProfileAutoRecalc();
   applyTrainingVisibility();
   installCardCollapse(); installTrainingAdvice(); installHabitChips(); installChatChips();
-  setupCollapsibleSections(); installQuickRecordControls(); searchFoods(); restoreConsent(); installExternalConsent(); installExactAlarmControl();
+  setupCollapsibleSections(); installQuickRecordControls(); restoreConsent(); installExternalConsent(); installExactAlarmControl();

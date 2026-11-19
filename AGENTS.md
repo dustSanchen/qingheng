@@ -25,6 +25,9 @@ node tools/preflight.mjs
 # 审美静态审计（改完样式跑一次；只报告不修改）
 node tools/aesthetic-audit.mjs
 
+# 入口预算审计（同动作可点入口 ≤2、每页卡片 ≤8；只报告不修改，WARN 不阻断）
+node tools/entry-budget-audit.mjs
+
 # 全量测试（基线必须 55/55）
 node tools/test-all.mjs
 

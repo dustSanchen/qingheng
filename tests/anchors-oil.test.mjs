@@ -100,10 +100,9 @@ check('the page syncs anchors once per session', app.includes('async function sy
 check('a missing anchor module never breaks the page', app.includes("window.QinghengAnchors?.summary?.() || ''"));
 
 // --- cooking oil is recorded explicitly -----------------------------------------------------------
-check('the manual form has an oil field', html.includes('<input name="oilSpoons" type="number"'));
-check('one spoon is defined in the UI', html.includes('1 勺≈10 g≈90 kcal'));
-check('oil is added to the record exactly once', app.includes('const oilKcal=Math.round(oilGrams*9)') && app.includes('oilAddedKcal:oilKcal'));
-check('the added oil is stored for later recalculation', app.includes('oilAddedFat:oilGrams'));
+// 1.4.46：手动记录餐食卡按入口预算移除，油量输入随之消失；估算确认路径仍携带油量。
+check('the manual meal card and its oil field are gone', !html.includes('name="oilSpoons"'));
+check('the estimate flow still carries the oil amount', app.includes('oilIncluded') && app.includes('oilGrams'));
 check('a meal row shows the oil amount', app.includes('function oilLabel(meal)') && app.includes('用油 <b>'));
 check('a confirmed estimate keeps its oil amount', /number\(draft\.oilGrams\)>0\?\{oilGrams:number\(draft\.oilGrams\),oilIncluded:true\}/.test(app));
 

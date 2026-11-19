@@ -722,46 +722,6 @@
     } catch (error) {box.textContent = error.message;}
     finally {button.disabled = false;}
   });
-  function searchFoods() {
-    const query = $('#food-search').value.trim(), library = window.QinghengFoods;
-    const matches = library ? library.search(query,8) : [];
-    $('#food-search-results').innerHTML = matches.map(row=>`<button type="button" class="food-result list-row" data-food-name="${esc(row.name)}"><span>${esc(row.name)}<small>${esc(row.category)} · ${esc(row.basis)} · 每100g</small></span><strong>${fmt(row.per100.calories,0)} kcal</strong></button>`).join('') || '<p class="fine-print">未找到匹配项，请使用食品包装信息或手动记录，不会擅自猜测。</p>';
-  }
-  $('#food-search').addEventListener('input',searchFoods);
-  $('#food-search-results').addEventListener('click',event=>{
-    const button = event.target.closest('[data-food-name]'); if(!button) return;
-    const name = button.dataset.foodName;
-    $('#meal-text').value = ($('#meal-text').value.trim() ? $('#meal-text').value.trim() + '、' : '') + name + ' 100g';
-    switchTab('records'); $('#meal-text').focus();
-    notice('已填入 '+name+' 100g 作为占位量，请替换成实际克重后估算。');
-  });
-  const offCell = value => (typeof value === 'number' && Number.isFinite(value)) ? String(Math.round(value * 10) / 10) : '—';
-  $('#off-search').addEventListener('click', async event => {
-    const button = event.currentTarget, query = $('#off-query').value.trim(), box = $('#off-results');
-    if (!query) {box.innerHTML = '<p class="fine-print">请先填写要搜索的食品或品牌。</p>'; return;}
-    if (!await askConfirm(`将把「${query}」发送给 Open Food Facts 查询包装食品营养（不发送你的健康记录）。继续吗？`, {title:'在线搜索'})) return;
-    button.disabled = true; box.innerHTML = '<p class="fine-print">正在查询…</p>';
-    try {
-      const data = await api('/api/food-search', {query, count:8, allowExternal:true});
-      const rows = Array.isArray(data?.results) ? data.results : [];
-      box.innerHTML = rows.length
-        ? `<p class="fine-print">找到 ${rows.length} 条（${esc(data.source || 'Open Food Facts')}，每 100g）：</p>` + rows.map(row => {
-            const p = row.per100 || {};
-            const kcal = offCell(p.calories);
-            const detail = `${esc(row.brand || '未标注品牌')}${row.quantity ? ' · ' + esc(row.quantity) : ''} · 蛋白 ${offCell(p.protein)}g · 脂肪 ${offCell(p.fat)}g · 碳水 ${offCell(p.carbs)}g`;
-            return `<button type="button" class="food-result list-row" data-off-name="${esc(row.name)}"><span>${esc(row.name)}<small>${detail}</small></span><strong>${kcal} kcal</strong></button>`;
-          }).join('')
-        : empty('没有匹配结果', '换个说法，或直接在描述里写明食物与克重。');
-      box.dataset.licence = data?.licence || '';
-    } catch (error) {box.innerHTML = `<p class="fine-print error">${esc(error.message)}</p>`;} finally {button.disabled = false;}
-  });
-  $('#off-results').addEventListener('click', event => {
-    const button = event.target.closest('[data-off-name]'); if (!button) return;
-    const name = button.dataset.offName;
-    $('#meal-text').value = ($('#meal-text').value.trim() ? $('#meal-text').value.trim() + '、' : '') + name + ' 100g';
-    $('#meal-text').focus();
-    notice('已填入「' + name + '」100g 作为占位量，请改成实际克重；营养值请以包装标签为准。');
-  });
   $('#calibrate-foods').addEventListener('click',()=>{
     if (!window.QinghengFoods) return;
     try {
@@ -993,7 +953,7 @@
     "RPE": {full: "Rate of Perceived Exertion，自觉用力程度", meaning: "用 1~10 描述这一组有多难。RPE 8 = 还能再做约 2 次，RPE 10 = 力竭。", caution: "它靠自我感受，不同动作的体感不一样；第一次用建议对照「停下来还能做几次」校准。"},
     "RM": {full: "Repetition Maximum，最大重复次数", meaning: "12RM 指某个重量最多只能做 12 次。计划里写「12 次」通常不是 12RM，而是留了余量的 12 次。", caution: "把「12 次」当 12RM 做，会让每组都变成力竭，恢复跟不上。"},
     "ACWR": {full: "Acute:Chronic Workload Ratio，急慢性负荷比", meaning: "最近 7 天训练量 ÷ 最近 28 天周均训练量。1.0 左右是维持，超过 1.5 通常提示负荷涨太快。", caution: "它只是提示，不是判决；换动作、换计划都会让它短暂失真。"},
-    "TDEE": {full: "Total Daily Energy Expenditure，每日总消耗", meaning: "基础代谢 + 日常活动 + 训练 + 食物热效应。本 App 用公式估算，再用两周体重均值校准。", caution: "公式天生有 10%~20% 误差，别把估算值当精确值。"},
+    "TDEE": {full: "Total Daily Energy Expenditure，每日总消耗", meaning: "基础代谢 + 日常活动 + 训练 + 食物热效应。本 App 用公式估算，再用两周体重均值校准；只记了一两餐的日子不参与校准，免得把少记读成代谢低。", caution: "公式天生有 10%~20% 误差，别把估算值当精确值。"},
     "减载": {full: "Deload", meaning: "主动安排一周降低负荷（负重 ×0.9、组数 −1），让神经与关节恢复。", caution: "减载不是休息，动作照做，只是量降下来。"},
     "渐进超负荷": {full: "Progressive Overload", meaning: "让训练刺激逐步变大：加重、加次数、加组，一次只动一个变量。", caution: "同时加重又加量是最常见的过载方式，也是最先崩的方式。"},
     "力竭": {full: "Muscular Failure", meaning: "这一组再也做不出一次标准动作。单关节动作可以接近力竭，复合主项不建议。", caution: "大重量复合动作做到力竭，恢复成本很高，容易影响接下来几天。"},
