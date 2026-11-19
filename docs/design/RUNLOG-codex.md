@@ -1216,3 +1216,11 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 验证：test-all 74/74；dev-loop 1.4.28/428 装机成功、smoke 无 JS 错误。
 - 未验证：实际观感与行距需真机截图；趋势页题记与筛选器同屏时是否还要再收，等你看图后再定。
 - APK：dist/qingheng-1.4.28.apk（638176 B，sha256 190791d4f96074dfc66dd6f3befa69fe06b1df2b1bac9fb076eb02fa99151d7f）。
+
+## r152 · 2026-11-19 · 1.4.29（间距节奏）
+- 发现 .record-grid（记录页卡片容器）此前没有任何 CSS，卡片之间靠空白硬撑；补上 display:grid;gap:var(--space-5)，窄屏 16px。
+- 版式间距收到 4px 基、8/12/16/24/32 主拍：.card 26 → 24（窄屏 16）、.page-heading 上 12/下 24、.card-heading 下 12、.list-row 上下 12、.list-stack 8、页脚 32、对话框 24；.view>article.card 之间 24（最后一页不留尾距）。
+- 审计新增「大间距是否落在 4 的倍数」：当前 83 处离格（≥12px），基线记入报告，目标压到 60 以内；不影响构建。
+- 验收：test-all 74/74；dev-loop 1.4.29/429 装机成功、smoke 无 JS 错误。
+- 未验证：间距节奏的观感需真机截图；ecord-grid 补 gap 后记录页会比之前更疏，必要时把 gap 降到 16。
+- APK：dist/qingheng-1.4.29.apk（638176 B，sha256 75628cd0cae55f2fb26edf9a3507c1903543353ceb26f9134c6c8be450e70ba3）。

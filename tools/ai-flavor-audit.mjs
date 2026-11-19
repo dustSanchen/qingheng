@@ -60,7 +60,13 @@ const appText = app.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm
 const hits = words.map(word => [word, count(htmlText, new RegExp(word, 'g')) + count(appText, new RegExp(word, 'g'))]).filter(([, n]) => n > 0);
 line(hits.length ? 'WARN' : 'PASS', '没有营销词', hits.map(([w, n]) => `${w}×${n}`).join(' '));
 
-// 8) 文案感叹号：健康产品不需要喊。
+// 8) 间距：padding/margin/gap 的 px 值是否落在 4 的倍数上。
+const spacing = [...css.matchAll(/(?:padding|margin|gap)(?:-[a-z]+)?:\s*([^;}]+)/g)]
+  .flatMap(m => [...m[1].matchAll(/\b(\d+)px\b/g)].map(x => Number(x[1])));
+const offGrid = spacing.filter(v => v >= 12 && v % 4 !== 0).length;
+line(offGrid > 90 ? 'WARN' : 'PASS', '大间距多在 4 的倍数上', offGrid + ' 处离格（≥12px；基线 83，目标 ≤60）');
+
+// 9) 文案感叹号：健康产品不需要喊。
 const bangs = count(html, /！/g) + count(app, /！/g);
 line(bangs > 3 ? 'WARN' : 'PASS', '感叹号不超过 3 处', String(bangs));
 

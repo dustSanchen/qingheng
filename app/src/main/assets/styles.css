@@ -1787,3 +1787,22 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 [data-skin="ledger"] .epigraph{opacity:.42}
 [data-skin="night"] .epigraph,[data-theme="dark"] .epigraph{opacity:.62}
 @media (max-width:360px){.epigraph{font-size:13px;opacity:.5}}
+
+/* 间距节奏：以 4px 为基，8/12/16/24/32 为主拍（2026-11-19） */
+:root{--space-6:32px}
+.record-grid{display:grid;gap:var(--space-5)}
+.view>article.card{margin-bottom:var(--space-5)}
+.view>article.card:last-child{margin-bottom:0}
+.card{padding:var(--space-5)}
+.page-heading{gap:var(--space-2);margin:var(--space-3) 0 var(--space-5)}
+.card-heading{margin-bottom:var(--space-3)}
+.list-row{padding:var(--space-3) 0}
+.list-stack{gap:var(--space-2)}
+.page-footer{padding:var(--space-6) 0}
+.app-dialog{padding:var(--space-5)}
+@media (max-width:640px){
+  .record-grid{gap:var(--space-4)}
+  .view>article.card{margin-bottom:var(--space-4)}
+  .card{padding:var(--space-4)}
+  .page-heading{margin:10px 0 18px}
+}
