@@ -16,7 +16,8 @@ const main = read('app/src/main/java/cn/qingheng/health/MainActivity.java');
 // --- client: one dedicated request -------------------------------------------------------------------
 // 窗口而不是 indexOf('\n  }\n')：检出时是 CRLF，按 LF 切片会把函数切空。
 const planBody = rest.slice(rest.indexOf('async function askAiPlan'));
-const planFn = planBody.slice(0, 6000);
+// 窗口 9000：1.4.44 给提示词加了负重三层兜底与起步重量规则，函数变长了，6000 会把 finally 切在窗口外。
+const planFn = planBody.slice(0, 9000);
 check('the plan asks the chat route for plan focus', planFn.includes('focus: "plan"'));
 check('the plan no longer sets the conflicting fast tier', !planFn.includes('tier: "fast"'));
 check('the busy layer is raised before any prompt work can throw',

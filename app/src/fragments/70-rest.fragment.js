@@ -154,7 +154,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.43';
+  const APP_VERSION = '1.4.44';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -451,10 +451,13 @@
     if (item && Number(item.distanceKm) > 0) run.push(item.distanceKm + " km");
     if (item && Number(item.durationMin) > 0) run.push(item.durationMin + " 分钟");
     if (run.length) return run.join(" · ");
+    const kg = item && Number(item.weight);
+    // 推算出来的起步重量要与实测记录区分开：写「约 40 kg」，不写「40 kg」。
+    const approximated = item && (item.weightSource === "inferred" || item.weightSource === "family");
     return [
       item && item.sets ? item.sets + " 组" : "",
       item && item.reps ? item.reps + " 次" : "",
-      item && item.weight ? item.weight + " kg" : ""
+      kg > 0 ? (approximated ? "约 " + kg + " kg" : kg + " kg") : ""
     ].filter(Boolean).join(" × ");
   }
   /** 把编辑态的输入读回存储；名称被清空的行视为删除。 */
@@ -558,30 +561,40 @@
     ).join("") + (box.classList.contains("editing")
       ? '<div class="ai-plan-append"><button type="button" class="button subtle" data-ai-append>添加一个动作</button></div>'
       : "");
+    // 推算出来的重量要说清来源：第一次练完就会按你的实际记录校准，不是拍脑袋定的数。
+    const approximated = plan.filter(item => item && (item.weightSource === "inferred" || item.weightSource === "family")).length;
+    if (approximated && !box.classList.contains("editing")) {
+      box.insertAdjacentHTML("beforeend", '<p class="fine-print ai-plan-weight-note">' + approximated
+        + " 个动作的重量是按体重和你的历史推算的起步值（带「约」），练完一次后按实际记录校准。</p>");
+    }
   }
   /** 一行模型返回 → 计划条目；完整解析与流式预览共用同一套字段裁剪。 */
   /**
    * 模型常常只给第一个动作写重量；缺重量时用该动作最近一次记录补，
    * 否则「用 AI 排今天」会出现只有杠铃卧推有 kg、其余动作空着的清单。
    */
-  function baselineWeightFor(name) {
-    if (typeof recentExerciseBaselines !== "function") return null;
-    if (typeof isBodyweightMove === "function" && isBodyweightMove(name)) return null;
-    const row = recentExerciseBaselines(14)[String(name || "").trim()];
-    const kg = Number(row && row.weight);
-    if (!(kg > 0)) return null;
-    return typeof loadableWeightKg === "function" ? loadableWeightKg(name, kg) : kg;
+  /**
+   * 重量三层兜底（2026-11-19，1.4.44）：模型给了就用（落到装得出来的档位），
+   * 没给就用本地记忆/同族迁移/体重比例算一个——以前只认 14 天内的同名记录，
+   * 于是「用 AI 排今天」经常只有第一个动作有 kg。
+   */
+  function planWeightFor(row) {
+    const raw = Number(row && row.weight);
+    if (Number.isFinite(raw) && raw > 0) {
+      const kg = typeof loadableWeightKg === "function" ? loadableWeightKg(row.name, raw) : raw;
+      return {weight: kg, source: "model"};
+    }
+    const planned = typeof plannedWeightFor === "function" ? plannedWeightFor(row && row.name) : null;
+    return planned ? {weight: planned.weight, source: planned.source} : {weight: null, source: "none"};
   }
   function planItemFromRow(row) {
+    const guess = planWeightFor(row);
     return {
       name: String(row.name).trim().slice(0, 24),
       sets: Number(row.sets) > 0 ? Math.round(Number(row.sets)) : 0,
       reps: Number(row.reps) > 0 ? Math.round(Number(row.reps)) : 0,
-      weight: (() => {
-        const raw = Number(row.weight);
-        const provided = Number.isFinite(raw) && raw > 0 ? raw : baselineWeightFor(row.name);
-        return provided === null ? null : (typeof loadableWeightKg === "function" ? loadableWeightKg(row.name, provided) : provided);
-      })(),
+      weight: guess.weight,
+      weightSource: guess.source,
       distanceKm: Number(row.distanceKm) > 0 ? Number(row.distanceKm) : null,
       durationMin: Number(row.durationMin) > 0 ? Number(row.durationMin) : null,
       reason: String(row.reason || "").slice(0, 60),
@@ -661,9 +674,16 @@
       const profile = state.profile || {};
       const done = exercisesFor(activeDate).filter(item => item && item.name).map(item => item.name + " " + (item.sets || "") + "x" + (item.reps || ""));
       // 喂给模型与本地规则引擎同一份素材：上周基线 + 训练库规则，输出质量才对得起「渐进」。
-      const baselines = typeof recentExerciseBaselines === "function" ? recentExerciseBaselines(14) : {};
-      const baselineText = Object.entries(baselines).slice(0, 6).map(([name, row]) =>
-        name + " " + row.sets + "x" + row.reps + (row.weight ? " " + row.weight + "kg" : "")).join("；");
+      // 基线给足：本地重量记忆里取最近 10 条（含 180 天历史），模型才知道每个动作上次做了多少。
+      // 只给 6 条 + 14 天窗口时，稍冷门的动作在模型看来「没有记录」，于是整行重量留空。
+      const memoryRows = typeof seedWeightMemoryFromHistory === "function"
+        ? Object.values(seedWeightMemoryFromHistory())
+          .filter(row => row && Number(row.weight) > 0)
+          .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
+          .slice(0, 10)
+        : [];
+      const baselineText = memoryRows.map(row =>
+        row.name + " " + (row.sets ? row.sets + "x" : "") + (row.reps || 8) + " " + row.weight + "kg（" + row.date + "）").join("；");
       const library = typeof librarySummary === "function" ? librarySummary(4) : "";
       // 部位只有一个来源：与问答的「训练建议」共用 dayTemplateNote，别再各猜一次。
       const rotationText = typeof dayTemplateNote === "function" ? dayTemplateNote(activeDate) : "";
@@ -682,11 +702,13 @@
         // 时长必须把组间休息算进去：只数动作个数会排出一份「5 个动作、12 组、实际 30 分钟」的清单。
         "时长预算（必须满足）：先留 8 分钟热身与换器械；每个正式组按约 45 秒执行 + 组间休息（复合 120~150 秒、孤立 60~90 秒、自重 75~90 秒）折算，有氧再加它自己的时长；整份清单折算后必须落在 " + (prefs && Number(prefs.minutes) > 0 ? Number(prefs.minutes) : 45) + " 分钟以内。",
         "每个大肌群单次 6~10 个正式组；整节课总组数按覆盖的部位数与时长折算（60 分钟约 12~20 组），不要用一个数字卡死整节课。",
-        baselineText ? "上周最近记录（供渐进参考，不要盲目加量）：" + baselineText + "。" : "",
+        baselineText ? "最近记录（供渐进参考，不要盲目加量）：" + baselineText + "。" : "",
         library ? "训练规则（必须遵守）：\n" + library : "",
         done.length ? ("今天已记录：" + done.join("；") + "。") : "今天还没有训练记录。",
         "每个动作的 reason 只写一句、不超过 12 个字，写为什么排它。",
-        "负重必须是健身房里装得出来的数：杠铃 = 20 kg 空杆 + 每侧 2.5 kg 的整数倍（如 60、65、70），不要给 62.5 这种装不出的重量；哑铃按 2 kg、器械按 5 kg 递增；不确定就留空。",
+        "负重（每个配重动作都必须给 weight，不要留空）：①上面有同名记录就按渐进给——上次做到 8 次以上进一档（上肢 +2.5 kg、下肢 +5 kg），6~7 次持平，5 次以下退一档；②只有同族动作的记录就按它的 85% 估；③完全没记录就按体重起步：杠铃卧推 0.5 倍体重、深蹲 0.6、硬拉 0.7、划船 0.45、肩推 0.3，哑铃按单手减半，器械取杠铃的 0.8 倍。",
+        "重量要装得出来：杠铃 = 20 kg 空杆 + 每侧 2.5 kg 的整数倍（如 60、65、70），不要给 62.5 这种装不出的数；哑铃按 2 kg、器械按 5 kg 递增。",
+        "自重动作（引体向上、俯卧撑、双杠臂屈伸、平板支撑、卷腹）weight 留空，用次数表达进步。",
         "只输出 JSON 数组，第一个字符是 [，不要解释、不要代码块标记。"
       ].filter(Boolean).join("\n");
       // focus:"plan" 走后端专用的「只出 JSON」提示词；tier:"fast" 会追加「最多 3 句」，与 JSON 直接冲突。
@@ -724,6 +746,8 @@
         throw new Error("模型这次没有给出清单，原清单已保留；请再点一次重试。");
       }
       aiPlanStore(activeDate, plan);
+      // 清单落库同时把重量记进本地记忆：下次排课同名动作直接按上次表现渐进。
+      if (typeof rememberPlanWeights === "function") rememberPlanWeights(plan);
       renderAiPlan();
       // 今日页的「今日清单」读的是同一份数据，排完必须一起刷，否则两个页面各说各话。
       if (typeof renderAdviceOrder === "function") renderAdviceOrder();
@@ -810,7 +834,12 @@
           const pool = [...new Set(presets)].filter(name => name !== item.name && !taken.has(name));
           if (!pool.length) { notice("训练库里没有可替换的动作。"); return; }
           item.name = pool[index % pool.length];
-          if (typeof loadableWeightKg === "function" && number(item.weight) !== null) {
+          // 换动作后重量按新动作重算：沿用旧重量的绝对值，在器械与哑铃之间会差出一大截。
+          if (typeof plannedWeightFor === "function") {
+            const guess = plannedWeightFor(item.name);
+            item.weight = guess.weight;
+            item.weightSource = guess.source;
+          } else if (typeof loadableWeightKg === "function" && number(item.weight) !== null) {
             item.weight = loadableWeightKg(item.name, number(item.weight));
           }
           aiPlanStore(activeDate, plan);

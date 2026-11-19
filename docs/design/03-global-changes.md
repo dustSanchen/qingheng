@@ -229,3 +229,6 @@
 | 2026-11-19 | `tests/p0-p1-round.test.mjs`、`tests/layout-four.test.mjs` | 去掉无关的 `iconMarkup('icon-copy.svg')` 断言 | 快速记录按钮降为文字链后不再使用该图标，断言与页面主题无关 |
 
 | 2026-11-19 | `tests/layout-four.test.mjs` | 快捷动作插入点 `slotHint.before(row)` + `energyCard.after(slotHint)` → `energyCard.after(row)` + `row.after(slotHint)` | 动作组移到能量卡之下（宏量三列之后），读数在前、动作在后；不塞进卡内、不挂宏量节点，空态不丢锚点 |
+| 2026-11-19 | 新增 `tests/plan-weight.test.mjs` | 18 条：本地重量记忆、提示词负重规则、三层兜底、渐进上限、换动作重算、落库回写 | 「用 AI 排今天」只有第一个动作带重量 |
+| 2026-11-19 | `tests/training-log.test.mjs` | 补重量断言 `baselineWeightFor` → `planWeightFor` / `plannedWeightFor` | 14 天同名记录方案改为三层兜底 |
+| 2026-11-19 | `tests/ai-plan-focus.test.mjs` | askAiPlan 窗口 6000 → 9000 字符 | 提示词加了负重规则后函数变长，finally 被切到窗口外 |

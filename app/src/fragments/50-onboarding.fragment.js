@@ -931,6 +931,8 @@ const values = points.length<=7 ? points.map((item,i) => {
       await api('/api/habits', {...existing, date: activeDate, training: true, template: form.elements.template.value, exercises,
         ...(exerciseVolume(exercises[0]) === null ? {} : {})});
       await loadState({quiet: true});
+      // 真实负重写进本地重量记忆：下一次「用 AI 排今天」按它渐进（不用再靠 14 天窗口撞运气）。
+      if (typeof rememberExerciseLogs === 'function') rememberExerciseLogs(exercises, activeDate);
       feedback(message, `已保存 ${exercises.length} 个动作。`);
       renderTrainingLog();
       renderTrainingSummary(exercises);

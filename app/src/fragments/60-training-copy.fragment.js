@@ -1125,6 +1125,206 @@
     return lastByExercise;
   }
 
+  /* ── 动作重量：本地记忆 + 首练推断 + 渐进（2026-11-19，1.4.44）──────────────────
+     「用 AI 排今天」曾经只有第一个动作有 kg：模型被要求「不确定就留空」，客户端也只在
+     14 天内找到同名记录才补。现在三层兜底——记忆（含历史种子）→ 同族迁移 → 体重比例起步值；
+     重量同时写进 localStorage 的 qingheng.exerciseWeights，下次直接用并按上次表现渐进。 */
+  const WEIGHT_MEMORY_KEY = 'qingheng.exerciseWeights';
+  const WEIGHT_MEMORY_DAYS = 180;
+  const WEIGHT_MEMORY_MAX = 120;
+
+  /** 动作族：只用于「同族迁移」与起步重量，不拿别族的重量直接照搬。 */
+  const WEIGHT_FAMILIES = [
+    ['卧推', /卧推|推胸/],
+    ['肩推', /推肩|肩推|实力举|借力推/],
+    ['深蹲', /深蹲|哈克|腿举|分腿蹲|保加利亚|箭步/],
+    ['硬拉', /硬拉|罗马尼亚|早安/],
+    ['划船', /划船|引体|下拉/],
+    ['弯举', /弯举|锤式/],
+    ['臂屈伸', /下压|臂屈伸/],
+    ['飞鸟', /飞鸟|夹胸/],
+    ['侧平举', /侧平举|前平举|后束|面拉/],
+    ['提踵', /提踵/],
+    ['臀推', /臀桥|臀推/],
+    ['核心', /卷腹|举腿|平板|挺身/]
+  ];
+  const WEIGHT_EQUIP = [
+    ['barbell', /杠铃|史密斯/],
+    ['dumbbell', /哑铃|壶铃/],
+    ['machine', /器械|龙门|绳索|滑轮|固定/],
+    ['body', /自重|空手/]
+  ];
+  /**
+   * 起步重量 = 体重 × 系数（按能做 8~10 次、RIR 2~3 估），取偏保守的中位：
+   * 第一组轻一点、第二组再加，比第一次就做不动更好。
+   */
+  const WEIGHT_RATIOS = {
+    卧推: {barbell: 0.5, dumbbell: 0.18, machine: 0.4},
+    肩推: {barbell: 0.3, dumbbell: 0.12, machine: 0.25},
+    深蹲: {barbell: 0.6, dumbbell: 0.15, machine: 0.75},
+    硬拉: {barbell: 0.7, dumbbell: 0.25, machine: 0.6},
+    划船: {barbell: 0.45, dumbbell: 0.2, machine: 0.4},
+    弯举: {barbell: 0.2, dumbbell: 0.08, machine: 0.15},
+    臂屈伸: {barbell: 0.2, dumbbell: 0.08, machine: 0.2},
+    飞鸟: {barbell: 0.15, dumbbell: 0.08, machine: 0.2},
+    侧平举: {barbell: 0.1, dumbbell: 0.05, machine: 0.06},
+    提踵: {barbell: 0.5, dumbbell: 0.2, machine: 0.6},
+    臀推: {barbell: 0.6, dumbbell: 0.2, machine: 0.6},
+    核心: {}
+  };
+  // 下肢一次加 5 kg，上肢 2.5 kg。
+  const LOWER_BODY = /深蹲|硬拉|腿|臀|提踵|哈克/;
+  const WEIGHT_SOURCE_RANK = {inferred: 0, plan: 1, model: 1, log: 2};
+
+  function exerciseKey(name) {
+    return String(name || '').replace(/[\s·・\-_/（）()]/g, '').toLowerCase();
+  }
+  function exerciseFamily(name) {
+    const text = String(name || '');
+    for (const [family, re] of WEIGHT_FAMILIES) if (re.test(text)) return family;
+    return '';
+  }
+  function exerciseEquip(name) {
+    const text = String(name || '');
+    for (const [equip, re] of WEIGHT_EQUIP) if (re.test(text)) return equip;
+    return '';
+  }
+  let weightMemoryCache = null;
+  let weightMemorySeedKey = '';
+  function readWeightMemory() {
+    if (weightMemoryCache) return weightMemoryCache;
+    try {
+      const raw = localStorage.getItem(WEIGHT_MEMORY_KEY);
+      const map = raw ? JSON.parse(raw) : {};
+      weightMemoryCache = map && typeof map === 'object' ? map : {};
+    } catch { weightMemoryCache = {}; }
+    return weightMemoryCache;
+  }
+  function writeWeightMemory(map) {
+    weightMemoryCache = map || {};
+    try {
+      const keys = Object.keys(weightMemoryCache);
+      if (keys.length > WEIGHT_MEMORY_MAX) {
+        keys.sort((a, b) => String(weightMemoryCache[b].date || '').localeCompare(String(weightMemoryCache[a].date || '')));
+        for (const key of keys.slice(WEIGHT_MEMORY_MAX)) delete weightMemoryCache[key];
+      }
+      localStorage.setItem(WEIGHT_MEMORY_KEY, JSON.stringify(weightMemoryCache));
+    } catch {}
+  }
+  /** 只在不比已有记录更旧、且来源不更弱时覆盖：log > model/plan > inferred。 */
+  function rememberExerciseWeight(name, row, options = {}) {
+    const kg = number(row && row.weight);
+    const key = exerciseKey(name);
+    if (!key || !(kg > 0)) return;
+    const source = String(options.source || (row && row.source) || 'log');
+    const date = String(options.date || (row && row.date) || activeDate || localDate());
+    const map = readWeightMemory();
+    const prev = map[key];
+    const prevRank = WEIGHT_SOURCE_RANK[prev && prev.source];
+    const nextRank = WEIGHT_SOURCE_RANK[source];
+    if (prev && number(prev.weight) > 0) {
+      if ((prevRank === undefined ? -1 : prevRank) > (nextRank === undefined ? 0 : nextRank)) return;
+      if (String(prev.date || '') > date) return;
+    }
+    map[key] = {name: String(name || '').trim().slice(0, 24), weight: kg, reps: number(row && row.reps), sets: number(row && row.sets), date, source};
+    writeWeightMemory(map);
+  }
+  /** 把历史记录里的真实负重灌进记忆（只读历史，不改记录本身）；同一天只扫一次。 */
+  function seedWeightMemoryFromHistory(days = WEIGHT_MEMORY_DAYS) {
+    const seedKey = String(activeDate) + '|' + (state.habits || []).length;
+    if (weightMemorySeedKey === seedKey) return readWeightMemory();
+    const map = readWeightMemory();
+    let changed = false;
+    for (let offset = 0; offset < days; offset++) {
+      const day = shiftDay(activeDate, -offset);
+      for (const item of exercisesFor(day)) {
+        const name = String((item && item.name) || '').trim();
+        const kg = number(item && item.weight);
+        if (!name || !(kg > 0)) continue;
+        const key = exerciseKey(name);
+        const prev = map[key];
+        if (prev && number(prev.weight) > 0 && (WEIGHT_SOURCE_RANK[prev.source] >= 2 || String(prev.date || '') >= day)) continue;
+        map[key] = {name, weight: kg, reps: number(item.reps), sets: number(item.sets), date: day, source: 'log'};
+        changed = true;
+      }
+    }
+    if (changed) writeWeightMemory(map);
+    weightMemorySeedKey = seedKey;
+    return map;
+  }
+  /**
+   * 这次该做多少：上次 ≥8 次且 21 天内练过 → 进一档；6~7 次 → 持平；≤5 次 → 退一档；
+   * 超过 21 天没练持平，超过 60 天退 5%。不冲、也不原地躺着。
+   */
+  function progressiveWeightKg(name, row) {
+    const last = number(row && row.weight);
+    if (!(last > 0)) return null;
+    const step = LOWER_BODY.test(String(name || '')) ? 5 : 2.5;
+    const reps = number(row.reps);
+    const lastDate = String(row.date || '');
+    let gap = 0;
+    if (validDate(lastDate) && validDate(activeDate)) {
+      gap = Math.round((new Date(activeDate + 'T00:00:00') - new Date(lastDate + 'T00:00:00')) / 86400000);
+    }
+    let kg = last;
+    if (gap > 60) kg = last * 0.95;
+    else if (gap > 21) kg = last;
+    else if (reps !== null && reps >= 8) kg = Math.min(last * 1.1, last + step);
+    else if (reps !== null && reps > 0 && reps <= 5) kg = last - step;
+    const loadable = typeof loadableWeightKg === 'function' ? loadableWeightKg(name, kg) : Math.round(kg * 2) / 2;
+    return loadable && loadable > 0 ? loadable : null;
+  }
+  /** 完全没有记录的第一次：按体重比例给一个偏保守的起步重量。 */
+  function startingWeightKg(name) {
+    const family = exerciseFamily(name);
+    const ratio = family ? WEIGHT_RATIOS[family] : null;
+    if (!ratio) return null;
+    const equip = exerciseEquip(name) || 'barbell';
+    const factor = number(ratio[equip] || ratio.barbell || 0);
+    const bodyweight = number((state.profile || {}).weight);
+    if (!(factor > 0) || !(bodyweight > 0)) return null;
+    const loadable = typeof loadableWeightKg === 'function' ? loadableWeightKg(name, bodyweight * factor) : null;
+    return loadable && loadable > 0 ? loadable : null;
+  }
+  /**
+   * 排课时给每个动作一个重量：同名记忆 → 同族迁移（打 85 折）→ 体重比例起步。
+   * 自重与推断不出来的返回 null（界面留空），source 供界面标注「约」。
+   */
+  function plannedWeightFor(name) {
+    if (typeof isBodyweightMove === 'function' && isBodyweightMove(name)) return {weight: null, source: 'bodyweight'};
+    const map = seedWeightMemoryFromHistory();
+    const exact = map[exerciseKey(name)];
+    if (exact && number(exact.weight) > 0) return {weight: progressiveWeightKg(name, exact), source: exact.source || 'log'};
+    const family = exerciseFamily(name), equip = exerciseEquip(name);
+    if (family) {
+      const peers = Object.values(map)
+        .filter(row => row && number(row.weight) > 0 && exerciseFamily(row.name) === family
+          && (!equip || !exerciseEquip(row.name) || exerciseEquip(row.name) === equip))
+        .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+      if (peers.length) {
+        const scaled = typeof loadableWeightKg === 'function' ? loadableWeightKg(name, number(peers[0].weight) * 0.85) : null;
+        if (scaled > 0) return {weight: scaled, source: 'family'};
+      }
+    }
+    const start = startingWeightKg(name);
+    return start ? {weight: start, source: 'inferred'} : {weight: null, source: 'none'};
+  }
+  /** 排完保存时把重量写进记忆；推断值记 plan，模型给的值记 model。 */
+  function rememberPlanWeights(plan) {
+    for (const item of Array.isArray(plan) ? plan : []) {
+      if (!item || !item.name || !(number(item.weight) > 0)) continue;
+      const inferred = item.weightSource === 'inferred' || item.weightSource === 'family';
+      rememberExerciseWeight(item.name, item, {source: inferred ? 'plan' : 'model', date: activeDate});
+    }
+  }
+  /** 训练落库后把真实负重写进记忆（下一次排课按它渐进）。 */
+  function rememberExerciseLogs(exercises, date) {
+    for (const item of Array.isArray(exercises) ? exercises : []) {
+      if (!item || !item.name || !(number(item.weight) > 0)) continue;
+      rememberExerciseWeight(item.name, {weight: number(item.weight), reps: number(item.reps), sets: number(item.sets)}, {source: 'log', date: date || activeDate});
+    }
+  }
+
   const WEEK_PLAN_KEY = week => "qingheng.weekPlan." + week;
   /** 指纹 = 偏好 + 每个动作最近一次的组/次/重量；任一项变才重算，避免回看时清单悄悄变。 */
   /** 指纹只关心影响排课的那几个输入；没有偏好时留空，仍能稳定比较。 */

@@ -4028,6 +4028,8 @@ const values = points.length<=7 ? points.map((item,i) => {
       await api('/api/habits', {...existing, date: activeDate, training: true, template: form.elements.template.value, exercises,
         ...(exerciseVolume(exercises[0]) === null ? {} : {})});
       await loadState({quiet: true});
+      // 真实负重写进本地重量记忆：下一次「用 AI 排今天」按它渐进（不用再靠 14 天窗口撞运气）。
+      if (typeof rememberExerciseLogs === 'function') rememberExerciseLogs(exercises, activeDate);
       feedback(message, `已保存 ${exercises.length} 个动作。`);
       renderTrainingLog();
       renderTrainingSummary(exercises);
@@ -5320,6 +5322,206 @@ const values = points.length<=7 ? points.map((item,i) => {
     return lastByExercise;
   }
 
+  /* ── 动作重量：本地记忆 + 首练推断 + 渐进（2026-11-19，1.4.44）──────────────────
+     「用 AI 排今天」曾经只有第一个动作有 kg：模型被要求「不确定就留空」，客户端也只在
+     14 天内找到同名记录才补。现在三层兜底——记忆（含历史种子）→ 同族迁移 → 体重比例起步值；
+     重量同时写进 localStorage 的 qingheng.exerciseWeights，下次直接用并按上次表现渐进。 */
+  const WEIGHT_MEMORY_KEY = 'qingheng.exerciseWeights';
+  const WEIGHT_MEMORY_DAYS = 180;
+  const WEIGHT_MEMORY_MAX = 120;
+
+  /** 动作族：只用于「同族迁移」与起步重量，不拿别族的重量直接照搬。 */
+  const WEIGHT_FAMILIES = [
+    ['卧推', /卧推|推胸/],
+    ['肩推', /推肩|肩推|实力举|借力推/],
+    ['深蹲', /深蹲|哈克|腿举|分腿蹲|保加利亚|箭步/],
+    ['硬拉', /硬拉|罗马尼亚|早安/],
+    ['划船', /划船|引体|下拉/],
+    ['弯举', /弯举|锤式/],
+    ['臂屈伸', /下压|臂屈伸/],
+    ['飞鸟', /飞鸟|夹胸/],
+    ['侧平举', /侧平举|前平举|后束|面拉/],
+    ['提踵', /提踵/],
+    ['臀推', /臀桥|臀推/],
+    ['核心', /卷腹|举腿|平板|挺身/]
+  ];
+  const WEIGHT_EQUIP = [
+    ['barbell', /杠铃|史密斯/],
+    ['dumbbell', /哑铃|壶铃/],
+    ['machine', /器械|龙门|绳索|滑轮|固定/],
+    ['body', /自重|空手/]
+  ];
+  /**
+   * 起步重量 = 体重 × 系数（按能做 8~10 次、RIR 2~3 估），取偏保守的中位：
+   * 第一组轻一点、第二组再加，比第一次就做不动更好。
+   */
+  const WEIGHT_RATIOS = {
+    卧推: {barbell: 0.5, dumbbell: 0.18, machine: 0.4},
+    肩推: {barbell: 0.3, dumbbell: 0.12, machine: 0.25},
+    深蹲: {barbell: 0.6, dumbbell: 0.15, machine: 0.75},
+    硬拉: {barbell: 0.7, dumbbell: 0.25, machine: 0.6},
+    划船: {barbell: 0.45, dumbbell: 0.2, machine: 0.4},
+    弯举: {barbell: 0.2, dumbbell: 0.08, machine: 0.15},
+    臂屈伸: {barbell: 0.2, dumbbell: 0.08, machine: 0.2},
+    飞鸟: {barbell: 0.15, dumbbell: 0.08, machine: 0.2},
+    侧平举: {barbell: 0.1, dumbbell: 0.05, machine: 0.06},
+    提踵: {barbell: 0.5, dumbbell: 0.2, machine: 0.6},
+    臀推: {barbell: 0.6, dumbbell: 0.2, machine: 0.6},
+    核心: {}
+  };
+  // 下肢一次加 5 kg，上肢 2.5 kg。
+  const LOWER_BODY = /深蹲|硬拉|腿|臀|提踵|哈克/;
+  const WEIGHT_SOURCE_RANK = {inferred: 0, plan: 1, model: 1, log: 2};
+
+  function exerciseKey(name) {
+    return String(name || '').replace(/[\s·・\-_/（）()]/g, '').toLowerCase();
+  }
+  function exerciseFamily(name) {
+    const text = String(name || '');
+    for (const [family, re] of WEIGHT_FAMILIES) if (re.test(text)) return family;
+    return '';
+  }
+  function exerciseEquip(name) {
+    const text = String(name || '');
+    for (const [equip, re] of WEIGHT_EQUIP) if (re.test(text)) return equip;
+    return '';
+  }
+  let weightMemoryCache = null;
+  let weightMemorySeedKey = '';
+  function readWeightMemory() {
+    if (weightMemoryCache) return weightMemoryCache;
+    try {
+      const raw = localStorage.getItem(WEIGHT_MEMORY_KEY);
+      const map = raw ? JSON.parse(raw) : {};
+      weightMemoryCache = map && typeof map === 'object' ? map : {};
+    } catch { weightMemoryCache = {}; }
+    return weightMemoryCache;
+  }
+  function writeWeightMemory(map) {
+    weightMemoryCache = map || {};
+    try {
+      const keys = Object.keys(weightMemoryCache);
+      if (keys.length > WEIGHT_MEMORY_MAX) {
+        keys.sort((a, b) => String(weightMemoryCache[b].date || '').localeCompare(String(weightMemoryCache[a].date || '')));
+        for (const key of keys.slice(WEIGHT_MEMORY_MAX)) delete weightMemoryCache[key];
+      }
+      localStorage.setItem(WEIGHT_MEMORY_KEY, JSON.stringify(weightMemoryCache));
+    } catch {}
+  }
+  /** 只在不比已有记录更旧、且来源不更弱时覆盖：log > model/plan > inferred。 */
+  function rememberExerciseWeight(name, row, options = {}) {
+    const kg = number(row && row.weight);
+    const key = exerciseKey(name);
+    if (!key || !(kg > 0)) return;
+    const source = String(options.source || (row && row.source) || 'log');
+    const date = String(options.date || (row && row.date) || activeDate || localDate());
+    const map = readWeightMemory();
+    const prev = map[key];
+    const prevRank = WEIGHT_SOURCE_RANK[prev && prev.source];
+    const nextRank = WEIGHT_SOURCE_RANK[source];
+    if (prev && number(prev.weight) > 0) {
+      if ((prevRank === undefined ? -1 : prevRank) > (nextRank === undefined ? 0 : nextRank)) return;
+      if (String(prev.date || '') > date) return;
+    }
+    map[key] = {name: String(name || '').trim().slice(0, 24), weight: kg, reps: number(row && row.reps), sets: number(row && row.sets), date, source};
+    writeWeightMemory(map);
+  }
+  /** 把历史记录里的真实负重灌进记忆（只读历史，不改记录本身）；同一天只扫一次。 */
+  function seedWeightMemoryFromHistory(days = WEIGHT_MEMORY_DAYS) {
+    const seedKey = String(activeDate) + '|' + (state.habits || []).length;
+    if (weightMemorySeedKey === seedKey) return readWeightMemory();
+    const map = readWeightMemory();
+    let changed = false;
+    for (let offset = 0; offset < days; offset++) {
+      const day = shiftDay(activeDate, -offset);
+      for (const item of exercisesFor(day)) {
+        const name = String((item && item.name) || '').trim();
+        const kg = number(item && item.weight);
+        if (!name || !(kg > 0)) continue;
+        const key = exerciseKey(name);
+        const prev = map[key];
+        if (prev && number(prev.weight) > 0 && (WEIGHT_SOURCE_RANK[prev.source] >= 2 || String(prev.date || '') >= day)) continue;
+        map[key] = {name, weight: kg, reps: number(item.reps), sets: number(item.sets), date: day, source: 'log'};
+        changed = true;
+      }
+    }
+    if (changed) writeWeightMemory(map);
+    weightMemorySeedKey = seedKey;
+    return map;
+  }
+  /**
+   * 这次该做多少：上次 ≥8 次且 21 天内练过 → 进一档；6~7 次 → 持平；≤5 次 → 退一档；
+   * 超过 21 天没练持平，超过 60 天退 5%。不冲、也不原地躺着。
+   */
+  function progressiveWeightKg(name, row) {
+    const last = number(row && row.weight);
+    if (!(last > 0)) return null;
+    const step = LOWER_BODY.test(String(name || '')) ? 5 : 2.5;
+    const reps = number(row.reps);
+    const lastDate = String(row.date || '');
+    let gap = 0;
+    if (validDate(lastDate) && validDate(activeDate)) {
+      gap = Math.round((new Date(activeDate + 'T00:00:00') - new Date(lastDate + 'T00:00:00')) / 86400000);
+    }
+    let kg = last;
+    if (gap > 60) kg = last * 0.95;
+    else if (gap > 21) kg = last;
+    else if (reps !== null && reps >= 8) kg = Math.min(last * 1.1, last + step);
+    else if (reps !== null && reps > 0 && reps <= 5) kg = last - step;
+    const loadable = typeof loadableWeightKg === 'function' ? loadableWeightKg(name, kg) : Math.round(kg * 2) / 2;
+    return loadable && loadable > 0 ? loadable : null;
+  }
+  /** 完全没有记录的第一次：按体重比例给一个偏保守的起步重量。 */
+  function startingWeightKg(name) {
+    const family = exerciseFamily(name);
+    const ratio = family ? WEIGHT_RATIOS[family] : null;
+    if (!ratio) return null;
+    const equip = exerciseEquip(name) || 'barbell';
+    const factor = number(ratio[equip] || ratio.barbell || 0);
+    const bodyweight = number((state.profile || {}).weight);
+    if (!(factor > 0) || !(bodyweight > 0)) return null;
+    const loadable = typeof loadableWeightKg === 'function' ? loadableWeightKg(name, bodyweight * factor) : null;
+    return loadable && loadable > 0 ? loadable : null;
+  }
+  /**
+   * 排课时给每个动作一个重量：同名记忆 → 同族迁移（打 85 折）→ 体重比例起步。
+   * 自重与推断不出来的返回 null（界面留空），source 供界面标注「约」。
+   */
+  function plannedWeightFor(name) {
+    if (typeof isBodyweightMove === 'function' && isBodyweightMove(name)) return {weight: null, source: 'bodyweight'};
+    const map = seedWeightMemoryFromHistory();
+    const exact = map[exerciseKey(name)];
+    if (exact && number(exact.weight) > 0) return {weight: progressiveWeightKg(name, exact), source: exact.source || 'log'};
+    const family = exerciseFamily(name), equip = exerciseEquip(name);
+    if (family) {
+      const peers = Object.values(map)
+        .filter(row => row && number(row.weight) > 0 && exerciseFamily(row.name) === family
+          && (!equip || !exerciseEquip(row.name) || exerciseEquip(row.name) === equip))
+        .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+      if (peers.length) {
+        const scaled = typeof loadableWeightKg === 'function' ? loadableWeightKg(name, number(peers[0].weight) * 0.85) : null;
+        if (scaled > 0) return {weight: scaled, source: 'family'};
+      }
+    }
+    const start = startingWeightKg(name);
+    return start ? {weight: start, source: 'inferred'} : {weight: null, source: 'none'};
+  }
+  /** 排完保存时把重量写进记忆；推断值记 plan，模型给的值记 model。 */
+  function rememberPlanWeights(plan) {
+    for (const item of Array.isArray(plan) ? plan : []) {
+      if (!item || !item.name || !(number(item.weight) > 0)) continue;
+      const inferred = item.weightSource === 'inferred' || item.weightSource === 'family';
+      rememberExerciseWeight(item.name, item, {source: inferred ? 'plan' : 'model', date: activeDate});
+    }
+  }
+  /** 训练落库后把真实负重写进记忆（下一次排课按它渐进）。 */
+  function rememberExerciseLogs(exercises, date) {
+    for (const item of Array.isArray(exercises) ? exercises : []) {
+      if (!item || !item.name || !(number(item.weight) > 0)) continue;
+      rememberExerciseWeight(item.name, {weight: number(item.weight), reps: number(item.reps), sets: number(item.sets)}, {source: 'log', date: date || activeDate});
+    }
+  }
+
   const WEEK_PLAN_KEY = week => "qingheng.weekPlan." + week;
   /** 指纹 = 偏好 + 每个动作最近一次的组/次/重量；任一项变才重算，避免回看时清单悄悄变。 */
   /** 指纹只关心影响排课的那几个输入；没有偏好时留空，仍能稳定比较。 */
@@ -6278,7 +6480,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.43';
+  const APP_VERSION = '1.4.44';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -6575,10 +6777,13 @@ function metricIcon(label) {
     if (item && Number(item.distanceKm) > 0) run.push(item.distanceKm + " km");
     if (item && Number(item.durationMin) > 0) run.push(item.durationMin + " 分钟");
     if (run.length) return run.join(" · ");
+    const kg = item && Number(item.weight);
+    // 推算出来的起步重量要与实测记录区分开：写「约 40 kg」，不写「40 kg」。
+    const approximated = item && (item.weightSource === "inferred" || item.weightSource === "family");
     return [
       item && item.sets ? item.sets + " 组" : "",
       item && item.reps ? item.reps + " 次" : "",
-      item && item.weight ? item.weight + " kg" : ""
+      kg > 0 ? (approximated ? "约 " + kg + " kg" : kg + " kg") : ""
     ].filter(Boolean).join(" × ");
   }
   /** 把编辑态的输入读回存储；名称被清空的行视为删除。 */
@@ -6682,30 +6887,40 @@ function metricIcon(label) {
     ).join("") + (box.classList.contains("editing")
       ? '<div class="ai-plan-append"><button type="button" class="button subtle" data-ai-append>添加一个动作</button></div>'
       : "");
+    // 推算出来的重量要说清来源：第一次练完就会按你的实际记录校准，不是拍脑袋定的数。
+    const approximated = plan.filter(item => item && (item.weightSource === "inferred" || item.weightSource === "family")).length;
+    if (approximated && !box.classList.contains("editing")) {
+      box.insertAdjacentHTML("beforeend", '<p class="fine-print ai-plan-weight-note">' + approximated
+        + " 个动作的重量是按体重和你的历史推算的起步值（带「约」），练完一次后按实际记录校准。</p>");
+    }
   }
   /** 一行模型返回 → 计划条目；完整解析与流式预览共用同一套字段裁剪。 */
   /**
    * 模型常常只给第一个动作写重量；缺重量时用该动作最近一次记录补，
    * 否则「用 AI 排今天」会出现只有杠铃卧推有 kg、其余动作空着的清单。
    */
-  function baselineWeightFor(name) {
-    if (typeof recentExerciseBaselines !== "function") return null;
-    if (typeof isBodyweightMove === "function" && isBodyweightMove(name)) return null;
-    const row = recentExerciseBaselines(14)[String(name || "").trim()];
-    const kg = Number(row && row.weight);
-    if (!(kg > 0)) return null;
-    return typeof loadableWeightKg === "function" ? loadableWeightKg(name, kg) : kg;
+  /**
+   * 重量三层兜底（2026-11-19，1.4.44）：模型给了就用（落到装得出来的档位），
+   * 没给就用本地记忆/同族迁移/体重比例算一个——以前只认 14 天内的同名记录，
+   * 于是「用 AI 排今天」经常只有第一个动作有 kg。
+   */
+  function planWeightFor(row) {
+    const raw = Number(row && row.weight);
+    if (Number.isFinite(raw) && raw > 0) {
+      const kg = typeof loadableWeightKg === "function" ? loadableWeightKg(row.name, raw) : raw;
+      return {weight: kg, source: "model"};
+    }
+    const planned = typeof plannedWeightFor === "function" ? plannedWeightFor(row && row.name) : null;
+    return planned ? {weight: planned.weight, source: planned.source} : {weight: null, source: "none"};
   }
   function planItemFromRow(row) {
+    const guess = planWeightFor(row);
     return {
       name: String(row.name).trim().slice(0, 24),
       sets: Number(row.sets) > 0 ? Math.round(Number(row.sets)) : 0,
       reps: Number(row.reps) > 0 ? Math.round(Number(row.reps)) : 0,
-      weight: (() => {
-        const raw = Number(row.weight);
-        const provided = Number.isFinite(raw) && raw > 0 ? raw : baselineWeightFor(row.name);
-        return provided === null ? null : (typeof loadableWeightKg === "function" ? loadableWeightKg(row.name, provided) : provided);
-      })(),
+      weight: guess.weight,
+      weightSource: guess.source,
       distanceKm: Number(row.distanceKm) > 0 ? Number(row.distanceKm) : null,
       durationMin: Number(row.durationMin) > 0 ? Number(row.durationMin) : null,
       reason: String(row.reason || "").slice(0, 60),
@@ -6785,9 +7000,16 @@ function metricIcon(label) {
       const profile = state.profile || {};
       const done = exercisesFor(activeDate).filter(item => item && item.name).map(item => item.name + " " + (item.sets || "") + "x" + (item.reps || ""));
       // 喂给模型与本地规则引擎同一份素材：上周基线 + 训练库规则，输出质量才对得起「渐进」。
-      const baselines = typeof recentExerciseBaselines === "function" ? recentExerciseBaselines(14) : {};
-      const baselineText = Object.entries(baselines).slice(0, 6).map(([name, row]) =>
-        name + " " + row.sets + "x" + row.reps + (row.weight ? " " + row.weight + "kg" : "")).join("；");
+      // 基线给足：本地重量记忆里取最近 10 条（含 180 天历史），模型才知道每个动作上次做了多少。
+      // 只给 6 条 + 14 天窗口时，稍冷门的动作在模型看来「没有记录」，于是整行重量留空。
+      const memoryRows = typeof seedWeightMemoryFromHistory === "function"
+        ? Object.values(seedWeightMemoryFromHistory())
+          .filter(row => row && Number(row.weight) > 0)
+          .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
+          .slice(0, 10)
+        : [];
+      const baselineText = memoryRows.map(row =>
+        row.name + " " + (row.sets ? row.sets + "x" : "") + (row.reps || 8) + " " + row.weight + "kg（" + row.date + "）").join("；");
       const library = typeof librarySummary === "function" ? librarySummary(4) : "";
       // 部位只有一个来源：与问答的「训练建议」共用 dayTemplateNote，别再各猜一次。
       const rotationText = typeof dayTemplateNote === "function" ? dayTemplateNote(activeDate) : "";
@@ -6806,11 +7028,13 @@ function metricIcon(label) {
         // 时长必须把组间休息算进去：只数动作个数会排出一份「5 个动作、12 组、实际 30 分钟」的清单。
         "时长预算（必须满足）：先留 8 分钟热身与换器械；每个正式组按约 45 秒执行 + 组间休息（复合 120~150 秒、孤立 60~90 秒、自重 75~90 秒）折算，有氧再加它自己的时长；整份清单折算后必须落在 " + (prefs && Number(prefs.minutes) > 0 ? Number(prefs.minutes) : 45) + " 分钟以内。",
         "每个大肌群单次 6~10 个正式组；整节课总组数按覆盖的部位数与时长折算（60 分钟约 12~20 组），不要用一个数字卡死整节课。",
-        baselineText ? "上周最近记录（供渐进参考，不要盲目加量）：" + baselineText + "。" : "",
+        baselineText ? "最近记录（供渐进参考，不要盲目加量）：" + baselineText + "。" : "",
         library ? "训练规则（必须遵守）：\n" + library : "",
         done.length ? ("今天已记录：" + done.join("；") + "。") : "今天还没有训练记录。",
         "每个动作的 reason 只写一句、不超过 12 个字，写为什么排它。",
-        "负重必须是健身房里装得出来的数：杠铃 = 20 kg 空杆 + 每侧 2.5 kg 的整数倍（如 60、65、70），不要给 62.5 这种装不出的重量；哑铃按 2 kg、器械按 5 kg 递增；不确定就留空。",
+        "负重（每个配重动作都必须给 weight，不要留空）：①上面有同名记录就按渐进给——上次做到 8 次以上进一档（上肢 +2.5 kg、下肢 +5 kg），6~7 次持平，5 次以下退一档；②只有同族动作的记录就按它的 85% 估；③完全没记录就按体重起步：杠铃卧推 0.5 倍体重、深蹲 0.6、硬拉 0.7、划船 0.45、肩推 0.3，哑铃按单手减半，器械取杠铃的 0.8 倍。",
+        "重量要装得出来：杠铃 = 20 kg 空杆 + 每侧 2.5 kg 的整数倍（如 60、65、70），不要给 62.5 这种装不出的数；哑铃按 2 kg、器械按 5 kg 递增。",
+        "自重动作（引体向上、俯卧撑、双杠臂屈伸、平板支撑、卷腹）weight 留空，用次数表达进步。",
         "只输出 JSON 数组，第一个字符是 [，不要解释、不要代码块标记。"
       ].filter(Boolean).join("\n");
       // focus:"plan" 走后端专用的「只出 JSON」提示词；tier:"fast" 会追加「最多 3 句」，与 JSON 直接冲突。
@@ -6848,6 +7072,8 @@ function metricIcon(label) {
         throw new Error("模型这次没有给出清单，原清单已保留；请再点一次重试。");
       }
       aiPlanStore(activeDate, plan);
+      // 清单落库同时把重量记进本地记忆：下次排课同名动作直接按上次表现渐进。
+      if (typeof rememberPlanWeights === "function") rememberPlanWeights(plan);
       renderAiPlan();
       // 今日页的「今日清单」读的是同一份数据，排完必须一起刷，否则两个页面各说各话。
       if (typeof renderAdviceOrder === "function") renderAdviceOrder();
@@ -6934,7 +7160,12 @@ function metricIcon(label) {
           const pool = [...new Set(presets)].filter(name => name !== item.name && !taken.has(name));
           if (!pool.length) { notice("训练库里没有可替换的动作。"); return; }
           item.name = pool[index % pool.length];
-          if (typeof loadableWeightKg === "function" && number(item.weight) !== null) {
+          // 换动作后重量按新动作重算：沿用旧重量的绝对值，在器械与哑铃之间会差出一大截。
+          if (typeof plannedWeightFor === "function") {
+            const guess = plannedWeightFor(item.name);
+            item.weight = guess.weight;
+            item.weightSource = guess.source;
+          } else if (typeof loadableWeightKg === "function" && number(item.weight) !== null) {
             item.weight = loadableWeightKg(item.name, number(item.weight));
           }
           aiPlanStore(activeDate, plan);
