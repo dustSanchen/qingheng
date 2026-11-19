@@ -1256,3 +1256,11 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 验收：test-all 74/74；dev-loop 1.4.33/433 装机成功、smoke 无 JS 错误。
 - 未验证：23 处间距替换后的节奏需真机整页看一遍，尤其引导页与对话框。
 - APK：dist/qingheng-1.4.33.apk（638173 B，sha256 3512a66fd20775a85df52094c18a47fda416266c24162cc6a5f26b8233472909）。
+
+## r157 · 2026-11-19 · 1.4.34（修复：AI 排今天只有杠铃卧推有重量）
+- 现象：用 AI 排今天时，模型常常只给第一个动作（杠铃卧推）写 weight，其余动作重量为空；planItemFromRow 只认模型给的重量，缺了就直接 null。
+- 修法：新增 aselineWeightFor(name)——取 ecentExerciseBaselines(14) 里该动作最近一次的重量，经 loadableWeightKg 落到器械档位；planItemFromRow 在模型没给重量时回落到它，自重动作仍返回 null。流式预览与完整解析共用同一函数，所以两种路径都会补上。
+- 测试：新增「AI 清单缺重量时用最近一次记录补」，74/74。
+- 验收：dev-loop 1.4.34/434 装机成功、smoke 无 JS 错误。
+- 未验证：模型本身仍可能给不出重量且用户没有历史记录，这时重量保持为空（不猜），需要在真机上用有历史的动作确认补全效果。
+- APK：dist/qingheng-1.4.34.apk（638176 B，sha256 93fdab774b03aa07836a7460dc5c7719f641a01dd096e21bf47989345c91463）。

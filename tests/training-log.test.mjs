@@ -72,7 +72,8 @@ check('only the checkbox uses order:-1 so edit inputs keep their grid slot', css
 check('removing a row names it from the edit input too', app.includes('已移除这个动作') && app.includes('nameField.value'));
 check('askAiPlan sees the same baselines as the rule engine', app.includes('function recentExerciseBaselines') && app.includes('上周最近记录（供渐进参考'));
 check('askAiPlan follows the training library', /askAiPlan[\s\S]{0,4200}librarySummary\(4\)/.test(app));
-check('run km/minutes come from the cardio inputs, not inheritance', app.includes('data-cardio="distance"') && !app.includes('runsByName'));
+
+check('AI plan fills missing weights from the last recorded set', app.includes('function baselineWeightFor') && app.includes('baselineWeightFor(row.name)'));check('run km/minutes come from the cardio inputs, not inheritance', app.includes('data-cardio="distance"') && !app.includes('runsByName'));
 
 console.log('\nFAIL total: ' + fail);
 process.exitCode = fail ? 1 : 0;

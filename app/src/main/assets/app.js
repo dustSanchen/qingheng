@@ -6278,7 +6278,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.33';
+  const APP_VERSION = '1.4.34';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -6684,12 +6684,28 @@ function metricIcon(label) {
       : "");
   }
   /** 一行模型返回 → 计划条目；完整解析与流式预览共用同一套字段裁剪。 */
+  /**
+   * 模型常常只给第一个动作写重量；缺重量时用该动作最近一次记录补，
+   * 否则「用 AI 排今天」会出现只有杠铃卧推有 kg、其余动作空着的清单。
+   */
+  function baselineWeightFor(name) {
+    if (typeof recentExerciseBaselines !== "function") return null;
+    if (typeof isBodyweightMove === "function" && isBodyweightMove(name)) return null;
+    const row = recentExerciseBaselines(14)[String(name || "").trim()];
+    const kg = Number(row && row.weight);
+    if (!(kg > 0)) return null;
+    return typeof loadableWeightKg === "function" ? loadableWeightKg(name, kg) : kg;
+  }
   function planItemFromRow(row) {
     return {
       name: String(row.name).trim().slice(0, 24),
       sets: Number(row.sets) > 0 ? Math.round(Number(row.sets)) : 0,
       reps: Number(row.reps) > 0 ? Math.round(Number(row.reps)) : 0,
-      weight: typeof loadableWeightKg === "function" ? loadableWeightKg(row.name, Number(row.weight)) : (Number(row.weight) > 0 ? Number(row.weight) : null),
+      weight: (() => {
+        const raw = Number(row.weight);
+        const provided = Number.isFinite(raw) && raw > 0 ? raw : baselineWeightFor(row.name);
+        return provided === null ? null : (typeof loadableWeightKg === "function" ? loadableWeightKg(row.name, provided) : provided);
+      })(),
       distanceKm: Number(row.distanceKm) > 0 ? Number(row.distanceKm) : null,
       durationMin: Number(row.durationMin) > 0 ? Number(row.durationMin) : null,
       reason: String(row.reason || "").slice(0, 60),
