@@ -1468,7 +1468,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     if (runningDate) runningDate.textContent=`${cnNum(day.getMonth()+1)}月${cnNum(day.getDate())}日 · 周${week}`;
     const folioDay=$('#folio-day'); if (folioDay) folioDay.textContent=String(day.getDate());
     const mastheadMeta=$('#today-meta');
-    if (mastheadMeta) mastheadMeta.textContent=`${count?`${count} 餐`:'还没有餐食'}${typeof trainedOn==='function' && trainedOn(activeDate)?' · 训练已记录':''}`;
+    if (mastheadMeta) mastheadMeta.textContent=`${count?`${count} 餐`:'还没有餐食'}`;
     const adviceHint=$('#advice-data-context'); if(adviceHint)adviceHint.textContent=`分析日期：${activeDate} · 已保存 ${count} 条餐食`;
     const adviceNode=$('#advice-content'), stale=$('#advice-stale');
     if (stale) {
@@ -1525,7 +1525,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     // 差值必须跟屏幕上显示的上下限同一口径：以前用 calorieTarget 算「超出区间上限」会多算。
     const floor = number(range ? range.min : p.calorieTarget);
     const cap = number(range ? range.max : p.calorieTarget);
-    $('#calorie-caption').textContent = rangeUnset ? '还没有可用的目标区间：到「我的 → 身体档案与目标」补齐性别、身高、体重与年龄。' : !meals.length ? '还没有餐食记录，摄入量未知。' : totals.calories === null ? '部分餐食缺少热量，无法计算完整汇总。' : number(p.calorieTarget) === null ? '尚未设置每日热量目标。' : `${range ? `按${range.trained ? '训练日' : '休息日'}区间：` : ''}${totals.calories < floor ? `距区间下限还差 ${fmt(floor-totals.calories,0)} kcal` : totals.calories <= cap ? `在区间内，距上限 ${fmt(cap-totals.calories,0)} kcal` : `超出区间上限 ${fmt(totals.calories-cap,0)} kcal`}。`;
+    $('#calorie-caption').textContent = rangeUnset ? '还没有可用的目标区间：到「我的 → 身体档案与目标」补齐性别、身高、体重与年龄。' : !meals.length ? '还没有餐食记录，摄入量未知。' : totals.calories === null ? '部分餐食缺少热量，无法计算完整汇总。' : number(p.calorieTarget) === null ? '尚未设置每日热量目标。' : `${totals.calories < floor ? `距区间下限还差 ${fmt(floor-totals.calories,0)} kcal` : totals.calories <= cap ? `在区间内，距上限 ${fmt(cap-totals.calories,0)} kcal` : `超出区间上限 ${fmt(totals.calories-cap,0)} kcal`}。`;
     // What to do next, not just how far off the target is: a number without an action is useless.
     const actionBox = $('#calorie-action');
     if (actionBox) {
@@ -2380,8 +2380,8 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     const heading = $('.energy-card .card-heading');
     if (heading && !$('#quick-record')) {
       const button = document.createElement('button');
-      button.type = 'button'; button.className = 'button subtle quick-record-action'; button.id = 'quick-record';
-      button.innerHTML = `<span class="quick-record-icon" aria-hidden="true">${iconMarkup('icon-copy.svg')}</span><span>快速记录</span>`;
+      button.type = 'button'; button.className = 'text-button quick-record-link'; button.id = 'quick-record';
+      button.innerHTML = '复制一餐';
       heading.appendChild(button);
       button.addEventListener('click', openQuickRecord);
     }
@@ -6278,7 +6278,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.38';
+  const APP_VERSION = '1.4.40';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -7305,7 +7305,8 @@ function metricIcon(label) {
       ['icon-glyph-training.svg', '训练', 'training-form', ''],
       ['icon-glyph-balance.svg', '身体', 'measurement-weight', '']
     ].filter(([, , focus]) => focus !== 'training-form' || trainingEnabled()).map(([icon, label, focus, className = '']) => `<button type="button" class="quick-chip ${className}" data-quick-focus="${focus}" data-quick-icon="${icon}"><span class="quick-chip-icon" aria-hidden="true">${iconMarkup(icon)}</span>${label}</button>`).join('');
-    energyCard.before(row);
+    const slotHint = $('.slot-hint', view);
+    if (slotHint) { slotHint.before(row); energyCard.after(slotHint); } else energyCard.before(row);
     row.addEventListener('click', event => {
       const chip = event.target.closest('[data-quick-focus]');
       if (!chip) return;

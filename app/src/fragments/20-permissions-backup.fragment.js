@@ -169,8 +169,8 @@
     const heading = $('.energy-card .card-heading');
     if (heading && !$('#quick-record')) {
       const button = document.createElement('button');
-      button.type = 'button'; button.className = 'button subtle quick-record-action'; button.id = 'quick-record';
-      button.innerHTML = `<span class="quick-record-icon" aria-hidden="true">${iconMarkup('icon-copy.svg')}</span><span>快速记录</span>`;
+      button.type = 'button'; button.className = 'text-button quick-record-link'; button.id = 'quick-record';
+      button.innerHTML = '复制一餐';
       heading.appendChild(button);
       button.addEventListener('click', openQuickRecord);
     }

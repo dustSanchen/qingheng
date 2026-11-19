@@ -1299,3 +1299,12 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 验收：test-all 74/74；dev-loop 1.4.38/438 装机成功、smoke 无 JS 错误。
 - 未验证：标题下 meta + 训练摘要并排在 360px 屏是否换行、动作条上移后与标题的 12px 节奏需真机。
 - APK：dist/qingheng-1.4.38.apk（638173 B，sha256 26dab19b4ec6d1c5fe9d4af799e87dd7895024ef293eadfd168bae01759a6d3a）。
+
+## r162 · 2026-11-19 · 1.4.40（今日页排版收束：标题同基线、去幻影行高、环不再压字）
+- 触发：用户「当前排版很怪，请用其他模型审视并修改」。独立审稿（子代理，无视觉，静态 DOM/CSS）给出 P1–P6；本机无第二家视觉模型（modlens 的 codex/opencode 均不可用），结论以结构证据 + 我的真机截图核对。
+- 关键发现：①.text-button 的 44px 触达高度泄漏进排版——训练摘要与「复制一餐」把标题 meta 行、卡片头各撑到 44px，卡顶到环 68px 的空白来源；②环 132px 塞在 112px 轨道里，右缘压进文字列 6px；③#view-today 的 9 条 order 全是空转（.dashboard-grid 只在 ≥700px 才是 grid，移动端是 block）。
+- 结构：.today-head-row 让 h1「今天」与诗笺「人间有味是清欢」同一基线（page-heading--today 改回 block），meta 行下移；边注物理移到能量卡之后（slotHint.before(row) + energyCard.after(slotHint)）；补蛋白建议移到宏量格之后（#calorie-action 移出 .energy-detail），右栏只留目标/依据/差额三行。
+- 视觉：动作组 epeat(3,auto)+start 按内容宽（不再是三条工具栏）；两处 min-height:0;padding:13px 0;margin:-13px 0（44px 命中保留、版面回到文字行高）；能量体轨道 132（≤370 为 120）；卡头下距 8、能量体 padding 0、右栏 gap 6；主按钮白字改 --on-accent；caption 去掉与依据行重复的「按训练日区间：」前缀。
+- 断言：layout-four 插入点改锁 slotHint.before(row) + energyCard.after(slotHint)；training-day-budget 第 33 条改为锁 basis 行的 ange.trained ? '按训练日' : '按休息日'；layout-four / p0-p1 删掉与快速记录图标无关的 iconMarkup('icon-copy.svg') 耦合。均已登记 03-global-changes §5.1。
+- 验收：test-all 74/74；dev-loop 1.4.40/440 装机成功；截图 uild/today-1440d.png。
+- 未验证：诗笺在 320px 的折行、负 margin 命中区在真机的实际热区、ledger/night 皮肤下标题行的观感；建议真机点一次训练摘要与复制一餐确认不误触。

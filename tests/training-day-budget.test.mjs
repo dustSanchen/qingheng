@@ -30,7 +30,7 @@ check('a one-day adjustment still overrides the ceiling', app.includes('if (adju
 // 断言更新登记（03-global-changes.md §5.1，2026-10-29）：C 节把区间降级成「目标单值 + ±2% 容差 + 依据」，
 // 依据与数字必须同屏同源，所以断言的是一段代码里同时写入两者。
 check('the hero shows one target with basis and tolerance', app.includes("$('#calorie-target').textContent = target === null ? '—' : fmt(target, 0);") && app.includes("' · ±2%'"));
-check('the caption names the day type from the range', app.includes("range.trained ? '训练日' : '休息日'"));
+check('the basis line names the day type from the range', app.includes("range.trained ? '按训练日' : '按休息日'"));
 check('the range carries whether the day is trained', app.includes('profile.intakeRange = {min: range.min, max: range.max, basis: range.basis, trained: !!range.trained, unset: !!range.unset};'));
 check('the caption separates below-range from over-range', app.includes('距区间下限还差') && app.includes('超出区间上限'));
 check('the caption confirms when inside the range', app.includes('在区间内，距上限'));

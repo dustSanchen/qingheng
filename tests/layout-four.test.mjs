@@ -31,7 +31,7 @@ check('chips route to the right segment', app.includes('switchRecordPanel(record
 check('the photo entry stays on the meal card', html.includes('id="photo-add"') && html.includes('id="photo-sheet"'));
 check('the training chip scrolls without focusing', app.includes("flashTarget(form.closest('.card'))") && app.includes("revealField(focus, {focus: false, block: 'start'});"));
 check('chat input and quick prompts lead the composer', app.includes('function installChatTaskOrder()') && app.includes('question.after(chips)'));
-check('low-frequency profile settings open their own sub-page', app.includes('function installProfileMore()') && html.includes('外观与餐次时间') && app.includes("iconMarkup('icon-copy.svg')") &&
+check('low-frequency profile settings open their own sub-page', app.includes('function installProfileMore()') && html.includes('外观与餐次时间') &&
   app.includes('#subpage-appearance') && app.includes('#subpage-more') && !app.includes("details.id = 'profile-more'"));
 
 // --- 2. trends segments + diet trend ------------------------------------------------------------------
@@ -68,7 +68,7 @@ check('the three things merged into the check card', !html.includes('id="daily-t
 // 2026-11-17 用户要求「把今天的建议从更多收纳中移出至今天中」：小习惯仍留在更多里，建议回到主流程。
 check('habits stay in the folded more section, advice moves to the main flow', html.indexOf('今天的小习惯') > html.indexOf('id="day-more"') &&
   html.indexOf('给今天的一点建议') < html.indexOf('id="day-more"') && html.indexOf('给今天的一点建议') < html.indexOf('id="today-records-card"'));
-check('quick copy is a header action rather than a second full-width button', app.includes("button.className = 'button subtle quick-record-action'") &&
+check('quick copy is a quiet text link in the energy heading', app.includes("button.className = 'text-button quick-record-link'") &&
   app.includes('heading.appendChild(button)') && !html.includes('id="energy-actions"'));
 check('quick record meal type is an in-dialog chip row, not a native select', app.includes('id="quick-record-type" role="radiogroup"') &&
   !app.includes('<select id="quick-record-type"') && app.includes('setQuickRecordType(') &&
@@ -76,7 +76,7 @@ check('quick record meal type is an in-dialog chip row, not a native select', ap
 check('today records empty state does not add a dashed inner frame', css.includes('#today-records-card .empty-state.is-empty{border:0;border-radius:0}'));
 
 // --- styles ---------------------------------------------------------------------------------------------
-check('quick actions follow the energy summary without overlaying content', app.includes('energyCard.before(row)') && css.includes('.quick-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))') && !css.includes('.quick-actions{position:fixed'));
+check('quick actions follow the energy summary without overlaying content', app.includes('slotHint.before(row)') && app.includes('energyCard.after(slotHint)') && css.includes('.quick-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))') && !css.includes('.quick-actions{position:fixed'));
 check('quick action targets stay at least 44px with 8px gaps', css.includes('gap:8px') && css.includes('min-height:52px'));
 check('bottom navigation keeps 52px targets and 8px spacing', /\.bottom-nav button\{[^}]*min-height:52px/.test(css) && /\.bottom-nav\{[^}]*gap:8px/.test(css));
 check('record and trend tabs keep 44px targets and 8px spacing', /\.segment-bar\{[^}]*gap:8px/.test(css) && /\.segment\{[^}]*min-height:44px/.test(css));

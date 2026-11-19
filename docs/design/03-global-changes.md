@@ -224,3 +224,6 @@
 | 2026-11-19 | `tests/records-panels.test.mjs` | hub-row 内边距 `16px 18px` → `16px 20px` | 大间距离格从 83 压到 60，18px 属离格值 |
 | 2026-11-19 | `tests/layout-four.test.mjs` | 快捷动作插入点 `energyBody.after(row)` → `energyCard.after(row)` | 快捷记录移出能量卡，避免把卡片切成两半 |
 | 2026-11-19 | `tests/layout-four.test.mjs` | 快捷动作插入点 `energyCard.after` → `energyCard.before` | 用户要求三个按钮上移到标题下方 |
+| 2026-11-19 | `tests/layout-four.test.mjs` | 快捷动作插入点 `energyCard.before` → `slotHint.before(row)` + `energyCard.after(slotHint)` | 边注物理移到能量卡之后，不再依赖空转的 order |
+| 2026-11-19 | `tests/training-day-budget.test.mjs` | 「caption 命名训练日」→「basis 行命名训练日」（`range.trained ? '按训练日' : '按休息日'`） | 去掉 caption 与依据行重复的「按训练日区间：」前缀 |
+| 2026-11-19 | `tests/p0-p1-round.test.mjs`、`tests/layout-four.test.mjs` | 去掉无关的 `iconMarkup('icon-copy.svg')` 断言 | 快速记录按钮降为文字链后不再使用该图标，断言与页面主题无关 |

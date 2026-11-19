@@ -1832,9 +1832,9 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 .energy-ring strong{font-size:32px}
 .energy-ring span{font-size:var(--text-xs)}
 .energy-detail p{font-size:var(--text-sm)}
-#view-today .slot-hint{order:2;padding:8px 12px;font-size:var(--text-xs)}
-#view-today .energy-card{order:1}
-#view-today #daily-check-card{order:3}
+#view-today .slot-hint{padding:8px 12px;font-size:var(--text-xs)}
+
+
 @media (max-width:360px){
   .energy-ring{width:120px;height:120px}
   .energy-ring>div{width:102px;height:102px}
@@ -1842,12 +1842,14 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 }
 
 /* 今日快捷动作：从能量卡里移出，放在卡片下方作一条动作条（2026-11-19） */
-#view-today #today-quick-actions{order:2;margin:0 0 8px;padding:0;gap:8px;grid-template-columns:repeat(3,minmax(0,1fr))}
-#view-today #today-quick-actions .quick-chip{min-height:44px;justify-content:center;border:1px solid var(--line);border-radius:10px;background:transparent;font-size:var(--text-sm)}
-#view-today #today-quick-actions .quick-chip-primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+#view-today #today-quick-actions{margin:0 0 8px;padding:0;gap:8px;grid-template-columns:repeat(3,minmax(0,1fr))}
+#view-today #today-quick-actions .quick-chip{flex-direction:row;gap:8px;height:44px;min-height:44px;padding:0 10px;justify-content:center;border:1px solid var(--line);border-radius:10px;background:transparent;font-size:var(--text-sm)}
+#view-today #today-quick-actions .quick-chip .quick-chip-icon{width:18px;height:18px}
+#view-today #today-quick-actions .quick-chip .quick-chip-icon :is(svg,img){width:18px;height:18px}
+#view-today #today-quick-actions .quick-chip-primary{background:var(--accent);color:var(--on-accent);border-color:transparent}
 /* 时段提醒：去掉整块底色与厚边，改成一行边注，上下不再各留一大段 */
-#view-today .slot-hint{order:3;display:block;margin:0 0 8px;padding:2px 0 2px 10px;border:0;border-left:2px solid var(--line);border-radius:0;background:transparent;color:var(--muted);font-size:var(--text-xs);line-height:1.6}
-#view-today #daily-check-card{order:4}
+#view-today .slot-hint{display:block;margin:0 0 8px;padding:2px 0 2px 10px;border:0;border-left:2px solid var(--line);border-radius:0;background:transparent;color:var(--muted);font-size:var(--text-xs);line-height:1.6}
+
 
 /* 能量块：读成一个数——大数字 + 单位，目标作为下一行（2026-11-19） */
 .energy-ring .energy-unit{font-size:var(--text-xs);color:var(--muted);letter-spacing:.04em}
@@ -1860,9 +1862,45 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 .today-meta-row .masthead-meta{margin:0}
 .today-training-line{font-size:var(--text-xs);color:var(--muted);padding:0;border:0;background:transparent;text-align:left}
 .today-training-line:hover{color:var(--ink-soft)}
-#view-today #today-quick-actions{order:1;margin:0 0 12px}
-#view-today .energy-card{order:2}
-#view-today #daily-check-card{order:4}
+
+
+
 #view-today #today-quick-actions .quick-chip-primary{color:var(--paper)}
-#view-today .slot-hint{order:3;font-size:var(--text-sm);color:var(--body-text);border-left:3px solid var(--accent-line);padding:4px 0 4px 12px;margin:0 0 12px}
+#view-today .slot-hint{font-size:var(--text-sm);color:var(--body-text);border-left:3px solid var(--accent-line);padding:4px 0 4px 12px;margin:0 0 12px}
 .macro-target{margin-top:6px;line-height:1.45}
+
+/* 今日：训练摘要与餐数之间用间隔点，诗笺收近（2026-11-19） */
+.today-training-line::before{content:"·";margin-right:8px;color:var(--muted)}
+#view-today .epigraph{margin:-2px 0 10px}
+.quick-record-link{font-size:var(--text-xs);color:var(--muted);padding:0;border:0;background:transparent}
+.quick-record-link:hover{color:var(--ink-soft)}
+
+
+/* 今日页收束（2026-11-19）：标题与诗笺同基线；提醒落到能量卡之后；建议跟宏量走 */
+.page-heading--today{display:block;margin:8px 0 14px;padding-bottom:0;border-bottom:0}
+.page-heading--today h1{margin:0}
+.today-head-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+#view-today .epigraph{margin:0;text-align:right;font-size:13px;opacity:.42;letter-spacing:.16em;white-space:nowrap}
+.today-meta-row{margin-top:6px}
+#view-today #today-quick-actions{margin:0}
+#view-today .energy-card{order:2}
+#view-today .slot-hint{margin:0}
+
+#view-today .energy-card .card-heading{margin-bottom:8px}
+#view-today .energy-card .energy-body{padding:0}
+#view-today .energy-detail{gap:6px}
+#view-today .energy-detail p{margin:0}
+#view-today .energy-detail p:first-child{margin:0 0 2px}
+#view-today #calorie-caption{margin:0;font-size:var(--text-xs)}
+#view-today #calorie-action{margin:12px 0 0;padding:0;font-size:var(--text-sm);line-height:1.65;color:var(--body-text)}
+#view-today #calorie-action:empty{display:none}
+#view-today #calorie-action .energy-hint{font-size:var(--text-sm);color:var(--body-text)}
+
+
+/* 今日页排版修整（2026-11-19）：动作组按内容宽、去掉 44px 幻影行高、环不再压字 */
+#view-today #today-quick-actions{grid-template-columns:repeat(3,auto);justify-content:start;margin:0 0 12px}
+.today-training-line,.quick-record-link{min-height:0;padding:13px 0;margin:-13px 0}
+#view-today .energy-card .energy-body{grid-template-columns:132px minmax(0,1fr)}
+@media (max-width:370px){#view-today .energy-card .energy-body{grid-template-columns:120px minmax(0,1fr)}}
+.page-heading--today{margin:10px 0 16px}
+#view-today .slot-hint{margin:0 0 12px}
