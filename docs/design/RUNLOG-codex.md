@@ -1165,3 +1165,12 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 协作：并行派了 3 个只读审计子代理（阴影清单、徽章清单、文案/结构键清单），产出写 build/，不碰源码，用于批次 2–4。
 - 验收：test-all 74/74；dev-loop 1.4.22/422 装机成功、smoke 无 JS 错误。
 - APK：dist/qingheng-1.4.22.apk（638173 B，sha256  392b97a436bc5172560c96abc17f80074ec2f4c00f278227e72202a01c7e698）。
+
+## r146 · 2026-11-19 · 1.4.23（去 AI 味批次 2 + 审美加法）
+- 协作：3 个只读子代理并行产出 uild/shadow-inventory.md（40 条阴影逐条分类）、uild/chip-inventory.md（57 个 chip/tag 分页清单）、uild/copy-inventory.md（营销词与结构键），均只写 build/，未碰源码。
+- 阴影：按清单删掉无效声明（dialog / app-dialog-panel / 桌面底栏）、ox-shadow:none 重置、notice/render-error/segment-bar/rest-pill 冗余阴影、死规则 .button.is-now；ox-shadow 计数 42 → 16，剩下的是焦点/错误/闪烁等语义项。
+- 徽章：按 chip-inventory 的单点建议加一条 .card-heading .tag 规则——去底色、去 padding、去圆角，降为 muted 注解；计数仍 57（没删信息），视觉上不再是 57 张淡绿贴纸。
+- 审美加法（回应「不要只做减法」）：今天页页眉从「照顾自己，从今天开始」改为日期主导——大日期 + 周几 + 餐数 + 训练状态 + 底部发丝线；大数字统一 tabular lining，避免滚动抖动。
+- 验收：test-all 74/74；dev-loop 1.4.23/423 装机成功、smoke 无 JS 错误；ai-flavor-audit 只剩 2 项 WARN（阴影 16、chip 57）。
+- 未验证：页眉与标签去贴纸化的观感需真机截图确认（看不了图）。
+- APK：dist/qingheng-1.4.23.apk（638176 B，sha256 9ee7173fbeaf0ab3ac0bcbde59dd8b69f1afc43257289ad9322fe293e7ee7eac）。

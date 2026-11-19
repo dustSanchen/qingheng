@@ -1460,6 +1460,14 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     const count=state.meals.filter(row=>row.date===activeDate).length;
     const hint=$('#chat-data-context'); if(hint)hint.textContent=`分析日期：${activeDate} · 已保存 ${count} 条餐食（未确认预览和问答照片不计入饮食）`;
     const dateLabel=$('#chat-date-label'); if(dateLabel) dateLabel.textContent = activeDate === localDate() ? '今天' : activeDate.slice(5);
+    // 页眉用日期而不是口号：今天页首先回答「这是哪一天」。
+    const mastheadTitle=$('#today-title'), mastheadMeta=$('#today-meta');
+    if (mastheadTitle) {
+      const day=new Date(activeDate+'T00:00:00');
+      const week='日一二三四五六'[day.getDay()];
+      mastheadTitle.textContent=`${day.getMonth()+1} 月 ${day.getDate()} 日`;
+      if (mastheadMeta) mastheadMeta.textContent=`周${week}${activeDate===localDate()?' · 今天':''}${count?` · ${count} 餐`:' · 还没有餐食'}${typeof trainedOn==='function' && trainedOn(activeDate)?' · 训练已记录':''}`;
+    }
     const adviceHint=$('#advice-data-context'); if(adviceHint)adviceHint.textContent=`分析日期：${activeDate} · 已保存 ${count} 条餐食`;
     const adviceNode=$('#advice-content'), stale=$('#advice-stale');
     if (stale) {
@@ -6262,7 +6270,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.22';
+  const APP_VERSION = '1.4.23';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}

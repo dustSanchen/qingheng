@@ -77,3 +77,10 @@ node tools/test-all.mjs            # 74 项
 node tools/aesthetic-audit.mjs     # 令牌/对比度/描边
 tools\dev-loop.ps1 -Version X -VersionCode N -SkipBackup
 ```
+
+## 7. 进展（2026-11-19 · 1.4.23）
+
+- 批次 1 完成：装饰渐变 2 → 0；营销词 10 → 0（一键排课 → 排进本周）。
+- 批次 2 部分完成：阴影 42 → 16（删掉无效声明、none 重置、冗余弹层/通知阴影）；卡片标题 tag 去胶囊化（底色/padding/圆角归零，降为 muted 注解），计数仍 57 但视觉上不再是贴纸。
+- 审美加法：今天页页眉从口号改为日期主导（大日期 + 周几 + 餐数 + 训练状态，底部发丝线），数字统一等宽 lining。
+- 剩余：阴影 16 中含焦点/错误/闪烁等语义项，不再裸删；chip/tag 需要按页删到 20 以内（下一步用 chip-inventory 的 16 个零信息项）。

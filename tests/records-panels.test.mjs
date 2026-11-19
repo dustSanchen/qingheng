@@ -36,8 +36,8 @@ check('paper cards use open sections while ledger cards keep one frame', css.inc
   css.includes('[data-skin="ledger"] .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--shape-card-radius)'));
 check('paper navigation rows use separators while ledger rows keep a frame', css.includes('.hub-row{display:flex;align-items:center;gap:14px;width:100%;min-height:var(--btn-h);padding:16px 18px;border:0;border-bottom:1px solid var(--line)') &&
   css.includes('[data-skin="ledger"] .hub-row{border:1px solid var(--line)') &&
-  css.includes('border-radius:0;background:transparent;color:var(--ink);text-align:left;box-shadow:none}') &&
-  css.includes('border-radius:var(--shape-row-radius);background:var(--surface);box-shadow:none}'));
+  css.includes('border-radius:0;background:transparent;color:var(--ink);text-align:left;}') &&
+  css.includes('border-radius:var(--shape-row-radius);background:var(--surface);}'));
 check('ledger card headings do not duplicate the outer frame', css.includes('[data-skin="ledger"] .card-heading{padding-bottom:0;border-bottom:0}'));
 check('day disclosures are open sections in both skins', css.includes('.day-more{border-block:1px solid var(--line);background:transparent;padding:var(--space-3) 0}') &&
   css.includes('.day-more .card{margin:0;padding:var(--space-3) 0;border:0;border-top:1px solid var(--line)') &&
