@@ -214,3 +214,5 @@
 | 2026-11-19 | `tests/graded-colors.test.mjs` | goalColor 的三条断言改为「死代码已删除」 | 清理只在声明处出现的死函数 |
 | 2026-11-19 | `tests/icons-motion.test.mjs` | 去掉 `.habit-symbol` 尺寸断言 | 该类在 HTML/JS 零引用，随死 CSS 一起删除 |
 | 2026-11-19 | `tests/onboarding-backup.test.mjs` | 新增「备份提醒带动作按钮」 | 备份提醒从纯文字改为可点击「去导出」 |
+| 2026-11-19 | `tests/plan-shared-template.test.mjs` | 组数断言从「整节课 6~10」改为「每部位 6~10 + 60 分钟 12~20 组」 | 建议 #4：提示词把每部位口径误写成整节课上限 |
+| 2026-11-19 | `tests/targets.test.mjs` | 新增「周均随训练天数变化」 | 建议 #7：周均固定 4 练 3 休 |

@@ -1121,3 +1121,12 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 验收：test-all 74/74；dev-loop 1.4.18/418 装机成功、smoke 无 JS 错误；aesthetic-audit 仅既有 WARN。
 - 未做：底栏 backdrop-filter 去模糊、历史日按当前档案重算、docs/dist 归档（记录在项目 todo）。
 - APK：dist/qingheng-1.4.18.apk（638176 B，sha256 c987f776fbcceb22b94cffcfa82f6874706c80862b8c172961fa9fcc41d2f330）。
+
+## r140 · 2026-11-19 · 1.4.19（审视建议收尾：组数口径与周均加权）
+- 组数口径（建议 #4）：提示词从「单次课正式组 6~10 组」改为「每个大肌群单次 6~10 组；整节课按部位数与时长折算（60 分钟约 12~20 组）」；计划理由改成「单次每个部位 6~10 组」，与训练库原文一致，不再用整节课上限压本地计划。
+- 周均（建议 #7）：weeklyAverage 从固定 4 练 3 休改为按每周训练天数加权；薄肌碳循环的训练日上调与休息日下调动态抵消，保证周均仍落在计划缺口上（lean 测试继续通过）。
+- 历史日（建议 #7）：latestWeight(date) 取「那天及以前」的最后一次体重，补记旧日期不再被今天的体重追溯改写。
+- 断言：plan-shared-template 的组数断言按部位改写；targets 新增「周均随训练天数变化」。
+- 验收：test-all 74/74；dev-loop 1.4.19/419 装机成功、smoke 无 JS 错误。
+- 未做：底栏 backdrop-filter、docs/dist 归档（记录在项目 todo）。
+- APK：dist/qingheng-1.4.19.apk（638176 B，sha256 7f78ac4f04b8372b9d0e5a4197f03b1d97f257a87a0fbad3ecc641912a2c1a28）。

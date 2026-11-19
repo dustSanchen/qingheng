@@ -1225,7 +1225,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     const useTraining = trained;
     const plan = computeTargets({
           sex: profile.sex,
-          weight: number(profile.weight) ?? latestWeight(),
+          weight: number(profile.weight) ?? latestWeight(date),
           height: profile.height,
           age: profile.age,
           goal: profile.goal,

@@ -31,6 +31,9 @@ check('goal hints mirror the presets', GOAL_HINTS.gain.includes('10%') && GOAL_H
 const expectedTdee = Math.round(expectedBmr * 1.375);
 check('TDEE uses the 2-3 sessions factor 1.375', ref.tdee === expectedTdee, `${ref.tdee} vs ${expectedTdee}`);
 check('reference case is not incomplete', ref.incomplete === false);
+const twoSessions = computeTargets({sex: 'male', weight: 64.3, height: 166, age: 24, goal: 'recomp', training: 2});
+const sixSessions = computeTargets({sex: 'male', weight: 64.3, height: 166, age: 24, goal: 'recomp', training: 6});
+check('the weekly average follows the planned sessions', sixSessions.weeklyAverage > twoSessions.weeklyAverage, `${twoSessions.weeklyAverage} vs ${sixSessions.weeklyAverage}`);
 const noSex = computeTargets({sex: '', weight: 64.3, height: 166, age: 24, goal: 'recomp', training: 3});
 check('a missing sex is reported instead of assumed male', noSex.incomplete === true && noSex.missing.includes('性别'), JSON.stringify(noSex.missing));
 const oddSex = computeTargets({sex: 'other', weight: 64.3, height: 166, age: 24, goal: 'recomp', training: 3});

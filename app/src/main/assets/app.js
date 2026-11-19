@@ -1225,7 +1225,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     const useTraining = trained;
     const plan = computeTargets({
           sex: profile.sex,
-          weight: number(profile.weight) ?? latestWeight(),
+          weight: number(profile.weight) ?? latestWeight(date),
           height: profile.height,
           age: profile.age,
           goal: profile.goal,
@@ -2749,6 +2749,8 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     const preset = GOAL_PRESETS[goal];
     const cap = rules.deficitCapPercent;
     const deficitOf = value => Math.round((tdee - value) / tdee * 1000) / 10;
+    // 每周训练天数决定碳循环的加权；未填训练计划时仍按 4 练 3 休估算并标注 provisional。
+    const weeklyTrainDays = trainingUnset ? 4 : Math.max(0, Math.min(7, sessions));
 
     let trainingDay = {min: rules.trainingDayMin, max: rules.trainingDayMax};
     let restDay = {min: rules.restDayMin, max: rules.restDayMax};
@@ -2756,8 +2758,11 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     if (goal === 'lean') {
       // 薄肌走碳循环：训练日贴近维持，缺口放在休息日。
       const centre = tdee * (1 - Math.min(preset.deficitPercent, cap) / 100);
-      const trainMid = Math.round(centre * 1.03);
-      const restMid = Math.round(centre * 0.96);
+      // 训练日的上调由休息日的下调抵消：无论每周几练，周均都落在计划缺口上。
+      const lift = weeklyTrainDays >= 7 ? 0 : 0.03;
+      const restDrop = weeklyTrainDays > 0 && weeklyTrainDays < 7 ? Math.min(0.08, lift * weeklyTrainDays / (7 - weeklyTrainDays)) : 0;
+      const trainMid = Math.round(centre * (1 + lift));
+      const restMid = Math.round(centre * (1 - restDrop));
       trainingDay = {min: Math.round(trainMid * 0.98), max: Math.round(trainMid * 1.05)};
       restDay = {min: Math.round(restMid * 0.97), max: Math.round(restMid * 1.02)};
       leanPlan = {plannedPercent: preset.deficitPercent};
@@ -2782,7 +2787,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     const trainingDeficit = deficitOf(trainingDay.max);
     const restDeficit = deficitOf(restDay.max);
     // 周均与预期速率按区间中值算：薄肌的「有效缺口」与周均不再出现两个口径。
-    const weeklyAverage = Math.round((((trainingDay.min + trainingDay.max) / 2) * 4 + ((restDay.min + restDay.max) / 2) * 3) / 7);
+    const weeklyAverage = Math.round((((trainingDay.min + trainingDay.max) / 2) * weeklyTrainDays + ((restDay.min + restDay.max) / 2) * (7 - weeklyTrainDays)) / 7);
     const weeklyAverageDeficit = deficitOf(weeklyAverage);
     if (leanPlan) {
       leanPlan.effectivePercent = Math.max(0, weeklyAverageDeficit);
@@ -2885,8 +2890,9 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
       rules: values.rules
     };
   }
-  function latestWeight() {
-    const rows = (state.measurements || []).filter(row => number(row.weight) !== null && validDate(row.date)).sort((a, b) => a.date.localeCompare(b.date));
+  /** 体重取「那天及以前」的最后一次测量：补记旧日期时不能用今天的体重重算旧目标。 */
+  function latestWeight(date = null) {
+    const rows = (state.measurements || []).filter(row => number(row.weight) !== null && validDate(row.date) && (!date || row.date <= date)).sort((a, b) => a.date.localeCompare(b.date));
     return rows.length ? rows[rows.length - 1].weight : null;
   }
   /** Reads the 口径 overrides currently typed into the profile form. */
@@ -4657,7 +4663,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     };
     if (src.deload) push('deload-rule', '本周按减载周排：负荷偏高时负重 ×0.9、组数 −1');
     else if (src.templateId) push(src.templateId, '动作顺序与组次来自三分化整理图（推/拉/腿各 5 个动作）');
-    else push('split-3-rationale', '按三分化排：每部位每周约 1.5~2 次刺激，单次 6~10 组正式组');
+    else push('split-3-rationale', '按三分化排：每部位每周约 1.5~2 次刺激，单次每个部位 6~10 组正式组');
     push('main-lift-rpe8', '主项守 RPE 8（留约 2 次余量），不做到力竭');
     push('isolation-failure', '单关节动作接近力竭，复合主项不追求力竭');
     if (src.suggested) push('volume-cap', '没有历史动作时用训练库建议动作，先按 3 组建立基线');
@@ -6238,7 +6244,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.18';
+  const APP_VERSION = '1.4.19';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -6749,7 +6755,7 @@ function metricIcon(label) {
         })(),
         // 时长必须把组间休息算进去：只数动作个数会排出一份「5 个动作、12 组、实际 30 分钟」的清单。
         "时长预算（必须满足）：先留 8 分钟热身与换器械；每个正式组按约 45 秒执行 + 组间休息（复合 120~150 秒、孤立 60~90 秒、自重 75~90 秒）折算，有氧再加它自己的时长；整份清单折算后必须落在 " + (prefs && Number(prefs.minutes) > 0 ? Number(prefs.minutes) : 45) + " 分钟以内。",
-        "单次课正式组控制在 6~10 组，动作可多但组数不要超 10（60 分钟以上才放宽）。",
+        "每个大肌群单次 6~10 个正式组；整节课总组数按覆盖的部位数与时长折算（60 分钟约 12~20 组），不要用一个数字卡死整节课。",
         baselineText ? "上周最近记录（供渐进参考，不要盲目加量）：" + baselineText + "。" : "",
         library ? "训练规则（必须遵守）：\n" + library : "",
         done.length ? ("今天已记录：" + done.join("；") + "。") : "今天还没有训练记录。",

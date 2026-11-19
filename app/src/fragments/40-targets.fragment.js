@@ -96,6 +96,8 @@
     const preset = GOAL_PRESETS[goal];
     const cap = rules.deficitCapPercent;
     const deficitOf = value => Math.round((tdee - value) / tdee * 1000) / 10;
+    // 每周训练天数决定碳循环的加权；未填训练计划时仍按 4 练 3 休估算并标注 provisional。
+    const weeklyTrainDays = trainingUnset ? 4 : Math.max(0, Math.min(7, sessions));
 
     let trainingDay = {min: rules.trainingDayMin, max: rules.trainingDayMax};
     let restDay = {min: rules.restDayMin, max: rules.restDayMax};
@@ -103,8 +105,11 @@
     if (goal === 'lean') {
       // 薄肌走碳循环：训练日贴近维持，缺口放在休息日。
       const centre = tdee * (1 - Math.min(preset.deficitPercent, cap) / 100);
-      const trainMid = Math.round(centre * 1.03);
-      const restMid = Math.round(centre * 0.96);
+      // 训练日的上调由休息日的下调抵消：无论每周几练，周均都落在计划缺口上。
+      const lift = weeklyTrainDays >= 7 ? 0 : 0.03;
+      const restDrop = weeklyTrainDays > 0 && weeklyTrainDays < 7 ? Math.min(0.08, lift * weeklyTrainDays / (7 - weeklyTrainDays)) : 0;
+      const trainMid = Math.round(centre * (1 + lift));
+      const restMid = Math.round(centre * (1 - restDrop));
       trainingDay = {min: Math.round(trainMid * 0.98), max: Math.round(trainMid * 1.05)};
       restDay = {min: Math.round(restMid * 0.97), max: Math.round(restMid * 1.02)};
       leanPlan = {plannedPercent: preset.deficitPercent};
@@ -129,7 +134,7 @@
     const trainingDeficit = deficitOf(trainingDay.max);
     const restDeficit = deficitOf(restDay.max);
     // 周均与预期速率按区间中值算：薄肌的「有效缺口」与周均不再出现两个口径。
-    const weeklyAverage = Math.round((((trainingDay.min + trainingDay.max) / 2) * 4 + ((restDay.min + restDay.max) / 2) * 3) / 7);
+    const weeklyAverage = Math.round((((trainingDay.min + trainingDay.max) / 2) * weeklyTrainDays + ((restDay.min + restDay.max) / 2) * (7 - weeklyTrainDays)) / 7);
     const weeklyAverageDeficit = deficitOf(weeklyAverage);
     if (leanPlan) {
       leanPlan.effectivePercent = Math.max(0, weeklyAverageDeficit);
@@ -232,8 +237,9 @@
       rules: values.rules
     };
   }
-  function latestWeight() {
-    const rows = (state.measurements || []).filter(row => number(row.weight) !== null && validDate(row.date)).sort((a, b) => a.date.localeCompare(b.date));
+  /** 体重取「那天及以前」的最后一次测量：补记旧日期时不能用今天的体重重算旧目标。 */
+  function latestWeight(date = null) {
+    const rows = (state.measurements || []).filter(row => number(row.weight) !== null && validDate(row.date) && (!date || row.date <= date)).sort((a, b) => a.date.localeCompare(b.date));
     return rows.length ? rows[rows.length - 1].weight : null;
   }
   /** Reads the 口径 overrides currently typed into the profile form. */

@@ -33,9 +33,10 @@ check('界面写明含组间休息', rest.includes('含组间休息约需 ') && 
 check('改时长按钮给的是档位而不是原始分钟', rest.includes("data-plan-minutes=\"' + planMinutesStep(need) + '\""));
 check('有氧按自己的时长算，不套组次', rest.includes('const cardio = number(item && item.durationMin);'));
 
-// --- P1 单次课组数上限 ---------------------------------------------------------------------------
-check('排今天的提示词写了时长预算与组数上限',
-  rest.includes('时长预算（必须满足）') && rest.includes('单次课正式组控制在 6~10 组'));
+// --- P1 单次课组数口径 ---------------------------------------------------------------------------
+check('排今天的提示词按部位给组数，不卡整节课',
+  rest.includes('时长预算（必须满足）') && rest.includes('每个大肌群单次 6~10 个正式组') && rest.includes('60 分钟约 12~20 组'));
+check('计划理由也说清是每个部位', training.includes('单次每个部位 6~10 组正式组'));
 check('原生提示词也按休息折算，不再数动作个数',
   main.includes('组数按时长算，且必须把组间休息算进去') && !main.includes('动作数量按时长定：30 分钟排 4 个'));
 
