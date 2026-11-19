@@ -43,7 +43,7 @@ check('the data page has the checklist', html.includes('<div class="check-list" 
 check('the data page shows a summary tag', html.includes('id="perm-check-tag"') && app.includes('全部就绪'));
 check('the quick record dialog can be dismissed with Esc', app.includes('function closeQuickRecord()') && app.includes("event.key === 'Escape'") && app.includes('quickRecordOpener'));
 check('load failures show a retry bar instead of a fake loader', app.includes('loadFailed = true') && app.includes('showRenderError(error)'));
-check('consent pointers name the real switch location', app.includes('更多设置 → 数据管理') && html.includes('更多设置 → 数据管理'));
+check('consent pointers name the real switch location', app.includes('我的 → 数据与关于') && html.includes('我的 → 数据与关于'));
 check('touch targets are at least 44px', fs.readFileSync('app/src/main/assets/styles.css', 'utf8').includes('.check-fix{display:inline-flex;align-items:center;gap:6px;min-height:44px;'));
 check('a due backup reminder carries an action button', html.includes('id="global-notice-action"') && app.includes("label: '去导出'") && app.includes("openSubpage('data')"));
 check('a first-day quick record leads to a meal instead of a dead end', app.includes('先记一餐，之后就能在这里快速复制') && app.includes("switchTab('records', true);") && app.includes("const field = $('#meal-text');"));

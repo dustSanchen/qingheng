@@ -868,7 +868,7 @@
     if (hub) hub.hidden = !!sub;
     SUBPAGES.forEach(id => {const node = $('#subpage-' + id); if (node) node.hidden = id !== sub;});
     // The storage panel is the only card that needs a read when it appears.
-    if (sub === 'about') {loadStorageStatus(false).catch(() => {}); loadVersions().catch(() => {});}
+    if (sub === 'data') {loadStorageStatus(false).catch(() => {}); loadVersions().catch(() => {});}
     // 每日推送与建议 must open on today's advice, not on an empty query form.
     if (sub === 'push') {loadTodayAdvice().catch(() => {});}
     if (sub) window.scrollTo({top:0, behavior:'auto'});

@@ -31,7 +31,7 @@ check('safe-boundary class is used at least 3 times', safeUses >= 3);
 
 // ④ 指路文案必须指向存在的入口 --------------------------------------------------------
 check('no pointer to the removed settings entry', !html.includes('数据、外观与说明') && !app.includes('数据、外观与说明'));
-check('consent pointer names the real path', app.includes('我的 → 更多设置 → 数据管理'));
+check('consent pointer names the real path', app.includes('我的 → 数据与关于'));
 check('key pointer names AI 模型与密钥', app.includes('我的 → AI 模型与密钥'));
 check('no pointer to the sub-heading as an entry', !app.includes('我的 → 模型连接'));
 

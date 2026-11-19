@@ -868,7 +868,7 @@
     if (hub) hub.hidden = !!sub;
     SUBPAGES.forEach(id => {const node = $('#subpage-' + id); if (node) node.hidden = id !== sub;});
     // The storage panel is the only card that needs a read when it appears.
-    if (sub === 'about') {loadStorageStatus(false).catch(() => {}); loadVersions().catch(() => {});}
+    if (sub === 'data') {loadStorageStatus(false).catch(() => {}); loadVersions().catch(() => {});}
     // 每日推送与建议 must open on today's advice, not on an empty query form.
     if (sub === 'push') {loadTodayAdvice().catch(() => {});}
     if (sub) window.scrollTo({top:0, behavior:'auto'});
@@ -1862,7 +1862,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     if (box) {box.value = String(row.question || ''); box.focus();}
     window.scrollTo({top: 0, behavior: 'smooth'});
     if (typeof externalConsent === 'function' && externalConsent()) {await sendChat();}
-    else notice('问题已填回输入框；到「我的 → 更多设置 → 数据管理」开启外部模型授权后点「提问」即可重新生成。');
+    else notice('问题已填回输入框；到「我的 → 数据与关于」开启外部模型授权后点「提问」即可重新生成。');
   }
   let chatQuery = "";
   /** 按日期分组，组内保持倒序（最新在前）。 */
@@ -2018,7 +2018,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     const node = $('#chat-mode');
     if (node) {
       const base = state.settings.apiConfigured === true
-        ? '已配置模型：外发开关与授权在「我的 → 更多设置 → 数据管理」；问题与部分健康数据会发给该服务商，按 token 计费。'
+        ? '已配置模型：外发开关与授权在「我的 → 数据与关于」；问题与部分健康数据会发给该服务商，按 token 计费。'
         : '尚未配置 API Key：请先到「我的 → AI 模型与密钥」保存密钥；本地记录功能不受影响。';
       node.textContent = base;
     }
@@ -2141,7 +2141,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     if (button.disabled) return;
     if (chatImageBusy) {feedback(message,'照片还在压缩，请稍等一下。',true); return;}
     if (!question && !chatImage) {feedback(message,'请先写下你的问题，或拍一张照片。',true); $('#chat-question').focus(); return;}
-    if (!externalConsent()) {feedback(message,'请先到「我的 → 更多设置 → 数据管理」开启外部模型授权。',true); return;}
+    if (!externalConsent()) {feedback(message,'请先到「我的 → 数据与关于」开启外部模型授权。',true); return;}
     if (question.length > 2000) {feedback(message,'问题请控制在 2000 字以内。',true); return;}
     // A sentence describing finished training becomes a draft card; nothing is written until confirmed.
     if (typeof parseTrainingDraft === 'function') {
@@ -5277,7 +5277,7 @@ const values = points.length<=7 ? points.map((item,i) => {
         if (jump) {
           // 「用 AI 排今天」就地排：跳页再让用户点第二次，是最伤直觉的一步。
           if (jump.dataset.todayPlan === "ai" && typeof askAiPlan === "function") {
-            if (!externalConsent()) { notice("请先到「我的 → 更多设置 → 数据管理」开启外部模型授权。"); return; }
+            if (!externalConsent()) { notice("请先到「我的 → 数据与关于」开启外部模型授权。"); return; }
             askAiPlan(jump);
             return;
           }
@@ -6605,7 +6605,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.64';
+  const APP_VERSION = '1.4.67';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -7281,7 +7281,7 @@ function metricIcon(label) {
   }
   async function askAiPlan(button) {
     if (!button) return;
-    if (!externalConsent()) { notice("请先到「我的 → 更多设置 → 数据管理」开启外部模型授权。"); return; }
+    if (!externalConsent()) { notice("请先到「我的 → 数据与关于」开启外部模型授权。"); return; }
     button.disabled = true;
     const original = button.textContent;
     button.textContent = "正在排…";
@@ -8750,7 +8750,7 @@ function metricIcon(label) {
     if(imageBusy){feedback(message,'图片仍在压缩，请稍等。',true);return;}
     if(!loaded || !settingsKnown){feedback(message,'尚未加载手机模型配置，请重新打开应用后再估算。',true);return;}
     if(imageData && (!state.settings.apiConfigured || !state.settings.visionEnabled || !state.settings.visionModel)){feedback(message,'照片需要已启用的视觉模型：请到「我的 → AI 模型与密钥」填写并启用。',true);return;}
-    if(imageData && !externalConsent()){feedback(message,'照片估算需要外部模型：请到「我的 → 更多设置 → 数据管理」开启授权。',true);return;}
+    if(imageData && !externalConsent()){feedback(message,'照片估算需要外部模型：请到「我的 → 数据与关于」开启授权。',true);return;}
     if(imageData && !navigator.onLine){feedback(message,'当前离线，照片无法识别；请移除照片，改用文字估算。',true);return;}
     const text=form.elements.text.value.trim();if(!text && !imageData){feedback(message,'请描述餐食或添加一张图片。',true);return;}
     if(draft && !await askConfirm('新估算会替换当前未保存的预览，继续吗？', {title:'替换预览'}))return;
@@ -9015,7 +9015,7 @@ feedback(message,'数据已导入。'+report);
       event.preventDefault();
       const question = input.value.trim();
       if (!question) {feedback(feedbackBox, '先写一句要问的训练问题。', true); return;}
-      if (!externalConsent()) {feedback(feedbackBox, '请先到「我的 → 更多设置 → 数据管理」开启外部模型授权。', true); return;}
+      if (!externalConsent()) {feedback(feedbackBox, '请先到「我的 → 数据与关于」开启外部模型授权。', true); return;}
       feedback(feedbackBox, '正在生成…');
       const button = form.querySelector('button[type="submit"]');
       if (button) button.disabled = true;

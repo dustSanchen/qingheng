@@ -1036,7 +1036,7 @@
         if (jump) {
           // 「用 AI 排今天」就地排：跳页再让用户点第二次，是最伤直觉的一步。
           if (jump.dataset.todayPlan === "ai" && typeof askAiPlan === "function") {
-            if (!externalConsent()) { notice("请先到「我的 → 更多设置 → 数据管理」开启外部模型授权。"); return; }
+            if (!externalConsent()) { notice("请先到「我的 → 数据与关于」开启外部模型授权。"); return; }
             askAiPlan(jump);
             return;
           }

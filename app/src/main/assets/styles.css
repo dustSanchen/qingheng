@@ -1925,6 +1925,10 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 
 /* 记录可信度只存内部（1.4.58），不再有可见样式 */
 
+/* 数据与关于（1.4.65）：数据卡内是分区（权限检查/备份/本机存储），关于卡内的小节标题与小节距也要一致 */
+#view-profile article.card > h3{margin:var(--space-4) 0 var(--space-2);font-size:var(--text-md);color:var(--ink-soft);letter-spacing:0}
+#view-profile article.card > h3:first-of-type{margin-top:var(--space-2)}
+
 /* 我的页（1.4.52）：一个副页只留一张卡，卡内用发丝线分区——入口预算从 14 张降到 8 张 */
 .card-section{margin-top:var(--space-4);padding-top:var(--space-3);border-top:1px solid var(--line)}
 .card-section>.card-heading h2{font-size:var(--text-md);color:var(--ink-soft);letter-spacing:0}

@@ -622,7 +622,7 @@
     if (box) {box.value = String(row.question || ''); box.focus();}
     window.scrollTo({top: 0, behavior: 'smooth'});
     if (typeof externalConsent === 'function' && externalConsent()) {await sendChat();}
-    else notice('问题已填回输入框；到「我的 → 更多设置 → 数据管理」开启外部模型授权后点「提问」即可重新生成。');
+    else notice('问题已填回输入框；到「我的 → 数据与关于」开启外部模型授权后点「提问」即可重新生成。');
   }
   let chatQuery = "";
   /** 按日期分组，组内保持倒序（最新在前）。 */
@@ -778,7 +778,7 @@
     const node = $('#chat-mode');
     if (node) {
       const base = state.settings.apiConfigured === true
-        ? '已配置模型：外发开关与授权在「我的 → 更多设置 → 数据管理」；问题与部分健康数据会发给该服务商，按 token 计费。'
+        ? '已配置模型：外发开关与授权在「我的 → 数据与关于」；问题与部分健康数据会发给该服务商，按 token 计费。'
         : '尚未配置 API Key：请先到「我的 → AI 模型与密钥」保存密钥；本地记录功能不受影响。';
       node.textContent = base;
     }
@@ -901,7 +901,7 @@
     if (button.disabled) return;
     if (chatImageBusy) {feedback(message,'照片还在压缩，请稍等一下。',true); return;}
     if (!question && !chatImage) {feedback(message,'请先写下你的问题，或拍一张照片。',true); $('#chat-question').focus(); return;}
-    if (!externalConsent()) {feedback(message,'请先到「我的 → 更多设置 → 数据管理」开启外部模型授权。',true); return;}
+    if (!externalConsent()) {feedback(message,'请先到「我的 → 数据与关于」开启外部模型授权。',true); return;}
     if (question.length > 2000) {feedback(message,'问题请控制在 2000 字以内。',true); return;}
     // A sentence describing finished training becomes a draft card; nothing is written until confirmed.
     if (typeof parseTrainingDraft === 'function') {
