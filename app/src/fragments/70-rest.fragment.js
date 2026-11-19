@@ -154,7 +154,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.17';
+  const APP_VERSION = '1.4.18';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -917,11 +917,6 @@
 
   /** 皮肤：attribute + localStorage；不写进 state，避免一次换肤触发整份数据同步。 */
   const SKINS = ['paper', 'ledger', 'night'];
-  const DATA_PAGES = ['trends'];
-  /** 系统是否处于深色；取不到时按浅色处理。 */
-  function darkScheme() {
-    try { return window.matchMedia('(prefers-color-scheme: dark)').matches === true; } catch (error) { return false; }
-  }
   /** 夜间是显式选择：全程账本 + 暗色令牌，不再看系统深浅色。 */
   function skinForPage(base, tab) {
     if (base === 'night') return 'ledger';

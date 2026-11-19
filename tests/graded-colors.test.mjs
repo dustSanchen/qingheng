@@ -10,9 +10,8 @@ const app = read('app/src/main/assets/app.js');
 const targets = read('app/src/fragments/40-targets.fragment.js');
 
 // --- the shared colour ramp --------------------------------------------------------------------------
-check('a single colour ramp exists', app.includes('function goalColor(ratio)'));
-check('it interpolates green -> amber -> red', app.includes('142 - (142 - 42)') && app.includes('42 - (42 - 6)'));
-check('ratio is clamped', app.includes('Math.max(0, Math.min(1, Number.isFinite(ratio) ? ratio : 1))'));
+// goalColor 曾在全文件只有声明、没有调用；颜色现在由下面的 dietBarColor/rateGoalColor 各自负责。
+check('the unused colour ramp is gone', !app.includes('function goalColor(ratio)'));
 
 // --- diet bars --------------------------------------------------------------------------------------
 check('diet bars pick a colour by state', app.includes('function dietBarColor(kcal, min, max)') && app.includes('if (kcal > max) return overColor(kcal, max);'));

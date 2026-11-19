@@ -139,7 +139,6 @@
    * 热量超区间上限 12% 或脂肪超上限 20%，且当天至少两餐、不是吃太少；
    * 同一自然周只认一天——更早已经有放松日，今天就算第二次超量，不再享受。
    */
-  const RELAX_TAG = 'qingheng.relaxDay';
   function relaxDayInfoFor(date) {
     const meals = (state.meals || []).filter(row => row && row.date === date);
     const range = intakeRangeForDate(date);
@@ -856,17 +855,6 @@
     // 收进 state.json：换新手机导入备份后周计划偏好还在；localStorage 此时是空的。
     if (typeof schedulePrefsSync === 'function') schedulePrefsSync({planPrefs: prefs ?? null, aiPlans: collectedAiPlans()});
   }
-  /** 每周练几天 -> 落在周几（0=周一）。 */
-  function trainingDays(count) {
-    const map = {3: [0, 2, 4], 4: [0, 1, 3, 5], 5: [0, 1, 3, 4, 5], 6: [0, 1, 2, 3, 4, 5]};
-    return map[Math.max(3, Math.min(6, Number(count) || 3))] || map[3];
-  }
-  function splitLabels(split) {
-    if (split === "ul") return ["上肢", "下肢"];
-    if (split === "fb") return ["全身"];
-    return ["推", "拉", "腿"];
-  }
-
   /** 已保存的训练安排压成一行：折叠后仍要知道「每周几天、怎么分、用什么器械、每次多久」。 */
   const PLAN_SPLIT_LABELS = {ppl: "推拉腿", ul: "上下肢", fb: "全身"};
   const PLAN_GEAR_LABELS = {mixed: "综合", barbell: "杠铃", dumbbell: "哑铃", machine: "固定器械", body: "自重"};

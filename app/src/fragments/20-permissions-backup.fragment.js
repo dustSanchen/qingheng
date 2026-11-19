@@ -102,7 +102,7 @@
     if (!info?.due) return;
     const key = `qingheng.backup-reminded.${localDate()}`;
     try {if (localStorage.getItem(key) === '1') return; localStorage.setItem(key, '1');} catch {}
-    notice(`建议现在导出一次备份：${info.reason}。到「我的 → 更多设置 → 数据管理」点「立即导出备份」；文件在手机本地，卸载应用会一起删除。`, true);
+    notice(`建议现在导出一次备份：${info.reason}。文件在手机本地，卸载应用会一起删除。`, true, {label: '去导出', run: () => openSubpage('data')});
   }
   async function maybeOfferTargetAdjustment() {
     if (!loaded || activeDate !== localDate() || state?.temporaryTargets?.status === 'active') return;

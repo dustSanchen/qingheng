@@ -32,7 +32,7 @@ assert(!/icon-(tip|copy|check)\.svg" alt/.test(html), 'no black currentColor ico
 // --- skeleton icons stay file-loaded and tintable ----------------------------------------------
 assert(html.includes('icon-glyph-ring.svg') && html.includes('icon-nav-back.svg'), 'navigation reuses the ring glyph and keeps the back icon file');
 assert(css.includes('.bottom-nav button:not([aria-current=page]) .nav-icon img{opacity:.55'), 'inactive nav icons are dimmed');
-for (const rule of ['.hub-icon svg{width:21px', '.sheet-option-icon svg{width:19px', '.fav-badge svg{width:14px', '.habit-symbol svg{width:22px']) {
+for (const rule of ['.hub-icon svg{width:21px', '.sheet-option-icon svg{width:19px', '.fav-badge svg{width:14px']) {
   assert(css.includes(rule), `CSS sizes the inline icon: ${rule}`);
 }
 

@@ -217,16 +217,29 @@
     if (text) text.textContent = '';
     if (node) node.hidden = true;
   }
-  const notice = (message, error = false) => {
+  let noticeAction = null;
+  const notice = (message, error = false, action = null) => {
     const node = $('#global-notice'), text = $('#global-notice-text');
     if (!node || !text) return;
     text.textContent = message;
     node.classList.toggle('error', error);
     node.hidden = !message;
+    const button = $('#global-notice-action');
+    noticeAction = typeof action?.run === 'function' ? action : null;
+    if (button) {
+      button.hidden = !noticeAction;
+      button.textContent = noticeAction ? (action.label || '去处理') : '';
+    }
     if (noticeTimer) { clearTimeout(noticeTimer); noticeTimer = null; }
     // A notice used to stay until the next action, pushing the page down the whole time.
-    if (message) noticeTimer = setTimeout(hideNotice, 10000);
+    // 带动作的提示留久一点（20 s），否则用户还没点到按钮它就消失了。
+    if (message) noticeTimer = setTimeout(hideNotice, noticeAction ? 20000 : 10000);
   };
+  $('#global-notice-action')?.addEventListener('click', () => {
+    const action = noticeAction;
+    hideNotice();
+    if (action) action.run();
+  });
   const feedback = (node, message, error = false) => {
     if (!node) return;
     const value = String(message ?? '');
@@ -975,17 +988,6 @@
    * A goal that derives its own plan (薄肌) wins over the 口径 ranges, because those were written for
    * the recomp phase; showing both would leave the daily page and the plan disagreeing.
    */
-  /**
-   * Continuous "how close to the target" colour: ratio 0 = on target (green), 1 = far off (red),
-   * passing through amber. Used instead of hard good/bad buckets so a near miss still looks near.
-   */
-  function goalColor(ratio) {
-    const t = Math.max(0, Math.min(1, Number.isFinite(ratio) ? ratio : 1));
-    const hue = t < 0.5 ? 142 - (142 - 42) * (t / 0.5) : 42 - (42 - 6) * ((t - 0.5) / 0.5);
-    const saturation = 34 + 30 * t;
-    const lightness = 42 + 5 * t;
-    return `hsl(${Math.round(hue)} ${Math.round(saturation)}% ${Math.round(lightness)}%)`;
-  }
   /** 健身术语表：含义 + 注意事项。点一下词就出解释，不跳页。 */
   const TERMS = {
     "RPE": {full: "Rate of Perceived Exertion，自觉用力程度", meaning: "用 1~10 描述这一组有多难。RPE 8 = 还能再做约 2 次，RPE 10 = 力竭。", caution: "它靠自我感受，不同动作的体感不一样；第一次用建议对照「停下来还能做几次」校准。"},
@@ -1211,32 +1213,6 @@ function applyTrainingVisibility() {
       const prefs = document.getElementById("plan-prefs");
       if (prefs) prefs.hidden = true;
     }
-  }
-  function rateCalibration(goal) {
-    // 目标速率：减脂 0.4~0.7%/周、增肌 0.25~0.5%/周、维持 ±0.2%/周（知识库：可持续区间）
-    const want = goal === 'gain' ? {min: 0.25, max: 0.5} : (goal === 'maintain' ? {min: -0.2, max: 0.2} : {min: 0.4, max: 0.7});
-    const weights = (Array.isArray(state && state.habits) ? state.habits : [])
-      .filter(row => row && /^\d{4}-\d{2}-\d{2}$/.test(String(row.date)) && Number(row.weight) > 0)
-      .sort((a, b) => String(a.date).localeCompare(String(b.date)));
-    if (weights.length < 2) return null;
-    const last = weights[weights.length - 1];
-    const cutoff = shiftDay(last.date, -14);
-    const window = weights.filter(row => String(row.date) >= cutoff);
-    if (window.length < 2) return null;
-    const first = window[0], base = Number(first.weight), now = Number(last.weight);
-    if (!(base > 0)) return null;
-    const days = Math.max(1, Math.round((new Date(last.date + "T00:00:00") - new Date(first.date + "T00:00:00")) / 86400000));
-    const weeklyPercent = Math.round(((now - base) / base) * (7 / days) * 1000) / 10;
-    const loss = -weeklyPercent;
-    if (goal === 'gain') {
-      if (weeklyPercent < want.min) return {text: "近 " + days + " 天体重每周变化 " + weeklyPercent + "%，低于增肌区间 " + want.min + "~" + want.max + "%，可考虑把盈余上调约 3%。"};
-      if (weeklyPercent > want.max) return {text: "近 " + days + " 天每周涨 " + weeklyPercent + "%，高于增肌区间，建议把盈余下调约 3%。"};
-      return {text: "增肌速率 " + weeklyPercent + "%/周，在 " + want.min + "~" + want.max + "% 区间内。"};
-    }
-    if (goal === 'maintain') return {text: "近 " + days + " 天体重每周变化 " + weeklyPercent + "%，维持目标看趋势不看单点。"};
-    if (loss < want.min) return {text: "近 " + days + " 天每周降 " + loss + "%，低于 " + want.min + "~" + want.max + "% 区间，可考虑把缺口上调约 3%。"};
-    if (loss > want.max) return {text: "近 " + days + " 天每周降 " + loss + "%，高于 " + want.max + "%，建议把缺口下调约 3%，别掉肌肉。"};
-    return {text: "减脂速率 " + loss + "%/周，落在 " + want.min + "~" + want.max + "% 的可持续区间内。"};
   }
   function goalLabel(goal) {
     const map = {gain: '增肌', cut: '减脂', recomp: '增肌同时减脂', lean: '薄肌', maintain: '保持身材'};

@@ -1111,3 +1111,13 @@ o-store，升级后不会拿到旧代码。
 - 验收：test-all 74/74；dev-loop 1.4.17/417 装机成功、smoke 无 JS 错误。
 - 未做（留待后续）：底栏 backdrop-filter 去模糊、32 个零引用 CSS 与 10 个死符号、历史日按当前档案重算、docs/dist/tests 归档。
 - APK：dist/qingheng-1.4.17.apk（638176 B，sha256 1a2de97ff916c9645d09b5ff5eb67bc1d2239e2b27773a6b2dee25c5e07be66b）。
+
+## r139 · 2026-11-19 · 1.4.18（审视建议收尾：死代码清理与备份动作）
+- 死代码（JS）：删除只在声明处出现一次的 goalColor、ateCalibration、enderMeals、RELAX_TAG、	rainingDays、splitLabels、DATA_PAGES、darkScheme。localCoachLine 与 libraryRuleForMetric 保留：前者是分析层测试的桩接口，后者是训练库测试的切片锚点，删掉会把测试拆坏。
+- 死代码（CSS）：按「选择器里的类名在 index.html + app.js 中零命中」筛出 24 个类，删掉 46 个整块规则（含 @media 内的），styles.css 139,881 → 135,477 B（−4.4 KB）。.habit-symbol 等被测试钉住的死类一并从断言里移除。
+- 备份提醒变成带按钮的提示：
+otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点了直接打开「我的 → 数据管理」；带动作的提示停留 20 s。
+- 断言：graded-colors 的 goalColor 三条改为「死代码已删除」；icons-motion 去掉 .habit-symbol 尺寸断言；onboarding-backup 新增「备份提醒带动作按钮」。登记 §5.1。
+- 验收：test-all 74/74；dev-loop 1.4.18/418 装机成功、smoke 无 JS 错误；aesthetic-audit 仅既有 WARN。
+- 未做：底栏 backdrop-filter 去模糊、历史日按当前档案重算、docs/dist 归档（记录在项目 todo）。
+- APK：dist/qingheng-1.4.18.apk（638176 B，sha256 c987f776fbcceb22b94cffcfa82f6874706c80862b8c172961fa9fcc41d2f330）。

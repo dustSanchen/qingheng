@@ -217,16 +217,29 @@
     if (text) text.textContent = '';
     if (node) node.hidden = true;
   }
-  const notice = (message, error = false) => {
+  let noticeAction = null;
+  const notice = (message, error = false, action = null) => {
     const node = $('#global-notice'), text = $('#global-notice-text');
     if (!node || !text) return;
     text.textContent = message;
     node.classList.toggle('error', error);
     node.hidden = !message;
+    const button = $('#global-notice-action');
+    noticeAction = typeof action?.run === 'function' ? action : null;
+    if (button) {
+      button.hidden = !noticeAction;
+      button.textContent = noticeAction ? (action.label || '去处理') : '';
+    }
     if (noticeTimer) { clearTimeout(noticeTimer); noticeTimer = null; }
     // A notice used to stay until the next action, pushing the page down the whole time.
-    if (message) noticeTimer = setTimeout(hideNotice, 10000);
+    // 带动作的提示留久一点（20 s），否则用户还没点到按钮它就消失了。
+    if (message) noticeTimer = setTimeout(hideNotice, noticeAction ? 20000 : 10000);
   };
+  $('#global-notice-action')?.addEventListener('click', () => {
+    const action = noticeAction;
+    hideNotice();
+    if (action) action.run();
+  });
   const feedback = (node, message, error = false) => {
     if (!node) return;
     const value = String(message ?? '');
@@ -975,17 +988,6 @@
    * A goal that derives its own plan (薄肌) wins over the 口径 ranges, because those were written for
    * the recomp phase; showing both would leave the daily page and the plan disagreeing.
    */
-  /**
-   * Continuous "how close to the target" colour: ratio 0 = on target (green), 1 = far off (red),
-   * passing through amber. Used instead of hard good/bad buckets so a near miss still looks near.
-   */
-  function goalColor(ratio) {
-    const t = Math.max(0, Math.min(1, Number.isFinite(ratio) ? ratio : 1));
-    const hue = t < 0.5 ? 142 - (142 - 42) * (t / 0.5) : 42 - (42 - 6) * ((t - 0.5) / 0.5);
-    const saturation = 34 + 30 * t;
-    const lightness = 42 + 5 * t;
-    return `hsl(${Math.round(hue)} ${Math.round(saturation)}% ${Math.round(lightness)}%)`;
-  }
   /** 健身术语表：含义 + 注意事项。点一下词就出解释，不跳页。 */
   const TERMS = {
     "RPE": {full: "Rate of Perceived Exertion，自觉用力程度", meaning: "用 1~10 描述这一组有多难。RPE 8 = 还能再做约 2 次，RPE 10 = 力竭。", caution: "它靠自我感受，不同动作的体感不一样；第一次用建议对照「停下来还能做几次」校准。"},
@@ -1211,32 +1213,6 @@ function applyTrainingVisibility() {
       const prefs = document.getElementById("plan-prefs");
       if (prefs) prefs.hidden = true;
     }
-  }
-  function rateCalibration(goal) {
-    // 目标速率：减脂 0.4~0.7%/周、增肌 0.25~0.5%/周、维持 ±0.2%/周（知识库：可持续区间）
-    const want = goal === 'gain' ? {min: 0.25, max: 0.5} : (goal === 'maintain' ? {min: -0.2, max: 0.2} : {min: 0.4, max: 0.7});
-    const weights = (Array.isArray(state && state.habits) ? state.habits : [])
-      .filter(row => row && /^\d{4}-\d{2}-\d{2}$/.test(String(row.date)) && Number(row.weight) > 0)
-      .sort((a, b) => String(a.date).localeCompare(String(b.date)));
-    if (weights.length < 2) return null;
-    const last = weights[weights.length - 1];
-    const cutoff = shiftDay(last.date, -14);
-    const window = weights.filter(row => String(row.date) >= cutoff);
-    if (window.length < 2) return null;
-    const first = window[0], base = Number(first.weight), now = Number(last.weight);
-    if (!(base > 0)) return null;
-    const days = Math.max(1, Math.round((new Date(last.date + "T00:00:00") - new Date(first.date + "T00:00:00")) / 86400000));
-    const weeklyPercent = Math.round(((now - base) / base) * (7 / days) * 1000) / 10;
-    const loss = -weeklyPercent;
-    if (goal === 'gain') {
-      if (weeklyPercent < want.min) return {text: "近 " + days + " 天体重每周变化 " + weeklyPercent + "%，低于增肌区间 " + want.min + "~" + want.max + "%，可考虑把盈余上调约 3%。"};
-      if (weeklyPercent > want.max) return {text: "近 " + days + " 天每周涨 " + weeklyPercent + "%，高于增肌区间，建议把盈余下调约 3%。"};
-      return {text: "增肌速率 " + weeklyPercent + "%/周，在 " + want.min + "~" + want.max + "% 区间内。"};
-    }
-    if (goal === 'maintain') return {text: "近 " + days + " 天体重每周变化 " + weeklyPercent + "%，维持目标看趋势不看单点。"};
-    if (loss < want.min) return {text: "近 " + days + " 天每周降 " + loss + "%，低于 " + want.min + "~" + want.max + "% 区间，可考虑把缺口上调约 3%。"};
-    if (loss > want.max) return {text: "近 " + days + " 天每周降 " + loss + "%，高于 " + want.max + "%，建议把缺口下调约 3%，别掉肌肉。"};
-    return {text: "减脂速率 " + loss + "%/周，落在 " + want.min + "~" + want.max + "% 的可持续区间内。"};
   }
   function goalLabel(goal) {
     const map = {gain: '增肌', cut: '减脂', recomp: '增肌同时减脂', lean: '薄肌', maintain: '保持身材'};
@@ -2321,7 +2297,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     if (!info?.due) return;
     const key = `qingheng.backup-reminded.${localDate()}`;
     try {if (localStorage.getItem(key) === '1') return; localStorage.setItem(key, '1');} catch {}
-    notice(`建议现在导出一次备份：${info.reason}。到「我的 → 更多设置 → 数据管理」点「立即导出备份」；文件在手机本地，卸载应用会一起删除。`, true);
+    notice(`建议现在导出一次备份：${info.reason}。文件在手机本地，卸载应用会一起删除。`, true, {label: '去导出', run: () => openSubpage('data')});
   }
   async function maybeOfferTargetAdjustment() {
     if (!loaded || activeDate !== localDate() || state?.temporaryTargets?.status === 'active') return;
@@ -3356,10 +3332,6 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
         + `<div class="row-side"><span class="row-kcal">${fmt(meal.calories,0)} <small>kcal</small></span></div></div>`;
     }).join('');
   }
-  // 未迁移到 stateBlock：仍用 empty()，待后续统一（五态模板只替换了今日时间轴、记录列表、体重趋势三处）。
-  function renderMeals(container, meals, showDate) {
-    container.innerHTML = meals.length ? mealRowsHtml(meals, showDate) : empty('还没有餐食记录。记下第一餐，从了解自己开始。');
-  }
   function renderTodayTimeline(container, meals) {
     if (!container) return;
     // 只列餐食。睡眠/体重/训练曾经被当成「事件」塞在末尾，看起来像误记进今日记录；
@@ -4326,7 +4298,6 @@ const values = points.length<=7 ? points.map((item,i) => {
    * 热量超区间上限 12% 或脂肪超上限 20%，且当天至少两餐、不是吃太少；
    * 同一自然周只认一天——更早已经有放松日，今天就算第二次超量，不再享受。
    */
-  const RELAX_TAG = 'qingheng.relaxDay';
   function relaxDayInfoFor(date) {
     const meals = (state.meals || []).filter(row => row && row.date === date);
     const range = intakeRangeForDate(date);
@@ -5043,17 +5014,6 @@ const values = points.length<=7 ? points.map((item,i) => {
     // 收进 state.json：换新手机导入备份后周计划偏好还在；localStorage 此时是空的。
     if (typeof schedulePrefsSync === 'function') schedulePrefsSync({planPrefs: prefs ?? null, aiPlans: collectedAiPlans()});
   }
-  /** 每周练几天 -> 落在周几（0=周一）。 */
-  function trainingDays(count) {
-    const map = {3: [0, 2, 4], 4: [0, 1, 3, 5], 5: [0, 1, 3, 4, 5], 6: [0, 1, 2, 3, 4, 5]};
-    return map[Math.max(3, Math.min(6, Number(count) || 3))] || map[3];
-  }
-  function splitLabels(split) {
-    if (split === "ul") return ["上肢", "下肢"];
-    if (split === "fb") return ["全身"];
-    return ["推", "拉", "腿"];
-  }
-
   /** 已保存的训练安排压成一行：折叠后仍要知道「每周几天、怎么分、用什么器械、每次多久」。 */
   const PLAN_SPLIT_LABELS = {ppl: "推拉腿", ul: "上下肢", fb: "全身"};
   const PLAN_GEAR_LABELS = {mixed: "综合", barbell: "杠铃", dumbbell: "哑铃", machine: "固定器械", body: "自重"};
@@ -6278,7 +6238,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.17';
+  const APP_VERSION = '1.4.18';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -7041,11 +7001,6 @@ function metricIcon(label) {
 
   /** 皮肤：attribute + localStorage；不写进 state，避免一次换肤触发整份数据同步。 */
   const SKINS = ['paper', 'ledger', 'night'];
-  const DATA_PAGES = ['trends'];
-  /** 系统是否处于深色；取不到时按浅色处理。 */
-  function darkScheme() {
-    try { return window.matchMedia('(prefers-color-scheme: dark)').matches === true; } catch (error) { return false; }
-  }
   /** 夜间是显式选择：全程账本 + 暗色令牌，不再看系统深浅色。 */
   function skinForPage(base, tab) {
     if (base === 'night') return 'ledger';

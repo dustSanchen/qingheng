@@ -271,10 +271,6 @@
         + `<div class="row-side"><span class="row-kcal">${fmt(meal.calories,0)} <small>kcal</small></span></div></div>`;
     }).join('');
   }
-  // 未迁移到 stateBlock：仍用 empty()，待后续统一（五态模板只替换了今日时间轴、记录列表、体重趋势三处）。
-  function renderMeals(container, meals, showDate) {
-    container.innerHTML = meals.length ? mealRowsHtml(meals, showDate) : empty('还没有餐食记录。记下第一餐，从了解自己开始。');
-  }
   function renderTodayTimeline(container, meals) {
     if (!container) return;
     // 只列餐食。睡眠/体重/训练曾经被当成「事件」塞在末尾，看起来像误记进今日记录；
