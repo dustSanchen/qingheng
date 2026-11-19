@@ -136,31 +136,19 @@ check('entering a sub-page pushes history for the system back button', app.inclu
 check('restoring the tab ignores the sub-page', /function restoreTab\(\) \{\s*const fromHash = parseHash\(\)\.tab;/.test(app));
 check('hub summaries are refreshed from state', app.includes('function renderHub()') && app.includes('renderHub();'));
 check('the storage panel is driven by the new route', app.includes("api(remirror ? '/api/storage-remirror' : '/api/storage-status'"));
-check('the app version is a single constant', app.includes("const APP_VERSION = '1.4.11'"));
+check('the app version is a single constant', app.includes("const APP_VERSION = '1.4.12'"));
 check('the shown version matches the build script', (() => {
   const shown = /const APP_VERSION = '([0-9.]+)'/.exec(app);
   const built = /\$Version='([0-9.]+)'/.exec(fs.readFileSync('build.ps1', 'utf8'));
   return !!shown && !!built && shown[1] === built[1];
 })(), 'APP_VERSION and build.ps1 must agree');
 
-// --- Health Connect: the read permission is now actually requested ------------------------------
-const hc = fs.readFileSync('app/src/main/java/cn/qingheng/health/HealthConnectSync.java', 'utf8');
+// --- Health Connect was removed on purpose: watch sync is out of scope for now ----------------------
 const manifest = fs.readFileSync('app/src/main/AndroidManifest.xml', 'utf8');
-check('the readable permissions are exposed for a request', hc.includes('public static String[] readPermissions() { return READ_PERMISSIONS.clone(); }'));
-check('the sync result reports per-type counts', hc.includes('result.put("counts", counts);'));
-check('counts cover all five record types', ['steps', 'sleep', 'exercise', 'activeCalories', 'distance'].every(type => hc.includes(`"${type}"`)));
-check('the app requests the health permissions', main.includes('requestPermissions(permissions, REQUEST_HEALTH)') && main.includes('HealthConnectSync.readPermissions()'));
-check('the bridge exposes the request to the page', main.includes('public void requestHealthConnectPermissions()'));
-check('the answer is reported back to the page', main.includes('private void notifyHealthResult(boolean granted, String[] missing, String message)') && main.includes('window.__qinghengHealthResult'));
-check('the permission result is handled', main.includes('if (request == REQUEST_HEALTH) {') && main.includes('HealthConnectSync.missingPermissions(this), granted ? null'));
-check('the status route names the reason in plain language', main.includes('尚未授权读取健康数据（轻衡需要你的明确同意）') && main.includes('权限已就绪，可以读取'));
-check('a missing permission still opens the system settings as a fallback', main.includes('android.health.connect.action.MANAGE_HEALTH_PERMISSIONS'));
-check('the rationale entry Android 14 expects is declared', manifest.includes('androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE') && manifest.includes('android:name=".HealthPermissionsRationale"'));
-check('the rationale activity is exported for Health Connect', /<activity-alias android:name=".HealthPermissionsRationale" android:exported="true"/.test(manifest));
-check('the rationale text states read-only and local-only', main.includes('不会写回 Health Connect') && main.includes('只保存在这台手机上'));
-check('the page asks for permission before syncing', app.includes('if (status?.permissionsGranted !== true)') && app.includes('bridge.requestHealthConnectPermissions'));
-check('the page waits for the native answer', app.includes('function waitHealthResult(timeoutMs = 120000)'));
-check('an empty result explains the likely cause instead of failing silently', app.includes('小米运动健康 → 我的 → 设置 → 第三方数据/Health Connect'));
+check('the Health Connect bridge file is gone', !fs.existsSync('app/src/main/java/cn/qingheng/health/HealthConnectSync.java'));
+check('no health read permission is declared', !/android\.permission\.health\./.test(manifest));
+check('no Health Connect route or bridge method remains', !/HealthConnect|health-connect/.test(main) && !/HealthConnect/.test(app));
+check('the rationale entry is gone too', !manifest.includes('ACTION_SHOW_PERMISSIONS_RATIONALE'));
 
 // --- Reminders: on time, never two in one window, short enough for the shade ---------------------
 check('the alarm-clock permission is declared for on-time delivery', manifest.includes('android.permission.USE_EXACT_ALARM'));

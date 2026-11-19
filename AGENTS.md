@@ -52,10 +52,10 @@ adb shell dumpsys package cn.qingheng.health | Select-String 'versionName'
 3. **`--preview` 只接受预览像素**（≤877x1904）。设备像素 348,2320 配 `--preview` 会被脚本拒绝，
    这是**正确行为**，不是 bug。
 4. **三个远端，源码与发行分开（2026-11-19 起）**：`.gitignore` 排除 toolchain/dist/build/backups/artifacts/downloads/.signing；签名密钥绝不入库。每轮改动在 assemble + `node tools/test-all.mjs` 全绿后提交一次，消息格式 `轻衡 <版本>：<摘要>`（中文，用 `git commit -F <文件>` 避免 cmd 转码）。
-   - `localmirror` = `C:\qingheng-remote\qingheng.git`（C 盘 bare，全量备份）；`source` = GitHub 私有 `dustSanchen/qingheng-source`（全量源码）；两者收全量 master：`git push localmirror master` + `git push source master`。
-   - `public` = GitHub 公开 `dustSanchen/qingheng`，**只放 README.md、LICENSE、site/index.html**，不接收任何源码、测试、工具或文档。发版用 `tools\publish-public.ps1 -Message "<摘要>"`（内部白名单 + force push，同时刷新 gh-pages）；**不要**直接 `git push public master`。
-   - 发版：`dev-loop` 构建装机 → `publish-public.ps1` 刷新展示页 → `gh release create`/API 上传 `dist\qingheng-<版本>.apk` 为 Release asset。
-   - 为什么这样分：用户要求「开源范围收紧，避免 APP 被直接改造成他人项目」；公开仓库只保留安装包与展示页，源码只进私有仓库。
+   - `localmirror` = `C:\qingheng-remote\qingheng.git`（C 盘 bare，全量备份）；`source` = GitHub 私有 `dustSanchen/qingheng-source`（全量备份）；`public` = GitHub 公开 `dustSanchen/qingheng`（源码公开，master 与本地一致）。三个远端都收全量 master：`git push localmirror master` + `git push source master` + `git push public master`。
+   - 展示页：`tools\publish-pages.ps1 -Message "<摘要>"` 只刷新 `gh-pages` 分支（site/index.html），不动 master。
+   - 发版：`dev-loop` 构建装机 → 推送三个远端 → `publish-pages.ps1` 刷新展示页 → Release 上传 `dist\qingheng-<版本>.apk`。
+   - 2026-11-19 的边界：用户先要求收紧到「仅二进制分发」，随后又要求「删除手表同步与 Health Connect，并开源代码」；当前状态是源码公开 + 许可禁止转售/再分发，安装包仍走 Release。
    - OneDrive `qingheng-backup/` 的 bundle 与密钥副本为云冷备。回滚优先 `git checkout -- <文件>` / `git revert`；`backups/auto-*` 快照与文件旁 `.bak-rNN` 降级为补充手段。
 
 ## 已装护栏（2026-10-29，防复发）

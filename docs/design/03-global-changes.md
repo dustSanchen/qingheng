@@ -192,3 +192,7 @@
 | 2026-11-19 | `tests/ci-and-versions.test.mjs` | 新增 3 条：关于页写作者与仓库地址、页面/许可都写「严禁二次转售」、README 保留 631 KB 与签名指纹 | 1.4.09 开源化：关于页与页脚补作者信息与 GitHub 地址，许可证改为「源码可见 + 禁止转售」；README 成为对外展示页，下载与签名事实必须可核对 |
 | 2026-11-19 | `tests/ci-and-versions.test.mjs` | 断言改为「关于页写作者并声明不提供源码」+「应用不再含源码仓库链接」+「反编译与禁止转售条款」+「公开发布脚本只发白名单文件」 | 1.4.10/1.4.11 收紧开源范围：应用内移除代码仓库入口，许可改为仅二进制分发，公开仓库只放 README/LICENSE/展示页，断言守着新边界 |
 | 2026-11-19 | `tests/ci-and-versions.test.mjs` | README 断言从「不提供源码」改为「引用 site/shots 截图 + LICENSE + 版本徽章 + 签名指纹」，并新增截图文件存在性检查（≥8 张） | 主页改为产品展示页：许可措辞中性化，截图从 site/index.html 抽成文件供 README 引用 |
+| 2026-11-19 | `tests/meal-date-java.test.mjs` | 15 条 Health Connect 正向断言 → 4 条「已移除」断言（无 HealthConnectSync.java、无 health 权限、无 HC 路由/桥、无 rationale） | 用户要求暂时删除手表同步与 Health Connect；守护改为防回潮 |
+| 2026-11-19 | `tests/onboarding-backup.test.mjs` | 三项权限 → 两项（通知、精确闹钟），去掉 health 相关 4 条断言 | 同上 |
+| 2026-11-19 | `tests/wizard-action-bar.test.mjs` | 权限检查上限断言去掉 `/api/health-connect/status`，改为断言不存在 | 同上 |
+| 2026-11-19 | `tests/ci-and-versions.test.mjs` | 关于页断言改「作者 + 源码公开」；许可断言改「禁止二次转售」；发布脚本断言改为 pages-only | 用户改口「开源代码」：源码重新公开，许可仍禁止转售；gh-pages 发布脚本替代白名单脚本 |

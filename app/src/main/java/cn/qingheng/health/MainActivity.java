@@ -69,7 +69,7 @@ import java.util.concurrent.Executors;
     private static final String EMPTY_REPLY = "模型这次没有给出回答内容，请重新提问或换一个模型";
     private static final String HOST = "app.qingheng.local";
     private static final int LIMIT = 8 * 1024 * 1024;
-    private static final int PICK = 4101, SAVE = 4102, SAVE_TEXT = 4103, CAMERA = 4104, VOICE = 4105, REQUEST_CAMERA = 4202, REQUEST_VOICE = 4203, REQUEST_HEALTH = 4204;
+    private static final int PICK = 4101, SAVE = 4102, SAVE_TEXT = 4103, CAMERA = 4104, VOICE = 4105, REQUEST_CAMERA = 4202, REQUEST_VOICE = 4203;
     /** A short wait after the first record of the day, so a second helping does not re-trigger it. */
     private static final long MEAL_FEEDBACK_DELAY_MS = 20 * 60 * 1000L;
     /** Hard cap for Markdown/text exports handed to the document picker (4 MB of UTF-8). */
@@ -84,8 +84,6 @@ import java.util.concurrent.Executors;
     private SyncDatabase syncDatabase;
     /** Last mirror failure, shown in the storage panel; never contains record content. */
     private String lastMirrorError = "";
-    /** True while the user is expected to answer the Health Connect permission screen. */
-    private boolean healthRequestPending;
     private JSONObject state;
     private ValueCallback<Uri[]> fileCallback;
     private String pendingExport, pendingTextExport;
@@ -105,25 +103,6 @@ import java.util.concurrent.Executors;
     private String pendingVoiceTarget;
     private volatile boolean alive = true;
 
-    /**
-     * Health Connect can open this activity to ask why the app wants health data. The answer is
-     * short, states the read-only scope, and makes clear that nothing is uploaded or written back.
-     */
-    private void maybeShowHealthRationale(Intent intent) {
-        if (intent == null || !"androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE".equals(intent.getAction())) return;
-        try {
-            new AlertDialog.Builder(this)
-                    .setTitle("为什么需要这些健康数据")
-                    .setMessage("轻衡只读取你亲手授权的睡眠、步数、运动、活动热量与距离，用来在本机显示趋势、"
-                            + "并把这些数字纳入饮食与训练建议。\n\n"
-                            + "• 数据只保存在这台手机上，不会上传；\n"
-                            + "• 不会写回 Health Connect；\n"
-                            + "• 你可以在 Health Connect 里随时撤回授权。")
-                    .setPositiveButton("知道了", null)
-                    .show();
-        } catch (Exception ignored) { }
-    }
-
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);
         prefs = getSharedPreferences("provider_secrets", MODE_PRIVATE);
@@ -131,7 +110,6 @@ import java.util.concurrent.Executors;
         imageTargetName = "chat".equals(prefs.getString("image_target_last", "meal")) ? "chat" : "meal";
         imageDeliveryBusy = false;
         reconcilePendingCapture();
-        maybeShowHealthRationale(getIntent());
         disk = new AtomicFile(new File(getFilesDir(), "state.json"));
         web = new WebView(this);
         WebView.setWebContentsDebuggingEnabled(false);
@@ -351,70 +329,6 @@ import java.util.concurrent.Executors;
         if (!inAppVoiceAvailable()) return false;
         startInAppVoice(target);
         return true;
-    }
-
-    /**
-     * Opens Health Connect's own permission screen for this app. This is the only path that actually
-     * registers the grant: Health Connect keeps its own permission state, and a read attempted with
-     * only the platform permission fails with ERROR_SECURITY. Several entry points are tried because
-     * the handler differs between the standalone app and the system module.
-     */
-    private void openHealthConnectPermissionScreen() {
-        Uri self = Uri.parse("package:" + getPackageName());
-        Intent[] candidates = new Intent[]{
-                // Spec paths first: the documented per-app permission action, then the settings home.
-                // They resolve through whatever module the ROM ships, so a module rename cannot break them.
-                new Intent("android.health.connect.action.MANAGE_HEALTH_PERMISSIONS").setData(self),
-                new Intent("android.health.connect.action.HEALTH_HOME_SETTINGS"),
-                new Intent("android.health.connect.action.REQUEST_HEALTH_PERMISSIONS").putExtra(
-                        "android.content.pm.extra.REQUEST_PERMISSIONS_NAMES", HealthConnectSync.readPermissions()),
-                new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).setData(self),
-                // Verified on this device: the bare entry point opens Health Connect's permission home.
-                // Kept only as the last module-specific fallback, after the documented actions above.
-                new Intent().setComponent(new android.content.ComponentName(
-                        "com.android.healthconnect.controller", "com.android.healthconnect.controller.PermissionControllerEntryPoint")),
-        };
-        for (Intent intent : candidates) {
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            try {startActivity(intent); return;}
-            catch (Exception ignored) { }
-        }
-        // Last resort that always resolves: open the Health Connect app itself.
-        for (String pkg : new String[]{"com.google.android.apps.healthdata", "com.android.healthconnect.controller"}) {
-            try {
-                Intent launch = getPackageManager().getLaunchIntentForPackage(pkg);
-                if (launch == null) continue;
-                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivity(launch);
-                return;
-            } catch (Exception ignored) { }
-        }
-        notifyImageError("无法打开 Health Connect 权限页：请打开手机上的「健康连接 / Health Connect」应用，"
-                + "在 应用权限 → 轻衡 中允许睡眠、步数、运动、活动热量与距离。");
-    }
-
-    @Override protected void onResume() {
-        super.onResume();
-        // Coming back from the Health Connect screen: if the user allowed the reads, continue.
-        if (!healthRequestPending) return;
-        healthRequestPending = false;
-        if (!HealthConnectSync.hasPermissions(this)) {
-            notifyHealthResult(false, HealthConnectSync.missingPermissions(this), "仍未获得健康数据读取权限");
-            return;
-        }
-        notifyHealthResult(true, new String[0], null);
-    }
-
-    /** Reports the Health Connect permission answer to the page so the sync can continue. */
-    private void notifyHealthResult(boolean granted, String[] missing, String message) {
-        if (!alive || web == null || !pageReady) return;
-        try {
-            JSONArray list = new JSONArray();
-            if (missing != null) for (String permission : missing) list.put(permission);
-            JSONObject payload = new JSONObject().put("granted", granted).put("missing", list);
-            if (message != null) payload.put("message", message);
-            web.evaluateJavascript("window.__qinghengHealthResult && window.__qinghengHealthResult(" + JSONObject.quote(payload.toString()) + ");", null);
-        } catch (Exception ignored) { }
     }
 
     private void notifyVoiceState(String state, String message) {
@@ -812,10 +726,6 @@ import java.util.concurrent.Executors;
                 return false;
             }
         }
-        @JavascriptInterface public void openHealthConnectSettings() {
-            if (!alive) return;
-            openHealthConnectPermissionScreen();
-        }
         /** Opens a provider console in the system browser; only known billing hosts are allowed. */
         @JavascriptInterface public boolean openExternal(String url) {
             if (!alive || url == null) return false;
@@ -832,29 +742,6 @@ import java.util.concurrent.Executors;
                 });
                 return true;
             } catch (Exception e) { return false; }
-        }
-        /**
-         * Asks the system for the Health Connect read permissions. Android shows its own consent
-         * sheet; the app never grants anything for the user, and the answer is reported back to the
-         * page so the sync can continue in the same tap.
-         */
-        @JavascriptInterface public void requestHealthConnectPermissions() {
-            if (!alive) return;
-            if (!HealthConnectSync.supported()) {
-                notifyHealthResult(false, new String[0], "此系统版本不提供 Health Connect 接口");
-                return;
-            }
-            final String[] permissions = HealthConnectSync.readPermissions();
-            runOnUiThread(() -> {
-                // On Android 14+ the framework silently ignores health permissions, so this request is
-                // a best effort; Health Connect's own screen is what actually records the grant.
-                try { requestPermissions(permissions, REQUEST_HEALTH); } catch (Exception ignored) { }
-                if (HealthConnectSync.hasPermissions(MainActivity.this)) {notifyHealthResult(true, new String[0], null); return;}
-                healthRequestPending = true;
-                openHealthConnectPermissionScreen();
-                notifyHealthResult(false, HealthConnectSync.missingPermissions(MainActivity.this),
-                        "请在 Health Connect 中允许这五项读取；返回轻衡后会自动继续同步");
-            });
         }
         @JavascriptInterface public void request(String json) {
             if (!alive) return;
@@ -1695,8 +1582,6 @@ import java.util.concurrent.Executors;
         if (path.equals("/api/storage-remirror") && (post || get)) return storageStatus(true);
         if (post && path.equals("/api/backup-restore")) return restoreFromAutoBackup();
         if (path.equals("/api/context-preview")) return contextPreview(b);
-        if (path.equals("/api/health-connect/status") && get) return healthConnectStatus();
-        if (path.equals("/api/health-connect/sync") && post) return healthConnectSync(b);
         if (path.equals("/api/target-adjustment")) {
             if (get) return temporaryTargetsSnapshot();
             if (post) return saveTemporaryTargets(b);
@@ -3669,125 +3554,6 @@ import java.util.concurrent.Executors;
         }
     }
 
-    private JSONObject healthConnectStatus() throws Exception {
-        boolean supported = HealthConnectSync.supported();
-        boolean available = HealthConnectSync.available(this);
-        boolean granted = HealthConnectSync.hasPermissions(this);
-        String[] missing = HealthConnectSync.missingPermissions(this);
-        JSONObject out = new JSONObject()
-                .put("supported", supported)
-                .put("available", available)
-                .put("permissionsGranted", granted)
-                .put("databaseRecords", syncDatabase.count());
-        JSONArray missingList = new JSONArray();
-        for (String permission : missing) missingList.put(permission);
-        out.put("missingPermissions", missingList);
-        // One plain-language reason, so the page never has to guess why a read would fail.
-        out.put("reason", !supported ? "Android 14 以上才提供 Health Connect 接口"
-                : !available ? "系统未安装或未启用 Health Connect"
-                : !granted ? "尚未授权读取健康数据（轻衡需要你的明确同意）"
-                : "权限已就绪，可以读取");
-        JSONObject saved = state == null ? null : state.optJSONObject("healthConnect");
-        if (saved != null) out.put("lastSyncAt", saved.optLong("lastSyncAt", 0L)).put("lastSummary", saved);
-        return out;
-    }
-
-    private JSONObject healthConnectSync(JSONObject body) throws Exception {
-        int days = body.optInt("days", 30);
-        if (days < 7 || days > 365) throw fail("同步范围必须为 7 到 365 天");
-        JSONObject result;
-        try {
-            result = HealthConnectSync.sync(this, days);
-        } catch (android.health.connect.HealthConnectException e) {
-            // The error code is the whole diagnosis and carries no record content.
-            throw fail("Health Connect 读取被拒绝（错误码 " + e.getErrorCode() + "）："
-                    + "请打开「Health Connect 权限」在 应用权限 → 轻衡 中允许睡眠、步数、运动、活动热量与距离；"
-                    + "若列表里没有轻衡，说明系统未把本次侧载安装识别为健康数据应用");
-        } catch (java.util.concurrent.TimeoutException e) {
-            throw fail("读取 Health Connect 超时，请稍后重试");
-        } catch (SecurityException e) {
-            throw fail("Health Connect 拒绝了本次读取：请在 Health Connect 里重新允许这五项权限");
-        } catch (Exception e) {
-            throw fail("读取 Health Connect 失败（" + e.getClass().getSimpleName() + "）");
-        }
-        JSONArray incoming = result.optJSONArray("records");
-        if (incoming == null || !result.optBoolean("permissionsGranted", false)) return result;
-        for (int i = 0; i < incoming.length(); i++) {
-            JSONObject record = incoming.optJSONObject(i);
-            if (record != null) syncDatabase.upsert(record);
-        }
-        JSONObject next = applyHealthConnectRecords(incoming, days);
-        commit(next);
-        result.put("saved", true).put("databaseRecords", syncDatabase.count()).put("summary", next.optJSONObject("healthConnect"));
-        return result;
-    }
-
-    /** Merges read-only external values into existing JSON habits while retaining source IDs in SQLite. */
-    private JSONObject applyHealthConnectRecords(JSONArray incoming, int days) throws Exception {
-        JSONObject next = new JSONObject(state.toString());
-        JSONArray habits = next.optJSONArray("habits");
-        if (habits == null) habits = new JSONArray();
-        JSONArray external = next.optJSONArray("healthConnectRecords");
-        if (external == null) external = new JSONArray();
-        Map<String, JSONObject> merged = new HashMap<>();
-        for (int i = 0; i < external.length(); i++) {
-            JSONObject row = external.optJSONObject(i);
-            if (row != null) merged.put(externalKey(row), row);
-        }
-        Map<String, JSONObject> daily = new HashMap<>();
-        JSONArray activities = new JSONArray();
-        for (int i = 0; i < incoming.length(); i++) {
-            JSONObject record = incoming.optJSONObject(i);
-            if (record == null) continue;
-            merged.put(externalKey(record), record);
-            String date = record.optString("date", "");
-            if (!date.matches("\\d{4}-\\d{2}-\\d{2}")) continue;
-            JSONObject summary = daily.get(date);
-            if (summary == null) {
-                summary = new JSONObject().put("date", date);
-                daily.put(date, summary);
-            }
-            String type = record.optString("type", "");
-            double value = record.optDouble("value", 0);
-            if ("steps".equals(type)) summary.put("steps", summary.optDouble("steps", 0) + value);
-            else if ("sleep".equals(type)) summary.put("sleepHours", summary.optDouble("sleepHours", 0) + value);
-            else if ("activeCalories".equals(type)) summary.put("activeCalories", summary.optDouble("activeCalories", 0) + value);
-            else if ("distance".equals(type)) summary.put("distanceMeters", summary.optDouble("distanceMeters", 0) + value);
-            else if ("exercise".equals(type)) {
-                summary.put("exerciseMinutes", summary.optDouble("exerciseMinutes", 0) + value);
-                activities.put(new JSONObject(record.toString()));
-            }
-        }
-        for (JSONObject summary : daily.values()) {
-            JSONObject habit = null;
-            for (int i = 0; i < habits.length(); i++) {
-                JSONObject row = habits.optJSONObject(i);
-                if (row != null && summary.optString("date").equals(row.optString("date", row.optString("day", "")))) { habit = row; break; }
-            }
-            if (habit == null) { habit = new JSONObject().put("date", summary.optString("date")); habits.put(habit); }
-            if (summary.has("steps")) habit.put("steps", Math.round(summary.optDouble("steps")));
-            if (summary.has("sleepHours")) habit.put("sleep", summary.optDouble("sleepHours"));
-            if (summary.has("activeCalories")) habit.put("activeCalories", Math.round(summary.optDouble("activeCalories") * 10.0) / 10.0);
-            if (summary.has("distanceMeters")) habit.put("distanceMeters", Math.round(summary.optDouble("distanceMeters")));
-            if (summary.has("exerciseMinutes")) habit.put("exerciseMinutes", Math.round(summary.optDouble("exerciseMinutes")));
-            habit.put("source", "health_connect");
-        }
-        JSONArray nextExternal = new JSONArray();
-        for (JSONObject row : merged.values()) nextExternal.put(row);
-        next.put("habits", habits).put("healthConnectRecords", nextExternal).put("activities", activities);
-        next.put("healthConnect", new JSONObject()
-                .put("source", "health_connect")
-                .put("lastSyncAt", System.currentTimeMillis())
-                .put("windowDays", days)
-                .put("daily", new JSONArray(daily.values()))
-                .put("records", nextExternal));
-        return next;
-    }
-
-    private static String externalKey(JSONObject row) {
-        return row.optString("source", "health_connect") + "|" + row.optString("sourceId", "") + "|" + row.optString("type", "");
-    }
-
     // ---- Unconfirmed estimate drafts ------------------------------------------------------------
     // A photo estimate is expensive to redo, so the preview survives a reload or a killed process.
     // Drafts carry numbers and labels only: never the image, never a free-text note.
@@ -4195,11 +3961,6 @@ import java.util.concurrent.Executors;
                 notifyVoiceState("error", "没有麦克风权限；请在系统设置里允许轻衡使用麦克风，或直接输入食物与克重。");
                 notifyImageError("没有麦克风权限，无法语音输入；可以直接输入食物与克重。");
             }
-            return;
-        }
-        if (request == REQUEST_HEALTH) {
-            boolean granted = HealthConnectSync.hasPermissions(this);
-            notifyHealthResult(granted, HealthConnectSync.missingPermissions(this), granted ? null : "仍未获得健康数据读取权限");
             return;
         }
         if (request != REQUEST_NOTIFICATIONS) return;

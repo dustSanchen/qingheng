@@ -1051,3 +1051,15 @@ ode tools/test-all.mjs 72/72；dev-loop 1.4.09/409 装机成功、smoke 无 JS �
 - 未验证：GitHub 页面的实际排版未做像素级核对（本模型无法读图），已截 uild/gh-readme.png 供人工复核。
 ### r132 附：许可措辞统一
 - 展示页 CTA 与页脚同步中性化（「个人作品…自由下载安装…修改与再发布不在授权范围内」），页脚只留「作者 Sanchen · 个人作品 · 禁止转售」；断言与发布脚本同步，Pages 缓存约 1 分钟后生效（复核 neutral=True）。
+
+## r133 · 2026-11-19 · 1.4.12（删手表同步与 Health Connect，源码重新公开）
+- 用户原话：「暂时删除APP中的同步手表数据，health connect权限功能，并开源代码」。
+- 功能移除（整条链路，不留半截）：
+  - 前端：删除 30-voice 的 installHealthConnectControls / waitHealthResult（同步按钮、权限按钮、30 天同步与提示语）；20-permissions-backup 的权限项从三项减到两项（通知、精确闹钟），去掉 health 行、health 状态、健康未授权说明与授权分支；index.html 引导提示去掉「手表数据」，数据管理摘要「导出、导入与手表同步」改为「导出、导入与本机备份」。
+  - 原生：删除 HealthConnectSync.java；MainActivity 删除权限引导屏、onResume 回读、
+otifyHealthResult、两个桥方法、/api/health-connect/* 路由、healthConnectStatus/healthConnectSync/pplyHealthConnectRecords/externalKey、权限回调分支、REQUEST_HEALTH 与 healthRequestPending、rationale 弹窗；AndroidManifest 删除 5 个 ndroid.permission.health.* 与 .HealthPermissionsRationale 别名。
+- 开源恢复：LICENSE 回到「源码可见、禁止转售」；应用关于页与页脚改「源码公开」；README 与展示页同步；远端策略回到三处全量（localmirror / source / public）；	ools/publish-public.ps1 删除，新增 	ools/publish-pages.ps1 只刷 gh-pages。
+- 断言：meal-date-java 的 15 条 HC 正向断言改为 4 条「已移除」守护（文件不存在、无 health 权限、无 HC 路由/桥、无 rationale）；onboarding-backup 改为两项且无 health；wizard-action-bar 的权限上限断言去掉 HC；ci-and-versions 改「作者 + 源码公开」「无源码链接」「禁止转售」「pages 脚本只碰 gh-pages」。全部登记 §5.1。
+- 验收：assemble 14 片段；test-all 72/72；dev-loop 1.4.12/412 装机成功、smoke 无 JS 错误；aapt2 dump 确认 APK 无 health.* 权限；design-audit site 18/18。APK 631 KB → 623 KB（638174 B）。
+- 未验证：真机权限卡只剩两项的实际排版未截图；以后要恢复 HC 需从 git 历史取回 HealthConnectSync.java 与对应桥接代码。
+- APK：dist/qingheng-1.4.12.apk（sha256 82e057d28c1cacd1387697041143f6e606c62306362aa40fd1c22a61c37b2216）。

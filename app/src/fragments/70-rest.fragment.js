@@ -154,7 +154,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.11';
+  const APP_VERSION = '1.4.12';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -2655,4 +2655,4 @@ feedback(message,'数据已导入。'+report);
   installProfileAutoRecalc();
   applyTrainingVisibility();
   installCardCollapse(); installTrainingAdvice(); installHabitChips(); installChatChips();
-  setupCollapsibleSections(); installQuickRecordControls(); installHealthConnectControls(); searchFoods(); restoreConsent(); installExternalConsent(); installExactAlarmControl();
+  setupCollapsibleSections(); installQuickRecordControls(); searchFoods(); restoreConsent(); installExternalConsent(); installExactAlarmControl();

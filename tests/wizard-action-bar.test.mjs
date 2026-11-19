@@ -21,7 +21,7 @@ check('the scroll container reserves room for the bar', css.includes('.onboardin
 
 // --- no tap-blocking wait inside the step transition --------------------------------------------------
 check('a timeout helper exists', app.includes('function withTimeout(promise, ms, label)'));
-check('each permission check is capped', perms.includes("withTimeout(api('/api/notification-permission'), 3000") && perms.includes("withTimeout(api('/api/push'), 3000") && perms.includes("withTimeout(api('/api/health-connect/status'), 3000"));
+check('each permission check is capped', perms.includes("withTimeout(api('/api/notification-permission'), 3000") && perms.includes("withTimeout(api('/api/push'), 3000") && !perms.includes('health-connect'));
 check('the checklist logs when it is ready', perms.includes("console.info('[perm] checklist ready'"));
 check('step four refreshes after the transition', onboarding.includes('setTimeout(() => refreshPermissionChecklist().catch(() => {}), 30)'));
 check('step transitions are timed', onboarding.includes("console.info('[ob] step'"));

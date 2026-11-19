@@ -23,19 +23,17 @@ check('the fourth step has a refresh button', html.includes('id="ob-check-refres
 check('entering step four refreshes the states', app.includes('if (onboarding.step === 4) setTimeout(() => refreshPermissionChecklist().catch(() => {}), 30);'));
 check('the permission refresh never blocks the step change', app.includes("setTimeout(() => refreshPermissionChecklist()"));
 
-// --- the three items and their routes ---------------------------------------------------------------
-check('three items are defined', app.includes('const PERMISSION_ITEMS = [') && app.includes("key: 'notifications'") && app.includes("key: 'exactAlarm'") && app.includes("key: 'health'"));
-check('health data is marked optional', /key: 'health'[\s\S]{0,220}required: false/.test(app));
-check('states come from the existing routes', app.includes("await api('/api/notification-permission')") && app.includes("await api('/api/push')") && app.includes("await api('/api/health-connect/status')"));
+// --- the two items and their routes (Health Connect was removed on purpose) --------------------------
+check('two items are defined', app.includes('const PERMISSION_ITEMS = [') && app.includes("key: 'notifications'") && app.includes("key: 'exactAlarm'"));
+check('health sync stays out of the checklist', !app.includes("key: 'health'") && !app.includes('health-connect'));
+check('states come from the existing routes', app.includes("await api('/api/notification-permission')") && app.includes("await api('/api/push')"));
 check('an unknown state is shown as unknown, not as a failure', app.includes("const tag = granted === null ? '状态未知'"));
-check('the health reason from native is surfaced', app.includes('permissionState.healthReason'));
 check('both containers are rendered from one function', app.includes("for (const id of ['#ob-checks', '#data-checks'])"));
 check('notification permission is requested through the existing helper', app.includes('const granted = await ensureNotificationPermission();'));
 check('denied notification state uses the documented empty block', app.includes("item.key === 'notifications' && granted === false") && app.includes("empty('通知权限没有打开', '到系统设置 → 应用 → 轻衡 → 通知开启；否则到点提醒不会出现。', 'denied')"));
 check('the denied explanation keeps the permission request action', app.includes('data-check-fix="${item.key}"') && app.includes('esc(item.action)'));
 check('unknown notification state keeps the ordinary explanation', app.includes("granted === null ? '状态未知'") && app.includes('esc(item.why)'));
 check('exact alarm opens the system screen instead of faking it', app.includes("bridge.openExactAlarmSettings()"));
-check('health permission uses the Health Connect request flow', app.includes('bridge.requestHealthConnectPermissions()') && app.includes('waitHealthResult(180000)'));
 check('nothing is granted silently: every fix is a user tap', app.includes("if (button) fixPermission(button.dataset.checkFix)"));
 check('state re-checks when the app becomes visible again', app.includes("document.addEventListener('visibilitychange'") && app.includes("if (document.visibilityState !== 'visible' || !loaded) return;"));
 check('both pages refresh at startup', app.includes('readPermissionState().then(renderPermissionChecklist)'));
@@ -43,7 +41,7 @@ check('both pages refresh at startup', app.includes('readPermissionState().then(
 // --- the data page carries the same checklist -------------------------------------------------------
 check('the data page has the checklist', html.includes('<div class="check-list" id="data-checks" role="list"></div>'));
 check('the data page shows a summary tag', html.includes('id="perm-check-tag"') && app.includes('全部就绪'));
-check('the checklist explains the impact of a missing health grant', app.includes('健康数据未授权：提醒与其他记录功能不受影响'));
+check('the checklist speaks of two items', app.includes('两项都已就绪'));
 
 // --- backup reminder --------------------------------------------------------------------------------
 check('native exposes backup bookkeeping', routes.includes('path.equals("/api/backup")') && main.includes('public JSONObject recordBackup(int records)'));

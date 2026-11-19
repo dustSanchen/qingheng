@@ -2214,20 +2214,18 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
 
 /* Fragment of assets/app.js -- assembled by tools/assemble-app.ps1 in filename order.
  * Edit this file, never the generated assets/app.js; tests/app-fragments.test.mjs fails on drift. */
-  // ---- The three things that decide whether reminders and watch data actually work --------------
+  // ---- The two things that decide whether reminders actually work ------------------------------
   const PERMISSION_ITEMS = [
     {key: 'notifications', label: '通知权限', why: '没有它，到点的提醒不会出现。', action: '申请通知权限', required: true},
-    {key: 'exactAlarm', label: '精确闹钟', why: '系统默认可以把提醒推迟最多 1 小时；开启后按点送达。', action: '去系统设置允许', required: true},
-    {key: 'health', label: '健康数据（Health Connect）', why: '读取睡眠、步数、运动、热量与距离；不授权时其余功能照常可用。', action: '打开授权页', required: false}
+    {key: 'exactAlarm', label: '精确闹钟', why: '系统默认可以把提醒推迟最多 1 小时；开启后按点送达。', action: '去系统设置允许', required: true}
   ];
-  let permissionState = {notifications: null, exactAlarm: null, health: null, healthReason: ''};
-  /** Reads all three states from the routes that already own them; a failure stays "unknown". */
+  let permissionState = {notifications: null, exactAlarm: null};
+  /** Reads both states from the routes that already own them; a failure stays "unknown". */
   async function readPermissionState() {
-    const next = {notifications: null, exactAlarm: null, health: null, healthReason: ''};
+    const next = {notifications: null, exactAlarm: null};
     // Each check is capped: a native route that stops answering must not freeze the checklist.
     try {const s = await withTimeout(api('/api/notification-permission'), 3000, 'perm.notifications'); next.notifications = s?.granted === true;} catch {}
     try {const p = await withTimeout(api('/api/push'), 3000, 'perm.push'); next.exactAlarm = p?.canScheduleExact === true;} catch {}
-    try {const h = await withTimeout(api('/api/health-connect/status'), 3000, 'perm.health'); next.health = h?.permissionsGranted === true; next.healthReason = h?.reason || '';} catch {}
     permissionState = next;
     console.info('[perm] checklist ready', JSON.stringify(next));
     return next;
@@ -2240,7 +2238,6 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
       + (item.key === 'notifications' && granted === false
         ? `<div class="permission-denied">${empty('通知权限没有打开', '到系统设置 → 应用 → 轻衡 → 通知开启；否则到点提醒不会出现。', 'denied')}</div>`
         : `<div class="row-meta"><span>${esc(item.why)}</span></div>`)
-      + (item.key === 'health' && !granted && permissionState.healthReason ? `<div class="row-meta"><span>${esc(permissionState.healthReason)}</span></div>` : '')
       + `</div><div class="row-side">${granted === true ? '' : `<button type="button" class="button subtle" data-check-fix="${item.key}">${esc(item.action)}</button>`}</div></div>`;
   }
   function renderPermissionChecklist() {
@@ -2255,8 +2252,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     for (const id of ['#ob-check-note', '#data-check-note']) {
       const node = $(id);
       if (!node) continue;
-      if (permissionState.health === false) node.textContent = '健康数据未授权：提醒与其他记录功能不受影响。';
-      else if (done === PERMISSION_ITEMS.length) node.textContent = '三项都已就绪。';
+      if (done === PERMISSION_ITEMS.length) node.textContent = '两项都已就绪。';
       else node.textContent = '状态会在你回到应用时自动刷新。';
     }
   }
@@ -2274,13 +2270,6 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
       const bridge = window.QinghengNative;
       if (bridge && typeof bridge.openExactAlarmSettings === 'function') {bridge.openExactAlarmSettings(); notice('已打开系统设置；允许「闹钟与提醒」后返回应用。');}
       else notice('精确闹钟设置需要已安装的 APK。', true);
-    } else if (key === 'health') {
-      const bridge = window.QinghengNative;
-      if (bridge && typeof bridge.requestHealthConnectPermissions === 'function') {
-        notice('请在 Health Connect 中允许这五项读取；返回应用后会自动继续。');
-        try {bridge.requestHealthConnectPermissions();} catch {notice('无法发起健康数据授权请求。', true);}
-        await waitHealthResult(180000).catch(() => null);
-      } else notice('健康数据授权需要已安装的 APK。', true);
     } else return;
     await refreshPermissionChecklist().catch(() => {});
     if (item) notice(`${item.label}：${permissionState[key] === true ? '已开启' : '仍未开启'}`, permissionState[key] !== true);
@@ -2609,80 +2598,6 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     if (!button || button.disabled) return;
     openVoiceSheet(button.dataset.voiceTarget);
   });
-  function installHealthConnectControls() {
-    const row = $('#export-data')?.parentElement;
-    if (!row || $('#health-connect-sync')) return;
-    const sync = document.createElement('button');
-    sync.type = 'button'; sync.className = 'button subtle'; sync.id = 'health-connect-sync'; sync.textContent = '同步手表数据';
-    const settings = document.createElement('button');
-    settings.type = 'button'; settings.className = 'button subtle'; settings.id = 'health-connect-settings'; settings.textContent = 'Health Connect 权限';
-    row.prepend(settings); row.prepend(sync);
-    settings.addEventListener('click', () => {
-      const bridge = window.QinghengNative;
-      if (bridge && typeof bridge.openHealthConnectSettings === 'function') bridge.openHealthConnectSettings();
-      else notice('Health Connect 权限设置需要已安装的 APK。', true);
-    });
-    const typeNames = {steps:'步数', sleep:'睡眠', exercise:'运动', activeCalories:'活动热量', distance:'距离'};
-    const countText = counts => Object.keys(typeNames)
-      .filter(key => counts && Number(counts[key]) > 0)
-      .map(key => `${typeNames[key]} ${Number(counts[key])}`).join('、');
-    sync.addEventListener('click', async event => {
-      const button = event.currentTarget, message = $('#data-feedback');
-      button.disabled = true;
-      try {
-        // Health Connect read permission is a user decision: ask for it here instead of sending the
-        // user to a settings screen and leaving the sync button as a dead end.
-        const status = await api('/api/health-connect/status');
-        if (status?.permissionsGranted !== true) {
-          const bridge = window.QinghengNative;
-          if (!bridge || typeof bridge.requestHealthConnectPermissions !== 'function') {
-            feedback(message, '手表数据读取需要已安装的 APK。', true);
-            return;
-          }
-          feedback(message, '正在请求健康数据读取权限，请在系统弹窗中允许…');
-          // The native side decides between the framework request and Health Connect's own screen;
-          // without this call the promise below would wait for an answer nobody asked for.
-          try {bridge.requestHealthConnectPermissions();}
-          catch {feedback(message, '无法发起健康数据授权请求。', true); return;}
-          const answer = await waitHealthResult();
-          if (answer?.granted !== true) {
-            feedback(message, `仍未获得授权：${answer?.message || '需要睡眠、步数、运动、活动热量与距离的读取权限'}。`
-              + '如果 Health Connect 的「应用权限」里没有列出轻衡，说明系统没把侧载安装识别为健康数据应用。'
-              + '可打开「Health Connect 权限」查看列表，或改用应用商店版本；手表数据仍可在对应 App 里查看。', true);
-            return;
-          }
-        }
-        feedback(message, '正在同步手表数据…');
-        const result = await api('/api/health-connect/sync', {days:30});
-        if (result?.permissionsGranted !== true) {
-          feedback(message, `未能读取：${result?.reason || '权限不足'}。`, true);
-          return;
-        }
-        await loadState({quiet:true});
-        const total = Number(result.count || 0), detail = countText(result.counts);
-        if (total === 0) {
-          feedback(message, '权限已就绪，但最近 30 天 Health Connect 里没有这五类记录。请确认小米运动健康已开启向 Health Connect 写入（小米运动健康 → 我的 → 设置 → 第三方数据/Health Connect），并戴着手表同步过一次。', true);
-          return;
-        }
-        feedback(message, `已同步 ${total} 条手表记录到手机${detail ? `（${detail}）` : ''}。`);
-      } catch (error) {feedback(message, error.message, true);}
-      finally {button.disabled = false;}
-    });
-  }
-  /** Resolves with the native answer to the Health Connect permission prompt. */
-  function waitHealthResult(timeoutMs = 120000) {
-    return new Promise(resolve => {
-      let done = false;
-      const finish = value => {if (done) return; done = true; window.__qinghengHealthResult = previous; resolve(value);};
-      const previous = window.__qinghengHealthResult;
-      window.__qinghengHealthResult = payload => {
-        try {finish(typeof payload === 'string' ? JSON.parse(payload) : payload);}
-        catch {finish(null);}
-        return true;
-      };
-      setTimeout(() => finish(null), timeoutMs);
-    });
-  }
   function setupCollapsibleSections() {
     const specs = [
       {anchor:'#food-search', collapsed:true},
@@ -6325,7 +6240,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.11';
+  const APP_VERSION = '1.4.12';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -8826,7 +8741,7 @@ feedback(message,'数据已导入。'+report);
   installProfileAutoRecalc();
   applyTrainingVisibility();
   installCardCollapse(); installTrainingAdvice(); installHabitChips(); installChatChips();
-  setupCollapsibleSections(); installQuickRecordControls(); installHealthConnectControls(); searchFoods(); restoreConsent(); installExternalConsent(); installExactAlarmControl();
+  setupCollapsibleSections(); installQuickRecordControls(); searchFoods(); restoreConsent(); installExternalConsent(); installExactAlarmControl();
 /* 问答页分段：问答 / 训练建议（2026-11-17：今日训练建议从今天页迁到问答页）。
    面板显隐沿用记录页的 .record-panel[hidden] 约定，选择记在 localStorage。 */
 (function () {
