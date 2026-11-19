@@ -785,6 +785,8 @@ const values = points.length<=7 ? points.map((item,i) => {
   function renderTrainingLog(rowsOverride = null) {
     const form = $('#training-form');
     if (!form) return;
+    // 强度反馈跟着日期走：换一天要显示那天点过的档位。
+    if (typeof renderTrainingEffort === 'function') renderTrainingEffort();
     const row = habitRowFor(activeDate);
     const exercises = exercisesFor(activeDate);
     const template = TRAINING_TEMPLATES[row?.template] ? row.template : 'push';
@@ -934,6 +936,10 @@ const values = points.length<=7 ? points.map((item,i) => {
       // 真实负重写进本地重量记忆：下一次「用 AI 排今天」按它渐进（不用再靠 14 天窗口撞运气）。
       if (typeof rememberExerciseLogs === 'function') rememberExerciseLogs(exercises, activeDate);
       feedback(message, `已保存 ${exercises.length} 个动作。`);
+      // 保存完顺手问一句强度：answer 直接影响下一次排课的组数与重量。
+      if (typeof effortFor === 'function' && !effortFor(activeDate)) {
+        notice('今天练下来感觉如何？在下面点一下「太轻 / 刚好 / 有点累 / 太累」，下次排课会参考。');
+      }
       renderTrainingLog();
       renderTrainingSummary(exercises);
     } catch (error) {feedback(message, error.message, true);}

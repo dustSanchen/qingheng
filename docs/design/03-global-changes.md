@@ -232,3 +232,4 @@
 | 2026-11-19 | 新增 `tests/plan-weight.test.mjs` | 18 条：本地重量记忆、提示词负重规则、三层兜底、渐进上限、换动作重算、落库回写 | 「用 AI 排今天」只有第一个动作带重量 |
 | 2026-11-19 | `tests/training-log.test.mjs` | 补重量断言 `baselineWeightFor` → `planWeightFor` / `plannedWeightFor` | 14 天同名记录方案改为三层兜底 |
 | 2026-11-19 | `tests/ai-plan-focus.test.mjs` | askAiPlan 窗口 6000 → 9000 字符 | 提示词加了负重规则后函数变长，finally 被切到窗口外 |
+| 2026-11-19 | 新增 `tests/effort-feedback.test.mjs` | 21 条：四档强度反馈落库、近 7 天阈值、降载/加量、要求进提示词、教练说明解析 | 训练后询问强度并影响排课；用户可对当天计划提要求 |

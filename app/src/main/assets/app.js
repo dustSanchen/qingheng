@@ -3882,6 +3882,8 @@ const values = points.length<=7 ? points.map((item,i) => {
   function renderTrainingLog(rowsOverride = null) {
     const form = $('#training-form');
     if (!form) return;
+    // 强度反馈跟着日期走：换一天要显示那天点过的档位。
+    if (typeof renderTrainingEffort === 'function') renderTrainingEffort();
     const row = habitRowFor(activeDate);
     const exercises = exercisesFor(activeDate);
     const template = TRAINING_TEMPLATES[row?.template] ? row.template : 'push';
@@ -4031,6 +4033,10 @@ const values = points.length<=7 ? points.map((item,i) => {
       // 真实负重写进本地重量记忆：下一次「用 AI 排今天」按它渐进（不用再靠 14 天窗口撞运气）。
       if (typeof rememberExerciseLogs === 'function') rememberExerciseLogs(exercises, activeDate);
       feedback(message, `已保存 ${exercises.length} 个动作。`);
+      // 保存完顺手问一句强度：answer 直接影响下一次排课的组数与重量。
+      if (typeof effortFor === 'function' && !effortFor(activeDate)) {
+        notice('今天练下来感觉如何？在下面点一下「太轻 / 刚好 / 有点累 / 太累」，下次排课会参考。');
+      }
       renderTrainingLog();
       renderTrainingSummary(exercises);
     } catch (error) {feedback(message, error.message, true);}
@@ -6480,7 +6486,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.44';
+  const APP_VERSION = '1.4.45';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -6771,6 +6777,92 @@ function metricIcon(label) {
     return out;
   }
   /** 剂量由字段派生；编辑后重算，不会与旧字符串脱节。 */
+  /* ── 训练强度反馈与「今天的要求」（2026-11-19，1.4.45）────────────────────
+     练完点一下「太轻 / 刚好 / 有点累 / 太累」，写进当天 habit 行的 effort 字段；
+     下一次排课据此降一档或加一档。用户对今天的要求写在同一张卡的折叠输入框里，
+     交给模型按教练的角色判断要不要照办，并把一句原因放进第一个动作的 note。 */
+  const EFFORT_LABELS = {tooLight: "太轻", justRight: "刚好", tired: "有点累", tooMuch: "太累"};
+  const EFFORT_LEVELS = ["tooLight", "justRight", "tired", "tooMuch"];
+
+  function effortFor(date) {
+    const row = (state.habits || []).find(item => item && item.date === date);
+    const value = row && row.effort;
+    return EFFORT_LEVELS.includes(value) ? value : null;
+  }
+  /**
+   * 近期强度信号：近 7 天「累」两次以上、或最近一次就是太累 → 降一档；
+   * 一次都没喊累、而「太轻」两次以上 → 加一档；其余保持。
+   */
+  function effortSignal() {
+    const rows = [];
+    for (let offset = 0; offset < 10; offset++) {
+      const value = effortFor(shiftDay(activeDate, -offset));
+      if (value) rows.push({date: shiftDay(activeDate, -offset), value});
+    }
+    const recent = rows.filter(row => {
+      const gap = Math.round((new Date(activeDate + "T00:00:00") - new Date(row.date + "T00:00:00")) / 86400000);
+      return gap <= 7;
+    });
+    const heavy = recent.filter(row => row.value === "tired" || row.value === "tooMuch").length;
+    const light = recent.filter(row => row.value === "tooLight").length;
+    const last = rows[0] ? rows[0].value : null;
+    if (last === "tooMuch" || heavy >= 2) return {level: "deload", last, heavy, light, text: "近 7 天有 " + heavy + " 次练到累，这次总量下调一档"};
+    if (light >= 2 && heavy === 0) return {level: "push", last, heavy, light, text: "近 7 天有 " + light + " 次觉得太轻，这次加一档"};
+    return {level: "keep", last, heavy, light, text: last ? "上次练下来：" + EFFORT_LABELS[last] : ""};
+  }
+  /** 强度信号落到清单：降载时每个配重动作少一组、重量退 5%；加量时第一个复合动作多一组。 */
+  function applyEffortSignalToPlan(plan) {
+    const signal = effortSignal();
+    if (!Array.isArray(plan) || !plan.length || signal.level === "keep") return plan;
+    if (signal.level === "deload") {
+      for (const item of plan) {
+        if (!item || item.bodyweight || Number(item.distanceKm) > 0) continue;
+        item.sets = Math.max(2, (Number(item.sets) || 0) - 1);
+        if (Number(item.weight) > 0 && typeof loadableWeightKg === "function") {
+          const kg = loadableWeightKg(item.name, Number(item.weight) * 0.95);
+          if (kg > 0) { item.weight = kg; item.weightSource = "deload"; }
+        }
+      }
+    } else if (signal.level === "push") {
+      const first = plan.find(item => item && !item.bodyweight && !(Number(item.distanceKm) > 0));
+      if (first) first.sets = Math.min(5, (Number(first.sets) || 3) + 1);
+    }
+    return plan;
+  }
+  function renderTrainingEffort() {
+    const box = $("#training-effort");
+    if (!box) return;
+    const current = effortFor(activeDate);
+    $$("[data-effort]", box).forEach(chip => {
+      chip.setAttribute("aria-pressed", chip.dataset.effort === current ? "true" : "false");
+    });
+  }
+  async function saveTrainingEffort(value) {
+    if (!EFFORT_LEVELS.includes(value)) return;
+    const existing = (state.habits || []).find(item => item && item.date === activeDate) || {};
+    await api("/api/habits", {...existing, date: activeDate, effort: value, effortAt: new Date().toISOString()});
+    await loadState({quiet: true});
+    renderTrainingEffort();
+    notice("已记下：练下来" + EFFORT_LABELS[value] + "。下次排课会参考。");
+  }
+  /** 教练说明只留在本机：它解释「为什么没完全照要求办」，不进导出数据。 */
+  function planNoteKey(date) { return "qingheng.planNote." + date; }
+  function readPlanNote(date) {
+    try { return localStorage.getItem(planNoteKey(date)) || ""; } catch { return ""; }
+  }
+  function writePlanNote(date, text) {
+    try {
+      if (text) localStorage.setItem(planNoteKey(date), text);
+      else localStorage.removeItem(planNoteKey(date));
+    } catch {}
+  }
+  function renderPlanNote() {
+    const node = $("#ai-plan-note");
+    if (!node) return;
+    const text = readPlanNote(activeDate);
+    node.hidden = !text;
+    node.textContent = text || "";
+  }
   function aiPlanDose(item) {
     if (item && item.dose) return item.dose; // 旧数据只存了 dose 字符串
     const run = [];
@@ -6835,6 +6927,7 @@ function metricIcon(label) {
   function renderAiPlan() {
     const box = $("#ai-plan-list"), tag = $("#ai-plan-tag"), clear = $("#ai-plan-clear"), summary = $("#ai-plan-summary");
     if (!box) return;
+    renderPlanNote();
     const plan = aiPlanStore(activeDate);
     // 已经有清单时，「用 AI 排今天」不再是主行动：主行动是把清单落成记录。
     // 同一个按钮两种状态，文案也分开（排 / 重排），避免「已经排好了却还在喊排」。
@@ -6999,6 +7092,9 @@ function metricIcon(label) {
       const prefs = typeof planPrefs === "function" ? planPrefs() : null;
       const profile = state.profile || {};
       const done = exercisesFor(activeDate).filter(item => item && item.name).map(item => item.name + " " + (item.sets || "") + "x" + (item.reps || ""));
+      // 用户对今天的要求：原样交给模型，让它按教练视角判断要不要照办（不无条件服从）。
+      const requestBox = $("#plan-request");
+      const requestText = String((requestBox && requestBox.value) || "").trim().slice(0, 200);
       // 喂给模型与本地规则引擎同一份素材：上周基线 + 训练库规则，输出质量才对得起「渐进」。
       // 基线给足：本地重量记忆里取最近 10 条（含 180 天历史），模型才知道每个动作上次做了多少。
       // 只给 6 条 + 14 天窗口时，稍冷门的动作在模型看来「没有记录」，于是整行重量留空。
@@ -7031,6 +7127,16 @@ function metricIcon(label) {
         baselineText ? "最近记录（供渐进参考，不要盲目加量）：" + baselineText + "。" : "",
         library ? "训练规则（必须遵守）：\n" + library : "",
         done.length ? ("今天已记录：" + done.join("；") + "。") : "今天还没有训练记录。",
+        (() => {
+          const signal = effortSignal();
+          if (!signal.text) return "";
+          const rule = signal.level === "deload" ? "按降载排：每个配重动作少一组，重量不超过上次，有氧保持不变。"
+            : signal.level === "push" ? "按加量排：第一个复合动作多给一组，其余保持。"
+              : "按上次节奏排，不要因为一次反馈就大改。";
+          return "最近强度反馈（用户自己点的）：" + signal.text + "。" + rule;
+        })(),
+        requestText ? "用户今天的要求（可能不专业，需要你判断）：" + requestText : "",
+        requestText ? "判断原则：先保目标口径（部位轮换、每周组数、时长预算）与安全。要求合理就照办；会挤爆时长、违背轮换或增加受伤风险就不照办，改成更合适的安排，并把一句不超过 40 字的原因写进第一个动作的 note 字段。没有上述情况时不要输出 note。" : "",
         "每个动作的 reason 只写一句、不超过 12 个字，写为什么排它。",
         "负重（每个配重动作都必须给 weight，不要留空）：①上面有同名记录就按渐进给——上次做到 8 次以上进一档（上肢 +2.5 kg、下肢 +5 kg），6~7 次持平，5 次以下退一档；②只有同族动作的记录就按它的 85% 估；③完全没记录就按体重起步：杠铃卧推 0.5 倍体重、深蹲 0.6、硬拉 0.7、划船 0.45、肩推 0.3，哑铃按单手减半，器械取杠铃的 0.8 倍。",
         "重量要装得出来：杠铃 = 20 kg 空杆 + 每侧 2.5 kg 的整数倍（如 60、65、70），不要给 62.5 这种装不出的数；哑铃按 2 kg、器械按 5 kg 递增。",
@@ -7064,7 +7170,7 @@ function metricIcon(label) {
       } finally {
         window.QinghengStream = null;
       }
-      const plan = parseAiPlanReply(String(data && data.reply ? data.reply : ""));
+      const plan = applyEffortSignalToPlan(parseAiPlanReply(String(data && data.reply ? data.reply : "")));
       if (!plan.length) {
         // 一份都没解析出来：把原来的清单放回去，别让用户白等还丢计划。
         aiPlanStore(activeDate, planBefore);
@@ -7072,6 +7178,9 @@ function metricIcon(label) {
         throw new Error("模型这次没有给出清单，原清单已保留；请再点一次重试。");
       }
       aiPlanStore(activeDate, plan);
+      // 教练说明：模型把「为什么不完全照办」写进第一个动作的 note，单独取出来显示。
+      const noteMatch = /"note"\s*:\s*"([^"]{1,60})"/.exec(String((data && data.reply) || ""));
+      writePlanNote(activeDate, noteMatch ? noteMatch[1] : "");
       // 清单落库同时把重量记进本地记忆：下次排课同名动作直接按上次表现渐进。
       if (typeof rememberPlanWeights === "function") rememberPlanWeights(plan);
       renderAiPlan();
@@ -8077,6 +8186,11 @@ function metricIcon(label) {
     const value = event.target.value;
     if (validDate(value)) setActiveDate(value);
     else event.target.value = activeDate;
+  });
+  $('#training-effort')?.addEventListener('click', event => {
+    const chip = event.target.closest('[data-effort]');
+    if (!chip) return;
+    saveTrainingEffort(chip.dataset.effort).catch(error => notice(error && error.message ? error.message : '记录训练强度失败'));
   });
   $('#training-add')?.addEventListener('click', () => {
     // 以前这里手写了一套「组数 / 每组次数 / 负重」旧字段，与逐组模型不兼容——

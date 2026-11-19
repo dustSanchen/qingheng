@@ -1911,3 +1911,17 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 .page-heading--today,.page-heading--trends{display:block;margin:10px 0 16px}
 .page-heading--trends .range-picker{width:auto;margin:10px 0 0;align-self:auto;display:flex;flex-direction:row;align-items:center;gap:8px;font-size:var(--text-xs);color:var(--muted)}
 .page-heading--trends .range-picker select{width:132px}
+
+/* 训练强度反馈（1.4.45）：练完点一下，四档落库，下一次排课据此加量或降量 */
+.effort-row{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;margin:var(--space-3) 0 0}
+.effort-label{font-size:var(--text-xs);color:var(--muted);letter-spacing:.04em}
+.effort-chip{min-height:44px;padding:0 var(--space-3);border:1px solid var(--line);border-radius:var(--shape-ctrl-radius);background:transparent;color:var(--ink-soft);font:inherit;font-size:var(--text-sm)}
+.effort-chip[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+/* 今日顺序卡的「提要求」：折叠成一行，不占首屏；展开后是一个正经输入框 */
+.plan-request{margin:var(--space-2) 0 0;border-top:1px solid var(--line)}
+.plan-request>summary{cursor:pointer;display:flex;align-items:center;min-height:44px;font-size:var(--text-sm);color:var(--ink-soft)}
+.plan-request-field{display:block}
+.plan-request-field textarea{width:100%;margin:0 0 var(--space-1);padding:var(--space-2);border:1px solid var(--line);border-radius:var(--shape-ctrl-radius);background:var(--surface-soft);color:var(--ink);font:inherit;font-size:var(--text-md);resize:vertical}
+/* 教练说明：模型调整了用户的要求时，一句话解释为什么不照办 */
+.ai-plan-note{margin:var(--space-2) 0 0;padding:2px 0 2px var(--space-2);border-left:2px solid var(--accent-line);color:var(--body-text);font-size:var(--text-sm);line-height:1.6}
+.ai-plan-weight-note{margin:var(--space-2) 0 0}
