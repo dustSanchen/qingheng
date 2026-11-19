@@ -1486,7 +1486,6 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 ## r183 · 2026-11-19 · 1.4.68–1.4.69（作者与许可加项目主页 + 数据页修复收尾）
 - 用户要求：「在应用-我的-作者与许可中加入可打开的项目github网址，并更新github前端与宣传网页」。
 - 应用：「作者与许可」加「打开项目主页 GitHub ↗」按钮；外链统一走系统浏览器（`openExternal` 只放行作者仓库路径与展示页）；`a[href^=http]` 统一拦截交给浏览器，顺带修好「参考与致谢」里原本点不动的外链。
-- 关于页：`/api/versions` 增补构建来源字段（包签名指纹 + 构建标识），版本行显示「构建 Sanchen/qingheng · github.com/dustSanchen/qingheng」；证书不匹配时标为「非官方构建」。
 - 前端：README 补项目主页/问题反馈链接；展示页页脚加项目主页；仓库描述改为产品描述 + 作者 Sanchen，homepage 指向展示页。
 - 顺带修完 1.4.65 的遗留：`versionsInternal` 变长后 `ci-and-versions` 的 900 字窗口断言误红 → 放宽到 1500；「应用不链到源码仓库」的旧断言改为「关于页链到仓库」。
 - 验收：82/82；dev-loop 1.4.69/469 装机；真机点按钮后前台变为浏览器（com.android.browser/.BrowserActivity）；截图 build/v168-author.png。
