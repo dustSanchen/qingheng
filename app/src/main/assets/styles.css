@@ -1806,3 +1806,6 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
   .card{padding:var(--space-4)}
   .page-heading{margin:10px 0 18px}
 }
+
+/* 数字排版：表格与训练/餐食数值统一 tabular lining（2026-11-19） */
+.stats-table,.stats-table td,.meal-item,.training-row .set-value,.plan-load-value,.macro-value{font-variant-numeric:tabular-nums;font-feature-settings:"tnum","lnum"}

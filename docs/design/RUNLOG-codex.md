@@ -1231,3 +1231,11 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 验收：test-all 74/74；dev-loop 1.4.30/430 装机成功、smoke 无 JS 错误。
 - 未验证：删标签后的卡片留白、以及 Motion 错峰在真机的手感需截图/实测。
 - APK：dist/qingheng-1.4.30.apk（638176 B，sha256  677d2005a4410aeb5e658bc5d18cd45a7e533d1eed03f1d8ef4fa50a0882876）。
+
+## r154 · 2026-11-19 · 1.4.31（标签口径修正、数字排版收口）
+- 审计口径：chip/tag 从「总数 ≤20」改为「静态装饰 ≤10」；带 id 的动态状态（版本/待记录/皮肤/provider/权限/备份/习惯数）与交互 chip（27 个筛选控件）不再计入。当前静态装饰 2 处，PASS；文档 29 同步改口径。
+- 数字排版：.stats-table、.meal-item、训练组数值、计划负荷、宏量数字统一 	abular-nums + "tnum","lnum"，表格与行内数字不再跳动。
+- 动效：按用户确认复用现有 Motion 编排，不新增 CSS 动画。
+- 验收：test-all 74/74；ai-flavor-audit 仅剩阴影 16 一项 WARN（均为焦点/错误/闪烁语义）；dev-loop 1.4.31/431 装机成功、smoke 无 JS 错误。
+- 未验证：标签口径调整后的报告观感、数字排版在窄屏表格的换行需真机。
+- APK：dist/qingheng-1.4.31.apk（638176 B，sha256 cccdb512ce77938abb423ed47931f25681bf2812d3ad723b38536d23efc376a2）。

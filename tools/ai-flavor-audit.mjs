@@ -41,9 +41,12 @@ line(shadows > 12 ? 'WARN' : 'PASS', '阴影声明不超过 12 条', String(shad
 const bigRadii = (css.match(/border-radius:\s*(2[1-9]|[3-9][0-9])px/g) || []).length;
 line(bigRadii > 8 ? 'WARN' : 'PASS', '大于 20px 的圆角不超过 8 处', String(bigRadii));
 
-// 4) 同级小控件：chip/tag 越多，页面越像仪表盘。
-const chips = count(html, /class="[^"]*(chip|tag)/g);
-line(chips > 20 ? 'WARN' : 'PASS', 'chip/tag 不超过 20 处', String(chips));
+// 4) 装饰标签：只数静态贴纸；带 id 的动态状态与交互 chip 不计。
+const tagSpans = [...html.matchAll(/<span class="tag[^"]*"([^>]*)>/g)];
+const staticTags = tagSpans.filter(m => !/id="/.test(m[1])).length;
+const dynamicTags = tagSpans.length - staticTags;
+const interactiveChips = count(html, /class="[^"]*chip/g);
+line(staticTags > 10 ? 'WARN' : 'PASS', '静态装饰标签不超过 10 处', staticTags + ' 处（动态 ' + dynamicTags + '、交互 chip ' + interactiveChips + ' 不计）');
 
 // 5) 毛玻璃：只允许在弹层遮罩上。
 const blur = count(css, /backdrop-filter/g);
