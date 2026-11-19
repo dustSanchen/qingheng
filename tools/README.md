@@ -26,6 +26,7 @@ Supporting tools:
 | `tools/publish-pages.ps1` | refreshing GitHub Pages by hand: rebuilds the gh-pages branch from site/index.html + .nojekyll and force-pushes it. Never touches master |
 | `tools/lib/patch.mjs` | CRLF/anchor/idempotency boilerplate in one-off edit scripts (and their retry cycles) |
 | `tools/device.mjs` | blind taps: `--preview` converts 877x1904 preview coordinates to device pixels; `smoke` checks version + JS errors + screenshot in one call |
+| `tools/ai-flavor-audit.mjs` | 「AI 味」静态审计：装饰渐变、阴影、大圆角、chip/tag、背景模糊、居中、营销词；只报告不阻塞 |
 | `tools/verify-all.ps1` | tests + build + packaging checks only (no device) |
 
 Remotes: `localmirror` (bare mirror) and `source` (private GitHub) take the full history;
