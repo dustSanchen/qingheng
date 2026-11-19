@@ -23,7 +23,7 @@ Supporting tools:
 | Tool | What it removes |
 | --- | --- |
 | `tools/dev-loop.ps1` | the 8-command manual sequence and its ordering mistakes |
-| `tools/publish-public.ps1` | publishing to the public repo by hand: whitelists README.md, LICENSE and site/index.html, force-pushes master, mirrors the page to gh-pages. Never sends source, tests, tools or docs |
+| `tools/publish-public.ps1` | publishing to the public repo by hand: whitelists README.md, LICENSE, site/index.html and site/shots/*.jpg, force-pushes master, mirrors the page to gh-pages. Never sends source, tests, tools or docs |
 | `tools/lib/patch.mjs` | CRLF/anchor/idempotency boilerplate in one-off edit scripts (and their retry cycles) |
 | `tools/device.mjs` | blind taps: `--preview` converts 877x1904 preview coordinates to device pixels; `smoke` checks version + JS errors + screenshot in one call |
 | `tools/verify-all.ps1` | tests + build + packaging checks only (no device) |

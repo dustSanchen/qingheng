@@ -54,6 +54,12 @@ function New-EmptyBlob {
 }
 
 $files = @('README.md=README.md', 'LICENSE=LICENSE', 'site/index.html=site/index.html')
+$shotsDir = Join-Path $root 'site\shots'
+if (Test-Path $shotsDir) {
+  Get-ChildItem $shotsDir -Filter *.jpg | Sort-Object Name | ForEach-Object {
+    $files += ('site/shots/{0}=site/shots/{0}' -f $_.Name)
+  }
+}
 $tree = New-TreeFromFiles $files
 $commit = (git commit-tree $tree -m $Message).Trim()
 if ($LASTEXITCODE -ne 0) { throw 'commit-tree failed' }
@@ -89,4 +95,4 @@ if (-not $SkipPages) {
 }
 
 Write-Host 'public distribution published.'
-Write-Host 'files: README.md, LICENSE, site/index.html (master); index.html, .nojekyll (gh-pages)'
+Write-Host ('files: ' + (($files | ForEach-Object { $_.Split('=')[0] }) -join ', ') + ' (master); index.html, .nojekyll (gh-pages)')
