@@ -758,7 +758,8 @@
   /** 周条下方的一行详情：那天记录了什么、计划是什么。 */
   function weekDetailHtml(day, plan) {
     if (!day) return '';
-    const prefix = (day === activeDate ? '今天' : day.slice(5)) + ' · ';
+    // 「今天」只留给日历上的今天：周条已经能切到别的一天，这里再无条件写「今天」就会自相矛盾。
+    const prefix = (day === localDate() ? '今天' : day.slice(5)) + ' · ';
     const items = exercisesFor(day).filter(item => item && item.name);
     const planDay = (plan && Array.isArray(plan.days) ? plan.days : []).find(item => item.date === day) || null;
     if (items.length) {
@@ -1214,15 +1215,22 @@
     // 要点跟着「今天或下一个训练日」走：优先按那天实际要做的动作点名给要点。
     const cues = (typeof libraryCuesFor === 'function' && cueDay) ? libraryCuesFor(cueDay) : [];
     const templateCues = !cues.length && (typeof libraryCues === 'function' && cueDay) ? libraryCues(cueDay.template) : [];
-    const cueToday = !!(cueDay && cueDay.date === activeDate);
-    const cueLabel = esc((cueToday ? "今天" : "下一个训练日") + "（" + (TRAINING_TEMPLATES[cueDay.template] || cueDay.template) + "）的动作要点");
+    // 标签按「正在看的那天」取名：只有日历上的今天才写「今天」，否则写日期——
+    // 切到别的一天还挂着「今天（推）」正是这次要修的回显错误。那天是休息日就写清要点属于下一个训练日。
+    const today = localDate();
+    const cueIsViewed = !!(cueDay && cueDay.date === activeDate);
+    const cuePrefix = !cueDay ? "" : cueDay.date === today ? "今天"
+      : cueIsViewed ? activeDate.slice(5) : "下一个训练日（" + cueDay.date.slice(5) + "）";
+    const cueLabel = cueDay
+      ? esc(cuePrefix + "（" + (TRAINING_TEMPLATES[cueDay.template] || cueDay.template) + "）的动作要点")
+      : "";
     const cueBody = cues.length
       ? '<ul class="plan-cue-list">' + cues.map(cue =>
         '<li><b>' + esc(cue.name) + '</b><span class="plan-cue-text">' + annotateTerms(esc(cue.text)) + '</span></li>').join('') + '</ul>'
       : (templateCues.length
         ? annotateTerms('<p class="plan-cue">' + templateCues.map(cue => esc(cue)).join('；') + '</p>')
         : '');
-    const explainHtml = '<details class="plan-why plan-cue-block"' + (cueToday ? ' open' : '') + '><summary>' + (cueBody ? cueLabel : '这份计划怎么来的') + '</summary>'
+    const explainHtml = '<details class="plan-why plan-cue-block"' + (cueIsViewed ? ' open' : '') + '><summary>' + (cueBody ? cueLabel : '这份计划怎么来的') + '</summary>'
       + cueBody + whyBody + '</details>';
     // 本周安排：完全按用户偏好生成；没有偏好就不出方案。
     const planBox = $("#week-plan");
@@ -1231,14 +1239,15 @@
       planBox.addEventListener("click", event => {
         const cell = event.target.closest("[data-week-day]");
         if (cell) {
-          weekDetailDay = cell.dataset.weekDay || null;
-          for (const node of planBox.querySelectorAll("[data-week-day]")) {
-            const on = node.dataset.weekDay === weekDetailDay;
-            node.classList.toggle("is-selected", on);
-            node.setAttribute("aria-pressed", String(on));
-          }
+          // 2026-11-19（用户：切日期要回显那天的动作要点与当天训练日志，并能改）：
+          // 点周条不再只是「换一行预览」，而是把那天切成正在看的那天——要点、训练日志表单
+          // 与今日顺序都读 activeDate，切过去就一起跟，改完直接保存到那一天。
+          const day = cell.dataset.weekDay || "";
+          if (!day) return;
+          weekDetailDay = day;
+          if (typeof setActiveDate === "function") { setActiveDate(day); return; }
           const detail = $("#week-detail");
-          if (detail) detail.textContent = weekDetailHtml(weekDetailDay, lastWeekPlan);
+          if (detail) detail.textContent = weekDetailHtml(day, lastWeekPlan);
           return;
         }
         const button = event.target.closest("[data-adopt-today]");
@@ -1256,15 +1265,15 @@
       // 而是一条 7 格周条——训练日一根绿短线、已练实心、今天加深；点某格在下面换一行详情。
       // 2026-11-18：周条改成「从今天起的 7 天」，与计划同日出发，标题也从「下周安排」改回「本周安排」。
       const weekStartPlan = startDate;
-      const weekEndPlan = shiftDay(weekStartPlan, 7);
-      const firstPlanDay = plan.days.length ? plan.days[0].date : activeDate;
-      if (!weekDetailDay || weekDetailDay < weekStartPlan || weekDetailDay >= weekEndPlan) weekDetailDay = firstPlanDay;
+      // 选中的格子始终是「正在看的那天」：点周条会切 activeDate，不再单独保存预览状态。
+      weekDetailDay = activeDate;
       const cells = [];
       for (let offset = 0; offset < 7; offset++) {
         const day = shiftDay(weekStartPlan, offset);
         const planDay = plan.days.find(item => item.date === day) || null;
         const logged = exercisesFor(day).filter(item => item && item.name).length > 0;
-        const isToday = day === activeDate;
+        // 加深只给日历上的今天：切到别的那天时，窗口里没有真正今天，就谁都不加深。
+        const isToday = day === localDate();
         const selected = day === weekDetailDay;
         const dow = "日一二三四五六"[new Date(day + "T00:00:00").getDay()];
         const label = planDay ? (TRAINING_TEMPLATES[planDay.template] || planDay.template) : "休息";

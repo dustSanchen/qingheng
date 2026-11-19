@@ -177,3 +177,5 @@
 | 2026-11-18 | `tests/structure-phase.test.mjs` ×2、新增 `tests/rest-timer.test.mjs` | `restEnd = Date.now() + 90000` → `+ length * 1000`；`startRestTimer(true)` → `startRestTimer(true, seconds)` | 组间休息不再固定 90 秒：复合/孤立/自重/有氧各不同，且到点要响一声；断言跟到新签名与新时长来源 |
 | 2026-11-19 | `tests/meal-date-java.test.mjs` | `APP_VERSION = '1.4.00'` → `'1.4.01'`（片段常量、build.ps1 默认值、测试字面量三处同步） | 发布版本同步；dev-loop 按仓库护栏一次对齐三处，不手改版本号 |
 | 2026-11-19 | 无断言变更 | 排今天（`focus=plan`）确认不带 `anchors`/`preferences`，也不放开 `chatDataContext` | 本轮曾两处都改过，被 `ai-plan-focus` 与 `meal-date-java` 的既有断言拦下并回滚：plan 分支不读这两个字段，深上下文只是拉长首字延迟。断言未变，记录在此防止下一轮再试一遍 |
+| 2026-11-19 | `tests/meal-date-java.test.mjs` | `APP_VERSION = '1.4.01'` → `'1.4.02'` | 发布版本同步，dev-loop 一次对齐片段常量、build.ps1 与测试字面量 |
+| 2026-11-19 | 新增 `tests/week-switch.test.mjs` | 周条点击走 `setActiveDate` 而非只改 `#week-detail`；详情行/周条加深/要点标签的「今天」改按 `localDate()` 判定；选中格=`activeDate`；死变量 `weekEndPlan`/`firstPlanDay`/`cueToday` 不再出现；训练日志读与写都用 `activeDate` | 用户要求「切日期时回显那天的动作要点与当天训练日志，并支持修改」；旧实现在同一屏上让详情行按选中日、要点按 activeDate 走，读起来自相矛盾 |
