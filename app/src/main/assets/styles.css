@@ -1809,3 +1809,7 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 
 /* 数字排版：表格与训练/餐食数值统一 tabular lining（2026-11-19） */
 .stats-table,.stats-table td,.meal-item,.training-row .set-value,.plan-load-value,.macro-value{font-variant-numeric:tabular-nums;font-feature-settings:"tnum","lnum"}
+
+/* 餐食条目：名称到热量的点线引导（2026-11-19） */
+.meal-item span{display:flex;align-items:baseline;gap:8px}
+.meal-item span::after{content:"";flex:1;border-bottom:1px dotted var(--line);transform:translateY(-3px)}

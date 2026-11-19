@@ -33,9 +33,10 @@ const dataVizGradients = count(css, /conic-gradient/g);
 line('PASS', '渐变总数已盘点', `${gradients}（其中数据可视化 ${dataVizGradients}）`);
 line(gradients - dataVizGradients > 2 ? 'WARN' : 'PASS', '装饰性渐变不超过 2 处', String(gradients - dataVizGradients));
 
-// 2) 阴影：卡片层级优先用底色与发丝线。
-const shadows = count(css, /box-shadow/g);
-line(shadows > 12 ? 'WARN' : 'PASS', '阴影声明不超过 12 条', String(shadows));
+// 2) 阴影：只数装饰性；焦点/错误/闪烁/inset 属于语义反馈，不计。
+const shadowValues = [...css.matchAll(/box-shadow:([^;}]+)/g)].map(m => m[1]);
+const decorativeShadows = shadowValues.filter(v => !/inset|--ring|--flash|--elev-1/.test(v)).length;
+line(decorativeShadows > 8 ? 'WARN' : 'PASS', '装饰性阴影不超过 8 条', decorativeShadows + ' 条（语义 ' + (shadowValues.length - decorativeShadows) + ' 条不计）');
 
 // 3) 大圆角：胶囊化越少，越不像模板。
 const bigRadii = (css.match(/border-radius:\s*(2[1-9]|[3-9][0-9])px/g) || []).length;
