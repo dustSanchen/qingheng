@@ -260,7 +260,7 @@ button.food-result.list-row:hover,button.food-result.list-row:active{background:
 .fav-badge{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:8px;background:var(--accent-soft);color:var(--accent)}
 .fav-badge img{width:14px;height:14px}
 .heading-actions{display:flex;align-items:center;gap:10px;flex:0 0 auto}
-.chip-toggle{border:1px solid var(--line);background:var(--paper);color:var(--muted);font-size:var(--text-xs);border-radius:20px;padding:5px 12px;min-height:32px;white-space:nowrap}
+.chip-toggle{border:1px solid var(--line);background:var(--paper);color:var(--muted);font-size:var(--text-xs);border-radius:20px;padding:5px 12px;min-height:44px;white-space:nowrap}
 .chip-toggle[aria-pressed=true]{background:var(--accent-soft);border-color:var(--ok-line);color:var(--accent);font-weight:var(--fw-semibold)}
 
 .sheet{position:fixed;inset:0;z-index:var(--z-overlay);background:var(--overlay);display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(3px)}
@@ -483,7 +483,7 @@ label.sheet-option{flex-direction:row;margin:0;cursor:pointer}
 .notice{display:flex;align-items:flex-start;gap:10px}
 .notice[hidden]{display:none}
 .notice>span{flex:1 1 auto}
-.notice-close{flex:0 0 auto;width:24px;height:24px;padding:0;border:0;border-radius:8px;background:transparent;color:inherit;font-size:15px;line-height:1;opacity:.7}
+.notice-close{flex:0 0 auto;width:40px;height:40px;padding:0;border:0;border-radius:8px;background:transparent;color:inherit;font-size:15px;line-height:1;opacity:.7}
 .notice-close:active{opacity:1;background:#00000010}
 
 /* The draft card: obviously a proposal, not a record, until the user confirms. */
@@ -794,7 +794,7 @@ details[open]{background:var(--surface)}
 .chat-day-bar .chip-toggle[aria-pressed="true"]{color:var(--accent)}
 /* 问题卡的工具栏：分析日期与联网检索都是「这次问题带什么」，放在同一行，别让开关落在主按钮前。 */
 .chat-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 var(--space-3)}
-.chat-toolbar .chip-toggle{min-height:36px}
+.chat-toolbar .chip-toggle{min-height:44px}
 /* 主行动跟输入框同一条视线：输入区一聚焦就把「提问」滚进可视区（见 installChatFocusReveal），
    position:fixed/sticky 在键盘弹起时都压不住，改滚动更稳。 */
 .chat-send-bar{margin-top:var(--space-2);padding:10px 0 6px;background:var(--paper)}
@@ -1749,7 +1749,7 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 .state-block-icon{font-size:var(--text-md);line-height:1;color:var(--muted)}
 .state-block-title{margin:0;color:var(--ink-soft);font-weight:var(--fw-medium)}
 .state-block-body{margin:0;font-size:var(--text-sm);line-height:1.55}
-.state-block-action{margin-top:var(--space-1);min-height:36px;padding:0;font-size:var(--text-sm)}
+.state-block-action{margin-top:var(--space-1);min-height:44px;padding:0;font-size:var(--text-sm)}
 .state-block[data-kind="loading"],.state-block[data-kind="overflow"]{border-style:dashed}
 .state-block[data-kind="edge"]{border-left:3px solid var(--warn);background:var(--warn-soft)}
 .state-block[data-kind="edge"] .state-block-icon{color:var(--warn)}
@@ -1786,7 +1786,7 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 .check-item.off strong,.check-item.bad strong{color:var(--danger)}
 /* 体检补记：带图标的胶囊入口，点一下就到对应字段 */
 .check-fix-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;font-size:var(--text-sm);color:var(--muted)}
-.check-fix{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--ink-soft);font:inherit;font-size:var(--text-sm);text-decoration:none}
+.check-fix{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--ink-soft);font:inherit;font-size:var(--text-sm);text-decoration:none}
 .check-fix img{opacity:.72}
 .check-fix:active{background:var(--surface)}
 

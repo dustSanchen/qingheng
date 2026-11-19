@@ -48,6 +48,9 @@ check('the about page shows the versions', html.includes('id="version-info"') &&
 check('it explains why the versions matter', html.includes('旧记录不会被重新解释'));
 check('it loads when the about subpage opens', app.includes("loadStorageStatus(false).catch(() => {}); loadVersions().catch(() => {});"));
 check('the about page names the author and states the source is public', html.includes('作者 Sanchen') && html.includes('源码公开'));
+check('state migrates away removed health fields', main.includes('STATE_VERSION = 3') && main.includes('root.remove("healthConnectRecords")'));
+check('imports carry anchors and temporary targets', main.includes('next.put("foodAnchors", imported.getJSONObject("foodAnchors"))') && main.includes('next.put("temporaryTargets"'));
+check('future weights stay out of plateau maths', app.includes('if (row.date > activeDate) continue;'));
 check('the app still does not link to the source repository', !html.includes('github.com/dustSanchen/qingheng'));
 check('building cannot disagree with the shipped app version', read('build.ps1').includes('APP_VERSION') && read('build.ps1').includes('does not match APP_VERSION'));
 check('it states the no-resale terms', html.includes('禁止二次转售') && read('LICENSE').includes('二次转售') && read('LICENSE').includes('再分发'));

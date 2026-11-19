@@ -728,6 +728,8 @@
     const byWeek = new Map();
     for (const row of (state.measurements || [])) {
       if (!row || !validDate(row.date)) continue;
+      // 未来日期的体重（错录/补记）不能进平台期：看的是截至 activeDate 的历史。
+      if (row.date > activeDate) continue;
       const weight = number(row.weight);
       if (weight === null || weight <= 0) continue;
       const date = new Date(row.date + 'T00:00:00');

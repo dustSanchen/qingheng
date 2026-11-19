@@ -1091,3 +1091,14 @@ otifyHealthResult、两个桥方法、/api/health-connect/* 路由、healthConne
 - 验收：test-all 72/72；dev-loop 1.4.15/415 装机成功、smoke 无 JS 错误。
 - 未验证：不健身档案下真机点「训练」入口的实际表现未截图（芯片已不渲染，旧链接走兜底）。
 - APK：dist/qingheng-1.4.15.apk（638174 B，sha256 c29332e1d1cb9ae222a3e7ecc5a42e7c2806a29a2c9dd5a485042ae673419044）。
+
+## r137 · 2026-11-19 · 1.4.16（审视建议批次 3：错误态、指路、触达与数据迁移）
+- 错误态：loadState 失败置 loadFailed 并调用 showRenderError，页面顶部出现可重试的常驻条；connection() 区分「加载失败」与「正在加载」，不再把失败画成永远加载。
+- 指路：问答页模型提示与今天页预览说明改指「我的 → 更多设置 → 数据管理」；备份提醒改指该页的「立即导出备份」。
+- 触达：chip-toggle、check-fix、state-block-action、聊天工具条 chip 最小高度统一 44px；通知关闭按钮 24→40px。
+- 快速记录弹窗：Esc 关闭、打开时焦点移入面板、关闭后归还给触发按钮。
+- 数据：STATE_VERSION 升 3，迁移时删除 healthConnect/healthConnectRecords/ctivities 与习惯上的 health_connect 来源；导入补 oodAnchors 与 	emporaryTargets；平台期统计过滤晚于 activeDate 的体重。
+- 断言：onboarding-backup 新增 4 条（Esc/焦点、错误条、指路位置、44px）；ci 新增 3 条（迁移、导入字段、未来体重）；structure-phase 版本号跟到 3。登记 §5.1。
+- 验收：test-all 72/72；dev-loop 1.4.16/416 装机成功、smoke 无 JS 错误。
+- 未验证：真机上错误条与 44px 触达的视觉未截图；历史日仍按当前档案重算（本轮未改，属有意口径）。
+- APK：dist/qingheng-1.4.16.apk（638173 B，sha256 5f93aa4916cde296b2a22659ff0c6c794c4ead67458cac82960a9f5135359c16）。

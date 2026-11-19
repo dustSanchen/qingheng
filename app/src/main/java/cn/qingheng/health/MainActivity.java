@@ -875,7 +875,7 @@ import java.util.concurrent.Executors;
         }
     }
     /** 数据结构版本：每次改 state 形状都加一，并在 migrateState 里补一段升级逻辑。 */
-    private static final int STATE_VERSION = 2;
+    private static final int STATE_VERSION = 3;
 
     /** 迁移前把原文件原样存一份；同名只写一次，用户可以在「数据管理」目录里找回。 */
     private void backupBeforeMigration(String raw, int fromVersion) {
@@ -907,6 +907,20 @@ import java.util.concurrent.Executors;
                 root.put("temporaryTargets", keep);
             }
             root.put("migratedFrom", from);
+        }
+        if (from < 3) {
+            // 1.4.12 移除了手表同步与 Health Connect：旧备份里的这些键不再有界面消费，
+            // 留着只会在导出/恢复之间循环。习惯数值本身保留，只去掉来源标记。
+            root.remove("healthConnect");
+            root.remove("healthConnectRecords");
+            root.remove("activities");
+            JSONArray habits = root.optJSONArray("habits");
+            if (habits != null) {
+                for (int i = 0; i < habits.length(); i++) {
+                    JSONObject habit = habits.optJSONObject(i);
+                    if (habit != null && "health_connect".equals(habit.optString("source", ""))) habit.remove("source");
+                }
+            }
         }
         root.put("version", STATE_VERSION);
     }
@@ -1547,6 +1561,9 @@ import java.util.concurrent.Executors;
             Iterator<String> profileKeys = incomingProfile.keys(); while (profileKeys.hasNext()) { String key = profileKeys.next(); profile.put(key, incomingProfile.get(key)); }
             // 迁移包/备份里带偏好时整体带入：换新手机后周计划偏好与 AI 排课不丢。
             if (imported.opt("prefs") instanceof JSONObject) next.put("prefs", imported.getJSONObject("prefs"));
+            // 这两项不在四集合里，以前换机会静默丢失：用户自维护的估算锚点与临时目标也要带走。
+            if (imported.opt("foodAnchors") instanceof JSONObject) next.put("foodAnchors", imported.getJSONObject("foodAnchors"));
+            if (imported.opt("temporaryTargets") instanceof JSONObject) next.put("temporaryTargets", imported.getJSONObject("temporaryTargets"));
             for (String c : new String[]{"meals", "measurements", "habits", "chats"}) {
                 JSONArray current = next.getJSONArray(c), incomingRecords = imported.getJSONArray(c);
                 for (int i = 0; i < incomingRecords.length(); i++) {

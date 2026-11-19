@@ -41,6 +41,10 @@ check('both pages refresh at startup', app.includes('readPermissionState().then(
 // --- the data page carries the same checklist -------------------------------------------------------
 check('the data page has the checklist', html.includes('<div class="check-list" id="data-checks" role="list"></div>'));
 check('the data page shows a summary tag', html.includes('id="perm-check-tag"') && app.includes('全部就绪'));
+check('the quick record dialog can be dismissed with Esc', app.includes('function closeQuickRecord()') && app.includes("event.key === 'Escape'") && app.includes('quickRecordOpener'));
+check('load failures show a retry bar instead of a fake loader', app.includes('loadFailed = true') && app.includes('showRenderError(error)'));
+check('consent pointers name the real switch location', app.includes('更多设置 → 数据管理') && html.includes('更多设置 → 数据管理'));
+check('touch targets are at least 44px', fs.readFileSync('app/src/main/assets/styles.css', 'utf8').includes('.check-fix{display:inline-flex;align-items:center;gap:6px;min-height:44px;'));
 check('the checklist speaks of two items', app.includes('两项都已就绪'));
 
 // --- backup reminder --------------------------------------------------------------------------------

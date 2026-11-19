@@ -102,7 +102,7 @@
     if (!info?.due) return;
     const key = `qingheng.backup-reminded.${localDate()}`;
     try {if (localStorage.getItem(key) === '1') return; localStorage.setItem(key, '1');} catch {}
-    notice(`建议现在导出一次备份：${info.reason}。文件在手机本地，卸载应用会一起删除。`, true);
+    notice(`建议现在导出一次备份：${info.reason}。到「我的 → 更多设置 → 数据管理」点「立即导出备份」；文件在手机本地，卸载应用会一起删除。`, true);
   }
   async function maybeOfferTargetAdjustment() {
     if (!loaded || activeDate !== localDate() || state?.temporaryTargets?.status === 'active') return;
@@ -149,6 +149,7 @@
   }
   let quickRecordSources = [];
   let quickRecordSelected = 0;
+  let quickRecordOpener = null;
   let quickRecordType = 'snack';
   const QUICK_MEAL_TYPES = [['breakfast', '早餐'], ['lunch', '午餐'], ['dinner', '晚餐'], ['snack', '加餐']];
   /** The meal type used to be a native <select>; inside the dialog layer WebView draws its popup
@@ -178,14 +179,25 @@
       root.className = 'app-dialog'; root.id = 'quick-record-dialog'; root.hidden = true;
       root.innerHTML = `<div class="app-dialog-panel app-dialog-panel--quick" role="dialog" aria-modal="true" aria-labelledby="quick-record-title"><h2 id="quick-record-title">快速记录</h2><form id="quick-record-form"><label>日期<input id="quick-record-date" type="date" required></label><div class="quick-type"><span class="quick-type-label">餐次</span><div class="quick-type-row" id="quick-record-type" role="radiogroup" aria-label="餐次">${QUICK_MEAL_TYPES.map(([value, label]) => `<button type="button" class="quick-type-chip" data-meal-type="${value}" role="radio" aria-checked="false">${label}</button>`).join('')}</div></div><div class="quick-source"><span class="quick-source-label">复制哪一餐</span><div class="quick-source-list" id="quick-record-source" role="radiogroup" aria-label="复制哪一餐"></div></div><label>份量比例<input id="quick-record-scale" type="number" min="0.1" max="10" step="0.1" value="1"></label><label>进餐时间<input id="quick-record-time" type="time" required></label><label>名称补充<span class="field-with-action"><input id="quick-record-text" maxlength="120" placeholder="可选，也可使用语音输入"><button type="button" class="mic-button" data-voice-target="quick" aria-label="用语音补充名称"><span class="mic-icon" aria-hidden="true"><img src="./icon-mic.svg" alt="" width="20" height="20"></span></button></span></label><p class="form-feedback" id="quick-record-feedback" role="status" aria-live="polite"></p><div class="app-dialog-actions"><button type="button" class="button subtle" id="quick-record-cancel">取消</button><button type="submit" class="button primary">保存</button></div></form></div>`;
       document.body.appendChild(root);
-      $('#quick-record-cancel').addEventListener('click', () => {root.hidden = true;});
-      root.addEventListener('click', event => {if (event.target === root) root.hidden = true;});
+      $('#quick-record-cancel').addEventListener('click', () => closeQuickRecord());
+      root.addEventListener('click', event => {if (event.target === root) closeQuickRecord();});
+      // Esc 关闭并归还焦点：弹窗打开后没有出口是触屏用户最常踩的坑之一。
+      root.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {event.preventDefault(); closeQuickRecord();}
+      });
       $('#quick-record-type').addEventListener('click', event => {
         const chip = event.target.closest('[data-meal-type]');
         if (chip) setQuickRecordType(chip.dataset.mealType);
       });
       $('#quick-record-form').addEventListener('submit', submitQuickRecord);
     }
+  }
+  function closeQuickRecord() {
+    const root = $('#quick-record-dialog');
+    if (!root || root.hidden) return;
+    root.hidden = true;
+    if (quickRecordOpener && typeof quickRecordOpener.focus === 'function') quickRecordOpener.focus();
+    quickRecordOpener = null;
   }
   function openQuickRecord() {
     const root = $('#quick-record-dialog'), select = $('#quick-record-source'), feedback = $('#quick-record-feedback');
@@ -241,6 +253,10 @@
     $('#quick-record-text').value = '';
     feedback.textContent = quickRecordSources.length ? '' : '先记录一餐后，就可以在这里快速复制。';
     root.hidden = false;
+    quickRecordOpener = document.activeElement;
+    // 打开时把焦点移进弹窗本体：键盘用户不必再 Tab 一遍页面才能到表单。
+    const panel = root.querySelector('.app-dialog-panel');
+    if (panel) {panel.tabIndex = -1; panel.focus({preventScroll: true});}
     // 打开时回到顶部并收起键盘：否则表单会停在「份量比例」，日期与餐次被滚出视野。
     if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur();
     const quickForm = $('#quick-record-form');
@@ -263,7 +279,7 @@
     try {
       const quickTime = clockPattern.test($('#quick-record-time').value) ? $('#quick-record-time').value : nowClock();
       await api('/api/meals', {date:$('#quick-record-date').value, mealType:quickRecordType, mealTime:quickTime, mealTimeSource:'manual', name, source:'quick-copy', items, ...totals, totals});
-      root.hidden = true;
+      closeQuickRecord();
       await loadState({quiet:true});
       notice('快速记录已保存。');
     } catch (error) {feedback.textContent = error.message;}

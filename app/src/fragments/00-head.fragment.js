@@ -27,7 +27,7 @@
    */
   const stripQuickTag = value => String(value ?? '').replace(/(?:（快速记录）|\(快速记录\))+$/, '').trim();
   let state = {profile:{},measurements:[],meals:[],habits:[],settings:{}};
-  let loaded = false, settingsKnown = false, imageData = null, imageBusy = false, imageVersion = 0, draft = null, estimateBusy = false, savingDraft = false, requestRevision = 0;
+  let loaded = false, loadFailed = false, settingsKnown = false, imageData = null, imageBusy = false, imageVersion = 0, draft = null, estimateBusy = false, savingDraft = false, requestRevision = 0;
   let lastCaptureId = '';
   let mealPhotoMeta = {photoTakenAt:null,photoTimeSource:'unknown'}, chatPhotoMeta = {photoTakenAt:null,photoTimeSource:'unknown'};
   /**
@@ -609,7 +609,7 @@
     // 常驻的「已保存到手机」没信息量（数据本来就在本机），刚好还会被误读成已备份到云。
     // 只在「还没加载完」与「浏览器演示」这两种真需要说明的情况下才显示。
     node.hidden = !offline && !demo;
-    node.textContent = offline ? '正在加载本地记录' : demo ? '浏览器本地演示' : '';
+    node.textContent = offline ? (loadFailed ? '本地记录加载失败：点上方的「重新加载」再试' : '正在加载本地记录') : demo ? '浏览器本地演示' : '';
   }
   function populate(form, values) {for (const [key, value] of Object.entries(values || {})) {const control = form.elements.namedItem(key); if (!control || control.type === 'password' || control.type === 'checkbox') continue; control.value = value ?? '';}}
   let selectedProvider = 'deepseek';
@@ -852,7 +852,7 @@
       // /api/state carries records only. Replacing settings with {} here used to erase the
       // saved model config, which silently disabled photo analysis until the app restarted.
       const keptSettings = (state && typeof state.settings === 'object' && state.settings) || {};
-      state = {...data, settings: (data.settings && typeof data.settings === 'object') ? data.settings : keptSettings}; loaded = true;
+      state = {...data, settings: (data.settings && typeof data.settings === 'object') ? data.settings : keptSettings}; loaded = true; loadFailed = false;
       settingsKnown = typeof state.settings.apiConfigured === 'boolean';
       hydratePrefsFromState(state);
       if (options.populate !== false) {populate($('#profile-form'), state.profile); applySettings(state.settings);
@@ -878,7 +878,7 @@
       // 一次性清掉旧版本把「AI 排今天」工具调用误存成问答的条目；只删这个固定开头的机器提示。
       setTimeout(() => { cleanupPlanChatEntries().catch(() => {}); }, 800);
       if (options.offerTargetAdjustment !== false) setTimeout(() => {maybeOfferTargetAdjustment().catch(() => {});}, 0);
-    } catch (error) {loaded = false; connection(); notice(error.message,true); throw error;}
+    } catch (error) {loaded = false; loadFailed = true; connection(); if (typeof showRenderError === 'function') showRenderError(error); notice(error.message,true); throw error;}
   }
   // ---- Profile hub and its sub-pages -----------------------------------------------------------
   // "我的" is a list of entries; each one opens a sub-page under #profile/<name>. Everything stays

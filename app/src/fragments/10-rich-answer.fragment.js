@@ -709,7 +709,7 @@
     const node = $('#chat-mode');
     if (node) {
       const base = state.settings.apiConfigured === true
-        ? '已配置模型：确认上方已勾选同意；问题与部分健康数据会发给该服务商，按 token 计费。'
+        ? '已配置模型：外发开关与授权在「我的 → 更多设置 → 数据管理」；问题与部分健康数据会发给该服务商，按 token 计费。'
         : '尚未配置 API Key：请先到「我的 → AI 模型与密钥」保存密钥；本地记录功能不受影响。';
       node.textContent = base;
     }

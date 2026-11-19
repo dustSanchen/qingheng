@@ -207,3 +207,6 @@
 | 2026-11-19 | `tests/targets.test.mjs` | 新增 GOAL_HINTS 与预设镜像断言；旧数字断言改写 | 审视建议 #2：页面与 AI 口径漂移 |
 | 2026-11-19 | `tests/ci-and-versions.test.mjs` | 新增薄肌提示词数字断言 | 同上 |
 | 2026-11-19 | `tests/ai-upgrade.test.mjs` | 薄肌提示词数字 2.2~2.4/10~15/10~20/0.3~0.5 → 2.2~2.6/12%/12~18/0.5~0.7 | 同上 |
+| 2026-11-19 | `tests/onboarding-backup.test.mjs` | 新增 4 条：Esc 关闭快速记录、加载失败给重试条、同意指路到数据管理、44px 触达 | 审视建议 #10/#11/#12 |
+| 2026-11-19 | `tests/ci-and-versions.test.mjs` | 新增 3 条：v3 清理 HC 字段、导入带 anchors/临时目标、平台期过滤未来体重 | 审视建议 #8/#9 |
+| 2026-11-19 | `tests/structure-phase.test.mjs` | 版本断言 2 → 3 | state 形状变更 |
