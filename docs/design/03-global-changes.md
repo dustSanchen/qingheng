@@ -197,3 +197,9 @@
 | 2026-11-19 | `tests/wizard-action-bar.test.mjs` | 权限检查上限断言去掉 `/api/health-connect/status`，改为断言不存在 | 同上 |
 | 2026-11-19 | `tests/ci-and-versions.test.mjs` | 关于页断言改「作者 + 源码公开」；许可断言改「禁止二次转售」；发布脚本断言改为 pages-only | 用户改口「开源代码」：源码重新公开，许可仍禁止转售；gh-pages 发布脚本替代白名单脚本 |
 | 2026-11-19 | `tests/records-panels.test.mjs` | 新增 1 条：补睡眠胶囊指向 habit-sleep，且 habit-sleep 在「身体」段映射名单里 | 修复补睡眠不跳转：映射漏了 habit-sleep 导致停在饮食段 |
+| 2026-11-19 | `tests/targets.test.mjs` | 新增 2 条：缺性别/未知性别必须报缺，不得按男性算 | 审视建议 #1：性别决定 BMR 常数项 |
+| 2026-11-19 | `tests/analysis-layer.test.mjs` | 新增 2 条：未测算区间的 verdict 指向档案表单；占位区间不评热量 | 审视建议 #1：占位值不能当目标 |
+| 2026-11-19 | `tests/graded-colors.test.mjs` | 目标带/刻度/透明填充断言改按 unset 分支 | 7 天条形在未测算时不画目标带 |
+| 2026-11-19 | `tests/training-day-budget.test.mjs` | basis 文案与 intakeRange/calorieTarget 断言改按 unset 契约 | 未测算不再回落到 2150/2350 |
+| 2026-11-19 | `tests/ci-and-versions.test.mjs` | 新增 1 条：build.ps1 必须校验 APP_VERSION 相等 | 审视建议 #6：版本守卫可绕过 |
+| 2026-11-19 | `tests/app-fragments.test.mjs` | 新增全量重名扫描：同一 IIFE 内顶层函数唯一 | 审视建议 #5：dayLabel 被静默覆盖 |

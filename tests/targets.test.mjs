@@ -30,6 +30,10 @@ check('BMR matches Mifflin-St Jeor (male)', ref.bmr === expectedBmr, `${ref.bmr}
 const expectedTdee = Math.round(expectedBmr * 1.375);
 check('TDEE uses the 2-3 sessions factor 1.375', ref.tdee === expectedTdee, `${ref.tdee} vs ${expectedTdee}`);
 check('reference case is not incomplete', ref.incomplete === false);
+const noSex = computeTargets({sex: '', weight: 64.3, height: 166, age: 24, goal: 'recomp', training: 3});
+check('a missing sex is reported instead of assumed male', noSex.incomplete === true && noSex.missing.includes('性别'), JSON.stringify(noSex.missing));
+const oddSex = computeTargets({sex: 'other', weight: 64.3, height: 166, age: 24, goal: 'recomp', training: 3});
+check('an unknown sex is reported too', oddSex.incomplete === true && oddSex.missing.includes('性别'));
 check('training frequency is echoed back', ref.sessions === 3 && ref.trainingUnset === false);
 
 // The 口径 replaces the old goal multiplier.

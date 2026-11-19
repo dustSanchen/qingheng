@@ -14,3 +14,6 @@ Thumbs.db
 tmp-audit/
 
 vendor/node_modules/
+# 个人宣传物料（不随仓库发布；本地保留）
+docs/promo-*.md
+docs/publish-kit.md

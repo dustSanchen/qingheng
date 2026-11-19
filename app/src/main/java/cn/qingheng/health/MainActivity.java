@@ -1635,6 +1635,8 @@ import java.util.concurrent.Executors;
         // here rather than trusted from the page.
         boundNumber(patch, "age", 10, 100);
         boundNumber(patch, "height", 50, 250);
+        // 体重是整条能量链的起点：单位填错（斤/磅）或手滑多一个 0，必须在这里挡住。
+        boundNumber(patch, "weight", 20, 400);
         // "none" 是一个合法答案（不健身），不是缺失值：只有数字才走范围校验。
         Object trainingRaw = patch.opt("training");
         if (trainingRaw != null && !"none".equals(String.valueOf(trainingRaw))) {

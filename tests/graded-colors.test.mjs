@@ -20,11 +20,11 @@ check('in-range stays green', app.includes('function rangeColor(kcal, min, max)'
 check('over the cap turns red quickly', app.includes('function overColor(kcal, max)') && app.includes('max * 0.08'));
 check('below the floor turns amber', app.includes('function underColor(kcal, min)'));
 check('the bar paints that colour', app.includes('background:${barColor}'));
-check('a band marks the acceptable range', app.includes('class="diet-band" style="left:') && app.includes('const bandLeft = Math.max(0, Math.min(100, (range.min / scaleMax) * 100));'));
-check('the scale leaves headroom above the cap', app.includes('const scaleMax = Math.max(range.max * 1.08, 1);'));
+check('a band marks the acceptable range', app.includes('class="diet-band" style="left:') && app.includes('const bandLeft = unset ? 0 : Math.max(0, Math.min(100, (range.min / scaleMax) * 100));'));
+check('the scale leaves headroom above the cap', app.includes('const scaleMax = Math.max((unset ? Math.max(kcal, 1) : range.max) * 1.08, 1);'));
 check('the band is explained in the caption', app.includes('浅绿带 = 当天目标区间'));
 check('the band sits under the fill', read('app/src/main/assets/styles.css').includes('.diet-band{position:absolute') && read('app/src/main/assets/styles.css').includes('.diet-bar i{z-index:1') && !read('app/src/main/assets/styles.css').includes('.diet-bar i{position:relative'));
-check('unrecorded days stay transparent', app.includes("recorded ? dietBarColor(kcal, range.min, range.max) : 'transparent'"));
+check('unrecorded days stay transparent', app.includes("recorded && !unset ? dietBarColor(kcal, range.min, range.max) : 'transparent'"));
 check('state classes are kept for accessibility', app.includes('class="${stateKey}"'));
 
 // --- weight delta graded against the plan -----------------------------------------------------------

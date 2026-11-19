@@ -67,6 +67,10 @@ const noSleep = api.dailyCheck({meals: [{totals: {calories: 2200, protein: 150, 
 check('missing sleep is excluded from the score instead of penalised', noSleep.score === 100 && noSleep.coverage === 80 && noSleep.items.find(i => i.key === 'sleep').evaluated === false, `score=${noSleep.score} coverage=${noSleep.coverage}`);
 const empty = api.dailyCheck({meals: [], habit: {}, range, proteinMin: 142, proteinMax: 155, fatMin: 55, fatMax: 70});
 check('a day without records has no score at all', empty.score === null && /先记一餐/.test(empty.verdict), String(empty.score));
+const unmeasured = api.dailyCheck({meals: [], habit: {}, range: {min: 0, max: 0, unset: true}});
+check('an unmeasured profile asks for the profile instead of scoring', unmeasured.score === null && /身体档案与目标/.test(unmeasured.verdict), unmeasured.verdict);
+const unmeasuredWithFood = api.dailyCheck({meals: [{totals: {calories: 2300, protein: 150, fat: 60}}], habit: {sleep: 8}, range: {min: 2150, max: 2350, unset: true}, proteinMin: 142, proteinMax: 155, fatMin: 55, fatMax: 70});
+check('placeholder ranges never score calories', unmeasuredWithFood.items.find(i => i.key === 'calories').evaluated === false, JSON.stringify(unmeasuredWithFood.items.find(i => i.key === 'calories')));
 const relaxed = api.dailyCheck({meals: [{totals: {calories: 2600, protein: 150, fat: 90}}], habit: {sleep: 8}, range, proteinMin: 142, proteinMax: 155, fatMin: 55, fatMax: 70, relax: true});
 check('a relax day is not scolded', relaxed.relax === true && /放松日/.test(relaxed.verdict), relaxed.verdict);
 check('a relax day asks for no compensation', /不要用少吃|照常/.test(relaxed.action), relaxed.action);

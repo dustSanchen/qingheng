@@ -154,7 +154,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.13';
+  const APP_VERSION = '1.4.14';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -180,7 +180,7 @@
         height !== null ? `${fmt(height,0)} cm` : '身高未填',
         age !== null ? `${fmt(age,0)} 岁` : '年龄未填',
         training !== null ? `每周 ${fmt(training,0)} 练` : '训练次数未填',
-        calorie !== null ? `训练日 ${fmt(range.trainingDay.min,0)}~${fmt(range.trainingDay.max,0)} / 休息日 ${fmt(range.restDay.min,0)}~${fmt(range.restDay.max,0)} kcal` : '目标未测算'
+        !range.unset && calorie !== null ? `训练日 ${fmt(range.trainingDay.min,0)}~${fmt(range.trainingDay.max,0)} / 休息日 ${fmt(range.restDay.min,0)}~${fmt(range.restDay.max,0)} kcal` : '目标未测算'
       ];
       targets.textContent = bits.join(' · ');
     }
@@ -1390,16 +1390,18 @@
       const range = intakeRangeForDate(day);
       const kcal = Math.round(totals.calories ?? 0);
       const recorded = meals.length > 0;
-      // Width is the share of the day's upper bound, so a day below the range still shows how far it got.
-      // Scale a little past the cap so the acceptable band sits inside the track rather than against its edge.
-      const scaleMax = Math.max(range.max * 1.08, 1);
-      const percent = recorded ? Math.max(4, Math.min(100, Math.round((kcal / scaleMax) * 100))) : 0;
-      const bandLeft = Math.max(0, Math.min(100, (range.min / scaleMax) * 100));
-      const bandWidth = Math.max(2, Math.min(100 - bandLeft, ((range.max - range.min) / scaleMax) * 100));
-      const stateKey = !recorded ? 'empty' : kcal > range.max ? 'over' : kcal < range.min ? 'low' : 'in';
+      // 未测算时没有真实区间：条形只表达「记了多少」，不画目标带、不做达标判断。
+      const unset = !!range.unset;
+      const scaleMax = Math.max((unset ? Math.max(kcal, 1) : range.max) * 1.08, 1);
+      const percent = !recorded ? 0 : unset ? 100 : Math.max(4, Math.min(100, Math.round((kcal / scaleMax) * 100)));
+      const bandLeft = unset ? 0 : Math.max(0, Math.min(100, (range.min / scaleMax) * 100));
+      const bandWidth = unset ? 0 : Math.max(2, Math.min(100 - bandLeft, ((range.max - range.min) / scaleMax) * 100));
+      const stateKey = unset ? 'empty' : !recorded ? 'empty' : kcal > range.max ? 'over' : kcal < range.min ? 'low' : 'in';
       // Inside the range stays green; below turns amber, above turns red as it passes the cap.
-      const barColor = recorded ? dietBarColor(kcal, range.min, range.max) : 'transparent';
-      const label = recorded
+      const barColor = recorded && !unset ? dietBarColor(kcal, range.min, range.max) : 'transparent';
+      const label = unset
+        ? (recorded ? `${kcal} kcal，目标未测算` : '未记录，目标未测算')
+        : recorded
         ? `${kcal} kcal，占上限 ${percent}%，目标区间 ${range.min}~${range.max} kcal（${{in: '区间内', low: '不足', over: '超上限'}[stateKey]}）`
         : `未记录，目标 ${range.min}~${range.max} kcal`;
       return `<div class="diet-day"><span class="diet-day-label">${day.slice(5)}</span><span class="diet-bar" role="img" aria-label="${label}"><span class="diet-band" style="left:${bandLeft.toFixed(1)}%;width:${bandWidth.toFixed(1)}%"></span><i class="${stateKey}" style="width:${percent}%;background:${barColor}"></i></span><span class="diet-day-value">${recorded ? `${kcal} kcal` : '—'}</span></div>`;

@@ -209,13 +209,15 @@
     const energyCard = ringNode ? ringNode.closest('.energy-card') : null;
     if (energyCard) energyCard.classList.toggle('is-empty', noFoodYet);
     const range = p.intakeRange;
+    const rangeUnset = !!(range && range.unset);
     // C 节：目标只给一个数，误差用 ±2% 说明，依据与数字同屏同步更新。
-    const target = number(range ? range.max : p.calorieTarget);
+    // 未测算时不显示占位数字（以前会把 2150 这类兜底值当目标写在环上）。
+    const target = rangeUnset ? null : number(range ? range.max : p.calorieTarget);
     $('#calorie-target').textContent = target === null ? '—' : fmt(target, 0);
     const basisNode = $('#calorie-basis');
     if (basisNode) {
-      const basisWord = range ? (range.trained ? '按训练日' : '按休息日') : '按默认';
-      basisNode.textContent = target === null ? '' : basisWord + ' · ±2%';
+      const basisWord = rangeUnset ? '未测算' : range ? (range.trained ? '按训练日' : '按休息日') : '按默认';
+      basisNode.textContent = rangeUnset ? '补齐档案后显示区间' : target === null ? '' : basisWord + ' · ±2%';
     }
     // 不截断：超出目标的部分要能被环和下方差额行看到。
     const rawRatio = totals.calories !== null && number(p.calorieTarget) > 0 ? totals.calories / p.calorieTarget : 0;
@@ -227,7 +229,7 @@
     // 差值必须跟屏幕上显示的上下限同一口径：以前用 calorieTarget 算「超出区间上限」会多算。
     const floor = number(range ? range.min : p.calorieTarget);
     const cap = number(range ? range.max : p.calorieTarget);
-    $('#calorie-caption').textContent = !meals.length ? '还没有餐食记录，摄入量未知。' : totals.calories === null ? '部分餐食缺少热量，无法计算完整汇总。' : number(p.calorieTarget) === null ? '尚未设置每日热量目标。' : `${range ? `按${range.trained ? '训练日' : '休息日'}区间：` : ''}${totals.calories < floor ? `距区间下限还差 ${fmt(floor-totals.calories,0)} kcal` : totals.calories <= cap ? `在区间内，距上限 ${fmt(cap-totals.calories,0)} kcal` : `超出区间上限 ${fmt(totals.calories-cap,0)} kcal`}。`;
+    $('#calorie-caption').textContent = rangeUnset ? '还没有可用的目标区间：到「我的 → 身体档案与目标」补齐性别、身高、体重与年龄。' : !meals.length ? '还没有餐食记录，摄入量未知。' : totals.calories === null ? '部分餐食缺少热量，无法计算完整汇总。' : number(p.calorieTarget) === null ? '尚未设置每日热量目标。' : `${range ? `按${range.trained ? '训练日' : '休息日'}区间：` : ''}${totals.calories < floor ? `距区间下限还差 ${fmt(floor-totals.calories,0)} kcal` : totals.calories <= cap ? `在区间内，距上限 ${fmt(cap-totals.calories,0)} kcal` : `超出区间上限 ${fmt(totals.calories-cap,0)} kcal`}。`;
     // What to do next, not just how far off the target is: a number without an action is useless.
     const actionBox = $('#calorie-action');
     if (actionBox) {

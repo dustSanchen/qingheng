@@ -1,4 +1,4 @@
-param([switch]$Clean,[string]$Version='1.4.13',[int]$VersionCode=413)
+﻿param([switch]$Clean,[string]$Version='1.4.14',[int]$VersionCode=414)
 $ErrorActionPreference='Stop'
 $root=$PSScriptRoot
 $jdk=Get-ChildItem "$root\toolchain\jdk" -Directory | Select-Object -First 1
@@ -10,6 +10,9 @@ foreach($p in @($java,$javac,$jar,$android,$aapt,$zipalign,$d8,$apksigner)){if(!
 # One place owns the version: the manifest link, the file name and the reported hash all read it.
 if($Version -notmatch '^\d+\.\d+\.\d+$'){throw "Version must look like 1.2.3 (got '$Version')"}
 if($VersionCode -lt 1){throw "VersionCode must be a positive integer (got '$VersionCode')"}
+# -Version must equal the constant the About page shows: bypassing dev-loop used to ship 1.1.71 while the page said 1.1.91.
+$appVersion=(Select-String -Path (Join-Path $root 'app\src\fragments\70-rest.fragment.js') -Pattern "APP_VERSION = '([0-9.]+)'").Matches.Groups[1].Value;
+if($appVersion -and $appVersion -ne $Version){throw "Version $Version does not match APP_VERSION $appVersion in 70-rest.fragment.js; run tools/sync-version.mjs first"}
 $apkName="qingheng-$Version.apk"
 $build="$root\build";$dist="$root\dist";$sign="$root\.signing"
 # Rebuild intermediates from scratch: javac does not delete the .class files of sources that were

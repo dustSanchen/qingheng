@@ -1258,16 +1258,18 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
           rules: profile
         });
     const active = plan && !plan.incomplete ? plan : null;
+    const unset = !active;
     const trainingDay = active ? active.trainingDay : {min: rules.trainingDayMin, max: rules.trainingDayMax};
     const restDay = active ? active.restDay : {min: rules.restDayMin, max: rules.restDayMax};
     const basis = active
       ? `${goalLabel(profile.goal)}（按维持 ${active.tdee}${active.leanPlan ? ' 与有效缺口 ' + active.leanPlan.effectivePercent + '%' : ''}）`
-      : trained ? '已记录训练，按训练日区间' : '当天未记录训练，按休息日区间';
+      : '未测算：到「我的 → 身体档案与目标」补齐性别、身高、体重与年龄';
     return {
       min: useTraining ? trainingDay.min : restDay.min,
       max: useTraining ? trainingDay.max : restDay.max,
       trained,
       basis,
+      unset,
       trainingDay,
       restDay,
       expectedWeeklyKg: active && Number.isFinite(active.expectedWeeklyKg) ? active.expectedWeeklyKg : null
@@ -1289,14 +1291,15 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
       ? window.QinghengCalc.applyTemporaryRange(baseRange, adjustment.temporary)
       : baseRange;
     // 区间与当日上限都以目标预设算出的结果为准，手填字段不再参与。
-    profile.calorieTarget = range.max;
+    // 未测算时不给占位数字当目标：calorieTarget 置空，页面显示「未测算」而不是 2150 这类假区间。
+    profile.calorieTarget = range.unset ? null : range.max;
     profile.trainingDayMin = range.trainingDay.min;
     profile.trainingDayMax = range.trainingDay.max;
     profile.restDayMin = range.restDay.min;
     profile.restDayMax = range.restDay.max;
     // trained 一起带出去：页面上「按训练日 / 按休息日」只该看这个布尔值，
     // 不该去 basis 文本里找「训练」二字（有目标预设时 basis 讲的是口径，不写训练/休息）。
-    profile.intakeRange = {min: range.min, max: range.max, basis: range.basis, trained: !!range.trained};
+    profile.intakeRange = {min: range.min, max: range.max, basis: range.basis, trained: !!range.trained, unset: !!range.unset};
     return profile;
   }
 /* Fragment of assets/app.js -- assembled by tools/assemble-app.ps1 in filename order.
@@ -1510,13 +1513,15 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     const energyCard = ringNode ? ringNode.closest('.energy-card') : null;
     if (energyCard) energyCard.classList.toggle('is-empty', noFoodYet);
     const range = p.intakeRange;
+    const rangeUnset = !!(range && range.unset);
     // C 节：目标只给一个数，误差用 ±2% 说明，依据与数字同屏同步更新。
-    const target = number(range ? range.max : p.calorieTarget);
+    // 未测算时不显示占位数字（以前会把 2150 这类兜底值当目标写在环上）。
+    const target = rangeUnset ? null : number(range ? range.max : p.calorieTarget);
     $('#calorie-target').textContent = target === null ? '—' : fmt(target, 0);
     const basisNode = $('#calorie-basis');
     if (basisNode) {
-      const basisWord = range ? (range.trained ? '按训练日' : '按休息日') : '按默认';
-      basisNode.textContent = target === null ? '' : basisWord + ' · ±2%';
+      const basisWord = rangeUnset ? '未测算' : range ? (range.trained ? '按训练日' : '按休息日') : '按默认';
+      basisNode.textContent = rangeUnset ? '补齐档案后显示区间' : target === null ? '' : basisWord + ' · ±2%';
     }
     // 不截断：超出目标的部分要能被环和下方差额行看到。
     const rawRatio = totals.calories !== null && number(p.calorieTarget) > 0 ? totals.calories / p.calorieTarget : 0;
@@ -1528,7 +1533,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     // 差值必须跟屏幕上显示的上下限同一口径：以前用 calorieTarget 算「超出区间上限」会多算。
     const floor = number(range ? range.min : p.calorieTarget);
     const cap = number(range ? range.max : p.calorieTarget);
-    $('#calorie-caption').textContent = !meals.length ? '还没有餐食记录，摄入量未知。' : totals.calories === null ? '部分餐食缺少热量，无法计算完整汇总。' : number(p.calorieTarget) === null ? '尚未设置每日热量目标。' : `${range ? `按${range.trained ? '训练日' : '休息日'}区间：` : ''}${totals.calories < floor ? `距区间下限还差 ${fmt(floor-totals.calories,0)} kcal` : totals.calories <= cap ? `在区间内，距上限 ${fmt(cap-totals.calories,0)} kcal` : `超出区间上限 ${fmt(totals.calories-cap,0)} kcal`}。`;
+    $('#calorie-caption').textContent = rangeUnset ? '还没有可用的目标区间：到「我的 → 身体档案与目标」补齐性别、身高、体重与年龄。' : !meals.length ? '还没有餐食记录，摄入量未知。' : totals.calories === null ? '部分餐食缺少热量，无法计算完整汇总。' : number(p.calorieTarget) === null ? '尚未设置每日热量目标。' : `${range ? `按${range.trained ? '训练日' : '休息日'}区间：` : ''}${totals.calories < floor ? `距区间下限还差 ${fmt(floor-totals.calories,0)} kcal` : totals.calories <= cap ? `在区间内，距上限 ${fmt(cap-totals.calories,0)} kcal` : `超出区间上限 ${fmt(totals.calories-cap,0)} kcal`}。`;
     // What to do next, not just how far off the target is: a number without an action is useless.
     const actionBox = $('#calorie-action');
     if (actionBox) {
@@ -2730,6 +2735,9 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     if (!(w > 0)) missing.push('体重');
     if (!(h > 0)) missing.push('身高');
     if (!(a > 0)) missing.push('年龄');
+    // 性别决定 BMR 的常数项（+5 / −161），缺省按男性算会让整条能量链偏高约 160 kcal；
+    // 宁可报缺，也不静默替用户选一个。
+    if (sex !== 'male' && sex !== 'female') missing.push('性别');
     if (missing.length) {
       return {
         incomplete: true, missing, goal: goal,
@@ -3203,7 +3211,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     const p = state.profile || {};
     if (number(p.calorieTarget) === null) {
       node.className = 'target-status empty';
-      node.textContent = '尚未测算。填写身高、体重与年龄后点「按目标重新测算」；训练天数取自「记录 → 训练计划」。';
+      node.textContent = '尚未测算。填写性别、身高、体重与年龄后点「按目标重新测算」；训练天数取自「记录 → 训练计划」。';
       return;
     }
     node.className = 'target-status';
@@ -3211,6 +3219,11 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     const temporary = targetAdjustmentForDate(localDate());
     // 展示与「今天」页同一套计算：目标预设算出的训练日/休息日区间，不再读手填字段。
     const range = intakeRangeForDate(localDate());
+    if (range.unset) {
+      node.className = 'target-status empty';
+      node.textContent = '尚未测算。填写性别、身高、体重与年龄后点「按目标重新测算」；训练天数取自「记录 → 训练计划」。';
+      return;
+    }
     const missing = [];
     if (number(p.age) === null) missing.push('年龄');
     if (plannedSessions() === null) missing.push('训练计划');
@@ -3363,7 +3376,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     }
     const html = [...groups].map(([day, list]) => {
       const kcal = Math.round(totalsFor(list).calories ?? 0);
-      return `<div class="meal-day"><div class="meal-day-head"><strong>${esc(dayLabel(day))}</strong><span>${list.length} 餐 · ${fmt(kcal, 0)} kcal</span></div>${mealRowsHtml(list, false)}</div>`;
+      return `<div class="meal-day"><div class="meal-day-head"><strong>${esc(mealDayLabel(day))}</strong><span>${list.length} 餐 · ${fmt(kcal, 0)} kcal</span></div>${mealRowsHtml(list, false)}</div>`;
     }).join('');
     const toggle = rows.length > RECORD_MEALS_COLLAPSED
       ? `<button type="button" class="button subtle" id="record-meals-toggle">${recordMealsExpanded ? '收起' : `显示全部 ${rows.length} 条`}</button>`
@@ -3372,7 +3385,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     $('#record-meals-toggle')?.addEventListener('click', () => {recordMealsExpanded = !recordMealsExpanded; renderRecordMeals(rows);});
   }
   /** 10-18 for this year, 2025-10-18 otherwise. */
-  function dayLabel(day) {
+  function mealDayLabel(day) {
     if (!validDate(day)) return '未标日期';
     const today = localDate();
     const sameYear = day.slice(0, 4) === today.slice(0, 4);
@@ -4348,6 +4361,9 @@ const values = points.length<=7 ? points.map((item,i) => {
     const items = [];
     const clamp01 = value => Math.max(0, Math.min(1, value));
     const hasMeals = sum.calories > 0;
+    // 未测算时区块仍有「热量」这一条，但不评分：占位区间不能当成目标（否则只记一餐也会被
+    // 2150~2350 的兜底值判超量/不足）。
+    const rangeKnown = !!(range && !range.unset && Number.isFinite(range.min) && Number.isFinite(range.max));
     if (range && Number.isFinite(range.min) && Number.isFinite(range.max)) {
       const distance = sum.calories < range.min ? range.min - sum.calories : sum.calories > range.max ? sum.calories - range.max : 0;
       // 按偏离目标的百分比给分：≤3% 满分，5% 0.9，10% 0.75，20% 0.5，35% 0.25，再远 0。
@@ -4355,9 +4371,9 @@ const values = points.length<=7 ? points.map((item,i) => {
       const deviation = distance / reference;
       const calScore = deviation === 0 ? 1 : deviation <= 0.03 ? 1 : deviation <= 0.05 ? 0.9 : deviation <= 0.1 ? 0.75 : deviation <= 0.2 ? 0.5 : deviation <= 0.35 ? 0.25 : 0;
       items.push({key: 'calories', label: '热量', value: Math.round(sum.calories), target: range.min + '~' + range.max,
-        weight: DAILY_CHECK_WEIGHTS.calories, evaluated: hasMeals,
-        ok: distance === 0, score: calScore,
-        state: relax || !hasMeals ? 'idle' : (sum.calories < range.min ? 'low' : sum.calories > range.max ? 'high' : undefined)});
+        weight: DAILY_CHECK_WEIGHTS.calories, evaluated: hasMeals && rangeKnown,
+        ok: rangeKnown && distance === 0, score: calScore,
+        state: rangeKnown ? (relax || !hasMeals ? 'idle' : (sum.calories < range.min ? 'low' : sum.calories > range.max ? 'high' : undefined)) : 'idle'});
     }
     if (Number.isFinite(src.proteinMin) && src.proteinMin > 0) {
       items.push({key: 'protein', label: '蛋白质', value: Math.round(sum.protein), target: Math.round(src.proteinMin) + 'g 起',
@@ -4432,7 +4448,9 @@ const values = points.length<=7 ? points.map((item,i) => {
       action = '明后两天照常吃就行，不要用少吃或加练去「补回来」——那样更容易在周末反弹。';
       verdict = '今天是本周的放松日：吃多一点属于计划内，明后两天照常吃，不用少吃或加练补回来。';
     }
-    else if (score === null) verdict = '还没有可评的记录：先记一餐和睡眠，我再帮你算。';
+    else if (score === null) verdict = range && range.unset
+      ? '还没有可用的目标区间：到「我的 → 身体档案与目标」补齐性别、身高、体重与年龄。'
+      : '还没有可评的记录：先记一餐和睡眠，我再帮你算。';
     else if (worst && !worst.ok) verdict = `${band} · ${gapOf(worst)}，${STEP_TEXT[`${worst.key}:${worst.state || 'any'}`] || '先补这一项'}。`;
     else verdict = `${band} · ${goodPart}，保持就好。`;
     return {items, worst, best, action, verdict, score, coverage, relax, weights: DAILY_CHECK_WEIGHTS, totals: {calories: Math.round(sum.calories), protein: Math.round(sum.protein), fat: Math.round(sum.fat), carbs: Math.round(sum.carbs)}};
@@ -4958,7 +4976,7 @@ const values = points.length<=7 ? points.map((item,i) => {
       proteinMin: number(profile.proteinMin), proteinMax: number(profile.proteinMax),
       fatMin: number(profile.fatMin), fatMax: number(profile.fatMax)});
     if (tag) {
-      tag.textContent = check.relax ? '放松日 · 本周 1/1' : check.score === null ? '待记录' : check.score + ' 分';
+      tag.textContent = check.relax ? '放松日 · 本周 1/1' : range.unset ? '未测算' : check.score === null ? '待记录' : check.score + ' 分';
       tag.classList.toggle('is-relax', !!check.relax);
     }
     // 2026-11-18：体检不再复述热量/蛋白/脂肪数字（能量卡已有），改成四根竖向完成度条 + 结论。
@@ -6240,7 +6258,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.13';
+  const APP_VERSION = '1.4.14';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -6266,7 +6284,7 @@ function metricIcon(label) {
         height !== null ? `${fmt(height,0)} cm` : '身高未填',
         age !== null ? `${fmt(age,0)} 岁` : '年龄未填',
         training !== null ? `每周 ${fmt(training,0)} 练` : '训练次数未填',
-        calorie !== null ? `训练日 ${fmt(range.trainingDay.min,0)}~${fmt(range.trainingDay.max,0)} / 休息日 ${fmt(range.restDay.min,0)}~${fmt(range.restDay.max,0)} kcal` : '目标未测算'
+        !range.unset && calorie !== null ? `训练日 ${fmt(range.trainingDay.min,0)}~${fmt(range.trainingDay.max,0)} / 休息日 ${fmt(range.restDay.min,0)}~${fmt(range.restDay.max,0)} kcal` : '目标未测算'
       ];
       targets.textContent = bits.join(' · ');
     }
@@ -7476,16 +7494,18 @@ function metricIcon(label) {
       const range = intakeRangeForDate(day);
       const kcal = Math.round(totals.calories ?? 0);
       const recorded = meals.length > 0;
-      // Width is the share of the day's upper bound, so a day below the range still shows how far it got.
-      // Scale a little past the cap so the acceptable band sits inside the track rather than against its edge.
-      const scaleMax = Math.max(range.max * 1.08, 1);
-      const percent = recorded ? Math.max(4, Math.min(100, Math.round((kcal / scaleMax) * 100))) : 0;
-      const bandLeft = Math.max(0, Math.min(100, (range.min / scaleMax) * 100));
-      const bandWidth = Math.max(2, Math.min(100 - bandLeft, ((range.max - range.min) / scaleMax) * 100));
-      const stateKey = !recorded ? 'empty' : kcal > range.max ? 'over' : kcal < range.min ? 'low' : 'in';
+      // 未测算时没有真实区间：条形只表达「记了多少」，不画目标带、不做达标判断。
+      const unset = !!range.unset;
+      const scaleMax = Math.max((unset ? Math.max(kcal, 1) : range.max) * 1.08, 1);
+      const percent = !recorded ? 0 : unset ? 100 : Math.max(4, Math.min(100, Math.round((kcal / scaleMax) * 100)));
+      const bandLeft = unset ? 0 : Math.max(0, Math.min(100, (range.min / scaleMax) * 100));
+      const bandWidth = unset ? 0 : Math.max(2, Math.min(100 - bandLeft, ((range.max - range.min) / scaleMax) * 100));
+      const stateKey = unset ? 'empty' : !recorded ? 'empty' : kcal > range.max ? 'over' : kcal < range.min ? 'low' : 'in';
       // Inside the range stays green; below turns amber, above turns red as it passes the cap.
-      const barColor = recorded ? dietBarColor(kcal, range.min, range.max) : 'transparent';
-      const label = recorded
+      const barColor = recorded && !unset ? dietBarColor(kcal, range.min, range.max) : 'transparent';
+      const label = unset
+        ? (recorded ? `${kcal} kcal，目标未测算` : '未记录，目标未测算')
+        : recorded
         ? `${kcal} kcal，占上限 ${percent}%，目标区间 ${range.min}~${range.max} kcal（${{in: '区间内', low: '不足', over: '超上限'}[stateKey]}）`
         : `未记录，目标 ${range.min}~${range.max} kcal`;
       return `<div class="diet-day"><span class="diet-day-label">${day.slice(5)}</span><span class="diet-bar" role="img" aria-label="${label}"><span class="diet-band" style="left:${bandLeft.toFixed(1)}%;width:${bandWidth.toFixed(1)}%"></span><i class="${stateKey}" style="width:${percent}%;background:${barColor}"></i></span><span class="diet-day-value">${recorded ? `${kcal} kcal` : '—'}</span></div>`;

@@ -144,7 +144,7 @@
     const p = state.profile || {};
     if (number(p.calorieTarget) === null) {
       node.className = 'target-status empty';
-      node.textContent = '尚未测算。填写身高、体重与年龄后点「按目标重新测算」；训练天数取自「记录 → 训练计划」。';
+      node.textContent = '尚未测算。填写性别、身高、体重与年龄后点「按目标重新测算」；训练天数取自「记录 → 训练计划」。';
       return;
     }
     node.className = 'target-status';
@@ -152,6 +152,11 @@
     const temporary = targetAdjustmentForDate(localDate());
     // 展示与「今天」页同一套计算：目标预设算出的训练日/休息日区间，不再读手填字段。
     const range = intakeRangeForDate(localDate());
+    if (range.unset) {
+      node.className = 'target-status empty';
+      node.textContent = '尚未测算。填写性别、身高、体重与年龄后点「按目标重新测算」；训练天数取自「记录 → 训练计划」。';
+      return;
+    }
     const missing = [];
     if (number(p.age) === null) missing.push('年龄');
     if (plannedSessions() === null) missing.push('训练计划');
@@ -304,7 +309,7 @@
     }
     const html = [...groups].map(([day, list]) => {
       const kcal = Math.round(totalsFor(list).calories ?? 0);
-      return `<div class="meal-day"><div class="meal-day-head"><strong>${esc(dayLabel(day))}</strong><span>${list.length} 餐 · ${fmt(kcal, 0)} kcal</span></div>${mealRowsHtml(list, false)}</div>`;
+      return `<div class="meal-day"><div class="meal-day-head"><strong>${esc(mealDayLabel(day))}</strong><span>${list.length} 餐 · ${fmt(kcal, 0)} kcal</span></div>${mealRowsHtml(list, false)}</div>`;
     }).join('');
     const toggle = rows.length > RECORD_MEALS_COLLAPSED
       ? `<button type="button" class="button subtle" id="record-meals-toggle">${recordMealsExpanded ? '收起' : `显示全部 ${rows.length} 条`}</button>`
@@ -313,7 +318,7 @@
     $('#record-meals-toggle')?.addEventListener('click', () => {recordMealsExpanded = !recordMealsExpanded; renderRecordMeals(rows);});
   }
   /** 10-18 for this year, 2025-10-18 otherwise. */
-  function dayLabel(day) {
+  function mealDayLabel(day) {
     if (!validDate(day)) return '未标日期';
     const today = localDate();
     const sameYear = day.slice(0, 4) === today.slice(0, 4);

@@ -1072,3 +1072,14 @@ otifyHealthResult、两个桥方法、/api/health-connect/* 路由、healthConne
 - 验收：assemble 14 片段；test-all 72/72；dev-loop 1.4.13/413 装机成功、smoke 无 JS 错误。
 - 未验证：真机点胶囊的滚动效果未截图（WebView 内容 uiautomator 抓不到坐标）；逻辑上分段切换后输入框可见。
 - APK：dist/qingheng-1.4.13.apk（638176 B，sha256  6df66704b560198d63b1c7422534712da8aefc88b4fb529870c64cc63c63850）。
+
+## r135 · 2026-11-19 · 1.4.14（审视建议批次 1：数字基线）
+- 性别不再缺省按男性算：computeTargets 的 missing 增加「性别」，只接受 male/female；档案表单性别改 required。
+- 未测算不再拿占位区间当目标：intakeRangeForDate 增加 unset，effectiveProfileForDate 把 calorieTarget 置空；能量环显示「—/补齐档案后显示区间」，体检热量项不评分、标签显示「未测算」，7 天饮食条形不画目标带，档案状态与我的页摘要都显示「未测算」。
+- 体重补上原身边界（20~400 kg），挡住「斤/磅」与多一个 0。
+- dayLabel 重名：50 号那份改成 mealDayLabel（保留跨年显示与无效日期兜底），60 号「今天/MM-DD」保持唯一；新增「顶层函数不得重名」的全量扫描守卫，替代只探 6 个符号的旧检查。
+- uild.ps1 增加 -Version 与 APP_VERSION 相等校验，绕开 dev-loop 直接 build 会直接报错。
+- 断言：targets 新增 2 条（缺性别/未知性别报缺）；analysis-layer 新增 2 条（未测算不评分、占位区间不评热量）；graded-colors 与 training-day-budget 按新契约改写；ci-and-versions 新增 build 守卫；app-fragments 新增重名扫描。均已登记 §5.1。
+- 验收：test-all 72/72；dev-loop 1.4.14/414 装机成功、smoke 无 JS 错误。
+- 未验证：真机上性别缺失时的引导文案与空态视觉未截图。
+- APK：dist/qingheng-1.4.14.apk（638176 B，sha256 e346fab31860f3b35ce0a32655f128f368c366895c437367da62959727188ecd）。

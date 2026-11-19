@@ -192,6 +192,9 @@
     const items = [];
     const clamp01 = value => Math.max(0, Math.min(1, value));
     const hasMeals = sum.calories > 0;
+    // 未测算时区块仍有「热量」这一条，但不评分：占位区间不能当成目标（否则只记一餐也会被
+    // 2150~2350 的兜底值判超量/不足）。
+    const rangeKnown = !!(range && !range.unset && Number.isFinite(range.min) && Number.isFinite(range.max));
     if (range && Number.isFinite(range.min) && Number.isFinite(range.max)) {
       const distance = sum.calories < range.min ? range.min - sum.calories : sum.calories > range.max ? sum.calories - range.max : 0;
       // 按偏离目标的百分比给分：≤3% 满分，5% 0.9，10% 0.75，20% 0.5，35% 0.25，再远 0。
@@ -199,9 +202,9 @@
       const deviation = distance / reference;
       const calScore = deviation === 0 ? 1 : deviation <= 0.03 ? 1 : deviation <= 0.05 ? 0.9 : deviation <= 0.1 ? 0.75 : deviation <= 0.2 ? 0.5 : deviation <= 0.35 ? 0.25 : 0;
       items.push({key: 'calories', label: '热量', value: Math.round(sum.calories), target: range.min + '~' + range.max,
-        weight: DAILY_CHECK_WEIGHTS.calories, evaluated: hasMeals,
-        ok: distance === 0, score: calScore,
-        state: relax || !hasMeals ? 'idle' : (sum.calories < range.min ? 'low' : sum.calories > range.max ? 'high' : undefined)});
+        weight: DAILY_CHECK_WEIGHTS.calories, evaluated: hasMeals && rangeKnown,
+        ok: rangeKnown && distance === 0, score: calScore,
+        state: rangeKnown ? (relax || !hasMeals ? 'idle' : (sum.calories < range.min ? 'low' : sum.calories > range.max ? 'high' : undefined)) : 'idle'});
     }
     if (Number.isFinite(src.proteinMin) && src.proteinMin > 0) {
       items.push({key: 'protein', label: '蛋白质', value: Math.round(sum.protein), target: Math.round(src.proteinMin) + 'g 起',
@@ -276,7 +279,9 @@
       action = '明后两天照常吃就行，不要用少吃或加练去「补回来」——那样更容易在周末反弹。';
       verdict = '今天是本周的放松日：吃多一点属于计划内，明后两天照常吃，不用少吃或加练补回来。';
     }
-    else if (score === null) verdict = '还没有可评的记录：先记一餐和睡眠，我再帮你算。';
+    else if (score === null) verdict = range && range.unset
+      ? '还没有可用的目标区间：到「我的 → 身体档案与目标」补齐性别、身高、体重与年龄。'
+      : '还没有可评的记录：先记一餐和睡眠，我再帮你算。';
     else if (worst && !worst.ok) verdict = `${band} · ${gapOf(worst)}，${STEP_TEXT[`${worst.key}:${worst.state || 'any'}`] || '先补这一项'}。`;
     else verdict = `${band} · ${goodPart}，保持就好。`;
     return {items, worst, best, action, verdict, score, coverage, relax, weights: DAILY_CHECK_WEIGHTS, totals: {calories: Math.round(sum.calories), protein: Math.round(sum.protein), fat: Math.round(sum.fat), carbs: Math.round(sum.carbs)}};
@@ -802,7 +807,7 @@
       proteinMin: number(profile.proteinMin), proteinMax: number(profile.proteinMax),
       fatMin: number(profile.fatMin), fatMax: number(profile.fatMax)});
     if (tag) {
-      tag.textContent = check.relax ? '放松日 · 本周 1/1' : check.score === null ? '待记录' : check.score + ' 分';
+      tag.textContent = check.relax ? '放松日 · 本周 1/1' : range.unset ? '未测算' : check.score === null ? '待记录' : check.score + ' 分';
       tag.classList.toggle('is-relax', !!check.relax);
     }
     // 2026-11-18：体检不再复述热量/蛋白/脂肪数字（能量卡已有），改成四根竖向完成度条 + 结论。

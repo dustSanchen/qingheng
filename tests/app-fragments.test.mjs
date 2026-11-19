@@ -51,6 +51,19 @@ for (const name of names) {
 for (const [symbol, found] of owners) check(`${symbol} lives in exactly one fragment`, found.length === 1, found.join(', '));
 check('every probed symbol was found', owners.size === 6, owners.size);
 
+// 并入同一个 IIFE 后，同名函数声明会被后一份静默覆盖。以前只探 6 个手挑符号，所以 dayLabel 重复没被发现。
+{
+  const assembled = fs.readFileSync('app/src/main/assets/app.js', 'utf8').split(/\r?\n/);
+  const declared = new Map();
+  for (const line of assembled) {
+    const m = /^  (?:async )?function ([A-Za-z_$][\w$]*)\(/.exec(line);
+    if (!m) continue;
+    declared.set(m[1], (declared.get(m[1]) || 0) + 1);
+  }
+  const dupes = [...declared].filter(([, n]) => n > 1).map(([name]) => name);
+  check('no top-level function is declared twice', dupes.length === 0, dupes.join(', '));
+}
+
 console.log('\nFAIL total: ' + fail);
 process.exitCode = fail ? 1 : 0;
 

@@ -16,21 +16,22 @@ check('an intake range is derived per date', app.includes('function intakeRangeF
 check('a training day uses the training range', app.includes('min: useTraining ? trainingDay.min : restDay.min'));
 check('a rest day uses the rest range', app.includes('max: useTraining ? trainingDay.max : restDay.max'));
 // 2026-11-18：训练日不再读手填的「训练情况」，改成「当天有没有保存训练动作」。
-check('an unrecorded day says so instead of guessing', app.includes("'当天未记录训练，按休息日区间'"));
+check('an unmeasured profile says so instead of guessing', app.includes("'未测算：到「我的 → 身体档案与目标」补齐性别、身高、体重与年龄'"));
+check('the missing profile is flagged on the range', app.includes('const unset = !active;') && app.includes('unset,'));
 check('every diet goal drives the daily range', app.includes("goal: profile.goal,") && app.includes('goalLabel(profile.goal)'));
 check('the goal plan falls back safely when incomplete', app.includes('plan && !plan.incomplete ? plan : null'));
 check('the training flag is derived from the day\'s exercises', app.includes('const trained = typeof trainedOn === \'function\' ? !!trainedOn(date) : false;') && app.includes('function trainedOn(date)'));
 check('and the day is trained when it has a named exercise', app.includes("return exercisesFor(date).some(item => item && String(item.name || '').trim());"));
 check('the habit form no longer asks for training status', !html.includes('id="habit-training"') && !html.includes('训练情况'));
-check('the effective profile carries the range', app.includes('profile.intakeRange = {min: range.min, max: range.max, basis: range.basis, trained: !!range.trained};'));
-check('the stored ceiling is replaced by the day range', app.includes('profile.calorieTarget = range.max;'));
+check('the effective profile carries the range', app.includes('profile.intakeRange = {min: range.min, max: range.max, basis: range.basis, trained: !!range.trained, unset: !!range.unset};'));
+check('an unmeasured profile clears the stored ceiling', app.includes('profile.calorieTarget = range.unset ? null : range.max;'));
 check('the stored day ranges are refreshed from the goal plan', app.includes('profile.trainingDayMin = range.trainingDay.min;'));
 check('a one-day adjustment still overrides the ceiling', app.includes('if (adjustment) Object.assign(profile, adjustment.temporary);'));
 // 断言更新登记（03-global-changes.md §5.1，2026-10-29）：C 节把区间降级成「目标单值 + ±2% 容差 + 依据」，
 // 依据与数字必须同屏同源，所以断言的是一段代码里同时写入两者。
 check('the hero shows one target with basis and tolerance', app.includes("$('#calorie-target').textContent = target === null ? '—' : fmt(target, 0);") && app.includes("' · ±2%'"));
 check('the caption names the day type from the range', app.includes("range.trained ? '训练日' : '休息日'"));
-check('the range carries whether the day is trained', app.includes('profile.intakeRange = {min: range.min, max: range.max, basis: range.basis, trained: !!range.trained};'));
+check('the range carries whether the day is trained', app.includes('profile.intakeRange = {min: range.min, max: range.max, basis: range.basis, trained: !!range.trained, unset: !!range.unset};'));
 check('the caption separates below-range from over-range', app.includes('距区间下限还差') && app.includes('超出区间上限'));
 check('the caption confirms when inside the range', app.includes('在区间内，距上限'));
 

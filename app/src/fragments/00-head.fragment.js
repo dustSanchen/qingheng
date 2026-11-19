@@ -1258,16 +1258,18 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
           rules: profile
         });
     const active = plan && !plan.incomplete ? plan : null;
+    const unset = !active;
     const trainingDay = active ? active.trainingDay : {min: rules.trainingDayMin, max: rules.trainingDayMax};
     const restDay = active ? active.restDay : {min: rules.restDayMin, max: rules.restDayMax};
     const basis = active
       ? `${goalLabel(profile.goal)}（按维持 ${active.tdee}${active.leanPlan ? ' 与有效缺口 ' + active.leanPlan.effectivePercent + '%' : ''}）`
-      : trained ? '已记录训练，按训练日区间' : '当天未记录训练，按休息日区间';
+      : '未测算：到「我的 → 身体档案与目标」补齐性别、身高、体重与年龄';
     return {
       min: useTraining ? trainingDay.min : restDay.min,
       max: useTraining ? trainingDay.max : restDay.max,
       trained,
       basis,
+      unset,
       trainingDay,
       restDay,
       expectedWeeklyKg: active && Number.isFinite(active.expectedWeeklyKg) ? active.expectedWeeklyKg : null
@@ -1289,13 +1291,14 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
       ? window.QinghengCalc.applyTemporaryRange(baseRange, adjustment.temporary)
       : baseRange;
     // 区间与当日上限都以目标预设算出的结果为准，手填字段不再参与。
-    profile.calorieTarget = range.max;
+    // 未测算时不给占位数字当目标：calorieTarget 置空，页面显示「未测算」而不是 2150 这类假区间。
+    profile.calorieTarget = range.unset ? null : range.max;
     profile.trainingDayMin = range.trainingDay.min;
     profile.trainingDayMax = range.trainingDay.max;
     profile.restDayMin = range.restDay.min;
     profile.restDayMax = range.restDay.max;
     // trained 一起带出去：页面上「按训练日 / 按休息日」只该看这个布尔值，
     // 不该去 basis 文本里找「训练」二字（有目标预设时 basis 讲的是口径，不写训练/休息）。
-    profile.intakeRange = {min: range.min, max: range.max, basis: range.basis, trained: !!range.trained};
+    profile.intakeRange = {min: range.min, max: range.max, basis: range.basis, trained: !!range.trained, unset: !!range.unset};
     return profile;
   }

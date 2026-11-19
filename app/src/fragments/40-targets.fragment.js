@@ -74,6 +74,9 @@
     if (!(w > 0)) missing.push('体重');
     if (!(h > 0)) missing.push('身高');
     if (!(a > 0)) missing.push('年龄');
+    // 性别决定 BMR 的常数项（+5 / −161），缺省按男性算会让整条能量链偏高约 160 kcal；
+    // 宁可报缺，也不静默替用户选一个。
+    if (sex !== 'male' && sex !== 'female') missing.push('性别');
     if (missing.length) {
       return {
         incomplete: true, missing, goal: goal,
