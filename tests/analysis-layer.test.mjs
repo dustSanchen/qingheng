@@ -21,7 +21,7 @@ function grab(startMarker, endMarkers) {
   return app.slice(start, end);
 }
 const movesSource = grab('const DRAFT_MOVES = [', ['];']) + '];';
-const pureSource = grab('function parseDraft(', ['  function renderDailyCheck()'])
+const pureSource = grab('const ACWR_HIGH = 1.5;', ['  const DRAFT_KINDS']) + grab('function parseDraft(', ['  function renderDailyCheck()'])
   + grab('function acwrFromDailyLoads(', ['  /** The plan currently'])
   + grab('function plateauFromWeekly(', ['  /** The plan currently'])
   + grab('function generateWeekPlan(', ['  /** The plan currently'])

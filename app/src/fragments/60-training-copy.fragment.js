@@ -23,6 +23,10 @@
   // ---------------------------------------------------------------------------------------------
   // 纯函数：通用草稿、每日体检、负荷与平台期、周计划
   // ---------------------------------------------------------------------------------------------
+  // 阈值集中在这里：提示词、文案与判定都引用同一组数，避免「代码改了文案没改」的漂移。
+  const ACWR_HIGH = 1.5;
+  const ACWR_LOW = 0.8;
+  const PLATEAU_SPAN_KG = 0.2;
 
   const DRAFT_KINDS = {training: '训练', weight: '体重', sleep: '睡眠', steps: '步数', water: '饮水', plan: '计划'};
 
@@ -300,7 +304,7 @@
     const chronic = chronicTotal / 4;
     if (chronic <= 0) return {acute, chronic, ratio: null, flag: 'none', days: within(7).length};
     const ratio = acute / chronic;
-    const flag = ratio > 1.5 ? 'high' : ratio < 0.8 ? 'low' : 'ok';
+    const flag = ratio > ACWR_HIGH ? 'high' : ratio < ACWR_LOW ? 'low' : 'ok';
     return {acute, chronic, ratio: Math.round(ratio * 100) / 100, flag, days: within(7).length};
   }
 
@@ -313,7 +317,7 @@
     if (rows.length < 3) return null;
     const last3 = rows.slice(-3);
     const span = Math.abs(last3[2].mean - last3[0].mean);
-    return {weeks: 3, span: Math.round(span * 100) / 100, plateau: span < 0.2,
+    return {weeks: 3, span: Math.round(span * 100) / 100, plateau: span < PLATEAU_SPAN_KG,
       from: last3[0].week, to: last3[2].week, mean: last3[2].mean};
   }
 

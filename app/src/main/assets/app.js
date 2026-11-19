@@ -2411,6 +2411,20 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
       if (merged.length >= 12) break;
     }
     quickRecordSources = merged;
+    // 还没有任何历史餐食时，这个弹窗没有任何可复制的对象：直接带去「记一餐」，
+    // 不要留一个点保存只会报「请选择要复制的餐食」的死路。
+    if (!merged.length) {
+      root.hidden = true;
+      switchTab('records', true);
+      setTimeout(() => {
+        const field = $('#meal-text');
+        if (!field) return;
+        field.scrollIntoView({block: 'center', behavior: 'smooth'});
+        field.focus({preventScroll: true});
+      }, 60);
+      notice('先记一餐，之后就能在这里快速复制。');
+      return;
+    }
     const quickTypeLabel = {breakfast: '早餐', lunch: '午餐', dinner: '晚餐', snack: '加餐'};
     const quickShortName = (meal) => {
       const raw = stripQuickTag(String(meal.name || '未命名餐食')).replace(/\s+/g, ' ').trim() || '未命名餐食';
@@ -3351,7 +3365,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     $('#today-record-count').textContent = meals.length ? `${meals.length} 餐` : '暂无';
     container.innerHTML = entries.length
       ? entries.map(entry => entry.html).join('')
-      : stateBlock({kind: 'empty', title: '今天还没有记录', body: '记一餐，时间轴就会出现在这里。'});
+      : stateBlock({kind: 'empty', title: '今天还没有记录', body: '记一餐，时间轴就会出现在这里。', action: {label: '记一餐', go: 'records', focus: 'meal-text'}});
   }
   /**
    * The record list is grouped by day (the way 薄荷健康 shows 按天卡片) and capped at five meals until
@@ -4188,6 +4202,10 @@ const values = points.length<=7 ? points.map((item,i) => {
   // ---------------------------------------------------------------------------------------------
   // 纯函数：通用草稿、每日体检、负荷与平台期、周计划
   // ---------------------------------------------------------------------------------------------
+  // 阈值集中在这里：提示词、文案与判定都引用同一组数，避免「代码改了文案没改」的漂移。
+  const ACWR_HIGH = 1.5;
+  const ACWR_LOW = 0.8;
+  const PLATEAU_SPAN_KG = 0.2;
 
   const DRAFT_KINDS = {training: '训练', weight: '体重', sleep: '睡眠', steps: '步数', water: '饮水', plan: '计划'};
 
@@ -4465,7 +4483,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     const chronic = chronicTotal / 4;
     if (chronic <= 0) return {acute, chronic, ratio: null, flag: 'none', days: within(7).length};
     const ratio = acute / chronic;
-    const flag = ratio > 1.5 ? 'high' : ratio < 0.8 ? 'low' : 'ok';
+    const flag = ratio > ACWR_HIGH ? 'high' : ratio < ACWR_LOW ? 'low' : 'ok';
     return {acute, chronic, ratio: Math.round(ratio * 100) / 100, flag, days: within(7).length};
   }
 
@@ -4478,7 +4496,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     if (rows.length < 3) return null;
     const last3 = rows.slice(-3);
     const span = Math.abs(last3[2].mean - last3[0].mean);
-    return {weeks: 3, span: Math.round(span * 100) / 100, plateau: span < 0.2,
+    return {weeks: 3, span: Math.round(span * 100) / 100, plateau: span < PLATEAU_SPAN_KG,
       from: last3[0].week, to: last3[2].week, mean: last3[2].mean};
   }
 
@@ -6244,7 +6262,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.19';
+  const APP_VERSION = '1.4.20';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}

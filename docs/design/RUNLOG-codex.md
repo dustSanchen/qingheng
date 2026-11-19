@@ -1130,3 +1130,11 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 验收：test-all 74/74；dev-loop 1.4.19/419 装机成功、smoke 无 JS 错误。
 - 未做：底栏 backdrop-filter、docs/dist 归档（记录在项目 todo）。
 - APK：dist/qingheng-1.4.19.apk（638176 B，sha256 7f78ac4f04b8372b9d0e5a4197f03b1d97f257a87a0fbad3ecc641912a2c1a28）。
+
+## r141 · 2026-11-19 · 1.4.20（首日死路、空态动作与阈值集中）
+- 首日死路：没有任何历史餐食时点「快速记录」，不再打开一个只能报「请选择要复制的餐食」的弹窗；直接切到记录页、滚到并聚焦 #meal-text，提示「先记一餐，之后就能在这里快速复制」。
+- 今日空态：时间轴为空时的 stateBlock 增加「记一餐」动作（data-go=records / data-focus=meal-text），复用现有 [data-go] 委托。
+- 阈值集中：ACWR_HIGH = 1.5、ACWR_LOW = 0.8、PLATEAU_SPAN_KG = 0.2 收成常量，ACWR 判定与平台期比较改引用；分析层测试的代码切片同步把常量块包进去。
+- 断言：onboarding-backup 新增 3 条（首日引导、空态动作、阈值常量）。
+- 验收：test-all 74/74；dev-loop 1.4.20/420 装机成功、smoke 无 JS 错误。
+- APK：dist/qingheng-1.4.20.apk（638176 B，sha256 47a3ea00e5325c89632a0c43731ba41c47d49d0438b4bfa60aef5ad36ef439a4）。

@@ -216,6 +216,20 @@
       if (merged.length >= 12) break;
     }
     quickRecordSources = merged;
+    // 还没有任何历史餐食时，这个弹窗没有任何可复制的对象：直接带去「记一餐」，
+    // 不要留一个点保存只会报「请选择要复制的餐食」的死路。
+    if (!merged.length) {
+      root.hidden = true;
+      switchTab('records', true);
+      setTimeout(() => {
+        const field = $('#meal-text');
+        if (!field) return;
+        field.scrollIntoView({block: 'center', behavior: 'smooth'});
+        field.focus({preventScroll: true});
+      }, 60);
+      notice('先记一餐，之后就能在这里快速复制。');
+      return;
+    }
     const quickTypeLabel = {breakfast: '早餐', lunch: '午餐', dinner: '晚餐', snack: '加餐'};
     const quickShortName = (meal) => {
       const raw = stripQuickTag(String(meal.name || '未命名餐食')).replace(/\s+/g, ' ').trim() || '未命名餐食';
