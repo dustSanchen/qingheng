@@ -2,9 +2,11 @@
 
 一个把「记录」认真做好的本地优先 Android 健康应用：饮食、训练、身体数据与睡眠饮水都留在手机里，需要 AI 时再按你的明确同意调用你自己的模型服务。
 
-![Version](https://img.shields.io/badge/version-1.4.09-informational) ![Tests](https://img.shields.io/badge/tests-72%20%2F%2072-green) ![MinSdk](https://img.shields.io/badge/minSdk-26-blue) ![TargetSdk](https://img.shields.io/badge/targetSdk-35-blue) ![APK](https://img.shields.io/badge/APK-631%20KB-lightgrey) ![License](https://img.shields.io/badge/license-%E6%BA%90%E7%A0%81%E5%8F%AF%E8%A7%81%20%C2%B7%20%E7%A6%81%E6%AD%A2%E8%BD%AC%E5%94%AE-critical)
+![Version](https://img.shields.io/badge/version-1.4.10-informational) ![Tests](https://img.shields.io/badge/tests-72%20%2F%2072-green) ![MinSdk](https://img.shields.io/badge/minSdk-26-blue) ![TargetSdk](https://img.shields.io/badge/targetSdk-35-blue) ![APK](https://img.shields.io/badge/APK-631%20KB-lightgrey) ![License](https://img.shields.io/badge/license-%E7%A6%81%E6%AD%A2%E8%BD%AC%E5%94%AE-critical)
 
-**[展示页](https://dustsanchen.github.io/qingheng/)**（单文件静态页，内含真机截图） · **[下载最新安装包](https://github.com/dustSanchen/qingheng/releases/latest)** · **[源码](https://github.com/dustSanchen/qingheng)**
+**[展示页](https://dustsanchen.github.io/qingheng/)**（单文件静态页，内含真机截图） · **[下载最新安装包](https://github.com/dustSanchen/qingheng/releases/latest)** · **[更新记录](https://github.com/dustSanchen/qingheng/releases)**
+
+> 本仓库只发布安装包、展示页与许可说明，**不提供源码**。目的是让应用不被直接改造成他人项目：你可以安装使用，但不能反编译、改造、重新打包或转售。
 
 ## 项目定位
 
@@ -17,13 +19,13 @@
 
 | 项 | 值 |
 |---|---|
-| 最新版本 | 1.4.09（versionCode 409） |
-| 安装包 | [`qingheng-1.4.09.apk`](https://github.com/dustSanchen/qingheng/releases/latest)，631 KB |
+| 最新版本 | 1.4.10（versionCode 410） |
+| 安装包 | [`qingheng-1.4.10.apk`](https://github.com/dustSanchen/qingheng/releases/latest)，631 KB |
 | 系统要求 | Android 8.0+（minSdk 26），targetSdk 35 |
-| SHA-256 | `a78cde93a99754119f95b2f7bdc83f15d53d6eed6dc21fdb0975842b5247f952` |
+| SHA-256 | 见 Release 说明（每个版本单独公布） |
 | 签名证书 SHA-256 | `b23aba9a2955e620dad5453c15a879ffab3ca4ad90a3e5b1b63beb5f55fab1ac` |
 
-安装前可用 `apksigner verify --print-certs qingheng-1.4.09.apk` 核对签名：指纹不一致的包不是官方构建，也**无法覆盖安装**官方版本（签名不同会拒绝升级）。
+安装前可用 `apksigner verify --print-certs qingheng-1.4.10.apk` 核对签名：指纹不一致的包不是官方构建，也**无法覆盖安装**官方版本（签名不同会拒绝升级）。
 
 ## 功能地图
 
@@ -37,11 +39,11 @@
 
 ## 设计与实现
 
-- 单 Activity + WebView，纯本地；源码按片段组织，`app.js` 由 `tools/assemble-app.ps1` 生成，不手改。
+- 单 Activity + WebView，纯本地；源码按片段组织，打包前由脚本拼装并做语法检查。
 - 三套皮肤：纸感（暖米底、衬线标题）、账本（近白、无衬线、数据优先）、夜间（暗底，手动切换）。
 - 线用三档、字号六档、圆角三档；图标 24 网格 / 1.5 描边 / 每枚最多一个微型记号。
 - 展开/收起做 0.28–0.46s 的不对称过渡，`prefers-reduced-motion` 下全部关闭。
-- 72 个测试文件守住结构、口径、可访问性与数据契约，全量跑一轮约 10 秒。
+- 72 个测试守住结构、口径、可访问性与数据契约，每次发版全量跑一轮。
 - 窄屏专门收过一轮密度：640px 与 360px 两档断点，触控目标保持 ≥44px。
 
 ## 隐私与数据
@@ -63,36 +65,21 @@
 
 ## 作者与许可
 
-作者：**散尘** · [github.com/dustSanchen/qingheng](https://github.com/dustSanchen/qingheng)
+作者：**散尘**。本应用为个人作品，不提供源码；安装包由作者签名发布。
 
-本仓库公开源码，但**不是** OSI 定义的开源许可，而是「源码可见 + 禁止转售」：
+1. **可以**：下载并安装到自己的 Android 设备；在自己的记录中使用全部功能；向作者反馈问题。
+2. **禁止反编译改造**：不得反编译、反汇编、提取资源或代码后修改再发布。
+3. **禁止二次转售**：不得销售、转售、出租、按次或按订阅收费提供本应用；包括预装、代装、打包进付费合集。
+4. **禁止重新打包分发**：不得修改安装包后分发，也不得把安装包上传到其他应用商店或下载站。
+5. **禁止冒名**：「轻衡 / Qingheng」名称、图标、包名 `cn.qingheng.health` 归作者所有；不得用于任何衍生版本或第三方页面。
 
-1. **允许**：阅读、学习、复制、修改，在自己的设备上构建运行；提 issue / PR；文章与课程引用并注明来源。
-2. **禁止二次转售**：不得销售、转售、出租、按次或按订阅收费提供本软件或衍生版本；包括预装、打包、代装、上架应用商店。
-3. **禁止再分发安装包**：不要向他人分发 APK；分享请指向 [官方发布页](https://github.com/dustSanchen/qingheng/releases)。
-4. **禁止商业利用**：不得用于商业产品、商业服务、收费项目或训练商业模型。
-5. **品牌保留**：「轻衡 / Qingheng」名称、图标、包名 `cn.qingheng.health` 归作者所有；Fork 自用请改名换图标。
+完整条款见 [LICENSE](LICENSE)。权限以许可为准：本仓库只发布安装包与展示页，不构成源码授权。
 
-为什么这样定：OSI 开源许可（MIT / AGPL 等）都允许转售，与「严禁二次转售」直接冲突；因此这里选择源码可见、保留转售与再分发限制的许可。商业使用或合作请走 issue 联系。
+## 版本与验证
 
-官方 APK 使用固定签名，证书 SHA-256 见上表；重新打包的 APK 无法覆盖安装官方版本，也无法伪造更新。
-
-## 构建与验证
-
-```powershell
-# 片段 → app.js，并做语法检查
-tools\assemble-app.ps1
-
-# 全量测试（基线 72/72）
-node tools/test-all.mjs
-
-# 版本号 + 测试 + 打包 + 装机 + 冒烟（约 30s）
-tools\dev-loop.ps1 -Version 1.4.09 -VersionCode 409
-```
-
-- 版本规则：`1.<minor>.<patch>`，patch 两位补零、逢百进一；`dev-loop` 会同步片段常量、`build.ps1` 默认值与测试字面量。
-- 产物在 `dist\`；签名密钥在本地 `.signing\`，覆盖升级必须保留同一签名文件（仓库不含密钥）。
-- 迭代日志见 [`docs/design/RUNLOG-codex.md`](docs/design/RUNLOG-codex.md)，数据源与口径见 [`docs/design/23-data-sources.md`](docs/design/23-data-sources.md)、[`docs/design/28-explanatory-text.md`](docs/design/28-explanatory-text.md)。
+- 版本规则：`1.<minor>.<patch>`，patch 两位补零；每个版本对应独立 versionCode（如 1.4.10 → 410）。
+- 发版前全量跑 72 项测试，并在真机安装做冒烟（启动、无 JS 错误、关键页面可进入）。
+- 官方 APK 的签名证书 SHA-256 见上表；重新打包的 APK 无法覆盖安装，也无法伪造更新。
 
 ## 已知限制
 
@@ -103,4 +90,4 @@ tools\dev-loop.ps1 -Version 1.4.09 -VersionCode 409
 
 ## 致谢
 
-设计与实现细节的问题，欢迎开 issue 讨论。反馈问题时请附版本号与设备型号。
+设计与实现细节的问题，欢迎在 [Issues](https://github.com/dustSanchen/qingheng/issues) 讨论。反馈问题时请附版本号与设备型号。
