@@ -679,14 +679,6 @@
     }
     return out;
   }
-  /** 某一天用户用 AI 排的那份清单（含它给的理由）。 */
-  function aiPlanEntries(day) {
-    if (!day) return [];
-    try {
-      const list = typeof aiPlanStore === 'function' ? aiPlanStore(day) : null;
-      return Array.isArray(list) ? list.filter(item => item && item.name) : [];
-    } catch (error) { return []; }
-  }
   /** Which library rule answers the weakest metric of the day. */
   function libraryRuleForMetric(key) {
     const map = {calories: 'weekly-rate', protein: 'protein-preserve', fat: 'protein-preserve',
@@ -1229,32 +1221,16 @@
     const previewStart = startDate;
     const previewEnd = shiftDay(previewStart, 7);
     if (!weekDetailDay || weekDetailDay < previewStart || weekDetailDay >= previewEnd) weekDetailDay = activeDate;
-    const previewDay = plan.days.find(day => day.date === weekDetailDay) || null;
-    // 先回答「你排的那份清单为什么这么排」：AI 排的顺序带着它自己给的理由；
-    // 没有 AI 清单时，才解释这一周按规则是怎么来的。
-    const aiEntries = (() => {
-      const wanted = [previewDay && previewDay.date, activeDate].filter(Boolean);
-      for (const day of wanted) {
-        const list = aiPlanEntries(day);
-        if (list.length) return {day, list};
-      }
-      return null;
-    })();
-    const aiWhy = aiEntries
-      ? '<p class="plan-why-lead">' + esc(aiEntries.day === activeDate ? '今天这份顺序' : aiEntries.day.slice(5) + ' 这份顺序')
-        + '是用 AI 排的，它给的理由：</p>'
-        + '<ol class="plan-why-ai">' + aiEntries.list.slice(0, 6).map(item =>
-          '<li><b>' + esc(item.name) + '</b><span>' + esc(item.reason || '按训练库安排') + '</span></li>').join('') + '</ol>'
-      : '';
-    const whyBody = aiWhy
-      + '<p class="plan-why-lead">为什么这样排：' + (aiWhy ? '这一周的框架按训练库与你最近两周的记录生成。' : '这一周按训练库与你最近两周的记录生成。') + '</p>'
+    // 只讲「这一周怎么排的」。AI 给单个动作的理由已经在「今日顺序」每行下面，这里再列一遍
+    // 会与预览日期脱节（切到 21 号还挂着 19 号的清单），所以不重复。
+    const whyBody = '<p class="plan-why-lead">为什么这样排：这一周的框架按训练库与你最近两周的记录生成。</p>'
       + '<p>' + esc(plan.note) + '</p>'
       + (Array.isArray(plan.reasons) ? plan.reasons.map(reason =>
         '<p>' + esc(reason.text) + '</p>').join('') : '');
     // 要点跟着周条上选中的那天走，按那天计划里实际要做的动作点名：计划换一版、动作变了，要点跟着变。
     const cueHtml = weekCueHtml(weekDetailDay, plan);
-    // 「怎么来的」单独折叠：要点是每次看都要读的，理由是按需才读的。
-    const whyHtml = '<details class="plan-why"><summary>这份计划怎么来的</summary>' + whyBody + '</details>';
+    // 「怎么来的」是这一周的口径，与哪天选中无关，所以单独折叠、切日期也不动它。
+    const whyHtml = '<details class="plan-why"><summary>这周怎么排的</summary>' + whyBody + '</details>';
     // 本周安排：完全按用户偏好生成；没有偏好就不出方案。
     const planBox = $("#week-plan");
     if (planBox && !planBox.dataset.adoptWired) {

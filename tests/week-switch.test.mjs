@@ -16,6 +16,7 @@ const read = path => fs.readFileSync(path, 'utf8');
 
 const app = read('app/src/main/assets/app.js');
 const training = read('app/src/fragments/60-training-copy.fragment.js');
+const rest = read('app/src/fragments/70-rest.fragment.js');
 
 // ① 点日期不跳页 -------------------------------------------------------------------------------
 // 固定长度的窗口：用「到 const prefs」切片会撞上文件里更早出现的同名片段，切出空串。
@@ -39,6 +40,15 @@ check('要点块有稳定宿主，点日期时只换这一块', handler.includes
 check('要点默认展开（点日期就能看到）', training.includes('class="plan-why plan-cue-block" id="week-cues" open'));
 check('休息日不给要点', training.includes('是休息日，不排动作要点'));
 check('要点标题按日期取名，不写死在「今天」', training.includes('const head = esc(label + \'（\' + (TRAINING_TEMPLATES[planDay.template] || planDay.template) + \'）的动作要点\');'));
+
+// ④ 「这周怎么排的」只说周口径，不再列按天的 AI 动作清单 ------------------------------------------
+// 用户反馈：这块原来会展示当天的动作安排，切预览日期它不变，读起来像那天被改了。
+// 处理成删除——AI 给每个动作的理由本来就在「今日顺序」每行下面。
+check('折叠块不再列 AI 的逐动作理由', !training.includes('是用 AI 排的') && !training.includes('plan-why-ai'));
+check('标题改成「这周怎么排的」', training.includes('<summary>这周怎么排的</summary>'));
+check('理由仍逐条挂在今日顺序每行', rest.includes('ai-plan-reason'));
+check('只为这块存在的 aiPlanEntries 已删', !training.includes('function aiPlanEntries'));
+check('previewDay / aiEntries 残骸清零', !/previewDay|aiEntries/.test(training));
 
 // 旧做法与死变量清干净 ---------------------------------------------------------------------------
 check('没有留下 setActiveDate 切日期的旧路径', !training.includes('if (typeof setActiveDate === "function") { setActiveDate(day); return; }'));

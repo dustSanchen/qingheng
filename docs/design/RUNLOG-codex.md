@@ -973,3 +973,13 @@
 - 取舍说明：本轮不再改 `activeDate`，所以训练日志表单仍跟着 `activeDate`（今天）。若要「就在这一屏直接改 21 号的记录」，得另给一个显式入口（点了才切日期），否则必然又变回整页跳转。这一条留待用户决定。
 - 断言变更登记 `03-global-changes.md §5.1`。
 - APK：`dist/qingheng-1.4.04.apk`（631 KB）；回滚：`git revert <本轮提交>`。
+
+## r127 · 2026-11-19 · 1.4.05 → 1.4.06（「这份计划怎么来的」：删掉按天的 AI 动作清单）
+- 用户原话：「这份计划怎么来的中会展示当天动作安排，而切换预览日期该内容不变，会误导用户，请删除或根据每天不同动作给出不同提醒。」
+- 先按「按天不同」改了一版（`aiEntries` 只认 `weekDetailDay`），真机一看还是错的：`build/r126-04.png` 切到 21 号后，块里仍是「今天这份顺序是用 AI 排的」+ 19 号的卧推/引体向上/哑铃单臂划船。根因不在取值而在结构——点日期只就地更新 `#week-detail` 与 `#week-cues-host`，这个折叠块是初次渲染时就写死的，改取值只改首屏、改不动点击后。要么给它也开个宿主并重渲染，要么把按天的内容拿掉。
+- 选后者（用户给的第一条路），因为 AI 给单个动作的理由本来就逐条显示在「今日顺序」每行下面（`70-rest` 的 `ai-plan-reason`），在这个块里再列一遍纯属重复，还天然和「当前预览哪一天」脱节。
+- 改动：折叠块只讲周口径（框架按训练库与最近两周记录生成 + `plan.note` + `plan.reasons`），标题从「这份计划怎么来的」改为「这周怎么排的」，明确它跟选中哪天无关；删除只为它存在的 `aiPlanEntries`（`60-training-copy` 约 682–689 行）与 `plan-why-ai` 列表。
+- 断言：`tests/week-switch.test.mjs` 新增 5 条（不再含 AI 逐动作理由、标题是「这周怎么排的」、理由仍在今日顺序每行、`aiPlanEntries` 已删、`previewDay`/`aiEntries` 残骸归零）；`tests/training-library.test.mjs` 的 `the why block reflects the AI order` 按新契约改写为 `the AI order reasons live on the order rows`。两处均登记 §5.1。
+- 验收：assemble 通过；test-all 71/71；aesthetic-audit `OK（无阻塞项）`，仅 WARN「强调色收敛 11 处 accent token 声明」（既有，非本轮引入）；dev-loop 1.4.06/406 装机、smoke 无 JS 错误；logcat 无 `Uncaught/SyntaxError/ReferenceError`。真机：`build/r127-04.png`（19 号展开「这周怎么排的」只有周口径三段，无动作清单）、`build/r127-05.png`（切到六 21 后要点变「11-21（拉）」三条、该块内容不变且不再提 19 号的动作）。
+- 教训：改「某块内容要跟选中项变」之前，先确认这块在点击时有没有被重渲染——只改取值不改宿主，等于只改了首屏。
+- APK：`dist/qingheng-1.4.06.apk`（631 KB）；回滚：`git revert <本轮提交>`。

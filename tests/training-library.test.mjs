@@ -157,7 +157,8 @@ check('the plan shows cues', app.includes('plan-cue') && app.includes('const cue
 // 2026-11-17：要点与理由都要跟着「那天实际要做的动作 / 用户排的那份清单」走。
 check('cues follow the actual exercises', app.includes('function libraryCuesFor(day)') && app.includes('function cueForExercise(name, family)'));
 check('the cue list names each movement', app.includes('plan-cue-list') && app.includes('plan-cue-text'));
-check('the why block reflects the AI order', app.includes('function aiPlanEntries(day)') && app.includes('plan-why-ai'));
+// 2026-11-19：块里不再重复 AI 的逐动作理由（会与预览日期脱节），理由改由「今日顺序」每行承担。
+check('the AI order reasons live on the order rows', app.includes('ai-plan-reason') && !app.includes('plan-why-ai'));
 check('the overview animates its bars', app.includes('const animateBars =') && app.includes('transitionDelay'));
 check('the rest timer is a floating pill', app.includes('function syncRestDock()') && app.includes('function installRestDock()'));
 

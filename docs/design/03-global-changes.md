@@ -183,3 +183,6 @@
 | 2026-11-19 | 新增 `tests/plan-shared-template.test.mjs` | 部位唯一的来源函数、排今天与问答共用同一句；每组分时取自 `restSecondsFor` 且固定 2.5 分钟/组已删；时长预算与单次课 6~10 组进了两处提示词；采纳/排课/能量卡文案按 `dayLabel`；两套清单的关系说明存在 | P0–P2 落地：部位分歧、时长漏算组间休息、日期文案仍写「今天」、两套清单没有关系说明 |
 | 2026-11-19 | `tests/meal-date-java.test.mjs` | `APP_VERSION = '1.4.03'` → `'1.4.04'` | 发布版本同步 |
 | 2026-11-19 | `tests/week-switch.test.mjs` | 整篇重写：「点周条 = 切 `activeDate`」→「点周条只换预览日，不动 `activeDate`」；新增要点块契约（`weekCueHtml` 按该天动作、`#week-cues-host` 就地替换、休息日不给要点） | 用户明确要求「点 21 号页面不跳转、可点回 19 号」；切 `activeDate` 会让周条窗口从 21 起算，用户回不到原来那段上下文 |
+| 2026-11-19 | `tests/week-switch.test.mjs` | 新增 5 条：折叠块不再列 AI 的逐动作理由、标题改为「这周怎么排的」、理由仍在今日顺序每行、`aiPlanEntries` 已删、`previewDay`/`aiEntries` 残骸归零 | 用户反馈「会展示当天动作安排，切预览日期不变会误导」；块里的按天内容要么跟着预览日走，要么删掉——选了删 |
+| 2026-11-19 | `tests/training-library.test.mjs` | `the why block reflects the AI order`（断言 `aiPlanEntries` 存在 + `plan-why-ai` 存在）→ `the AI order reasons live on the order rows`（断言 `ai-plan-reason` 存在且 `plan-why-ai` 已消失） | 折叠块不再重复 AI 的逐动作理由：它只讲一周口径，按天的理由留在「今日顺序」每行；旧断言保护的正是被删的行为 |
+| 2026-11-19 | `tests/meal-date-java.test.mjs` | `APP_VERSION = '1.4.05'` → `'1.4.06'` | 发布版本同步 |
