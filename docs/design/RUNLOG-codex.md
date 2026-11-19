@@ -1049,3 +1049,5 @@ ode tools/test-all.mjs 72/72；dev-loop 1.4.09/409 装机成功、smoke 无 JS �
 - 断言：ci-and-versions 的 README 检查改为「引用截图 + 有 LICENSE + 版本徽章 + 签名指纹」，并新增「截图文件在盘上（≥8 张）」；已登记 §5.1。
 - 验收：test-all 72/72；公开发布成功，public master 现为 README/LICENSE/site/index.html + 12 张截图；raw README 200（6821 B）、截图 200；Pages 仍为 1.4.11。
 - 未验证：GitHub 页面的实际排版未做像素级核对（本模型无法读图），已截 uild/gh-readme.png 供人工复核。
+### r132 附：许可措辞统一
+- 展示页 CTA 与页脚同步中性化（「个人作品…自由下载安装…修改与再发布不在授权范围内」），页脚只留「作者 Sanchen · 个人作品 · 禁止转售」；断言与发布脚本同步，Pages 缓存约 1 分钟后生效（复核 neutral=True）。
