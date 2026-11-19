@@ -39,7 +39,7 @@ check('a 口径 version exists', prompts.includes('public static final int RULES
 check('the versions explain themselves', main.includes('which prompt produced an answer') && main.includes('which 口径 the numbers were computed with'));
 check('the lean prompt mirrors the preset', prompts.includes('热量缺口 12%') && prompts.includes('2.2~2.6 g/kg') && prompts.includes('12~18 组/肌群/周') && prompts.includes('0.5~0.7%'));
 check('a versions route exists', routes.includes('path.equals("/api/versions")') && main.includes('MetaRoutes.handle(path, get, post, b, this)'));
-check('versions never include keys or records', /private JSONObject versionsInternal\(\) throws Exception \{[\s\S]{0,900}?\}/.test(main) && !/versionsInternal\(\)[\s\S]{0,900}apiKey/.test(main));
+check('versions never include keys or records', /private JSONObject versionsInternal\(\) throws Exception \{[\s\S]{0,1500}?\}/.test(main) && !/versionsInternal\(\)[\s\S]{0,1500}apiKey/.test(main));
 check('versions report the anchors and last backup', main.includes('.put("anchorsPresent"') && /backupAt", backupStatusInternal\(\)\.optLong\("at", 0L\)/.test(main));
 
 const app = read('app/src/main/assets/app.js');
@@ -51,7 +51,8 @@ check('the about page names the author and states the source is public', html.in
 check('state migrates away removed health fields', main.includes('STATE_VERSION = 3') && main.includes('root.remove("healthConnectRecords")'));
 check('imports carry anchors and temporary targets', main.includes('next.put("foodAnchors", imported.getJSONObject("foodAnchors"))') && main.includes('next.put("temporaryTargets"'));
 check('future weights stay out of plateau maths', app.includes('if (row.date > activeDate) continue;'));
-check('the app still does not link to the source repository', !html.includes('github.com/dustSanchen/qingheng'));
+check('the about page links to the source repository', html.includes('github.com/dustSanchen/qingheng') && html.includes('open-project-page'));
+check('the about page shows the build signature', html.includes('id="build-signature"') && main.includes('OFFICIAL_CERT_SHA256'));
 check('building cannot disagree with the shipped app version', read('build.ps1').includes('APP_VERSION') && read('build.ps1').includes('does not match APP_VERSION'));
 check('it states the no-resale terms', html.includes('禁止二次转售') && read('LICENSE').includes('二次转售') && read('LICENSE').includes('再分发'));
 const readme = read('README.md');

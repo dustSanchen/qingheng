@@ -25,7 +25,7 @@ check('the ledger stores only token counts', record.includes('"usageLog"') && re
 check('usage routes exist', main.includes('path.equals("/api/usage")') && main.includes('path.equals("/api/balance")'));
 check('balance is DeepSeek-only', main.includes('余额查询目前只支持 DeepSeek'));
 check('the balance URL drops /v1', main.includes('base.endsWith("/v1")') && main.includes('/user/balance'));
-check('external links are allowlisted', main.includes('openExternal') && main.includes('platform.deepseek.com'));
+check('external links are allowlisted', main.includes('openExternal') && main.includes('platform.deepseek.com') && main.includes('dustsanchen/qingheng'));
 
 check('the page exposes the usage card', html.includes('id="usage-card"') && html.includes('id="usage-balance"'));
 check('the panel aggregates tokens and costs', usage.includes('usageMoney') && usage.includes('USAGE_PRICE_KEY'));

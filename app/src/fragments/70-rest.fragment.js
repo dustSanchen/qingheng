@@ -154,7 +154,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.67';
+  const APP_VERSION = '1.4.69';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -211,6 +211,9 @@
         + (repaired > 0 ? `<span>已修复 <b>${fmt(repaired, 0)}</b> 条无效回答</span>` : '')
         + (audit ? `<span>问答体检 <b>${esc(audit)}</b></span>` : '')
         + (coldStart > 0 ? `<span>冷启动 <b>${fmt(coldStart, 0)}</b> ms</span>` : '')
+        + (info?.official === false
+          ? '<span>非官方构建 <b>签名不符</b></span>'
+          : `<span>构建 <b>${esc(info?.signature || 'Sanchen/qingheng')}</b></span>`)
         + (window.TRAINING_PRINCIPLES
           ? `<span>建议库 <b>${esc(window.TRAINING_PRINCIPLES.version)}</b> · ${window.TRAINING_PRINCIPLES.rules.length} 条 · ${window.TRAINING_PRINCIPLES.sources.length} 来源</span>`
           : '')
@@ -1288,6 +1291,22 @@
     }
   }
   const storageRefresh = $('#storage-refresh');
+  // 1.4.68：项目主页与外链统一交给系统浏览器；WebView 内不开外站。
+  const openExternalUrl = (url) => {
+    if (window.QinghengNative && typeof window.QinghengNative.openExternal === 'function') {
+      return window.QinghengNative.openExternal(url);
+    }
+    return false;
+  };
+  $('#open-project-page')?.addEventListener('click', () => {
+    if (!openExternalUrl('https://github.com/dustSanchen/qingheng')) notice('打不开浏览器，请手动访问 github.com/dustSanchen/qingheng', true);
+  });
+  document.addEventListener('click', event => {
+    const link = event.target && event.target.closest ? event.target.closest('a[href^="http"]') : null;
+    if (!link) return;
+    event.preventDefault();
+    if (!openExternalUrl(link.href)) notice('打不开浏览器，请手动访问 ' + link.href, true);
+  });
   if (storageRefresh) storageRefresh.addEventListener('click', () => {loadStorageStatus(false).catch(() => {});});
   const storageRemirror = $('#storage-remirror');
   if (storageRemirror) storageRemirror.addEventListener('click', async () => {

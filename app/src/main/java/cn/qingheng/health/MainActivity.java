@@ -738,7 +738,12 @@ import java.util.concurrent.Executors;
                 String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.ROOT);
                 if (!"https".equals(scheme)) return false;
                 boolean allowed = host.equals("platform.deepseek.com") || host.equals("cloud.siliconflow.cn")
-                        || host.equals("api.b.ai") || host.equals("b.ai");
+                        || host.equals("api.b.ai") || host.equals("b.ai")
+                        // 项目主页（1.4.69）：只放行作者本人的仓库路径与展示页，其余外链仍被拒绝。
+                        || ((host.equals("github.com") || host.equals("www.github.com"))
+                            && uri.getPath() != null
+                            && uri.getPath().toLowerCase(Locale.ROOT).startsWith("/dustsanchen/qingheng"))
+                        || host.equals("dustsanchen.github.io");
                 if (!allowed) return false;
                 runOnUiThread(() -> {
                     try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); } catch (Exception ignored) { }
@@ -2699,7 +2704,11 @@ import java.util.concurrent.Executors;
                 // Visible proof that unusable answers were replaced on load.
                 .put("chatAnswersRepaired", state == null ? 0 : state.optInt("chatAnswersRepaired", 0))
                 .put("answerAudit", auditChatAnswers())
-                .put("coldStartMs", coldStartMs > 0 ? coldStartMs : prefs.getLong("coldStartMs", 0L));
+                .put("coldStartMs", coldStartMs > 0 ? coldStartMs : prefs.getLong("coldStartMs", 0L))
+                // 1.4.68 防盗标识：官方签名的短指纹 + 构建标识；重打包后这里会变成「非官方构建」。
+                .put("official", officialBuildInternal())
+                .put("certSha256", certFingerprintInternal())
+                .put("signature", BUILD_SIGNATURE);
     }
 
     /**
@@ -2723,6 +2732,30 @@ import java.util.concurrent.Executors;
         return new JSONObject().put("at", at).put("days", days).put("recordsAtBackup", recordsAtBackup)
                 .put("records", current).put("due", !reason.isEmpty()).put("reason", reason)
                 .put("appVersion", versionName());
+    }
+
+    /** 官方构建的签名证书 SHA-256（2026-11-19 版）；与运行时证书不一致即视为未授权重打包。 */
+    private static final String OFFICIAL_CERT_SHA256 = "B23ABA9A2955E620DAD5453C15A879FFAB3CA4AD90A3E5B1B63BEB5F55FAB1AC";
+    /** 构建标识：被搬走时至少留下这个名字与仓库地址。 */
+    private static final String BUILD_SIGNATURE = "Sanchen/qingheng · github.com/dustSanchen/qingheng";
+
+    private boolean officialBuildInternal() {
+        String cert = certFingerprintInternal();
+        // 读不到证书时按官方处理：设备差异不能变成对用户的指控。
+        return cert.isEmpty() || OFFICIAL_CERT_SHA256.equalsIgnoreCase(cert);
+    }
+
+    private String certFingerprintInternal() {
+        try {
+            android.content.pm.Signature[] signatures = getPackageManager()
+                    .getPackageInfo(getPackageName(), android.content.pm.PackageManager.GET_SIGNATURES).signatures;
+            if (signatures == null || signatures.length == 0) return "";
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(signatures[0].toByteArray());
+            StringBuilder out = new StringBuilder();
+            for (byte b : hash) out.append(String.format(java.util.Locale.ROOT, "%02X", b));
+            return out.toString();
+        } catch (Exception e) { return ""; }
     }
 
     private String versionName() {
