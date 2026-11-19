@@ -3695,9 +3695,56 @@ import java.util.concurrent.Executors;
         String summary = chat(c, c.getString("model"), messages, CAP_ADVICE, false).trim();
         android.util.Log.i("qingheng", "advice " + (System.currentTimeMillis() - adviceStarted) + "ms chars=" + summary.length() + " cap=" + CAP_ADVICE);
         if (summary.length() > 8000) throw fail("API 建议过长");
-        JSONArray output = adviceMessages(summary);
+        JSONArray output = adviceFromReply(summary);
+        String display = advicePlainText(output);
         saveAdviceHistory(day, output, "api");
-        return new JSONObject().put("messages", output).put("source", "api").put("summary", summary);
+        return new JSONObject().put("messages", output).put("source", "api").put("summary", display);
+    }
+
+    /**
+     * 建议的结构（1.4.64）：模型返回 {"verdict":"…","actions":[…]}}，这里做本地校验与兜底。
+     * 本地校验的要点：verdict 截到 60 字、actions 最多 2 条各截到 40 字，空则退回旧的散文解析。
+     * 校验放在本地而不是再问模型一次：重试只会更慢，改一个字不需要模型参与。
+     */
+    private static JSONArray adviceFromReply(String reply) {
+        String text = reply == null ? "" : reply.trim();
+        int start = text.indexOf('{');
+        int end = text.lastIndexOf('}');
+        if (start < 0 || end <= start) return adviceMessages(text);
+        try {
+            JSONObject obj = new JSONObject(text.substring(start, end + 1));
+            String verdict = clipAdvice(obj.optString("verdict", ""), 60);
+            JSONArray raw = obj.optJSONArray("actions");
+            java.util.List<String> actions = new java.util.ArrayList<>();
+            if (raw != null) {
+                for (int i = 0; i < raw.length() && actions.size() < 2; i++) {
+                    String item = clipAdvice(String.valueOf(raw.opt(i) == null ? "" : raw.opt(i)), 40);
+                    if (!item.isEmpty()) actions.add(item);
+                }
+            }
+            if (verdict.isEmpty() && actions.isEmpty()) return adviceMessages(text);
+            JSONArray out = new JSONArray();
+            if (!verdict.isEmpty()) out.put(verdict);
+            for (String action : actions) out.put(action);
+            return out.length() > 0 ? out : adviceMessages(text);
+        } catch (Exception ignored) {
+            return adviceMessages(text);
+        }
+    }
+
+    private static String clipAdvice(String value, int max) {
+        String text = String.valueOf(value == null ? "" : value).replaceAll("\\s+", " ").trim()
+                .replaceFirst("^(?:[-*•]|\\d+[.、)])\\s*", "");
+        return text.length() <= max ? text : text.substring(0, max);
+    }
+
+    private static String advicePlainText(JSONArray messages) {
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < messages.length(); i++) {
+            if (out.length() > 0) out.append('\n');
+            out.append(messages.optString(i, ""));
+        }
+        return out.toString();
     }
 
     /** 手动获取的建议也进「历史建议」，与推送共用 adviceHistory（slot=manual，同一日期覆盖）。 */

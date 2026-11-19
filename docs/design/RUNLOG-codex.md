@@ -1465,3 +1465,12 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 验收：dev-loop 1.4.63/463 装机；截图 `build/v163-advice-result.png`；logcat `advice 1159ms chars=81 cap=700`。
 - 未验证：连续多次调用时的稳定性（空回复兜底是否真会触发）、周复盘是否该保留思考（本轮未动）。
 - APK：`dist/qingheng-1.4.63.apk`，650464 B，sha256 `4cbce614844c8e0c13202ee45f79caec49e5fc8e17f410864fb095f4726d204f`。
+## r181 · 2026-11-19 · 1.4.64（建议输出 B：JSON 契约 + 本地校验）
+- 用户：「执行B」——建议输出改成 `{verdict, actions}` JSON，本地校验与渲染，不合格不回模型重试。
+- 提示词（Prompts.dailyAdvice）：明确「输出必须是严格 JSON」+ schema + 不要代码块/Markdown；verdict ≤40 汉字；actions 1~2 条、动词开头、每条 ≤30 汉字；保留「不复述界面数字」「训练缺失不提训练」等原有约束。
+- 本地校验（MainActivity.adviceFromReply）：花括号配对取 JSON（容忍代码块与前后寒暄）；verdict 截 60 字、actions 最多 2 条各截 40 字、清掉项目符号；**解析失败或空则退回旧的散文解析 adviceMessages**，保证旧模型/旧网关也能用。存历史与 `summary` 用 `advicePlainText`（纯文本，不存 JSON 原文）。
+- 真机实测（1.4.64）：`advice 1109ms chars=89`；页面渲染为「一句评价 + 两条动作 + 已带上 1 条偏好」，无花括号、无 JSON 泄漏。
+- 断言：新增 `tests/advice-contract.test.mjs` 10 条（契约、长度上限、兜底路径、纯文本 summary、容错取 JSON）；`habit-and-training-mode` / `meal-date-java` 两条旧文案断言改口径。测试 82/82。
+- 遗留：本次输出里仍出现数字（「蛋白还差约 20 克」），提示词要求不复述界面数字，但本地校验只拦长度与条数，没有拦数字。要不要加「含数字即改写/丢弃」规则，属产品语气判断，待定。
+- 验收：dev-loop 1.4.64/464 装机；截图 `build/v164-advice-json2.png`。
+- APK：`dist/qingheng-1.4.64.apk`，650463 B，sha256 `5d6ce574d69df6ff143ab6a339bece8efb1423dd33396ba386e76bb1efd29a75`。

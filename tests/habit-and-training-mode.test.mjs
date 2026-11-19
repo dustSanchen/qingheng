@@ -29,7 +29,7 @@ check('today metric icons come from the inline lucide table', app.includes('func
 
 // --- push carries one training line ---------------------------------------------------------------------
 check('the prompt keeps training guidance without inventing a workout', prompts.includes('训练记录缺失就不提训练') && prompts.includes('body.trainingDisabled 为 true'));
-check('it is capped at two bullets overall', prompts.includes('总数仍然不超过 2 条'));
+check('it is capped at two bullets overall', prompts.includes('总数仍不超过 2 条') || prompts.includes('每条不超过 30 个汉字'));
 check('a no-training user gets none', prompts.includes('body.trainingDisabled 为 true'));
 check('the receiver sends trainsToday', alarm.includes('user.put("trainsToday"'));
 check('and trainingDisabled', alarm.includes('data.trainingOff()') && alarm.includes('user.put("trainingDisabled", true)'));

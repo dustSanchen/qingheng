@@ -136,7 +136,7 @@ check('entering a sub-page pushes history for the system back button', app.inclu
 check('restoring the tab ignores the sub-page', /function restoreTab\(\) \{\s*const fromHash = parseHash\(\)\.tab;/.test(app));
 check('hub summaries are refreshed from state', app.includes('function renderHub()') && app.includes('renderHub();'));
 check('the storage panel is driven by the new route', app.includes("api(remirror ? '/api/storage-remirror' : '/api/storage-status'"));
-check('the app version is a single constant', app.includes("const APP_VERSION = '1.4.63'"));
+check('the app version is a single constant', app.includes("const APP_VERSION = '1.4.64'"));
 check('the shown version matches the build script', (() => {
   const shown = /const APP_VERSION = '([0-9.]+)'/.exec(app);
   const built = /\$Version='([0-9.]+)'/.exec(fs.readFileSync('build.ps1', 'utf8'));
@@ -165,7 +165,7 @@ check('the startup catch-up uses the single-slot decision', main.includes('Strin
 check('the notification body is condensed for the shade', alarm.includes('private static final int NOTIFY_TEXT_LIMIT = 58;') && alarm.includes('static String condense(String text)'));
 check('condensing prefers a sentence ending inside the limit', alarm.includes("if (c == '。' || c == '！' || c == '？' || c == '；') {cut = i + 1; break;}"));
 check('the short text and the full text are both posted', push.includes('public static boolean post(Context context, String slot, String shortBody, String fullBody)') && push.includes('new Notification.BigTextStyle().bigText(expanded)') && alarm.includes('PushNotify.post(context, slot, condense(body), body)'));
-check('the model is asked for a very short reply', prompts.includes('最多 2 条要点，每条不超过 30 个汉字'));
+check('the model is asked for a very short reply', prompts.includes('每条不超过 30 个汉字') && prompts.includes('actions'));
 check('a skip is written to the history', alarm.includes('static void recordSkip(Context context, String today, String slot)') && alarm.includes('本次提醒已跳过'));
 check('the app labels a skipped reminder', app.includes("row.source === 'skipped' ? '<span class=\"row-tag\">已跳过</span>'"));
 check('the push panel explains the gap and the one-line body', app.includes('两次之间至少间隔 3 小时') && app.includes('通知正文会自动精简到一行'));
