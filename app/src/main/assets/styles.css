@@ -1782,7 +1782,8 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 
 /* 页边诗笺：苏轼一句，竖排放在标题右缘（2026-11-19） */
 .page-heading{position:relative}
-.epigraph{position:absolute;right:0;top:2px;writing-mode:vertical-rl;text-orientation:upright;font-family:var(--font-display);font-size:var(--text-xs);line-height:1.1;letter-spacing:.32em;color:var(--ink);opacity:.2;pointer-events:none;user-select:none}
-[data-skin="ledger"] .epigraph{opacity:.16}
-[data-skin="night"] .epigraph,[data-theme="dark"] .epigraph{opacity:.22}
-@media (max-width:360px){.epigraph{display:none}}
+/* 页边诗笺：放在标题下方、右对齐的一行题记，不压标题也不压筛选器 */
+.epigraph{display:block;grid-column:1/-1;position:static;writing-mode:horizontal-tb;margin:-6px 0 14px;text-align:right;font-family:var(--font-display);font-size:14px;line-height:1.4;letter-spacing:.2em;color:var(--ink);opacity:.5;pointer-events:none;user-select:none}
+[data-skin="ledger"] .epigraph{opacity:.42}
+[data-skin="night"] .epigraph,[data-theme="dark"] .epigraph{opacity:.62}
+@media (max-width:360px){.epigraph{font-size:13px;opacity:.5}}
