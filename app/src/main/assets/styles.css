@@ -1917,6 +1917,10 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 .train-overview>.train-overview-head{display:flex;align-items:center;min-height:44px;cursor:pointer;font-size:var(--text-sm);color:var(--muted);letter-spacing:.04em}
 .train-overview[open]>.train-overview-head{color:var(--ink-soft)}
 
+/* 我的页（1.4.52）：一个副页只留一张卡，卡内用发丝线分区——入口预算从 14 张降到 8 张 */
+.card-section{margin-top:var(--space-4);padding-top:var(--space-3);border-top:1px solid var(--line)}
+.card-section>.card-heading h2{font-size:var(--text-md);color:var(--ink-soft);letter-spacing:0}
+
 /* 训练强度反馈（1.4.45）：练完点一下，四档落库，下一次排课据此加量或降量 */
 .effort-row{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;margin:var(--space-3) 0 0}
 .effort-label{font-size:var(--text-xs);color:var(--muted);letter-spacing:.04em}

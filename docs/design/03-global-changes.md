@@ -240,3 +240,4 @@
 | 2026-11-19 | 新增 `compilePlanContext` / `validatePlanAgainstContext` 及 8 条行为断言 | 规则与数据下沉本地；提示词只带一张上下文卡 | 排课 prompt 过载 |
 | 2026-11-19 | `goal-requirements` / `plan-shared-template` / `plan-weight` / `training-log` 改钉上下文卡 | 组数、时长、基线不再以长句贴进提示词 | 同上 |
 | 2026-11-19 | `records-panels` / `daily-three-copy` / `training-draft` / `explain-text` / `structure-phase` 随砍卡与入口合并改写 | 记身体/记训练各 2 处、records 8 卡 | 入口预算 |
+| 2026-11-19 | `index.html` / `styles.css` | 我的页 6 张卡降级为 `.card-section` 分区；被降级卡的 id 挪到分区容器 | 入口预算：profile 14 → 8 张卡 |
