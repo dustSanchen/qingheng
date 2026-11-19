@@ -1138,3 +1138,9 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 断言：onboarding-backup 新增 3 条（首日引导、空态动作、阈值常量）。
 - 验收：test-all 74/74；dev-loop 1.4.20/420 装机成功、smoke 无 JS 错误。
 - APK：dist/qingheng-1.4.20.apk（638176 B，sha256 47a3ea00e5325c89632a0c43731ba41c47d49d0438b4bfa60aef5ad36ef439a4）。
+
+## r142 · 2026-11-19 · 1.4.20（归档：设计物料瘦身）
+- 盘点：docs 13.6 MB，其中 docs/shots 5.68 MB、docs/design/art 7.33 MB；design/art 里 16 张图在 md/README/site 中零引用。
+- 处理：把这 16 张未引用图整包归档到 ackups/archive/docs-art-unreferenced-20261119.zip（5.35 MB，gitignore），随后从仓库删除；保留仍被 RUNLOG/26 号文档引用的 4 张（light-ledger、training-20261111-6-log、training-20261117-1-cues、training-20261117-5-run-log）与 light-ledger.md。
+- 结果：docs 13.6 → 8.15 MB（−5.45 MB）；test-all 74/74 不受影响。
+- 说明：dist/ 215.7 MB 是 gitignore 的本地产物，不影响仓库体积，本轮未动；如需腾磁盘可另做保留最近 N 个 APK 的清理。
