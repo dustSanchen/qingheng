@@ -154,7 +154,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.59';
+  const APP_VERSION = '1.4.62';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -951,6 +951,7 @@
       const planNeed = typeof planMinutes === "function" ? planMinutes(plan) : null;
       const timingText = "（耗时 " + (planTotalMs / 1000).toFixed(1) + " 秒" + (firstMs !== null ? "，首条 " + (firstMs / 1000).toFixed(1) + " 秒" : "") + "）";
       try { localStorage.setItem("qingheng.planTiming." + activeDate, JSON.stringify({total: planTotalMs, first: firstMs, rows: plan.length, sets: planSets, minutes: planNeed, limit: context.minutes, chars: String((data && data.reply) || "").length, at: new Date().toISOString()})); } catch {}
+      if (typeof renderPlanTiming === "function") renderPlanTiming();
       if (plan.length < 3 && wantMinutes >= 30) {
         notice("模型这次只排了 " + plan.length + " 个动作，比 " + wantMinutes + " 分钟的量少；可以点「修改」补动作，或再点一次重排。" + timingText);
       } else {

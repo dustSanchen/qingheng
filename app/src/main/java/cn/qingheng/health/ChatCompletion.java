@@ -176,6 +176,10 @@ public final class ChatCompletion {
         if (!thinking) disableThinking(payload, config);
         HttpsURLConnection conn = null;
         StringBuilder answer = new StringBuilder();
+        // 1.4.60 诊断：拆开「连接/状态」「第一块（可能只有思考）」「第一段正文」「总耗时」，定位是谁在等。
+        final long streamStarted = System.currentTimeMillis();
+        long statusAt = 0, firstChunkAt = 0, firstContentAt = 0;
+        int chunks = 0, thinkChars = 0;
         try {
             conn = (HttpsURLConnection) destination.openConnection();
             conn.setConnectTimeout(60000); conn.setReadTimeout(120000); conn.setInstanceFollowRedirects(false);
@@ -187,6 +191,7 @@ public final class ChatCompletion {
             conn.setFixedLengthStreamingMode(bytes.length);
             try (OutputStream out = conn.getOutputStream()) { out.write(bytes); }
             checkStatus(conn.getResponseCode());
+            statusAt = System.currentTimeMillis() - streamStarted;
             try (java.io.BufferedReader reader = new java.io.BufferedReader(
                     new java.io.InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
@@ -195,6 +200,8 @@ public final class ChatCompletion {
                     if (trimmed.isEmpty() || trimmed.startsWith(":")) continue;
                     if (trimmed.startsWith("data:")) trimmed = trimmed.substring(5).trim();
                     if (trimmed.isEmpty() || "[DONE]".equals(trimmed)) continue;
+                    if (firstChunkAt == 0) firstChunkAt = System.currentTimeMillis() - streamStarted;
+                    chunks += 1;
                     String delta = null;
                     try {
                         JSONObject chunk = new JSONObject(trimmed);
@@ -207,7 +214,7 @@ public final class ChatCompletion {
                                 delta = text(piece, "content");
                                 String reasoning = text(piece, "reasoning_content");
                                 if (reasoning.isEmpty()) reasoning = text(piece, "reasoning");
-                                if (!reasoning.isEmpty() && onThink != null) onThink.onDelta(reasoning);
+                                if (!reasoning.isEmpty() && onThink != null) { thinkChars += reasoning.length(); onThink.onDelta(reasoning); }
                             }
                         }
                         JSONObject usageObj = chunk.optJSONObject("usage");
@@ -226,10 +233,14 @@ public final class ChatCompletion {
                     if (delta == null || delta.isEmpty()) continue;
                     if (answer.length() + delta.length() > MAX_CONTENT) throw new PublicError("API 返回内容过长");
                     answer.append(delta);
+                    if (firstContentAt == 0) firstContentAt = System.currentTimeMillis() - streamStarted;
                     if (onDelta != null) onDelta.onDelta(delta);
                 }
             }
             String streamed = answer.toString();
+            android.util.Log.i("qingheng", "stream model=" + model + " status=" + statusAt + "ms firstChunk=" + firstChunkAt
+                    + "ms firstContent=" + firstContentAt + "ms total=" + (System.currentTimeMillis() - streamStarted)
+                    + "ms chunks=" + chunks + " thinkChars=" + thinkChars + " chars=" + streamed.length());
             // A reasoning model can send a whole stream of null-content chunks (its thinking arrives in
             // another field). That is not an answer, so it is reported instead of being displayed.
             if (isBlank(streamed)) throw new PublicError("模型这次只返回了思考过程，没有给出回答，请重新提问或换一个模型");

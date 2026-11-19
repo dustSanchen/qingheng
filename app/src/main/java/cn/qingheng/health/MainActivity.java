@@ -2426,7 +2426,7 @@ import java.util.concurrent.Executors;
             reply = sink == null
                     ? chat(c, model, messages, cap).trim()
                     : ChatCompletion.stream(c, apiKey(c.optString("provider", provider())), model, messages, sink, think,
-                            usage -> recordUsage(usage, usageModel)).trim();
+                            usage -> recordUsage(usage, usageModel), !planFocus).trim();
         } catch (Exception first) {
             // 清单只有一次机会：空回答多半是输出预算被思考过程吃掉了，放大上限重排一次，别让用户自己再点。
             if (!planFocus || sink != null || !EMPTY_REPLY.equals(first.getMessage())) throw first;

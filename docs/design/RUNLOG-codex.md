@@ -1445,3 +1445,15 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 本地油价（用真函数 pplyOilToItems 跑同一份回复）：不含油 1042 kcal / 脂肪 60.4 g；一般档油 30.1 g → 1313 kcal / 90.5 g（红烧肉 18 g、油麦菜 12.1 g、两道蒸菜 0）；低档 18.1 g、高档 45.2 g。差额校验：低档 −108 kcal（应 0.4×30.1×9=108）、高档 +136 kcal（应 +135，1 kcal 来自逐菜取整）；脂肪差 12 / 15.1 g（应 12.05 / 15.05）——**三档只动油**这条得到实测确认。
 - 顺带发现（比这轮结论更重要）：同一提示词直连 API 只要 **132 ms**，而 App 内排课首包 13 秒、估算也慢——瓶颈不在模型，在 App 侧链路（Java 桥 / 流式拼装 / 模型别名）。下一步应查这条，而不是继续压提示词。
 - 环境备注：adb 中文输入在本机不可行（iFlytek 会劫持 input text）；以后要驱动中文 UI，需要装 ADBKeyboard 或改用「直连 API + 本地函数」的验证法。测试期间的草稿/照片未落库，已 force-stop 清掉。
+## r179 · 2026-11-19 · 1.4.60–1.4.62（13 秒定位并修掉：计划请求一直开着思考）
+- 用户：「查那 13 秒」。做法：给 `ChatCompletion.stream` 加诊断日志，拆开 status / firstChunk / firstContent / total / chunks / thinkChars，真机点「用 AI 排今天」读 logcat。
+- **根因（实测）**：排课走 `chatReply`，调用 `ChatCompletion.stream` 时用的是默认 `thinking=true` 的重载，只有估算路径显式传了 `false`。于是推理模型 `deepseek-flash` 先流了 **12,406 字 reasoning_content**，正文才出来。
+  - 修复前：status 174ms / firstChunk 373ms / **firstContent 22,331ms** / total 22,592ms / chunks 4,170 / thinkChars 12,406
+  - 修复后（`!planFocus` 传 false）：status 198ms / firstChunk 299ms / **firstContent 545ms** / total 1,228ms / chunks 142 / thinkChars 0
+  - **22.6 秒 → 1.2 秒**，18 倍；网络与桥都不是瓶颈（status、firstChunk 都在 200–400ms）。
+- 顺带修：耗时行在写入 localStorage 之前就渲染，导致卡片上永远显示「上一次」的耗时。现在写完后补一次 `renderPlanTiming()`；真机已显示「上次排课耗时 1.3 秒，首条 0.9 秒 · 5 个动作、14 组」。
+- 自我更正：上一轮我说「直连 132ms → 瓶颈在 App 侧」，那个对比不成立——直连用的是 `deepseek-chat`（非推理），App 用的是 `deepseek-flash`（推理）。真正的差别是 thinking 开关，已记入决策记忆。
+- 断言：`ai-upgrade` 的「思考不并入正文」断言随 `onThink.onDelta` 的写法更新；81/81。
+- 验收：dev-loop 1.4.62/462 装机；真机排课出清单 5 个动作 14 组；截图 `build/v161-fast-plan.png`、`build/v162-locate.png`。
+- 遗留：14 组折算 48 分钟，超设定 45 分钟 3 分钟（本地校验器容忍 +3），要不要把容差收紧到 +0，待定。
+- APK：`dist/qingheng-1.4.62.apk`，650461 B，sha256 `f3c73aa6643c7f4d51d6ffc893a74d6edbb3d6f7be0b322107b3f54d9bc1e115`。
