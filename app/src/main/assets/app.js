@@ -5382,6 +5382,26 @@ const values = points.length<=7 ? points.map((item,i) => {
   function planStartDate() {
     return validDate(activeDate) ? activeDate : localDate();
   }
+  /**
+   * 「那天该练哪一类」的唯一来源：本周安排（周计划）里当天的 template。
+   * 排今天的提示词与问答的训练建议都读这一处，两边才不会一边排推、一边建议练腿。
+   */
+  function dayTemplateSlot(date = activeDate) {
+    const cache = readWeekPlanCache(planStartDate());
+    const days = cache && cache.plan && Array.isArray(cache.plan.days) ? cache.plan.days : [];
+    return days.find(day => day && day.date === date) || null;
+  }
+  /** 所看那天的名字：日历上的今天写「今天」，其余写 MM-DD。 */
+  function dayLabel(date = activeDate) {
+    return date === localDate() ? "今天" : String(date || "").slice(5);
+  }
+  /** 喂给两个 AI 入口的同一句话；没有周计划就直接给空串，不编一个部位出来。 */
+  function dayTemplateNote(date = activeDate) {
+    const slot = dayTemplateSlot(date);
+    if (!slot || !slot.template) return "";
+    const label = TRAINING_TEMPLATES[slot.template] || slot.template;
+    return dayLabel(date) + "按周计划应练：" + label + "日（" + slot.template + "）；动作与建议都围绕这一类。";
+  }
   /** 明确「重新生成」：清掉本窗口缓存并强制重算，偏好不变也能换一版。 */
   function regenerateWeekPlan() {
     const startDate = planStartDate();
@@ -5543,14 +5563,18 @@ const values = points.length<=7 ? points.map((item,i) => {
     // 数据层里的安排重录一遍。已有 AI 清单时不出现：AI 排的优先级高于周计划。
     const hasTodayList = (() => { try { const raw = localStorage.getItem(AI_PLAN_KEY(activeDate)); const list = raw ? JSON.parse(raw) : null; return Array.isArray(list) && list.length > 0; } catch { return false; } })();
     const adoptHtml = (!hasTodayList && todayPlan && todayPlan.exercises.length)
-      ? '<button type="button" class="button subtle full-width" data-adopt-today>把今天这节采纳到今日清单</button>'
+      ? '<button type="button" class="button subtle full-width" data-adopt-today>把 ' + esc(dayLabel(activeDate)) + ' 这节采纳到' + (activeDate === localDate() ? '今日清单' : '当日清单') + '</button>'
       : '';
     // 一键排课：1.3.44 把 7 行表格换成周条时，这个按钮留在了一段死表达式里，handler 一直在、按钮再也
     // 没渲染出来。2026-11-18 顺手接回来：写入的是「今天起 7 天」，确认框里写清日期。
     const scheduleHtml = plan.days.length
-      ? '<div class="button-row"><button type="button" class="button subtle full-width" data-plan-schedule="1">一键排课 · 写入今天起 ' + plan.days.length + ' 次训练</button></div>'
+      ? '<div class="button-row"><button type="button" class="button subtle full-width" data-plan-schedule="1">一键排课 · 写入' + esc(dayLabel(activeDate)) + '起 ' + plan.days.length + ' 次训练</button></div>'
       : '';
-    box.innerHTML = annotateTerms(thisWeekHtml + goalRequirementHtml + explainHtml + acwrHtml + driftHtml + adoptHtml + suggestedNote + scheduleHtml);
+    // 两套清单同屏容易混：先说清谁是谁、冲突时听谁的，再让用户读数据。
+    const relationHtml = plan.days.length
+      ? '<p class="fine-print">上面按偏好与最近记录排周框架，下面的「今日顺序」是模型照它排的执行顺序；两者不一致时以今日顺序为准。</p>'
+      : '';
+    box.innerHTML = annotateTerms(thisWeekHtml + goalRequirementHtml + relationHtml + explainHtml + acwrHtml + driftHtml + adoptHtml + suggestedNote + scheduleHtml);
   }
 
   /** Load and plateau warnings shown above the weight chart. */
@@ -6318,7 +6342,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.02';
+  const APP_VERSION = '1.4.03';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -6497,15 +6521,29 @@ function metricIcon(label) {
     return hit ? Number(hit[1]) : 0;
   }
   /**
-   * 单组占用的时间：执行约 45 秒 + 组间休息约 90 秒 + 换动作摊销，取 2.5 分钟。
-   * 时长先由组数决定，再向上取到偏好里的档位，不留缺口。
+   * 一次课的时间：每组执行约 45 秒 + 该动作的组间休息（restSecondsFor 的同一档位），
+   * 有氧按它自己的时长算。以前用固定的 2.5 分钟/组，复合动作休 120~150 秒时低估近一半。
    */
-  const AI_PLAN_MINUTES_PER_SET = 2.5;
+  const AI_PLAN_WORK_SECONDS = 45;
   const AI_PLAN_MINUTE_STEPS = [30, 45, 60, 75, 90];
-  function aiPlanMinutes(sets) {
+  function planItemMinutes(item) {
+    const cardio = number(item && item.durationMin);
+    if (cardio !== null && cardio > 0) return cardio;
+    const sets = aiPlanSets(item);
     if (!sets) return 0;
-    const raw = Math.ceil(sets * AI_PLAN_MINUTES_PER_SET / 5) * 5;
-    return AI_PLAN_MINUTE_STEPS.find(step => step >= raw) || AI_PLAN_MINUTE_STEPS[AI_PLAN_MINUTE_STEPS.length - 1];
+    const name = String((item && item.name) || "");
+    const rest = typeof restSecondsFor === "function" ? restSecondsFor(name) : 90;
+    return sets * (AI_PLAN_WORK_SECONDS + rest) / 60;
+  }
+  /** 整份清单的实际占用（含组间休息），向上取整到分钟。 */
+  function planMinutes(items) {
+    const total = (Array.isArray(items) ? items : []).reduce((sum, item) => sum + planItemMinutes(item), 0);
+    return total > 0 ? Math.ceil(total) : 0;
+  }
+  /** 折算值收进偏好档位：写回按钮的必须是能选的档，不能给 36 分钟这种。 */
+  function planMinutesStep(minutes) {
+    if (!minutes) return 0;
+    return AI_PLAN_MINUTE_STEPS.find(step => step >= minutes) || AI_PLAN_MINUTE_STEPS[AI_PLAN_MINUTE_STEPS.length - 1];
   }
   /**
    * 把一批动作并入当天训练记录：同名跳过，只追加不覆盖。
@@ -6689,16 +6727,17 @@ function metricIcon(label) {
       const prefs = typeof planPrefs === "function" ? planPrefs() : null;
       const setMinutes = Number(prefs && prefs.minutes) > 0 ? Number(prefs.minutes) : 45;
       const totalSets = plan.reduce((sum, item) => sum + aiPlanSets(item), 0);
-      const need = aiPlanMinutes(totalSets);
+      // 时长按实际组次 + 组间休息折算，不再用固定 2.5 分钟/组。
+      const need = planMinutes(plan);
       summary.hidden = false;
       if (!need) {
         summary.textContent = "共 " + plan.length + " 个动作";
       } else if (Math.abs(need - setMinutes) >= 10) {
         // 差异够大就给一个入口，点了才弹窗，不主动打断。
-        summary.innerHTML = '<span class="ai-plan-summary-text">共 ' + totalSets + " 组 · 按组数约需 " + need + ' 分钟</span>'
-          + '<button type="button" class="text-button" data-plan-minutes="' + need + '">改单次时长</button>';
+        summary.innerHTML = '<span class="ai-plan-summary-text">共 ' + totalSets + " 组 · 含组间休息约需 " + need + ' 分钟</span>'
+          + '<button type="button" class="text-button" data-plan-minutes="' + planMinutesStep(need) + '">改单次时长</button>';
       } else {
-        summary.innerHTML = '<span class="ai-plan-summary-text">共 ' + totalSets + " 组 · 约需 " + need + ' 分钟</span>'
+        summary.innerHTML = '<span class="ai-plan-summary-text">共 ' + totalSets + " 组 · 含休息约需 " + need + ' 分钟</span>'
           + '<span class="ai-plan-summary-note">你设的是 ' + setMinutes + ' 分钟</span>';
       }
     }
@@ -6798,13 +6837,8 @@ function metricIcon(label) {
       const baselineText = Object.entries(baselines).slice(0, 6).map(([name, row]) =>
         name + " " + row.sets + "x" + row.reps + (row.weight ? " " + row.weight + "kg" : "")).join("；");
       const library = typeof librarySummary === "function" ? librarySummary(4) : "";
-      // 与「周计划」同口径：周计划按 push→pull→legs 轮换，今天该练哪一类直接写进提示词。
-      const weekCache = typeof readWeekPlanCache === "function" ? readWeekPlanCache(activeDate) : null;
-      const todaySlot = weekCache && weekCache.plan && Array.isArray(weekCache.plan.days) ? weekCache.plan.days.find(day => day && day.date === activeDate) : null;
-      const TEMPLATE_LABEL = {push: "推", pull: "拉", legs: "腿"};
-      const rotationText = todaySlot && TEMPLATE_LABEL[todaySlot.template]
-        ? "今天按周计划应练：" + TEMPLATE_LABEL[todaySlot.template] + "日（" + todaySlot.template + "）；动作要围绕这一类排。"
-        : "";
+      // 部位只有一个来源：与问答的「训练建议」共用 dayTemplateNote，别再各猜一次。
+      const rotationText = typeof dayTemplateNote === "function" ? dayTemplateNote(activeDate) : "";
       const prompt = [
         "请为今天排一个按顺序执行的训练清单。",
         rotationText,
@@ -6817,6 +6851,9 @@ function metricIcon(label) {
           if (!preset || !preset.muscleSetsPerWeek) return "";
           return "训练要求（按目标，必须满足）：每个大肌群每周 " + preset.muscleSetsPerWeek[0] + "~" + preset.muscleSetsPerWeek[1] + " 组；每组 " + preset.reps[0] + "~" + preset.reps[1] + " 次；RIR " + preset.rir[0] + "~" + preset.rir[1] + "（离力竭留几次）；单次课的总组数装进上面的时长。";
         })(),
+        // 时长必须把组间休息算进去：只数动作个数会排出一份「5 个动作、12 组、实际 30 分钟」的清单。
+        "时长预算（必须满足）：先留 8 分钟热身与换器械；每个正式组按约 45 秒执行 + 组间休息（复合 120~150 秒、孤立 60~90 秒、自重 75~90 秒）折算，有氧再加它自己的时长；整份清单折算后必须落在 " + (prefs && Number(prefs.minutes) > 0 ? Number(prefs.minutes) : 45) + " 分钟以内。",
+        "单次课正式组控制在 6~10 组：动作个数可以多，总组数不要堆过 10 组（时长 60 分钟以上才放宽）。",
         baselineText ? "上周最近记录（供渐进参考，不要盲目加量）：" + baselineText + "。" : "",
         library ? "训练规则（必须遵守）：\n" + library : "",
         done.length ? ("今天已记录：" + done.join("；") + "。") : "今天还没有训练记录。",
@@ -7698,9 +7735,11 @@ function metricIcon(label) {
         const prevText = prevVolume > 0 ? '（上周 ' + fmt(prevVolume, 0) + ' kg）' : prevBwReps > 0 ? '（上周自重 ' + fmt(prevBwReps, 0) + ' 次）' : '';
         lines.push('本周还没训练' + prevText);
       }
+      // 看的是哪一天就写哪一天：切到 11-21 还写「今天」读起来就是在说错日期。
+      const noteDay = typeof dayLabel === "function" ? dayLabel(activeDate) : "今天";
       lines.push(kcal === null
-        ? '今天还没记饮食 · <button type="button" class="text-button inline-link" data-panel-go="food">去记一餐</button>'
-        : '今天摄入 ' + fmt(kcal, 0) + (target ? ' / ' + fmt(target, 0) : '') + ' kcal · 蛋白 ' + fmt(protein || 0, 0) + (proteinMin ? ' / ' + fmt(proteinMin, 0) + ' g' : ' g'));
+        ? noteDay + '还没记饮食 · <button type="button" class="text-button inline-link" data-panel-go="food">去记一餐</button>'
+        : noteDay + '摄入 ' + fmt(kcal, 0) + (target ? ' / ' + fmt(target, 0) : '') + ' kcal · 蛋白 ' + fmt(protein || 0, 0) + (proteinMin ? ' / ' + fmt(proteinMin, 0) + ' g' : ' g'));
       note.innerHTML = lines.map((line, index) => '<span class="overview-note-line' + (index ? ' is-muted' : '') + '">' + line + '</span>').join('');
       if (!note.dataset.wired) {
         note.dataset.wired = '1';
@@ -8467,8 +8506,11 @@ feedback(message,'数据已导入。'+report);
       feedback(feedbackBox, '正在生成…');
       const button = form.querySelector('button[type="submit"]');
       if (button) button.disabled = true;
+      // P0：部位与「排今天」同源。dayTemplateNote 在没有周计划时给空串，问题照原样发。
+      const templateNote = typeof dayTemplateNote === 'function' ? dayTemplateNote(localDate()) : '';
+      const questionWithNote = templateNote ? templateNote + '\n' + question : question;
       // 训练建议走流式，和问答页一样能看到「正在思考…」与逐字输出；不支持时退回一次性接口。
-      const payload = {question, focus: 'training', date: localDate(), allowExternal: true, anchors: anchorSummary(), preferences: readPreferences(), webSearch: false, logToHistory: false};
+      const payload = {question: questionWithNote, focus: 'training', date: localDate(), allowExternal: true, anchors: anchorSummary(), preferences: readPreferences(), webSearch: false, logToHistory: false};
       try {
         let data = null;
         if (answerBox) {answerBox.hidden = false; answerBox.innerHTML = '';}

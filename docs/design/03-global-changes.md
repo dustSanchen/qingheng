@@ -179,3 +179,5 @@
 | 2026-11-19 | 无断言变更 | 排今天（`focus=plan`）确认不带 `anchors`/`preferences`，也不放开 `chatDataContext` | 本轮曾两处都改过，被 `ai-plan-focus` 与 `meal-date-java` 的既有断言拦下并回滚：plan 分支不读这两个字段，深上下文只是拉长首字延迟。断言未变，记录在此防止下一轮再试一遍 |
 | 2026-11-19 | `tests/meal-date-java.test.mjs` | `APP_VERSION = '1.4.01'` → `'1.4.02'` | 发布版本同步，dev-loop 一次对齐片段常量、build.ps1 与测试字面量 |
 | 2026-11-19 | 新增 `tests/week-switch.test.mjs` | 周条点击走 `setActiveDate` 而非只改 `#week-detail`；详情行/周条加深/要点标签的「今天」改按 `localDate()` 判定；选中格=`activeDate`；死变量 `weekEndPlan`/`firstPlanDay`/`cueToday` 不再出现；训练日志读与写都用 `activeDate` | 用户要求「切日期时回显那天的动作要点与当天训练日志，并支持修改」；旧实现在同一屏上让详情行按选中日、要点按 activeDate 走，读起来自相矛盾 |
+| 2026-11-19 | `tests/plan-from-today.test.mjs` | 「一键排课 · 写入今天起 N 次」整句字面量 → `一键排课 · 写入' + esc(dayLabel(activeDate)) + '起 ` | 按钮文案改成跟着所看日期走（今天 / MM-DD），整句字面量不再存在于源码 |
+| 2026-11-19 | 新增 `tests/plan-shared-template.test.mjs` | 部位唯一的来源函数、排今天与问答共用同一句；每组分时取自 `restSecondsFor` 且固定 2.5 分钟/组已删；时长预算与单次课 6~10 组进了两处提示词；采纳/排课/能量卡文案按 `dayLabel`；两套清单的关系说明存在 | P0–P2 落地：部位分歧、时长漏算组间休息、日期文案仍写「今天」、两套清单没有关系说明 |

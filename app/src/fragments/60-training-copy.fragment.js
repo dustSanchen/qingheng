@@ -1141,6 +1141,26 @@
   function planStartDate() {
     return validDate(activeDate) ? activeDate : localDate();
   }
+  /**
+   * 「那天该练哪一类」的唯一来源：本周安排（周计划）里当天的 template。
+   * 排今天的提示词与问答的训练建议都读这一处，两边才不会一边排推、一边建议练腿。
+   */
+  function dayTemplateSlot(date = activeDate) {
+    const cache = readWeekPlanCache(planStartDate());
+    const days = cache && cache.plan && Array.isArray(cache.plan.days) ? cache.plan.days : [];
+    return days.find(day => day && day.date === date) || null;
+  }
+  /** 所看那天的名字：日历上的今天写「今天」，其余写 MM-DD。 */
+  function dayLabel(date = activeDate) {
+    return date === localDate() ? "今天" : String(date || "").slice(5);
+  }
+  /** 喂给两个 AI 入口的同一句话；没有周计划就直接给空串，不编一个部位出来。 */
+  function dayTemplateNote(date = activeDate) {
+    const slot = dayTemplateSlot(date);
+    if (!slot || !slot.template) return "";
+    const label = TRAINING_TEMPLATES[slot.template] || slot.template;
+    return dayLabel(date) + "按周计划应练：" + label + "日（" + slot.template + "）；动作与建议都围绕这一类。";
+  }
   /** 明确「重新生成」：清掉本窗口缓存并强制重算，偏好不变也能换一版。 */
   function regenerateWeekPlan() {
     const startDate = planStartDate();
@@ -1302,14 +1322,18 @@
     // 数据层里的安排重录一遍。已有 AI 清单时不出现：AI 排的优先级高于周计划。
     const hasTodayList = (() => { try { const raw = localStorage.getItem(AI_PLAN_KEY(activeDate)); const list = raw ? JSON.parse(raw) : null; return Array.isArray(list) && list.length > 0; } catch { return false; } })();
     const adoptHtml = (!hasTodayList && todayPlan && todayPlan.exercises.length)
-      ? '<button type="button" class="button subtle full-width" data-adopt-today>把今天这节采纳到今日清单</button>'
+      ? '<button type="button" class="button subtle full-width" data-adopt-today>把 ' + esc(dayLabel(activeDate)) + ' 这节采纳到' + (activeDate === localDate() ? '今日清单' : '当日清单') + '</button>'
       : '';
     // 一键排课：1.3.44 把 7 行表格换成周条时，这个按钮留在了一段死表达式里，handler 一直在、按钮再也
     // 没渲染出来。2026-11-18 顺手接回来：写入的是「今天起 7 天」，确认框里写清日期。
     const scheduleHtml = plan.days.length
-      ? '<div class="button-row"><button type="button" class="button subtle full-width" data-plan-schedule="1">一键排课 · 写入今天起 ' + plan.days.length + ' 次训练</button></div>'
+      ? '<div class="button-row"><button type="button" class="button subtle full-width" data-plan-schedule="1">一键排课 · 写入' + esc(dayLabel(activeDate)) + '起 ' + plan.days.length + ' 次训练</button></div>'
       : '';
-    box.innerHTML = annotateTerms(thisWeekHtml + goalRequirementHtml + explainHtml + acwrHtml + driftHtml + adoptHtml + suggestedNote + scheduleHtml);
+    // 两套清单同屏容易混：先说清谁是谁、冲突时听谁的，再让用户读数据。
+    const relationHtml = plan.days.length
+      ? '<p class="fine-print">上面按偏好与最近记录排周框架，下面的「今日顺序」是模型照它排的执行顺序；两者不一致时以今日顺序为准。</p>'
+      : '';
+    box.innerHTML = annotateTerms(thisWeekHtml + goalRequirementHtml + relationHtml + explainHtml + acwrHtml + driftHtml + adoptHtml + suggestedNote + scheduleHtml);
   }
 
   /** Load and plateau warnings shown above the weight chart. */
