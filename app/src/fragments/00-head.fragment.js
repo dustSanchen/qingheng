@@ -856,7 +856,7 @@
   // ---- Profile hub and its sub-pages -----------------------------------------------------------
   // "我的" is a list of entries; each one opens a sub-page under #profile/<name>. Everything stays
   // in the document, so forms, validation, collapse state and existing test anchors are untouched.
-  const SUBPAGES = ['targets', 'model', 'push', 'appearance', 'prefs', 'more', 'data', 'about'];
+  const SUBPAGES = ['targets', 'model', 'appearance', 'data'];
   function parseHash() {
     const parts = String(location.hash || '').replace(/^#/, '').split('/');
     const tab = ['today','records','chat','trends','profile'].includes(parts[0]) ? parts[0] : '';

@@ -31,8 +31,9 @@ check('chips route to the right segment', app.includes('switchRecordPanel(record
 check('the photo entry stays on the meal card', html.includes('id="photo-add"') && html.includes('id="photo-sheet"'));
 check('the training chip scrolls without focusing', app.includes("flashTarget(form.closest('.card'))") && app.includes("revealField(focus, {focus: false, block: 'start'});"));
 check('chat input and quick prompts lead the composer', app.includes('function installChatTaskOrder()') && app.includes('question.after(chips)'));
-check('low-frequency profile settings open their own sub-page', app.includes('function installProfileMore()') && html.includes('外观与餐次时间') &&
-  app.includes('#subpage-appearance') && app.includes('#subpage-more') && !app.includes("details.id = 'profile-more'"));
+// 1.4.53：我的页从八行收成四行（档案 / AI 与提醒 / 外观与偏好 / 数据与关于），仍是一级子页而不是二级折叠。
+check('profile settings stay one sub-page deep', app.includes('function installProfileMore()') && html.includes('外观与偏好') &&
+  html.includes('id="subpage-appearance"') && html.includes('id="subpage-data"') && !app.includes("details.id = 'profile-more'"));
 
 // --- 2. trends segments + diet trend ------------------------------------------------------------------
 check('trends get a segment bar', app.includes("bar.id = 'trends-tabs'"));

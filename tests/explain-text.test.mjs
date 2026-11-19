@@ -38,7 +38,7 @@ check('no pointer to the sub-heading as an entry', !app.includes('我的 → 模
 // ⑤ 外发授权开关与「数据管理」同页 ----------------------------------------------------
 const dataPage = html.indexOf('<div class="subpage" id="subpage-data"');
 const consent = html.indexOf('id="settings-consent"');
-const nextPage = html.indexOf('<div class="subpage" id="subpage-prefs"');
+const nextPage = html.indexOf('</section>', dataPage);
 check('consent switch lives inside the data subpage', dataPage > -1 && consent > dataPage && consent < nextPage);
 check('consent row keeps its id', html.includes('id="external-consent-row"'));
 

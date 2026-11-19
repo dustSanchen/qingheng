@@ -154,7 +154,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.52';
+  const APP_VERSION = '1.4.55';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1471,20 +1471,16 @@
       const node = hub.querySelector(`[data-subpage-open="${id}"] .hub-icon`);
       if (node && markup) node.innerHTML = markup;
     });
-    const appearance = $("#subpage-appearance"), more = $("#subpage-more");
-    if (!appearance || !more) return;
-    // 外观页只留「查看相关」的东西：外观皮肤 + 默认餐次 + 问答说明。
+    const appearance = $("#subpage-appearance");
+    // 外观页只留「查看相关」的东西：外观皮肤 + 默认餐次。
     const anchor = $('#meal-window-card');
     const skin = $('#skin-card');
-    if (skin && anchor) appearance.insertBefore(skin, anchor);
-    // 不常用的三件事合并到「更多」：数据管理、关于轻衡、重新设置档案。
-    const list = $('#more-hub');
+    if (appearance && skin && anchor) appearance.insertBefore(skin, anchor);
+    // 重新设置档案是档案页里的一节（1.4.52 起不再单独成卡）。
     const restart = $('#targets-restart-slot');
-    const notes = $('#about-notes-slot');
-    [hub.querySelector('[data-subpage-open="data"]'), hub.querySelector('[data-subpage-open="about"]')]
-      .filter(Boolean).forEach(node => {if (list) list.append(node);});
     const restartButton = $('#restart-onboarding');
     if (restartButton && restart) restart.append(restartButton);
+    const notes = $('#about-notes-slot');
     const chatNotes = $('#view-chat .card-notes');
     if (chatNotes && notes) {
       // 关于页里已经有一个「说明」，搬过来的问答说明要自己标明是哪一份。

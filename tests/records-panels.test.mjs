@@ -45,7 +45,7 @@ check('day disclosures are open sections in both skins', css.includes('.day-more
 check('draft state keeps its dashed boundary after paper cards are opened', css.includes('.training-draft{border:1px dashed var(--accent-line)'));
 const profileMore = app.slice(app.indexOf('function installProfileMore()'), app.indexOf('function installTrendPanels()'));
 check('skin selection leads the appearance sub-page', profileMore.indexOf("$('#skin-card')") >= 0 &&
-  profileMore.indexOf("$('#skin-card')") < profileMore.indexOf('[data-subpage-open="data"]'));
+  profileMore.includes('appearance.insertBefore(skin, anchor)'));
 check('hidden panels do not take space', css.includes('.record-panel[hidden]{display:none}'));
 check('ledger record controls use a 2px physical hairline at 480 dpi', /\[data-skin="ledger"\] #view-records input:not\(\[type=checkbox\]\):not\(\[type=radio\]\),\s*\[data-skin="ledger"\] #view-records select,\s*\[data-skin="ledger"\] #view-records textarea\{border-width:\.67px\}/.test(css));
 check('ledger form cells own separators without nested control borders', css.includes('[data-skin="ledger"] #view-records .form-grid>label input:not([type=checkbox]):not([type=radio])') &&
