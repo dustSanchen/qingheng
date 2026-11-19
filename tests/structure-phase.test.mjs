@@ -57,8 +57,8 @@ check('recommended loads are plate-achievable',
   training.includes('function loadableWeightKg') && training.includes('loadableWeightKg(name, suggested)')
   && rest.includes('20 kg 空杆 + 每侧 2.5 kg'));
 check('the training overview connects diet and lifting',
-  html.includes('id="training-overview"') && rest.includes('function renderTrainingOverview')
-  && rest.includes("'训练概览'"));
+  html.includes('id="training-overview"') && html.includes('train-overview-head')
+  && rest.includes('function renderTrainingOverview'));
 
 check('the week plan can be regenerated explicitly',
   training.includes('function regenerateWeekPlan') && html.includes('id="pref-regen"')

@@ -57,7 +57,8 @@ check('the surplus rule exists', lib.includes("id: 'off-season-surplus'"));
 
 // --- 页面与提示词用上同一张表 -------------------------------------------------------------------
 check('the plan card prints the goal requirement', app.includes('本周要求（') && app.includes('goalPreset.muscleSetsPerWeek'));
-check('the AI plan request carries the requirement', app.includes('训练要求（按目标，必须满足）：每个大肌群每周'));
+// 1.4.47：口径不再以长句贴进提示词，改由本地上下文卡（compilePlanContext）带同源数字。
+check('the AI plan request carries the requirement through the local context card', app.includes('function compilePlanContext') && app.includes('每部位组数：') && app.includes('preset.muscleSetsPerWeek'));
 check('the profile status prints the training requirement', app.includes('训练要求（${goalLabelOf(goal)}）：每个大肌群'));
 check('the profile status prints the weight rate', app.includes('体重速率：每周 ${ratePctPerWeek[0]}~${ratePctPerWeek[1]}%'));
 check('the computed result exposes the requirements', app.includes('trainingTargets, ratePctPerWeek, weeklyRatePercent: weeklyLossFromRate,'));

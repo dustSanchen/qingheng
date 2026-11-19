@@ -1365,3 +1365,12 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 未验证：食品参考库与手动录入在真机上的「移除后有没有空白」只看了列表区域，没有逐屏翻到底；`/api/food-search` 现在是死路由，没有清理 Java 侧。
 - APK：`dist/qingheng-1.4.46.apk`，646366 B，sha256 `869736ad69c9aadcd0db313e6eb4844ac723354e873942f94aee61cb9e71c0a0`。- 入口预算审计工具：新增 `tools/entry-budget-audit.mjs`（只读，WARN 不阻断，退出码与 aesthetic-audit 一致；`--json` 供以后接 CI）。判据写死在脚本里：只数可点击入口（button/a 文案、stateBlock action、quick-chip 数据项、check-fix 补录、data-focus 指向），标题与提示文案不算；`记录一餐` 与 `记一餐` 合并为同一动作，避免改文案绕过预算。
 - 入口预算基线（2026-11-19 21:57，1.4.46）：记一餐 2 处 PASS（今日动作条 + 饮食空态「去记一餐」）、复制一餐 1 处 PASS；**记训练 3 处、记身体 4 处 WARN**；卡片数 today 6 / chat 3 / trends 4 PASS，**records 10、profile 14 WARN**。这张表就是下一轮清理的队列——先合并记身体四处（记录身体数据 / 空态记录体重 / 体检补体重 / 今日 chip），再收 records 与 profile 的卡片数。
+## r169 · 2026-11-19 · 1.4.47（规则下沉：编译上下文 + 本地校验器 + 入口预算清账）
+- 用户：「一次排课请求里的部分请求，能否把其中用户的数据，渐进规则，每部位组数等部分数据落地到本地app中，再让模型调取的时候读取？」→ 采纳 A（编译上下文 + 本地校验器）；B（两段式 need）暂缓；C（通用 tool calling）明确不做（要改单次 POST 为多轮循环，手机端延迟与失败面都放大）。
+- 编译上下文：新增 `compilePlanContext(date)`——部位（dayTemplateNote）、时长与组数折算、每部位组数与 RIR（GOAL_PRESETS）、目标与体重与器械、**只给该部位的前 3 条基线**（weight memory 180 天）、今日已记录。提示词里原先五段（训练要求 / 时长预算 / 每部位组数 / 最近 10 条基线 / 今天已记录）合并成这一张卡，行为测试实测卡长 174 字。
+- 本地校验器：新增 `validatePlanAgainstContext(plan, context)`——重量落到可装档位、组数收到 1~5、超时长从末尾动作减组（第一个动作永不清空）。这是「规则搬出提示词」的必要配套：不然规则从软约束变成没约束。
+- 入口预算清账：记身体 4→2（删今日身体卡「记录身体数据」、删趋势页空态「记录体重」action）、记训练 3→2（删问答页「＋ 记一条训练」chip 及其 handler）、records 10→8（「复制一餐」卡删除，行内「复制」仍在；「训练概览」从独立卡改为「训练日志」内的折叠段）。审计 9 项：PASS 8 / WARN 1，只剩 profile 14 张卡。
+- 断言：行为测试新增 8 条（上下文卡字段/长度、校验器落档/封顶/裁时长/首动作保留/自重不动）；`goal-requirements`、`plan-shared-template`、`plan-weight`、`training-log`、`records-panels`、`daily-three-copy`、`training-draft`、`explain-text`、`structure-phase` 随口径改写。测试 78/78。
+- 真机验证（1.4.47 / 3cba2bdc）：启动正常、训练段首屏为训练计划（训练概览已折叠进训练日志）。截图 `build/v147-training.png`。**排课链路未在真机重跑**（会消耗用户 key，本轮只跑了 fixture 行为测试）。
+- 未验证：编译上下文后模型的实际排课质量（尤其是「只给 3 条基线」是否够）；profile 14 张卡未清；1.4.42–47 仍未建 Release / 未刷新 gh-pages。
+- APK：`dist/qingheng-1.4.47.apk`，646366 B，sha256 `191d493e988eff0b34d5f94c00fbcd5e4337250daa8bde401239e6c99f6bd04b`。

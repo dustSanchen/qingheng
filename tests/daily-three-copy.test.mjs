@@ -33,7 +33,8 @@ check('oil spoons are bounded', main.includes('key.equals("water") ? 20000 : 30'
 check('habit validation runs on save', main.includes('if (collection.equals("habits")) requireHabitFields(record);'));
 
 // --- copying a meal -----------------------------------------------------------------------------------
-check('the copy card exists on the records page', html.includes('<article class="card" id="copy-meal">'));
+// 1.4.47 入口预算：复制一餐卡已删，复制能力留在每行餐食的「复制」按钮上。
+check('the copy card is gone, row-level copy stays', !html.includes('id="copy-meal"') && app.includes("data-copy-meal="));
 check('candidates prefer yesterday', app.includes("const rank = row => (row.date === yesterday ? 0 : 1);"));
 check('candidates are deduplicated by name, meal and calories', app.includes('const key = row => `${row.date}|${row.mealType || \'\'}|${row.name || \'\'}|${fmt(row.calories, 0)}`;'));
 check('at most five candidates are offered', app.includes('.slice(0, 5);'));

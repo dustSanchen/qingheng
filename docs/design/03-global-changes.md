@@ -237,3 +237,6 @@
 | 2026-11-19 | 新增 `tests/boot-integrity.test.mjs` | 启动行调用的函数必须存在 | 删 searchFoods 后残留调用导致 1.4.46 首版启动即 ReferenceError |
 | 2026-11-19 | `tests/tdee-calibration.test.mjs` | 新增完整日门槛、部分记录日剔除、OMAD 不误杀、>10% 差额文案 | 校准分账 |
 | 2026-11-19 | `tests/records-panels` / `meal-recalc-collapse` / `p1-answers-phase-collapse` / `body-quick` / `food-database` / `anchors-oil` / `daily-three-copy` / `meal-date-context` / `onboarding-backup` | 随两张折叠卡与「记一餐」空态入口移除同步改口径 | 入口预算 |
+| 2026-11-19 | 新增 `compilePlanContext` / `validatePlanAgainstContext` 及 8 条行为断言 | 规则与数据下沉本地；提示词只带一张上下文卡 | 排课 prompt 过载 |
+| 2026-11-19 | `goal-requirements` / `plan-shared-template` / `plan-weight` / `training-log` 改钉上下文卡 | 组数、时长、基线不再以长句贴进提示词 | 同上 |
+| 2026-11-19 | `records-panels` / `daily-three-copy` / `training-draft` / `explain-text` / `structure-phase` 随砍卡与入口合并改写 | 记身体/记训练各 2 处、records 8 卡 | 入口预算 |

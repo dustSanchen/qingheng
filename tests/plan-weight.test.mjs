@@ -19,7 +19,8 @@ check('a weaker source never overwrites a stronger one', app.includes('WEIGHT_SO
 check('the prompt no longer tells the model to leave weights empty', !app.includes('器械按 5 kg 递增；不确定就留空'));
 check('the prompt demands a weight for every loaded move', app.includes('每个配重动作都必须给 weight'));
 check('the prompt carries the starting-weight ratios', app.includes('杠铃卧推 0.5 倍体重') && app.includes('器械取杠铃的 0.8 倍'));
-check('the prompt gets up to ten baselines from the memory', app.includes('seedWeightMemoryFromHistory()') && app.includes('.slice(0, 10)'));
+// 1.4.47：基线不再整份贴进提示词，改为本地编译的上下文卡（只给该部位前 3 条）。
+check('the prompt gets a compiled context card instead of raw baselines', app.includes('const context = compilePlanContext(activeDate);') && app.includes('.slice(0, 3)'));
 check('bodyweight moves are still allowed to carry no kg', app.includes('自重动作（引体向上、俯卧撑、双杠臂屈伸、平板支撑、卷腹）weight 留空'));
 
 // --- 补齐与渐进 -------------------------------------------------------------------------------------------

@@ -63,8 +63,10 @@ check('undo is offered after writing', app.includes('data-draft-undo'));
 check('write merges with the day row', app.includes('exercises: [...existing, ...(draft.payload.exercises || [])]'));
 check('the draft is shown before the answer', app.includes('if (draft) showTrainingDraft(draft); else renderTrainingDraft(null);'));
 check('runs keep distance through their own inputs', app.includes('function cardioRowHtml(item)') && app.includes('data-cardio="distance"') && app.includes('data-cardio="minutes"'));
-check('a one-tap training chip exists', app.includes('data-chat-train'));
-check('the chip shows the draft immediately', app.includes('showTrainingDraft(parseTrainingDraft(sample, activeDate));'));
+// 1.4.47 入口预算：问答页的「＋ 记一条训练」已删，记训练只留今日动作条与体检补记两处。
+check('the duplicated chat training chip is gone', !app.includes('data-chat-train'));
+// 1.4.47：问答页的「记一条训练」样例 chip 已删，草稿仍由输入框解析触发。
+check('the draft still comes from parsing what the user typed', app.includes('const draft = parseTrainingDraft(question, activeDate);') && app.includes('if (draft) showTrainingDraft(draft)') && !app.includes('data-chat-train'));
 
 console.log('\nFAIL total: ' + fail);
 process.exitCode = fail ? 1 : 0;

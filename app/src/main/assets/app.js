@@ -3466,7 +3466,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     // 30 days. It reports direction only, never a medical verdict, and shows — for missing values.
     $('#stats-table').innerHTML = statsTableHtml();
     if (!points.length) {
-      $('#weight-chart').innerHTML = stateBlock({kind: 'empty', title: '记录第一笔体重', body: '趋势从这里开始；之后每次记录都会画进折线。', action: {label: '记录体重', go: 'records', focus: 'measurement-weight'}});
+      $('#weight-chart').innerHTML = stateBlock({kind: 'empty', title: '记录第一笔体重', body: '趋势从这里开始；之后每次记录都会画进折线。在记录页「身体」或今天的动作条里记。'});
       $('#trend-stats').innerHTML = '';
       return;
     }
@@ -6482,7 +6482,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.46';
+  const APP_VERSION = '1.4.47';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -7074,6 +7074,66 @@ function metricIcon(label) {
     // 组数与有氧距离都为空的行仍是合法动作（用户随后自己填），不在这里删。
     return rows.filter(row => row && String(row.name || "").trim()).slice(0, 12).map(planItemFromRow);
   }
+  /**
+   * 排课上下文（1.4.47）：把规则与数据在本地算成一张卡，提示词不再逐条贴原始记录。
+   * 两份收益：prompt 变短（token），外发的原始数据变少（隐私）。
+   */
+  function compilePlanContext(date) {
+    const prefs = typeof planPrefs === "function" ? planPrefs() : null;
+    const profile = state.profile || {};
+    const preset = typeof GOAL_PRESETS === "object" ? GOAL_PRESETS[profile.goal] : null;
+    const minutes = Number(prefs && prefs.minutes) > 0 ? Number(prefs.minutes) : 45;
+    const gear = prefs ? (typeof GEAR_LABELS === "object" && GEAR_LABELS[prefs.gear] ? GEAR_LABELS[prefs.gear] : prefs.gear) : null;
+    const template = typeof dayTemplateNote === "function" ? dayTemplateNote(date) : "";
+    const done = exercisesFor(date).filter(item => item && item.name).map(item => item.name);
+    // 只给该部位相关的基线：跨部位的历史对今天没帮助，还会把 prompt 撑长。
+    const family = /腿|蹲|硬拉|臀|提踵/.test(template) ? /深蹲|硬拉|腿|臀|提踵/
+      : /拉|背/.test(template) ? /划船|引体|下拉|弯举|面拉/
+        : /推|胸|肩/.test(template) ? /卧推|肩推|飞鸟|下压|臂屈伸|侧平举/ : /.*/;
+    const memory = typeof seedWeightMemoryFromHistory === "function" ? Object.values(seedWeightMemoryFromHistory()) : [];
+    const baselines = memory.filter(row => row && Number(row.weight) > 0 && family.test(String(row.name || "")))
+      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 3)
+      .map(row => row.name + " " + (row.sets ? row.sets + "x" : "") + (row.reps || 8) + " " + row.weight + "kg");
+    const sets = preset && preset.muscleSetsPerWeek ? preset.muscleSetsPerWeek : [6, 10];
+    const reps = preset && preset.reps ? preset.reps : [8, 12];
+    const rir = preset && preset.rir ? preset.rir : [1, 3];
+    const lines = [
+      "本次上下文（本地已按记录算好，直接按它排）：",
+      "- 部位：" + (template || "按轮换"),
+      "- 时长：" + minutes + " 分钟（含热身与组间休息，总组数按这个时长装）",
+      "- 每部位组数：" + sets[0] + "~" + sets[1] + " 组；次数 " + reps[0] + "~" + reps[1] + "；RIR " + rir[0] + "~" + rir[1],
+      "- 目标：" + (typeof GOAL_LABEL === "object" ? (GOAL_LABEL[profile.goal] || "未填") : "未填") + "；体重：" + (profile.weight || "未填") + " kg" + (gear ? "；器械：" + gear : ""),
+      baselines.length ? "- 该部位基线：" + baselines.join("；") : "- 该部位基线：没有记录，按体重比例给起步重量",
+      done.length ? "- 今天已记录：" + done.join("、") : "- 今天还没有训练记录"
+    ];
+    return {date, minutes, template, baselines, done, text: lines.join("\n")};
+  }
+  /**
+   * 本地校验器（1.4.47）：规则搬出提示词之后，必须在这里兜住。
+   * 重量落到可装档位、组数收到 1~5、超时长从末尾动作减组（至少留第一个动作）。
+   */
+  function validatePlanAgainstContext(plan, context) {
+    if (!Array.isArray(plan)) return plan;
+    for (const item of plan) {
+      if (!item) continue;
+      if (Number(item.weight) > 0 && typeof loadableWeightKg === "function") {
+        const kg = loadableWeightKg(item.name, Number(item.weight));
+        if (kg > 0) item.weight = kg;
+      }
+      if (Number(item.sets) > 5) item.sets = 5;
+      if (!(Number(item.sets) >= 1)) item.sets = 1;
+    }
+    const limit = Number(context && context.minutes) > 0 ? Number(context.minutes) : 45;
+    let guard = 0;
+    while (typeof planMinutes === "function" && planMinutes(plan) > limit + 3 && guard < 16) {
+      guard += 1;
+      const shrinkable = plan.filter(item => item && !item.bodyweight && !(Number(item.distanceKm) > 0) && Number(item.sets) > 1);
+      if (!shrinkable.length) break;
+      const last = shrinkable[shrinkable.length - 1];
+      last.sets = Number(last.sets) - 1;
+    }
+    return plan;
+  }
   async function askAiPlan(button) {
     if (!button) return;
     if (!externalConsent()) { notice("请先到「我的 → 更多设置 → 数据管理」开启外部模型授权。"); return; }
@@ -7092,17 +7152,8 @@ function metricIcon(label) {
       // 用户对今天的要求：原样交给模型，让它按教练视角判断要不要照办（不无条件服从）。
       const requestBox = $("#plan-request");
       const requestText = String((requestBox && requestBox.value) || "").trim().slice(0, 200);
-      // 喂给模型与本地规则引擎同一份素材：上周基线 + 训练库规则，输出质量才对得起「渐进」。
-      // 基线给足：本地重量记忆里取最近 10 条（含 180 天历史），模型才知道每个动作上次做了多少。
-      // 只给 6 条 + 14 天窗口时，稍冷门的动作在模型看来「没有记录」，于是整行重量留空。
-      const memoryRows = typeof seedWeightMemoryFromHistory === "function"
-        ? Object.values(seedWeightMemoryFromHistory())
-          .filter(row => row && Number(row.weight) > 0)
-          .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
-          .slice(0, 10)
-        : [];
-      const baselineText = memoryRows.map(row =>
-        row.name + " " + (row.sets ? row.sets + "x" : "") + (row.reps || 8) + " " + row.weight + "kg（" + row.date + "）").join("；");
+      // 规则与数据先在本地编译成一张上下文卡；提示词不再贴原始记录（token 与隐私双赢）。
+      const context = compilePlanContext(activeDate);
       const library = typeof librarySummary === "function" ? librarySummary(4) : "";
       // 部位只有一个来源：与问答的「训练建议」共用 dayTemplateNote，别再各猜一次。
       const rotationText = typeof dayTemplateNote === "function" ? dayTemplateNote(activeDate) : "";
@@ -7112,18 +7163,8 @@ function metricIcon(label) {
         "信息：目标=" + (GOAL_LABEL[profile.goal] || "未填") + "；体重=" + (profile.weight || "未填") + "kg；每周练=" + (prefs && prefs.days ? prefs.days : (plannedSessions() || "未填")) + "；分化=" + (prefs ? prefs.split : "未填") + "；器械=" + (prefs ? (typeof GEAR_LABELS === "object" && GEAR_LABELS[prefs.gear] ? GEAR_LABELS[prefs.gear] : prefs.gear) : "未填")
           + "；时长=" + (prefs ? prefs.minutes : 45) + " 分钟。"
           + (prefs && prefs.gear === "mixed" ? "器械不限，清单里混用杠铃、哑铃、器械与自重，不要只用一种。" : ""),
-        // 目标对应的训练要求（同一份表：docs/design/27-evidence-requirements.md）
-        (() => {
-          const preset = typeof GOAL_PRESETS === "object" ? GOAL_PRESETS[profile.goal] : null;
-          if (!preset || !preset.muscleSetsPerWeek) return "";
-          return "训练要求（按目标，必须满足）：每个大肌群每周 " + preset.muscleSetsPerWeek[0] + "~" + preset.muscleSetsPerWeek[1] + " 组；每组 " + preset.reps[0] + "~" + preset.reps[1] + " 次；RIR " + preset.rir[0] + "~" + preset.rir[1] + "（离力竭留几次）；单次课的总组数装进上面的时长。";
-        })(),
-        // 时长必须把组间休息算进去：只数动作个数会排出一份「5 个动作、12 组、实际 30 分钟」的清单。
-        "时长预算（必须满足）：先留 8 分钟热身与换器械；每个正式组按约 45 秒执行 + 组间休息（复合 120~150 秒、孤立 60~90 秒、自重 75~90 秒）折算，有氧再加它自己的时长；整份清单折算后必须落在 " + (prefs && Number(prefs.minutes) > 0 ? Number(prefs.minutes) : 45) + " 分钟以内。",
-        "每个大肌群单次 6~10 个正式组；整节课总组数按覆盖的部位数与时长折算（60 分钟约 12~20 组），不要用一个数字卡死整节课。",
-        baselineText ? "最近记录（供渐进参考，不要盲目加量）：" + baselineText + "。" : "",
+        context.text,
         library ? "训练规则（必须遵守）：\n" + library : "",
-        done.length ? ("今天已记录：" + done.join("；") + "。") : "今天还没有训练记录。",
         (() => {
           const signal = effortSignal();
           if (!signal.text) return "";
@@ -7167,7 +7208,7 @@ function metricIcon(label) {
       } finally {
         window.QinghengStream = null;
       }
-      const plan = applyEffortSignalToPlan(parseAiPlanReply(String(data && data.reply ? data.reply : "")));
+      const plan = validatePlanAgainstContext(applyEffortSignalToPlan(parseAiPlanReply(String(data && data.reply ? data.reply : ""))), context);
       if (!plan.length) {
         // 一份都没解析出来：把原来的清单放回去，别让用户白等还丢计划。
         aiPlanStore(activeDate, planBefore);
@@ -8042,8 +8083,8 @@ function metricIcon(label) {
   }
 
   const RECORD_PANELS = [
-    {key: 'food', label: '饮食', headings: ['轻松记一餐', '最近的餐食记录', '复制一餐']},
-    {key: 'training', label: '训练', headings: ['训练概览', '训练计划', '今日顺序', '训练日志'], trainingOnly: true},
+    {key: 'food', label: '饮食', headings: ['轻松记一餐', '最近的餐食记录']},
+    {key: 'training', label: '训练', headings: ['训练计划', '今日顺序', '训练日志'], trainingOnly: true},
     {key: 'body', label: '身体', headings: ['今天两样', '身体数据', '日常习惯']}
   ];
   const RECORD_PANEL_STORAGE = 'qingheng.recordsPanel';
@@ -8908,18 +8949,8 @@ feedback(message,'数据已导入。'+report);
     const row = $('#chat-chips'), box = $('#chat-question');
     if (!row || !box) return;
     const presets = ['我今天蛋白够吗？', '今天训练日该怎么吃？', '本周体重趋势怎么样？'];
-    row.innerHTML = presets.map((text, index) => `<button type="button" class="button subtle" data-chat-chip="${index}">${esc(text)}</button>`).join('')
-      + `<button type="button" class="button subtle" data-chat-train="1">＋ 记一条训练</button>`;
+    row.innerHTML = presets.map((text, index) => `<button type="button" class="button subtle" data-chat-chip="${index}">${esc(text)}</button>`).join("");
     row.addEventListener('click', event => {
-      const train = event.target.closest('[data-chat-train]');
-      if (train) {
-        // Fills a sentence template and immediately shows the draft card, so the flow is one tap in.
-        const sample = '昨天跑步 5 公里，用了 30 分钟';
-        box.value = sample;
-        showTrainingDraft(parseTrainingDraft(sample, activeDate));
-        box.focus();
-        return;
-      }
       const button = event.target.closest('[data-chat-chip]');
       if (!button) return;
       box.value = presets[Number(button.dataset.chatChip)] || '';

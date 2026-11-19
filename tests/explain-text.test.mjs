@@ -44,8 +44,8 @@ check('consent row keeps its id', html.includes('id="external-consent-row"'));
 
 // ⑥ 删掉的重复文案不再回来 ------------------------------------------------------------
 check('browser-demo sentence is gone', !html.includes('浏览器演示只把记录存在本机'));
-check('copy-meal tag fact merged into the lead sentence', html.includes('复制出的那餐标为「复制」')
-  && !html.includes('id="copy-meal-note"'));
+// 1.4.47：复制一餐卡已删，解释句随之消失；「复制」来源标签仍由数据层写入。
+check('copied meals are still tagged at the data layer', app.includes("copy.source = 'quick-copy'") && !html.includes('id="copy-meal-note"'));
 check('credits no longer repeat the medical disclaimer', !html.includes('本应用不提供诊断与处方，所有建议只作为你记录的参考'));
 
 // ⑦ 问答页的免责独立成一条边界句 ------------------------------------------------------

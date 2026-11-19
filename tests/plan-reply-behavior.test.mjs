@@ -36,12 +36,21 @@ const pieces = [
   sliceBetween(rest, '  function planWeightFor(row) {', '  /** 流式期间只认已经闭合的', 'plan row'),
   // 解析模型回复（70）
   sliceBetween(rest, '  function parseAiPlanReply(reply) {', '  async function askAiPlan(', 'parse reply'),
+  // 本地上下文卡 + 本地校验器（70，1.4.47）
+  sliceBetween(rest, '  function compilePlanContext(date) {', '  async function askAiPlan(', 'plan context'),
 ];
 
 const store = new Map();
 const sandbox = {
-  state: {profile: {weight: 88}, habits: [], meals: [], measurements: []},
+  state: {profile: {weight: 88, goal: 'lean'}, habits: [], meals: [], measurements: []},
   activeDate: '2026-11-19',
+  planPrefs: () => ({days: 4, split: 'full', gear: 'mixed', minutes: 45}),
+  GOAL_PRESETS: {lean: {muscleSetsPerWeek: [12, 18], reps: [8, 15], rir: [1, 2]}},
+  GOAL_LABEL: {lean: '薄肌（线条）', gain: '增肌'},
+  GEAR_LABELS: {mixed: '综合', barbell: '杠铃为主'},
+  dayTemplateNote: () => '今天（推）',
+  // 与 app 里同口径的粗略时长折算：8 分钟热身 + 每组 45 秒执行 + 90 秒休息。
+  planMinutes: plan => Math.round(8 + (plan || []).reduce((sum, item) => sum + (Number(item && item.sets) || 0) * 135 / 60, 0)),
   number: v => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v)),
   validDate: value => /^\d{4}-\d{2}-\d{2}$/.test(String(value || '')),
   localDate: () => '2026-11-19',
@@ -70,6 +79,8 @@ this.applyEffortSignalToPlan = applyEffortSignalToPlan;
 this.effortSignal = effortSignal;
 this.rememberPlanWeights = rememberPlanWeights;
 this.readWeightMemory = readWeightMemory;
+this.compilePlanContext = compilePlanContext;
+this.validatePlanAgainstContext = validatePlanAgainstContext;
 `, sandbox);
 
 const fixture = JSON.parse(readSrc('tests/fixtures/plan-reply-1.4.44.json'));
@@ -127,6 +138,31 @@ check('push adds a set to the first loaded move', pushed[0].sets === 4, pushed[0
 
 sandbox.state.habits = [{date: '2026-11-18', exercises: [], effort: 'justRight'}];
 check('a single "justRight" changes nothing', sandbox.effortSignal().level === 'keep' && sandbox.applyEffortSignalToPlan(plan) === plan, sandbox.effortSignal().level);
+
+// --- 5. 本地上下文卡与校验器（1.4.47）---------------------------------------------------------------------
+sandbox.state.habits = [{date: '2026-11-18', exercises: [{name: '杠铃卧推', sets: 3, reps: 8, weight: 50}]}];
+const context = sandbox.compilePlanContext('2026-11-19');
+check('the context card names the body part', context.text.includes('部位') && context.text.includes('推'), context.text.split('\n')[1]);
+check('it carries the per-muscle set range from the local preset', context.text.includes('每部位组数：12~18 组'), context.text.split('\n')[3]);
+check('it carries the time budget', context.text.includes('时长：45 分钟'), context.text.split('\n')[2]);
+check('it carries only same-part baselines', context.baselines.length >= 1 && context.baselines.length <= 3
+  && context.baselines.every(name => /卧推|推肩|飞鸟|下压|臂屈伸|侧平举/.test(name))
+  && context.text.includes('杠铃卧推 3x8 50kg'), context.baselines.join(';'));
+check('the whole card stays short enough for a prompt', context.text.length <= 700, context.text.length);
+
+const draft = [
+  {name: '杠铃卧推', sets: 7, reps: 8, weight: 62.5},
+  {name: '上斜哑铃卧推', sets: 5, reps: 10, weight: 16},
+  {name: '双杠臂屈伸', sets: 5, reps: 8, bodyweight: true},
+  {name: '蝴蝶机夹胸', sets: 4, reps: 12, weight: 25},
+  {name: '绳索下压', sets: 4, reps: 12, weight: 25}
+];
+const validated = sandbox.validatePlanAgainstContext(JSON.parse(JSON.stringify(draft)), context);
+check('unloadable weights are snapped by the local validator', validated[0].weight === 65, validated[0].weight);
+check('sets are capped at five', validated.every(item => Number(item.sets) <= 5), validated.map(item => item.sets).join('/'));
+check('an over-long plan is trimmed to the time budget', sandbox.planMinutes(validated) <= context.minutes + 3, sandbox.planMinutes(validated));
+check('the first move is never emptied', validated[0].sets >= 1, validated[0].sets);
+check('bodyweight moves keep their sets untouched by weights', validated[2].weight === undefined || validated[2].weight === null, validated[2].weight);
 
 console.log('\nFAIL total: ' + fail);
 process.exitCode = fail ? 1 : 0;
