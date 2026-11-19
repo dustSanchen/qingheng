@@ -26,6 +26,9 @@ check('training segment hides for a no-training profile', app.includes('panel.tr
 check('jumps pick the owning segment', app.includes('function recordPanelForField(id)') && app.includes("return 'body';"));
 check('reveal switches before focusing', /switchRecordPanel\(recordPanelForField\(id\)\);/.test(app));
 check('the sleep chip lands in the body segment', /chip\('补睡眠'[^)]*'habit-sleep'\)/.test(app) && app.includes("['habit-sleep', 'habit-steps', 'habit-form', 'measurement-weight', 'measurement-form']"));
+check('a no-training profile never opens an empty records page', app.includes("if (target === 'training' && !trainingEnabled()) target = 'food';"));
+check('the training quick chip is hidden without a plan', app.includes(".filter(([, , focus]) => focus !== 'training-form' || trainingEnabled())"));
+check('body composition is not hidden with training', read('app/src/main/assets/index.html').includes('id="body-comp-card"') && app.includes("headings: ['体重变化', '身体成分对照', '身体记录明细']"));
 check('the bar is sticky and styled', css.includes('.segment-bar{position:sticky') && css.includes('.segment[aria-selected="true"]'));
 check('both skins share the hairline segment bar', css.includes('#view-records .segment-bar,#view-trends .segment-bar{border:0;border-bottom:1px solid var(--line)') &&
   !css.includes('[data-skin="ledger"] #view-records .segment-bar'));

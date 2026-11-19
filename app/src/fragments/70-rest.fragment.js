@@ -154,7 +154,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.14';
+  const APP_VERSION = '1.4.15';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1169,7 +1169,7 @@
       ['icon-meal.svg', '记一餐', 'meal-text', 'quick-chip-primary'],
       ['icon-glyph-training.svg', '训练', 'training-form', ''],
       ['icon-glyph-balance.svg', '身体', 'measurement-weight', '']
-    ].map(([icon, label, focus, className = '']) => `<button type="button" class="quick-chip ${className}" data-quick-focus="${focus}" data-quick-icon="${icon}"><span class="quick-chip-icon" aria-hidden="true">${iconMarkup(icon)}</span>${label}</button>`).join('');
+    ].filter(([, , focus]) => focus !== 'training-form' || trainingEnabled()).map(([icon, label, focus, className = '']) => `<button type="button" class="quick-chip ${className}" data-quick-focus="${focus}" data-quick-icon="${icon}"><span class="quick-chip-icon" aria-hidden="true">${iconMarkup(icon)}</span>${label}</button>`).join('');
     energyBody.after(row);
     row.addEventListener('click', event => {
       const chip = event.target.closest('[data-quick-focus]');
@@ -1308,7 +1308,7 @@
     const cardFor = heading => cards.find(card => $('h2', card)?.textContent.trim() === heading);
     const host = $('.record-grid', view) || view;
     const panels = [
-      {key: 'weight', label: '体重', headings: ['体重变化', '身体记录明细'], foldedHeadings: ['身体记录明细']},
+      {key: 'weight', label: '体重', headings: ['体重变化', '身体成分对照', '身体记录明细'], foldedHeadings: ['身体记录明细']},
       {key: 'diet', label: '饮食', headings: [], extra: true},
       {key: 'training', label: '训练', headings: ['训练容量（渐进超负荷）']}
     ];
@@ -1622,7 +1622,10 @@
   }
   /** Shows one segment; remembers the choice, and hides 训练 entirely for a no-training profile. */
   function switchRecordPanel(key) {
-    const target = RECORD_PANELS.some(panel => panel.key === key) ? key : 'food';
+    let target = RECORD_PANELS.some(panel => panel.key === key) ? key : 'food';
+    // 不健身用户没有训练段：任何入口（旧链接、快捷芯片）落到 training 时都退回饮食，
+    // 否则隐藏训练面板后三段一起 hidden，记录页变成一片空白。
+    if (target === 'training' && !trainingEnabled()) target = 'food';
     for (const panel of RECORD_PANELS) {
       const node = $('#record-panel-' + panel.key);
       if (node) node.hidden = panel.key !== target || (panel.trainingOnly && !trainingEnabled());

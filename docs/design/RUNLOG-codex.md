@@ -1083,3 +1083,11 @@ otifyHealthResult、两个桥方法、/api/health-connect/* 路由、healthConne
 - 验收：test-all 72/72；dev-loop 1.4.14/414 装机成功、smoke 无 JS 错误。
 - 未验证：真机上性别缺失时的引导文案与空态视觉未截图。
 - APK：dist/qingheng-1.4.14.apk（638176 B，sha256 e346fab31860f3b35ce0a32655f128f368c366895c437367da62959727188ecd）。
+
+## r136 · 2026-11-19 · 1.4.15（审视建议批次 2：口径镜像与不健身模式）
+- 口径镜像：GOAL_HINTS 改成 GOAL_PRESETS 的镜像——增肌 10% / 蛋白 1.6~2.2；减脂蛋白 2.3~2.6、速率 0.5~1%；薄肌 2.2~2.6、速率 0.5~0.7%。Prompts.java 薄肌段从「10~15% / 2.2~2.4 / 10~20 组 / 0.3~0.5%」改为「12% / 2.2~2.6 / 12~18 组/肌群/周 / 0.5~0.7%」，与预设一致。
+- 不健身模式：今天页快捷「训练」芯片按 	rainingEnabled() 过滤；switchRecordPanel 落到 training 且未启用时退回 food，避免三段全隐藏的空白记录页；趋势页「身体成分对照」从训练容量卡拆成独立卡 #body-comp-card，归入「体重」段，不再随训练卡隐藏。
+- 断言：records-panels 新增 3 条（空白页兜底、芯片过滤、体成分独立）；targets 新增 GOAL_HINTS 镜像；ci 新增薄肌提示词数字；ai-upgrade 与 targets 的旧数字断言按新口径改写。登记 §5.1。
+- 验收：test-all 72/72；dev-loop 1.4.15/415 装机成功、smoke 无 JS 错误。
+- 未验证：不健身档案下真机点「训练」入口的实际表现未截图（芯片已不渲染，旧链接走兜底）。
+- APK：dist/qingheng-1.4.15.apk（638174 B，sha256 c29332e1d1cb9ae222a3e7ecc5a42e7c2806a29a2c9dd5a485042ae673419044）。

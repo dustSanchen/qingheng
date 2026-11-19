@@ -37,6 +37,7 @@ const routes = read('app/src/main/java/cn/qingheng/health/bridge/MetaRoutes.java
 check('a prompt version exists', prompts.includes('public static final int PROMPT_VERSION = 9;'));
 check('a 口径 version exists', prompts.includes('public static final int RULES_VERSION = 2;'));
 check('the versions explain themselves', main.includes('which prompt produced an answer') && main.includes('which 口径 the numbers were computed with'));
+check('the lean prompt mirrors the preset', prompts.includes('热量缺口 12%') && prompts.includes('2.2~2.6 g/kg') && prompts.includes('12~18 组/肌群/周') && prompts.includes('0.5~0.7%'));
 check('a versions route exists', routes.includes('path.equals("/api/versions")') && main.includes('MetaRoutes.handle(path, get, post, b, this)'));
 check('versions never include keys or records', /private JSONObject versionsInternal\(\) throws Exception \{[\s\S]{0,900}?\}/.test(main) && !/versionsInternal\(\)[\s\S]{0,900}apiKey/.test(main));
 check('versions report the anchors and last backup', main.includes('.put("anchorsPresent"') && /backupAt", backupStatusInternal\(\)\.optLong\("at", 0L\)/.test(main));

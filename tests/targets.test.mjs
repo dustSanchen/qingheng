@@ -27,6 +27,7 @@ const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + 
 const ref = computeTargets({sex: 'male', weight: 64.3, height: 166, age: 24, goal: 'recomp', training: 3});
 const expectedBmr = Math.round(10 * 64.3 + 6.25 * 166 - 5 * 24 + 5);
 check('BMR matches Mifflin-St Jeor (male)', ref.bmr === expectedBmr, `${ref.bmr} vs ${expectedBmr}`);
+check('goal hints mirror the presets', GOAL_HINTS.gain.includes('10%') && GOAL_HINTS.gain.includes('1.6~2.2') && GOAL_HINTS.cut.includes('2.3~2.6') && GOAL_HINTS.cut.includes('0.5~1%') && GOAL_HINTS.lean.includes('2.2~2.6') && GOAL_HINTS.lean.includes('0.5~0.7%'));
 const expectedTdee = Math.round(expectedBmr * 1.375);
 check('TDEE uses the 2-3 sessions factor 1.375', ref.tdee === expectedTdee, `${ref.tdee} vs ${expectedTdee}`);
 check('reference case is not incomplete', ref.incomplete === false);
@@ -100,7 +101,7 @@ check('more training raises TDEE', often.tdee > sedentary.tdee, `${often.tdee} >
 // Every goal explains its own numbers in one line.
 const goals = ['gain', 'cut', 'recomp', 'lean', 'maintain'];
 check('every goal has a hint', goals.every(goal => typeof GOAL_HINTS[goal] === 'string' && GOAL_HINTS[goal].length > 10));
-check('the hints carry the real numbers', GOAL_HINTS.gain.includes('8%') && GOAL_HINTS.cut.includes('18%') && GOAL_HINTS.lean.includes('12%') && GOAL_HINTS.maintain.includes('1.6~2.0'));
+check('the hints carry the real numbers', GOAL_HINTS.gain.includes('10%') && GOAL_HINTS.cut.includes('18%') && GOAL_HINTS.lean.includes('12%') && GOAL_HINTS.maintain.includes('1.6~2.0') && GOAL_HINTS.gain.includes('1.6~2.2'));
 check('the profile and wizard show the hint', fs.readFileSync('app/src/main/assets/index.html', 'utf8').includes('id="profile-goal-hint"') && fs.readFileSync('app/src/main/assets/index.html', 'utf8').includes('id="ob-goal-hint"'));
 
 console.log('\nFAIL total: ' + fail);

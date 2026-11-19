@@ -2872,12 +2872,14 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
   }
   const GOAL_LABEL = {gain: '增肌', cut: '减脂', recomp: '增肌同时减脂', maintain: '保持身材', lean: '薄肌（线条）'};
   /** 每个目标的实际口径：缺口/盈余、蛋白带与节奏，和 computeTargets 使用同一组数字。 */
+  // 文案必须是 GOAL_PRESETS 的镜像：以前这里写 8% / 2.0~2.2，与预设的 10% / 1.6~2.2 不一致，
+  // 用户按页面做和按 AI 做会得到两套方案。改预设时必须同改这里（tests/goal-requirements 守着）。
   const GOAL_HINTS = {
-    gain: '热量比维持高 8%，蛋白 2.0~2.2 g/kg；体重常见 +0.25~0.5%/周，涨秤会带一点脂肪。',
-    recomp: '小幅缺口 8%，蛋白 2.0~2.2 g/kg；体重可能缓降或不动，围度变化更慢。',
-    cut: '缺口 18%，蛋白 2.3~2.5 g/kg；常见 −0.4~0.7%/周，降太快容易掉肌肉。',
-    lean: '缺口 12% 碳循环：训练日接近维持、休息日吃缺口；蛋白 2.2~2.4 g/kg，8~12 周一阶段。',
-    maintain: '按维持热量吃，蛋白 1.6~2.0 g/kg；体重目标稳定在 ±0.2%/周。'
+    gain: '热量比维持高 10%，蛋白 1.6~2.2 g/kg；体重常见 +0.25~0.5%/周，涨秤会带一点脂肪。',
+    recomp: '小幅缺口 8%，蛋白 2.0~2.4 g/kg；体重可能缓降或不动，围度变化更慢。',
+    cut: '缺口 18%，蛋白 2.3~2.6 g/kg；常见 −0.5~1%/周，降太快容易掉肌肉。',
+    lean: '缺口 12% 碳循环：训练日接近维持、休息日吃缺口；蛋白 2.2~2.6 g/kg，每周 −0.5~0.7%，8~12 周一阶段。',
+    maintain: '按维持热量吃，蛋白 1.6~2.0 g/kg；体重目标稳定在 0~+0.25%/周。'
   };
   /** Onboarding values -> computeTargets input. 训练天数统一取「记录→训练计划」的偏好。 */
   function targetInputFrom(values) {
@@ -6258,7 +6260,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.14';
+  const APP_VERSION = '1.4.15';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -7273,7 +7275,7 @@ function metricIcon(label) {
       ['icon-meal.svg', '记一餐', 'meal-text', 'quick-chip-primary'],
       ['icon-glyph-training.svg', '训练', 'training-form', ''],
       ['icon-glyph-balance.svg', '身体', 'measurement-weight', '']
-    ].map(([icon, label, focus, className = '']) => `<button type="button" class="quick-chip ${className}" data-quick-focus="${focus}" data-quick-icon="${icon}"><span class="quick-chip-icon" aria-hidden="true">${iconMarkup(icon)}</span>${label}</button>`).join('');
+    ].filter(([, , focus]) => focus !== 'training-form' || trainingEnabled()).map(([icon, label, focus, className = '']) => `<button type="button" class="quick-chip ${className}" data-quick-focus="${focus}" data-quick-icon="${icon}"><span class="quick-chip-icon" aria-hidden="true">${iconMarkup(icon)}</span>${label}</button>`).join('');
     energyBody.after(row);
     row.addEventListener('click', event => {
       const chip = event.target.closest('[data-quick-focus]');
@@ -7412,7 +7414,7 @@ function metricIcon(label) {
     const cardFor = heading => cards.find(card => $('h2', card)?.textContent.trim() === heading);
     const host = $('.record-grid', view) || view;
     const panels = [
-      {key: 'weight', label: '体重', headings: ['体重变化', '身体记录明细'], foldedHeadings: ['身体记录明细']},
+      {key: 'weight', label: '体重', headings: ['体重变化', '身体成分对照', '身体记录明细'], foldedHeadings: ['身体记录明细']},
       {key: 'diet', label: '饮食', headings: [], extra: true},
       {key: 'training', label: '训练', headings: ['训练容量（渐进超负荷）']}
     ];
@@ -7726,7 +7728,10 @@ function metricIcon(label) {
   }
   /** Shows one segment; remembers the choice, and hides 训练 entirely for a no-training profile. */
   function switchRecordPanel(key) {
-    const target = RECORD_PANELS.some(panel => panel.key === key) ? key : 'food';
+    let target = RECORD_PANELS.some(panel => panel.key === key) ? key : 'food';
+    // 不健身用户没有训练段：任何入口（旧链接、快捷芯片）落到 training 时都退回饮食，
+    // 否则隐藏训练面板后三段一起 hidden，记录页变成一片空白。
+    if (target === 'training' && !trainingEnabled()) target = 'food';
     for (const panel of RECORD_PANELS) {
       const node = $('#record-panel-' + panel.key);
       if (node) node.hidden = panel.key !== target || (panel.trainingOnly && !trainingEnabled());

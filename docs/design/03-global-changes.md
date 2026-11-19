@@ -203,3 +203,7 @@
 | 2026-11-19 | `tests/training-day-budget.test.mjs` | basis 文案与 intakeRange/calorieTarget 断言改按 unset 契约 | 未测算不再回落到 2150/2350 |
 | 2026-11-19 | `tests/ci-and-versions.test.mjs` | 新增 1 条：build.ps1 必须校验 APP_VERSION 相等 | 审视建议 #6：版本守卫可绕过 |
 | 2026-11-19 | `tests/app-fragments.test.mjs` | 新增全量重名扫描：同一 IIFE 内顶层函数唯一 | 审视建议 #5：dayLabel 被静默覆盖 |
+| 2026-11-19 | `tests/records-panels.test.mjs` | 新增 3 条：不健身时 training 段退回 food、快捷训练芯片过滤、体成分卡独立 | 审视建议 #3：不健身模式断裂 |
+| 2026-11-19 | `tests/targets.test.mjs` | 新增 GOAL_HINTS 与预设镜像断言；旧数字断言改写 | 审视建议 #2：页面与 AI 口径漂移 |
+| 2026-11-19 | `tests/ci-and-versions.test.mjs` | 新增薄肌提示词数字断言 | 同上 |
+| 2026-11-19 | `tests/ai-upgrade.test.mjs` | 薄肌提示词数字 2.2~2.4/10~15/10~20/0.3~0.5 → 2.2~2.6/12%/12~18/0.5~0.7 | 同上 |
