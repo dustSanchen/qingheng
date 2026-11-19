@@ -1917,6 +1917,11 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 .train-overview>.train-overview-head{display:flex;align-items:center;min-height:44px;cursor:pointer;font-size:var(--text-sm);color:var(--muted);letter-spacing:.04em}
 .train-overview[open]>.train-overview-head{color:var(--ink-soft)}
 
+/* 记录可信度（1.4.56）：数字旁边说清「这个数有多可信」，别让估出来的 kcal 读起来像称过 */
+.intake-confidence{margin:var(--space-2) 0 0;padding:2px 0 2px var(--space-2);border-left:2px solid var(--line);color:var(--muted)}
+.intake-confidence.is-medium{border-left-color:var(--near)}
+.intake-confidence.is-low{border-left-color:var(--danger);color:var(--body-text)}
+
 /* 我的页（1.4.52）：一个副页只留一张卡，卡内用发丝线分区——入口预算从 14 张降到 8 张 */
 .card-section{margin-top:var(--space-4);padding-top:var(--space-3);border-top:1px solid var(--line)}
 .card-section>.card-heading h2{font-size:var(--text-md);color:var(--ink-soft);letter-spacing:0}

@@ -1511,8 +1511,55 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
         : '';
       actionBox.innerHTML = parts.length ? '<p class="energy-hint">' + esc(parts[0]) + '</p>' + note : '';
     }
+  /**
+   * 记录可信度（1.4.56）：这个 App 的热量是估的，估的基础是「记录得全不全」。
+   * 与其再显示一个精确到个位的 kcal，不如把「这个数有多可信」说出来。
+   * 扣分项按「对总量影响大」排序：餐数、烹调用油、逐项明细、近 7 天记录习惯。
+   */
+  function intakeConfidence() {
+    const history = Array.isArray(state.meals) ? state.meals : [];
+    const meals = history.filter(row => row && row.date === activeDate && number(row.calories) !== null);
+    if (!meals.length) return {level: 'none', score: 0, reasons: ['今天还没有可用记录'], meals: 0, recordedDays: 0};
+    let score = 100;
+    const reasons = [];
+    if (meals.length < 2) { score -= 25; reasons.push('今天只记了 ' + meals.length + ' 餐'); }
+    const oilTracked = meals.filter(row => number(row.oilGrams) > 0 || row.oilIncluded === true).length;
+    if (oilTracked === 0) { score -= 20; reasons.push('没有一处标了烹调用油'); }
+    else if (oilTracked / meals.length < 0.5) { score -= 20; reasons.push('多数餐没标用油'); }
+    const detailed = meals.filter(row => Array.isArray(row.items) && row.items.length > 0).length;
+    if (detailed / meals.length < 0.5) { score -= 10; reasons.push('有一半餐只有总数、没有逐项'); }
+    let recordedDays = 0;
+    for (let offset = 0; offset < 7; offset++) {
+      const day = typeof shiftDay === 'function' ? shiftDay(activeDate, -offset) : activeDate;
+      if (history.some(row => row && row.date === day && number(row.calories) !== null)) recordedDays += 1;
+    }
+    if (recordedDays <= 2) { score -= 15; reasons.push('近 7 天只记了 ' + recordedDays + ' 天'); }
+    else if (recordedDays <= 4) { score -= 8; reasons.push('近 7 天记了 ' + recordedDays + ' 天'); }
+    score = Math.max(10, Math.min(100, score));
+    // 只记了一餐就没有「一天」可言：无论分数多少都按低可信度处理。
+    const level = meals.length < 2 ? 'low' : score >= 85 ? 'high' : score >= 60 ? 'medium' : 'low';
+    return {level, score, reasons, meals: meals.length, recordedDays};
+  }
+  function renderIntakeConfidence(totals) {
+    const node = $('#intake-confidence');
+    const valueNode = $('#calorie-value');
+    const confidence = intakeConfidence();
+    if (valueNode) valueNode.textContent = (confidence.level === 'low' ? '≈' : '') + fmt(totals.calories, 0);
+    if (!node) return;
+    if (confidence.level === 'none' || confidence.level === 'high') {
+      node.hidden = true;
+      node.textContent = '';
+      return;
+    }
+    const label = confidence.level === 'medium' ? '记录一般' : '记录偏少';
+    node.hidden = false;
+    node.className = 'fine-print intake-confidence is-' + confidence.level;
+    node.textContent = '记录可信度：' + label + ' · ' + confidence.reasons.slice(0, 2).join('；')
+      + (confidence.level === 'low' ? '。今天的热量可能明显偏低，先补全再据此调目标。' : '。');
+  }
     $('#macro-summary').innerHTML = [['protein','蛋白质',p.proteinMin,p.proteinMax],['fat','脂肪',p.fatMin,p.fatMax],['carbs','碳水',null,carbCap(p, range)]].map(([key,label,min,max]) => {const value = totals[key], progress = value !== null && number(max)>0 ? Math.min(100,value/max*100) : 0; return `<div><span class="macro-label">${label}</span><div class="macro-value">${fmt(value)} <small>g</small></div><div class="progress-track"><span data-progress="${progress}"></span></div><span class="macro-target">${min !== null && number(min)!==null && number(max)!==null ? `目标 ${fmt(min)}–${fmt(max)} g` : key === 'carbs' ? (number(max)>0 ? `参考上限约 ${fmt(max,0)} g` : '设置热量目标后显示进度') : '目标未设置'}</span></div>`;}).join('');
-    $$('#macro-summary [data-progress]').forEach(node => {node.style.width=`${Number(node.dataset.progress)}%`;});
+    $$('#macro-summary [data-progress]').forEach(node => {node.style.width=`${Number(node.dataset.progress)}%`;
+    renderIntakeConfidence(totals);});
     const measurements = state.measurements.filter(item => validDate(item.date) && item.date <= activeDate).sort((a,b) => b.date.localeCompare(a.date));
     const weight = latestField(measurements,'weight'), waist = latestField(measurements,'waist'), bodyFat = latestField(measurements,'bodyFat');
     const bmi = weight && number(p.height)>0 ? weight.weight / ((p.height/100)**2) : null;
@@ -6482,7 +6529,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.55';
+  const APP_VERSION = '1.4.57';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
