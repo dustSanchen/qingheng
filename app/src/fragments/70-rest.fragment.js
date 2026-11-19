@@ -154,7 +154,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.00';
+  const APP_VERSION = '1.4.01';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -378,6 +378,15 @@
     try {
       await api("/api/habits", {...existing, date: activeDate, exercises: current});
       await loadState({quiet: true});
+      // 已经进了训练记录的动作，从今日顺序里拿掉；没进记录的留着，避免清单凭空缩水。
+      const addedSet = new Set(added);
+      const planNow = aiPlanStore(activeDate) || [];
+      const planRest = planNow.filter(row => !addedSet.has(String(row && row.name || "").trim()));
+      if (planRest.length !== planNow.length) {
+        aiPlanStore(activeDate, planRest);
+        renderAiPlan();
+        if (typeof renderAdviceOrder === "function") renderAdviceOrder();
+      }
       notice("已加入今天的训练记录：" + added.join("、") + "。");
     } catch (error) {
       notice("加入训练记录失败：" + (error && error.message ? error.message : "未知错误"), true);
@@ -506,7 +515,7 @@
     if (!plan || !plan.length) {
       if (tag) tag.textContent = "未生成";
       if (summary) { summary.hidden = true; summary.textContent = ""; }
-      box.innerHTML = stateBlock({kind: 'empty', title: '今天还没有排训练顺序', body: '勾选同意后点「用 AI 排今天」，结果会出现在这里。'});
+      box.innerHTML = '';
       const allBox = $("#ai-plan-all"); if (allBox) allBox.hidden = true;
       return;
     }
@@ -625,8 +634,16 @@
       const baselineText = Object.entries(baselines).slice(0, 6).map(([name, row]) =>
         name + " " + row.sets + "x" + row.reps + (row.weight ? " " + row.weight + "kg" : "")).join("；");
       const library = typeof librarySummary === "function" ? librarySummary(4) : "";
+      // 与「周计划」同口径：周计划按 push→pull→legs 轮换，今天该练哪一类直接写进提示词。
+      const weekCache = typeof readWeekPlanCache === "function" ? readWeekPlanCache(activeDate) : null;
+      const todaySlot = weekCache && weekCache.plan && Array.isArray(weekCache.plan.days) ? weekCache.plan.days.find(day => day && day.date === activeDate) : null;
+      const TEMPLATE_LABEL = {push: "推", pull: "拉", legs: "腿"};
+      const rotationText = todaySlot && TEMPLATE_LABEL[todaySlot.template]
+        ? "今天按周计划应练：" + TEMPLATE_LABEL[todaySlot.template] + "日（" + todaySlot.template + "）；动作要围绕这一类排。"
+        : "";
       const prompt = [
         "请为今天排一个按顺序执行的训练清单。",
+        rotationText,
         "信息：目标=" + (GOAL_LABEL[profile.goal] || "未填") + "；体重=" + (profile.weight || "未填") + "kg；每周练=" + (prefs && prefs.days ? prefs.days : (plannedSessions() || "未填")) + "；分化=" + (prefs ? prefs.split : "未填") + "；器械=" + (prefs ? (typeof GEAR_LABELS === "object" && GEAR_LABELS[prefs.gear] ? GEAR_LABELS[prefs.gear] : prefs.gear) : "未填")
           + "；时长=" + (prefs ? prefs.minutes : 45) + " 分钟。"
           + (prefs && prefs.gear === "mixed" ? "器械不限：请在同一份清单里混用杠铃、哑铃、固定器械与自重，不要全部用同一种器械。" : ""),
