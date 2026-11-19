@@ -4,7 +4,7 @@
   const PERMISSION_ITEMS = [
     {key: 'notifications', label: '通知权限', why: '没有它，到点的提醒不会出现。', action: '申请通知权限', required: true},
     {key: 'exactAlarm', label: '精确闹钟', why: '系统默认可以把提醒推迟最多 1 小时；开启后按点送达。', action: '去系统设置允许', required: true},
-    {key: 'health', label: '健康数据（Health Connect）', why: '读取睡眠、步数、运动、活动热量与距离；不授权时其余功能照常可用。', action: '打开授权页', required: false}
+    {key: 'health', label: '健康数据（Health Connect）', why: '读取睡眠、步数、运动、热量与距离；不授权时其余功能照常可用。', action: '打开授权页', required: false}
   ];
   let permissionState = {notifications: null, exactAlarm: null, health: null, healthReason: ''};
   /** Reads all three states from the routes that already own them; a failure stays "unknown". */
@@ -41,7 +41,7 @@
     for (const id of ['#ob-check-note', '#data-check-note']) {
       const node = $(id);
       if (!node) continue;
-      if (permissionState.health === false) node.textContent = '健康数据未授权：提醒与其他记录功能不受影响；授权方式见上方按钮。';
+      if (permissionState.health === false) node.textContent = '健康数据未授权：提醒与其他记录功能不受影响。';
       else if (done === PERMISSION_ITEMS.length) node.textContent = '三项都已就绪。';
       else node.textContent = '状态会在你回到应用时自动刷新。';
     }

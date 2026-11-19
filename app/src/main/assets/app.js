@@ -189,8 +189,8 @@
     if (source === 'photo') return '默认取照片的拍摄时刻；如果实际进餐时间不同，请在这里改。';
     if (source === 'text') return '按描述里提到的时间填写；如果不对，请在这里改。';
     if (source === 'manual') return '已手动确认的进餐时间。';
-    if (source === 'typical') return '没有拍摄时间，先按餐次的常见时段填写；请确认真实进餐时间。';
-    return '没有拍摄时间，也没有描述里的时间，先按记录时刻填写；请确认后保存。';
+    if (source === 'typical') return '没有拍摄时间，先按常见餐次时段填写；请确认真实时间。';
+    return '没有拍摄/描述时间，先按记录时刻填写；请确认后保存。';
   }
 
   let activeDate = localDate();
@@ -338,7 +338,7 @@
       if (!response.ok) throw new Error(data?.error || `请求未成功（${response.status}）。请检查输入或手机本地存储后重试。`);
       return data;
     } catch (error) {
-      if (error.name === 'AbortError') throw new Error('请求超时。保存操作可能已写入手机，请先刷新检查记录，避免重复提交。');
+      if (error.name === 'AbortError') throw new Error('请求超时。保存可能已写入手机，请先刷新检查，避免重复提交。');
       if (error instanceof TypeError) throw new Error('无法读取手机存储。请重新打开应用；本地记录不需要网络。');
       throw error;
     } finally {clearTimeout(timer);}
@@ -689,7 +689,7 @@
   }
   $('#api-provider').addEventListener('change',event=>{captureProvider();showProvider(event.target.value);});
   $('#connection-check').addEventListener('click', async event => {
-    if (!await askConfirm('检查已保存的服务商连接：仅发送 API Key 到已配置的 HTTPS 服务商，不发送图片或健康记录，不生成收费回答。请先保存连接设置。继续吗？', {title:'检查连接'})) return;
+    if (!await askConfirm('检查已保存的服务商连接：只发送 API Key 到该服务商，不发送图片或健康记录，也不计费。请先保存连接设置。继续吗？', {title:'检查连接'})) return;
     const button = event.currentTarget, message = $('#connection-check-feedback');
     button.disabled = true; feedback(message,'正在检查 /models…');
     try {
@@ -705,7 +705,7 @@
       if (data?.configured !== true) {box.textContent = '当前服务商尚未保存 API Key。'; return;}
       if (data?.unreadable === true) {box.textContent = '已保存的密钥无法由本机密钥库读取，请重新保存。'; return;}
       const preview = typeof data.preview === 'string' && data.preview ? `预览 ${data.preview}` : '未显示内容预览';
-      box.textContent = `已保存 · 长度 ${number(data.length) ?? '—'} · ${preview}${data.cleaned === true ? '。检测到粘贴时带入的不可见字符，读取时已自动清理；建议重新复制完整密钥并保存。' : '。仅在本机检查，不发送也不显示完整密钥。'}`;
+      box.textContent = `已保存 · 长度 ${number(data.length) ?? '—'} · ${preview}${data.cleaned === true ? '。检测到粘贴时带入的不可见字符并已清理；建议重新复制完整密钥并保存。' : '。仅在本机检查，不发送也不显示完整密钥。'}`;
     } catch (error) {box.textContent = error.message;}
     finally {button.disabled = false;}
   });
@@ -1973,7 +1973,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
       // instead of showing the raw text, even if the stored record was never repaired.
       const raw = String(row.answer || '');
       const answer = /^(?:[\s\u200b-\u200f\u2060\ufeff]*null){3,}/i.test(raw)
-        ? '这次回答没有正确返回（模型只返回了思考过程，没有输出内容）。请重新提问；如果反复出现，请在「我的 → AI 模型与密钥」换一个非推理模型。'
+        ? '这次回答没有正确返回（模型只输出了思考过程）。请重新提问；反复出现请换一个非推理模型。'
         : raw;
       if (streamExpandedAnswer && row.question === streamExpandedAnswer.question && answer === streamExpandedAnswer.answer) {
         streamExpandedAnswer.row = row;
@@ -2008,7 +2008,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     const node = $('#chat-mode');
     if (node) {
       const base = state.settings.apiConfigured === true
-        ? '已配置模型：确认上方已勾选同意即可提问；问题与部分健康数据会发送给该服务商，按 token 计费。'
+        ? '已配置模型：确认上方已勾选同意；问题与部分健康数据会发给该服务商，按 token 计费。'
         : '尚未配置 API Key：请先到「我的 → AI 模型与密钥」保存密钥；本地记录功能不受影响。';
       node.textContent = base;
     }
@@ -2068,7 +2068,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     if (weeklyEnabled) weeklyEnabled.checked = p.weeklyEnabled !== false;
     if (weeklyDay) weeklyDay.value = String(number(p.weeklyDay) ?? 7);
     if (weeklyTime && p.weeklyTime) weeklyTime.value = p.weeklyTime;
-    if (detail) detail.textContent = p.enabled !== true ? '开启后到点会收到本地通知；需要允许通知权限。' : `已设置 ${p.morningTime || '07:00'} 与 ${p.eveningTime || '20:30'}。每天最多 2 条（白天与晚间各一条），两次之间至少间隔 3 小时，不会在同一时段连发两条；周报${p.weeklyEnabled === false ? '已关闭' : `每周${['','一','二','三','四','五','六','日'][number(p.weeklyDay) ?? 7] || '日'} ${p.weeklyTime || '20:00'} 一条`}。精确时间${p.canScheduleExact ? '已就绪' : '可能被系统延迟，建议在系统设置允许「闹钟与提醒」'}；通知权限${p.notificationsGranted ? '已允许' : '未允许，请到系统设置开启'}。通知正文会自动精简到一行，展开可看全文；记录后还会有一次即时反馈（同样计入每日上限）。`;
+    if (detail) detail.textContent = p.enabled !== true ? '到点会收到本地通知；需允许通知权限。' : `已设置 ${p.morningTime || '07:00'} 与 ${p.eveningTime || '20:30'}。每天最多 2 条（白天与晚间各一条），两次之间至少间隔 3 小时，不会在同一时段连发两条。周报${p.weeklyEnabled === false ? '已关闭' : `每周${['','一','二','三','四','五','六','日'][number(p.weeklyDay) ?? 7] || '日'} ${p.weeklyTime || '20:00'}`}。精确时间${p.canScheduleExact ? '已就绪' : '可能被系统延迟，请允许「闹钟与提醒」'}；通知权限${p.notificationsGranted ? '已允许' : '未允许'}。通知正文会自动精简到一行，展开可看全文；记录后还会有一次即时反馈（同样计入每日上限）。`;
     const summary = $('#hub-summary-push');
     if (summary) summary.textContent = p.enabled === true
       ? `${p.morningTime || '07:00'} / ${p.eveningTime || '20:30'} · ${p.analysisEnabled === true ? '后台自动分析' : '仅提醒'}`
@@ -2218,7 +2218,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
   const PERMISSION_ITEMS = [
     {key: 'notifications', label: '通知权限', why: '没有它，到点的提醒不会出现。', action: '申请通知权限', required: true},
     {key: 'exactAlarm', label: '精确闹钟', why: '系统默认可以把提醒推迟最多 1 小时；开启后按点送达。', action: '去系统设置允许', required: true},
-    {key: 'health', label: '健康数据（Health Connect）', why: '读取睡眠、步数、运动、活动热量与距离；不授权时其余功能照常可用。', action: '打开授权页', required: false}
+    {key: 'health', label: '健康数据（Health Connect）', why: '读取睡眠、步数、运动、热量与距离；不授权时其余功能照常可用。', action: '打开授权页', required: false}
   ];
   let permissionState = {notifications: null, exactAlarm: null, health: null, healthReason: ''};
   /** Reads all three states from the routes that already own them; a failure stays "unknown". */
@@ -2255,7 +2255,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     for (const id of ['#ob-check-note', '#data-check-note']) {
       const node = $(id);
       if (!node) continue;
-      if (permissionState.health === false) node.textContent = '健康数据未授权：提醒与其他记录功能不受影响；授权方式见上方按钮。';
+      if (permissionState.health === false) node.textContent = '健康数据未授权：提醒与其他记录功能不受影响。';
       else if (done === PERMISSION_ITEMS.length) node.textContent = '三项都已就绪。';
       else node.textContent = '状态会在你回到应用时自动刷新。';
     }
@@ -2647,8 +2647,8 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
           const answer = await waitHealthResult();
           if (answer?.granted !== true) {
             feedback(message, `仍未获得授权：${answer?.message || '需要睡眠、步数、运动、活动热量与距离的读取权限'}。`
-              + '如果 Health Connect 的「应用权限」里根本没有列出轻衡，说明系统没有把这个侧载安装识别为健康数据应用：'
-              + '可先打开「Health Connect 权限」查看列表，或改用应用商店安装的版本；手表数据本身仍可在小米运动健康里查看。', true);
+              + '如果 Health Connect 的「应用权限」里没有列出轻衡，说明系统没把侧载安装识别为健康数据应用。'
+              + '可打开「Health Connect 权限」查看列表，或改用应用商店版本；手表数据仍可在对应 App 里查看。', true);
             return;
           }
         }
@@ -2927,7 +2927,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
       );
       lines.push(
         `薄肌（线条）路径：计划缺口 ${leanPlan.plannedPercent}%，实际按 ${leanPlan.effectivePercent}% 执行 → 预计每周 -${leanPlan.weeklyLoss} kg（约 ${leanPlan.fatPerMonth} kg 脂肪/月，占体重 ${leanPlan.lossRatePercent}%）`,
-        `体脂跑道：媒体常给男性 10~15% 可见腹肌，但缺少可靠实证阈值（受脂肪分布、腹肌厚度、光线与水合影响），只当参考；按当前速度每减 1 kg 脂肪约 ${leanPlan.weeklyLoss > 0 ? Math.round(1 / leanPlan.weeklyLoss) : '—'} 周，2 kg 约 ${leanPlan.weeklyLoss > 0 ? Math.round(2 / leanPlan.weeklyLoss) : '—'} 周`
+        `体脂跑道：10~15% 可见腹肌仅为媒体参考（受脂肪分布、光线、水合影响），不可靠。按当前速度每减 1 kg 脂肪约 ${leanPlan.weeklyLoss > 0 ? Math.round(1 / leanPlan.weeklyLoss) : '—'} 周，2 kg 约 ${leanPlan.weeklyLoss > 0 ? Math.round(2 / leanPlan.weeklyLoss) : '—'} 周`
       );
     }
     return {
@@ -3327,7 +3327,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     } catch (error) {feedback(message, error.message, true);} finally {button.disabled = false;}
   });
   $('#restart-onboarding').addEventListener('click', async () => {
-    if (!await askConfirm('将重新走一遍四步向导（目标、身体数据、训练、连接）。档案可以重新填写，已有的饮食、训练和体重记录都不会删除。继续吗？', {title: '重新设置档案', ok: '开始设置'})) return;
+    if (!await askConfirm('重新走一遍档案向导（目标、身体、训练、连接）。已有记录不会被删除。继续吗？', {title: '重新设置档案', ok: '开始设置'})) return;
     const form = $('#profile-form');
     $('#ob-sex').value = form.elements.sex.value || '';
     $('#ob-height').value = form.elements.height.value || '';
@@ -6290,7 +6290,7 @@ function metricIcon(label) {
     const rows = undatedMeals();
     box.hidden = !rows.length;
     if (!rows.length) return;
-    $('#undated-meals-text').textContent = `有 ${rows.length} 条餐食记录缺少日期，不会出现在任何一天，也不会进入建议和问答。请选择它们所属的日期。`;
+    $('#undated-meals-text').textContent = `有 ${rows.length} 条餐食缺少日期，不会出现在任何一天或进入分析。请选择日期。`;
     const input = $('#undated-meals-date');
     if (input && !input.value) input.value = activeDate;
   }
@@ -6325,7 +6325,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.07';
+  const APP_VERSION = '1.4.08';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -6827,7 +6827,7 @@ function metricIcon(label) {
         rotationText,
         "信息：目标=" + (GOAL_LABEL[profile.goal] || "未填") + "；体重=" + (profile.weight || "未填") + "kg；每周练=" + (prefs && prefs.days ? prefs.days : (plannedSessions() || "未填")) + "；分化=" + (prefs ? prefs.split : "未填") + "；器械=" + (prefs ? (typeof GEAR_LABELS === "object" && GEAR_LABELS[prefs.gear] ? GEAR_LABELS[prefs.gear] : prefs.gear) : "未填")
           + "；时长=" + (prefs ? prefs.minutes : 45) + " 分钟。"
-          + (prefs && prefs.gear === "mixed" ? "器械不限：请在同一份清单里混用杠铃、哑铃、固定器械与自重，不要全部用同一种器械。" : ""),
+          + (prefs && prefs.gear === "mixed" ? "器械不限，清单里混用杠铃、哑铃、器械与自重，不要只用一种。" : ""),
         // 目标对应的训练要求（同一份表：docs/design/27-evidence-requirements.md）
         (() => {
           const preset = typeof GOAL_PRESETS === "object" ? GOAL_PRESETS[profile.goal] : null;
@@ -6836,7 +6836,7 @@ function metricIcon(label) {
         })(),
         // 时长必须把组间休息算进去：只数动作个数会排出一份「5 个动作、12 组、实际 30 分钟」的清单。
         "时长预算（必须满足）：先留 8 分钟热身与换器械；每个正式组按约 45 秒执行 + 组间休息（复合 120~150 秒、孤立 60~90 秒、自重 75~90 秒）折算，有氧再加它自己的时长；整份清单折算后必须落在 " + (prefs && Number(prefs.minutes) > 0 ? Number(prefs.minutes) : 45) + " 分钟以内。",
-        "单次课正式组控制在 6~10 组：动作个数可以多，总组数不要堆过 10 组（时长 60 分钟以上才放宽）。",
+        "单次课正式组控制在 6~10 组，动作可多但组数不要超 10（60 分钟以上才放宽）。",
         baselineText ? "上周最近记录（供渐进参考，不要盲目加量）：" + baselineText + "。" : "",
         library ? "训练规则（必须遵守）：\n" + library : "",
         done.length ? ("今天已记录：" + done.join("；") + "。") : "今天还没有训练记录。",
@@ -7227,7 +7227,7 @@ function metricIcon(label) {
   // 应用内自动备份的恢复入口：双重确认；native 侧恢复前会把当前状态另存为 pre-restore 底档。
   const backupRestore = $('#backup-restore');
   if (backupRestore) backupRestore.addEventListener('click', async () => {
-    if (!await askConfirm('将用最近一次应用内自动备份覆盖手机上的全部记录（餐食、身体、习惯、问答与偏好）。覆盖前会把当前记录另存为底档。', {title: '从应用内备份恢复', ok: '下一步'})) return;
+    if (!await askConfirm('将用最近一次应用内自动备份覆盖全部记录。覆盖前会把当前记录另存为底档。', {title: '从应用内备份恢复', ok: '下一步'})) return;
     if (!await askConfirm('再次确认：覆盖后当前内容只能通过底档找回。确定恢复吗？', {title: '确认覆盖', ok: '覆盖恢复', danger: true})) return;
     backupRestore.disabled = true;
     try {
@@ -8225,9 +8225,9 @@ function metricIcon(label) {
     event.preventDefault();const form=event.currentTarget,button=$('button[type=submit]',form),message=$('#estimate-feedback');if(estimateBusy || savingDraft || !form.reportValidity())return;
     if(imageBusy){feedback(message,'图片仍在压缩，请稍等。',true);return;}
     if(!loaded || !settingsKnown){feedback(message,'尚未加载手机模型配置，请重新打开应用后再估算。',true);return;}
-    if(imageData && (!state.settings.apiConfigured || !state.settings.visionEnabled || !state.settings.visionModel)){feedback(message,'照片需要已启用的视觉模型：请到「我的 → AI 模型与密钥」为所选服务商填写并启用支持图片的模型。',true);return;}
+    if(imageData && (!state.settings.apiConfigured || !state.settings.visionEnabled || !state.settings.visionModel)){feedback(message,'照片需要已启用的视觉模型：请到「我的 → AI 模型与密钥」填写并启用。',true);return;}
     if(imageData && !externalConsent()){feedback(message,'照片估算需要外部模型：请到「我的 → 更多设置 → 数据管理」开启授权。',true);return;}
-    if(imageData && !navigator.onLine){feedback(message,'当前离线，照片无法识别；请移除照片并用明确克重文字做本地估算。',true);return;}
+    if(imageData && !navigator.onLine){feedback(message,'当前离线，照片无法识别；请移除照片，改用文字估算。',true);return;}
     const text=form.elements.text.value.trim();if(!text && !imageData){feedback(message,'请描述餐食或添加一张图片。',true);return;}
     if(draft && !await askConfirm('新估算会替换当前未保存的预览，继续吗？', {title:'替换预览'}))return;
     const submittedForm={elements:{date:{value:form.elements.date.value},mealType:{value:form.elements.mealType.value}},
@@ -8382,7 +8382,7 @@ function metricIcon(label) {
     return {measurements: (data.measurements || []).length, meals: (data.meals || []).length,
       habits: (data.habits || []).length, chats: (data.chats || []).length};
   }
-  $('#export-data').addEventListener('click',async()=>{const button=$('#export-data'),message=$('#data-feedback');button.disabled=true;feedback(message,'正在生成备份…');let url;try{const data=await api('/api/export');data.meta=buildMigrationMeta(data);if(window.QinghengAdapter.hasNative()){if(typeof window.QinghengNative.exportJson!=='function')throw new Error('手机导出功能未连接。');window.QinghengNative.exportJson(JSON.stringify(data));await markBackedUp();feedback(message,'请选择手机文件保存位置。备份包含健康记录，请妥善保管；导入新手机时会自动核对。');return;}url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download=`qingheng-backup-${localDate()}.json`;document.body.append(link);link.click();link.remove();feedback(message,'备份下载已开始。文件含健康记录，请妥善保管。');setTimeout(()=>URL.revokeObjectURL(url),10000);await markBackedUp();}catch(error){feedback(message,error.message,true);}finally{button.disabled=false;}});
+  $('#export-data').addEventListener('click',async()=>{const button=$('#export-data'),message=$('#data-feedback');button.disabled=true;feedback(message,'正在生成备份…');let url;try{const data=await api('/api/export');data.meta=buildMigrationMeta(data);if(window.QinghengAdapter.hasNative()){if(typeof window.QinghengNative.exportJson!=='function')throw new Error('手机导出功能未连接。');window.QinghengNative.exportJson(JSON.stringify(data));await markBackedUp();feedback(message,'请选择保存位置。备份含健康记录，请妥善保管。');return;}url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download=`qingheng-backup-${localDate()}.json`;document.body.append(link);link.click();link.remove();feedback(message,'备份下载已开始。文件含健康记录，请妥善保管。');setTimeout(()=>URL.revokeObjectURL(url),10000);await markBackedUp();}catch(error){feedback(message,error.message,true);}finally{button.disabled=false;}});
   $('#import-data').addEventListener('change',async event=>{const input=event.currentTarget,file=input.files[0],message=$('#data-feedback');if(!file)return;input.disabled=true;try{if(file.size>10*1024*1024)throw new Error('导入文件不能大于 10MB。');let data;try{data=JSON.parse(await file.text());}catch{throw new Error('文件不是有效 JSON，请选择轻衡备份。');}if(!data || typeof data.profile!=='object' || data.profile===null || !['measurements','meals','habits'].every(key=>Array.isArray(data[key])))throw new Error('备份必须包含 profile、measurements、meals 和 habits。');const chats=Array.isArray(data.chats)?data.chats:[];const meta=(data.meta && typeof data.meta==='object')?data.meta:null;let integrity='';
 if(meta && meta.kind==='migration'){const countsOk=!meta.counts || Object.keys(MIGRATION_LABELS).every(key=>Number(meta.counts[key])===migrationCounts(data)[key]);integrity=(meta.checksum===fnv1a(migrationPayload(data)) && countsOk)?'迁移包校验一致，文件完整。':'注意：校验和不一致，文件可能被改动或不完整。';}
 if(!await askConfirm(`将向手机本地导入 ${data.measurements.length} 条测量、${data.meals.length} 条餐食、${data.habits.length} 条习惯和 ${chats.length} 条问答。导入按记录 ID 合并，不会删除现有数据；建议先导出备份。${integrity?' '+integrity:''}是否继续？`,{title:'导入备份',ok:'导入'}))return;feedback(message,'正在导入…');await api('/api/import',{profile:data.profile,measurements:data.measurements,meals:data.meals,habits:data.habits,chats});try{await loadState({quiet:true});
@@ -8390,7 +8390,7 @@ let report='';
 if(meta && meta.counts){const now=migrationCounts({measurements:state.measurements,meals:state.meals,habits:state.habits,chats:state.chats});const rows=Object.keys(MIGRATION_LABELS).map(key=>{const expect=Number(meta.counts[key]);if(!Number.isFinite(expect))return null;return `${MIGRATION_LABELS[key]} ${now[key]}/${expect}${now[key]<expect?'（少于迁移包标注）':''}`;}).filter(Boolean);const matched=Object.keys(MIGRATION_LABELS).every(key=>{const expect=Number(meta.counts[key]);return !Number.isFinite(expect)||now[key]>=expect;});if(rows.length)report='核对：'+rows.join('、')+(matched?'，与迁移包一致。':'；请抽查关键记录是否都在。');}
 feedback(message,'数据已导入。'+report);
 }catch{feedback(message,'导入成功，但刷新失败。请重新加载，不要重复导入。',true);}}catch(error){feedback(message,error.message,true);}finally{input.value='';input.disabled=false;}});
-  window.addEventListener('offline',()=>{connection();notice('当前离线：手机本地记录仍可读取和保存，本地食物估算与规则建议可用；外部 AI 暂不可用。');});
+  window.addEventListener('offline',()=>{connection();notice('当前离线：本地记录与估算仍可用；外部 AI 暂不可用。');});
   window.addEventListener('online',()=>{connection();loadState({populate:false}).catch(()=>{});});
   window.addEventListener('beforeunload',event=>{if(draft || savingDraft){event.preventDefault();event.returnValue='';}});
   // Daily push advice history is written by AlarmReceiver; the UI only reads it back.

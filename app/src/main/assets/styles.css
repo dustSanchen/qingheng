@@ -860,11 +860,30 @@ details[open]{background:var(--surface)}
 
 /* 手机上不排两列：能量卡只有 60% 宽度时，150px 的能量球会被裁掉。 */
 @media (max-width: 640px){
+  :root{--btn-h:44px;--card-pad:var(--space-3);--card-gap:var(--space-2);--space-4:14px;--text-xl:20px;--text-lg:14.5px;--text-md:13px;--text-heading:16px;--shape-card-radius:10px;--shape-row-radius:10px;--shape-ctrl-radius:10px}
+  .app-shell{padding:0 16px 92px}
+  .app-header{padding:18px 0 20px}
+  .page-heading{margin:4px 0 20px;gap:10px}
+  h1{font-size:22px;line-height:1.3;margin:0 0 8px}
+  .card h2,.section-title,.screen-title{font-size:var(--text-lg)}
+  .card p,.muted,li,td{font-size:var(--text-md)}
+  .list-row{padding:10px 0;gap:10px}
+  .bottom-nav{padding:6px 12px max(6px,env(safe-area-inset-bottom));gap:4px}
+  .bottom-nav button{min-height:48px;padding:5px 0 4px}
+  .button{padding:var(--space-2) var(--space-3)}
+  input:not([type=checkbox]):not([type=radio]),select,textarea{padding:10px 12px}
   .dashboard-grid{grid-template-columns:1fr;gap:var(--card-gap)}
 /* 今日页密度：快捷区与提示条收紧，把能量卡提到更靠上的位置。 */
 .quick-grid{gap:var(--space-2)}
 .slot-hint{margin:0 0 var(--space-2)}
   .dashboard-grid > *{min-width:0}
+}
+
+/* 更小屏再收一轮，让 360px 左右的设备也能一屏看完关键信息。 */
+@media (max-width: 360px){
+  :root{--card-pad:var(--space-2);--space-4:12px}
+  .app-shell{padding:0 12px 88px}
+  h1{font-size:20px}
 }
 
 /* 能量球：更小、可换行，永不被裁。 */

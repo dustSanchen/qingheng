@@ -998,3 +998,11 @@
 - 验收：assemble 通过；test-all 72/72；aesthetic-audit `OK（无阻塞项）`，3 条 WARN 均为既有（卡片阴影 6 处、字号 10 级、accent 11 处）；dev-loop 1.4.07/407 装机、smoke 无 JS 错误。真机：`build/r128-13.png`（数据管理页——外发开关就在这里，「浏览器演示」句已消失，说明文字比正文小一号）、`build/r128-15.png`（问答说明里免责句带左侧竖线）、`build/r128-11.png`+`r128-12.png`（路径 我的 → 更多设置 → 数据管理）。
 - 未验证：记录页「复制一餐」卡的合并句只由断言守（该卡默认折叠，没截到）；`.note-safe` 在账本/夜间皮肤下的观感未单独截图。
 - APK：`dist/qingheng-1.4.07.apk`；回滚：`git revert <本轮提交>`。
+
+
+## r129 · 2026-11-19 · 1.4.08
+- 改：移动端密度 CSS 优化。在 `@media (max-width: 640px)` 中收紧变量与模块间距（`--card-pad`/`--card-gap`/`--btn-h`/`--space-4` 下调，圆角统一为 10px），并将 `360px` 以下再收一轮；具体覆盖 `.app-shell` 左右内边距（16px→12px）、`.app-header`/`page-heading` 上下留白、`h1` 与卡片标题字号、`.list-row` 行间距、底部导航高度与内边距、按钮与输入框内边距，保持触控目标 ≥44px。
+- 改：进一步压缩解释性文本。`30-voice` Health Connect 授权提示、`40-targets` 体脂跑道说明、`50-onboarding` 重新设置确认、`20-permissions-backup` 健康数据未授权影响句均精简；同步恢复因上一轮压缩被测试拦截的 00-head/10-rich-answer 必要文案，确保 `tests/onboarding-backup.test.mjs` 等断言命中原句。
+- 验：assemble + `node --check` 通过；`node tools/test-all.mjs` 72/72；`node tools/aesthetic-audit.mjs` OK（无阻塞项，WARN 为既有）；dev-loop 构建 1.4.08/408 成功，手动 `adb install -r` 覆盖后 `versionName=1.4.08 / versionCode=408`；smoke 阶段未见 JS 错误。真机截图：`build/shot-today-408.png`、`build/shot-records-408.png`、`build/shot-profile-408.png`、`build/shot-chat-408.png`。
+- 未验证：截图已保存，但当前模型无法读取图片，故未对视觉密度效果做人工复核；建议下轮打开截图检查 360–420px 宽度下卡片留白与字体是否仍显拥挤或过松。
+- APK：`dist/qingheng-1.4.08.apk`；回滚：`git revert <本轮提交>`。

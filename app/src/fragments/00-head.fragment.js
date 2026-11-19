@@ -189,8 +189,8 @@
     if (source === 'photo') return '默认取照片的拍摄时刻；如果实际进餐时间不同，请在这里改。';
     if (source === 'text') return '按描述里提到的时间填写；如果不对，请在这里改。';
     if (source === 'manual') return '已手动确认的进餐时间。';
-    if (source === 'typical') return '没有拍摄时间，先按餐次的常见时段填写；请确认真实进餐时间。';
-    return '没有拍摄时间，也没有描述里的时间，先按记录时刻填写；请确认后保存。';
+    if (source === 'typical') return '没有拍摄时间，先按常见餐次时段填写；请确认真实时间。';
+    return '没有拍摄/描述时间，先按记录时刻填写；请确认后保存。';
   }
 
   let activeDate = localDate();
@@ -338,7 +338,7 @@
       if (!response.ok) throw new Error(data?.error || `请求未成功（${response.status}）。请检查输入或手机本地存储后重试。`);
       return data;
     } catch (error) {
-      if (error.name === 'AbortError') throw new Error('请求超时。保存操作可能已写入手机，请先刷新检查记录，避免重复提交。');
+      if (error.name === 'AbortError') throw new Error('请求超时。保存可能已写入手机，请先刷新检查，避免重复提交。');
       if (error instanceof TypeError) throw new Error('无法读取手机存储。请重新打开应用；本地记录不需要网络。');
       throw error;
     } finally {clearTimeout(timer);}
@@ -689,7 +689,7 @@
   }
   $('#api-provider').addEventListener('change',event=>{captureProvider();showProvider(event.target.value);});
   $('#connection-check').addEventListener('click', async event => {
-    if (!await askConfirm('检查已保存的服务商连接：仅发送 API Key 到已配置的 HTTPS 服务商，不发送图片或健康记录，不生成收费回答。请先保存连接设置。继续吗？', {title:'检查连接'})) return;
+    if (!await askConfirm('检查已保存的服务商连接：只发送 API Key 到该服务商，不发送图片或健康记录，也不计费。请先保存连接设置。继续吗？', {title:'检查连接'})) return;
     const button = event.currentTarget, message = $('#connection-check-feedback');
     button.disabled = true; feedback(message,'正在检查 /models…');
     try {
@@ -705,7 +705,7 @@
       if (data?.configured !== true) {box.textContent = '当前服务商尚未保存 API Key。'; return;}
       if (data?.unreadable === true) {box.textContent = '已保存的密钥无法由本机密钥库读取，请重新保存。'; return;}
       const preview = typeof data.preview === 'string' && data.preview ? `预览 ${data.preview}` : '未显示内容预览';
-      box.textContent = `已保存 · 长度 ${number(data.length) ?? '—'} · ${preview}${data.cleaned === true ? '。检测到粘贴时带入的不可见字符，读取时已自动清理；建议重新复制完整密钥并保存。' : '。仅在本机检查，不发送也不显示完整密钥。'}`;
+      box.textContent = `已保存 · 长度 ${number(data.length) ?? '—'} · ${preview}${data.cleaned === true ? '。检测到粘贴时带入的不可见字符并已清理；建议重新复制完整密钥并保存。' : '。仅在本机检查，不发送也不显示完整密钥。'}`;
     } catch (error) {box.textContent = error.message;}
     finally {button.disabled = false;}
   });

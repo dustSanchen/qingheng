@@ -183,7 +183,7 @@
     } catch (error) {feedback(message, error.message, true);} finally {button.disabled = false;}
   });
   $('#restart-onboarding').addEventListener('click', async () => {
-    if (!await askConfirm('将重新走一遍四步向导（目标、身体数据、训练、连接）。档案可以重新填写，已有的饮食、训练和体重记录都不会删除。继续吗？', {title: '重新设置档案', ok: '开始设置'})) return;
+    if (!await askConfirm('重新走一遍档案向导（目标、身体、训练、连接）。已有记录不会被删除。继续吗？', {title: '重新设置档案', ok: '开始设置'})) return;
     const form = $('#profile-form');
     $('#ob-sex').value = form.elements.sex.value || '';
     $('#ob-height').value = form.elements.height.value || '';

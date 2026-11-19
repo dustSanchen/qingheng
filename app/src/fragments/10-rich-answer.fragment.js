@@ -672,7 +672,7 @@
       // instead of showing the raw text, even if the stored record was never repaired.
       const raw = String(row.answer || '');
       const answer = /^(?:[\s\u200b-\u200f\u2060\ufeff]*null){3,}/i.test(raw)
-        ? '这次回答没有正确返回（模型只返回了思考过程，没有输出内容）。请重新提问；如果反复出现，请在「我的 → AI 模型与密钥」换一个非推理模型。'
+        ? '这次回答没有正确返回（模型只输出了思考过程）。请重新提问；反复出现请换一个非推理模型。'
         : raw;
       if (streamExpandedAnswer && row.question === streamExpandedAnswer.question && answer === streamExpandedAnswer.answer) {
         streamExpandedAnswer.row = row;
@@ -707,7 +707,7 @@
     const node = $('#chat-mode');
     if (node) {
       const base = state.settings.apiConfigured === true
-        ? '已配置模型：确认上方已勾选同意即可提问；问题与部分健康数据会发送给该服务商，按 token 计费。'
+        ? '已配置模型：确认上方已勾选同意；问题与部分健康数据会发给该服务商，按 token 计费。'
         : '尚未配置 API Key：请先到「我的 → AI 模型与密钥」保存密钥；本地记录功能不受影响。';
       node.textContent = base;
     }
@@ -767,7 +767,7 @@
     if (weeklyEnabled) weeklyEnabled.checked = p.weeklyEnabled !== false;
     if (weeklyDay) weeklyDay.value = String(number(p.weeklyDay) ?? 7);
     if (weeklyTime && p.weeklyTime) weeklyTime.value = p.weeklyTime;
-    if (detail) detail.textContent = p.enabled !== true ? '开启后到点会收到本地通知；需要允许通知权限。' : `已设置 ${p.morningTime || '07:00'} 与 ${p.eveningTime || '20:30'}。每天最多 2 条（白天与晚间各一条），两次之间至少间隔 3 小时，不会在同一时段连发两条；周报${p.weeklyEnabled === false ? '已关闭' : `每周${['','一','二','三','四','五','六','日'][number(p.weeklyDay) ?? 7] || '日'} ${p.weeklyTime || '20:00'} 一条`}。精确时间${p.canScheduleExact ? '已就绪' : '可能被系统延迟，建议在系统设置允许「闹钟与提醒」'}；通知权限${p.notificationsGranted ? '已允许' : '未允许，请到系统设置开启'}。通知正文会自动精简到一行，展开可看全文；记录后还会有一次即时反馈（同样计入每日上限）。`;
+    if (detail) detail.textContent = p.enabled !== true ? '到点会收到本地通知；需允许通知权限。' : `已设置 ${p.morningTime || '07:00'} 与 ${p.eveningTime || '20:30'}。每天最多 2 条（白天与晚间各一条），两次之间至少间隔 3 小时，不会在同一时段连发两条。周报${p.weeklyEnabled === false ? '已关闭' : `每周${['','一','二','三','四','五','六','日'][number(p.weeklyDay) ?? 7] || '日'} ${p.weeklyTime || '20:00'}`}。精确时间${p.canScheduleExact ? '已就绪' : '可能被系统延迟，请允许「闹钟与提醒」'}；通知权限${p.notificationsGranted ? '已允许' : '未允许'}。通知正文会自动精简到一行，展开可看全文；记录后还会有一次即时反馈（同样计入每日上限）。`;
     const summary = $('#hub-summary-push');
     if (summary) summary.textContent = p.enabled === true
       ? `${p.morningTime || '07:00'} / ${p.eveningTime || '20:30'} · ${p.analysisEnabled === true ? '后台自动分析' : '仅提醒'}`

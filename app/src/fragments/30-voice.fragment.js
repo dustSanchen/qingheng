@@ -151,8 +151,8 @@
           const answer = await waitHealthResult();
           if (answer?.granted !== true) {
             feedback(message, `仍未获得授权：${answer?.message || '需要睡眠、步数、运动、活动热量与距离的读取权限'}。`
-              + '如果 Health Connect 的「应用权限」里根本没有列出轻衡，说明系统没有把这个侧载安装识别为健康数据应用：'
-              + '可先打开「Health Connect 权限」查看列表，或改用应用商店安装的版本；手表数据本身仍可在小米运动健康里查看。', true);
+              + '如果 Health Connect 的「应用权限」里没有列出轻衡，说明系统没把侧载安装识别为健康数据应用。'
+              + '可打开「Health Connect 权限」查看列表，或改用应用商店版本；手表数据仍可在对应 App 里查看。', true);
             return;
           }
         }
