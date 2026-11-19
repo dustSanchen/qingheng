@@ -25,6 +25,7 @@ check('the choice is remembered', app.includes("localStorage.setItem(RECORD_PANE
 check('training segment hides for a no-training profile', app.includes('panel.trainingOnly && !trainingEnabled()'));
 check('jumps pick the owning segment', app.includes('function recordPanelForField(id)') && app.includes("return 'body';"));
 check('reveal switches before focusing', /switchRecordPanel\(recordPanelForField\(id\)\);/.test(app));
+check('the sleep chip lands in the body segment', /chip\('补睡眠'[^)]*'habit-sleep'\)/.test(app) && app.includes("['habit-sleep', 'habit-steps', 'habit-form', 'measurement-weight', 'measurement-form']"));
 check('the bar is sticky and styled', css.includes('.segment-bar{position:sticky') && css.includes('.segment[aria-selected="true"]'));
 check('both skins share the hairline segment bar', css.includes('#view-records .segment-bar,#view-trends .segment-bar{border:0;border-bottom:1px solid var(--line)') &&
   !css.includes('[data-skin="ledger"] #view-records .segment-bar'));

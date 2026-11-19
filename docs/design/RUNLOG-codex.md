@@ -1063,3 +1063,12 @@ otifyHealthResult、两个桥方法、/api/health-connect/* 路由、healthConne
 - 验收：assemble 14 片段；test-all 72/72；dev-loop 1.4.12/412 装机成功、smoke 无 JS 错误；aapt2 dump 确认 APK 无 health.* 权限；design-audit site 18/18。APK 631 KB → 623 KB（638174 B）。
 - 未验证：真机权限卡只剩两项的实际排版未截图；以后要恢复 HC 需从 git 历史取回 HealthConnectSync.java 与对应桥接代码。
 - APK：dist/qingheng-1.4.12.apk（sha256 82e057d28c1cacd1387697041143f6e606c62306362aa40fd1c22a61c37b2216）。- 发布：public master 用 --force-with-lease 从发行版孤儿提交切回全量源码历史（1264 个文件，含 app/ tests/ tools/ docs/，无 HealthConnectSync）；publish-pages.ps1 刷新 gh-pages；Release 1.4.12 上传 qingheng-1.4.12.apk（638174 B）。GitHub Pages 约 1 分钟后生效（复核 1.4.12 / 623 KB / 源码公开）。
+
+## r134 · 2026-11-19 · 1.4.13（修「补睡眠」不跳转）
+- 用户原话：「当前APP点击补睡眠无法正确跳转，请修复」。
+- 根因：体检卡里的补记胶囊是 <a href="#records" data-focus="habit-sleep">，点击后 evealField 先调 ecordPanelForField('habit-sleep') 选记录页分段；该函数只把 habit-steps / measurement-weight / habit-form 映射到「身体」，habit-sleep 落到默认的「饮食」段。睡眠输入框在身体段里被隐藏，scrollIntoView 等于没动——表现就是停在饮食页。
+- 修法：ecordPanelForField 的身体段名单补 habit-sleep、measurement-form，并在注释里写明漏掉会让补睡眠停在饮食段。
+- 断言：	ests/records-panels.test.mjs 新增 1 条——补睡眠胶囊指向 habit-sleep，且该 id 在身体段名单里；登记 §5.1。
+- 验收：assemble 14 片段；test-all 72/72；dev-loop 1.4.13/413 装机成功、smoke 无 JS 错误。
+- 未验证：真机点胶囊的滚动效果未截图（WebView 内容 uiautomator 抓不到坐标）；逻辑上分段切换后输入框可见。
+- APK：dist/qingheng-1.4.13.apk（638176 B，sha256  6df66704b560198d63b1c7422534712da8aefc88b4fb529870c64cc63c63850）。

@@ -196,3 +196,4 @@
 | 2026-11-19 | `tests/onboarding-backup.test.mjs` | 三项权限 → 两项（通知、精确闹钟），去掉 health 相关 4 条断言 | 同上 |
 | 2026-11-19 | `tests/wizard-action-bar.test.mjs` | 权限检查上限断言去掉 `/api/health-connect/status`，改为断言不存在 | 同上 |
 | 2026-11-19 | `tests/ci-and-versions.test.mjs` | 关于页断言改「作者 + 源码公开」；许可断言改「禁止二次转售」；发布脚本断言改为 pages-only | 用户改口「开源代码」：源码重新公开，许可仍禁止转售；gh-pages 发布脚本替代白名单脚本 |
+| 2026-11-19 | `tests/records-panels.test.mjs` | 新增 1 条：补睡眠胶囊指向 habit-sleep，且 habit-sleep 在「身体」段映射名单里 | 修复补睡眠不跳转：映射漏了 habit-sleep 导致停在饮食段 |

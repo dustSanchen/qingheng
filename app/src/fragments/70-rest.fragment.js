@@ -154,7 +154,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.12';
+  const APP_VERSION = '1.4.13';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1638,7 +1638,9 @@
   /** Which segment owns a field, so a jump from 今天 can open the right one first. */
   function recordPanelForField(id) {
     if (!id) return null;
-    if (['habit-steps', 'measurement-weight', 'habit-form'].includes(id)) return 'body';
+    // 今天两样（体重 + 睡眠）、身体数据与日常习惯都在「身体」段：漏掉 habit-sleep 会让「补睡眠」
+    // 停在饮食段，输入框不可见，看起来像没跳转。
+    if (['habit-sleep', 'habit-steps', 'habit-form', 'measurement-weight', 'measurement-form'].includes(id)) return 'body';
     if (['training-form', 'training-exercises'].includes(id)) return 'training';
     return 'food';
   }
