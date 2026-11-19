@@ -34,7 +34,7 @@ check('both skins share the hairline segment bar', css.includes('#view-records .
   !css.includes('[data-skin="ledger"] #view-records .segment-bar'));
 check('paper cards use open sections while ledger cards keep one frame', css.includes('.card{background:transparent;border:0;border-radius:0;padding:var(--card-pad) 0') &&
   css.includes('[data-skin="ledger"] .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--shape-card-radius)'));
-check('paper navigation rows use separators while ledger rows keep a frame', css.includes('.hub-row{display:flex;align-items:center;gap:14px;width:100%;min-height:var(--btn-h);padding:16px 18px;border:0;border-bottom:1px solid var(--line)') &&
+check('paper navigation rows use separators while ledger rows keep a frame', css.includes('.hub-row{display:flex;align-items:center;gap:14px;width:100%;min-height:var(--btn-h);padding:16px 20px;border:0;border-bottom:1px solid var(--line)') &&
   css.includes('[data-skin="ledger"] .hub-row{border:1px solid var(--line)') &&
   css.includes('border-radius:0;background:transparent;color:var(--ink);text-align:left;}') &&
   css.includes('border-radius:var(--shape-row-radius);background:var(--surface);}'));
