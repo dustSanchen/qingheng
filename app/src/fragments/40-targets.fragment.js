@@ -296,11 +296,16 @@
     const typicalMeals = counts[Math.floor(counts.length / 2)];
     const completeFloor = Math.max(1, Math.ceil(typicalMeals * 0.8));
     const intakeDays = allDays.filter(date => (countByDay.get(date) || 1) >= completeFloor);
-    const skippedDays = allDays.length - intakeDays.length;
-    if (intakeDays.length < 14) {
-      return {ok: false, reason: `记录基本完整的天只有 ${intakeDays.length} 天（另有 ${skippedDays} 天只记了一部分），至少需要 14 天`};
+    // 内部口径（1.4.58）：那天记录可信度低（只记一餐、普遍没标用油）不进平均摄入，
+    // 免得把「少记」算成「代谢低」。只影响计算，界面上不提示。
+    const trustedDays = typeof intakeConfidenceLevelFor === 'function'
+      ? intakeDays.filter(date => intakeConfidenceLevelFor(date) !== 'low')
+      : intakeDays;
+    const skippedDays = allDays.length - trustedDays.length;
+    if (trustedDays.length < 14) {
+      return {ok: false, reason: `记录基本完整的天只有 ${trustedDays.length} 天（另有 ${skippedDays} 天只记了一部分或可信度偏低），至少需要 14 天`};
     }
-    const from = intakeDays[0], to = intakeDays[intakeDays.length - 1];
+    const from = trustedDays[0], to = trustedDays[trustedDays.length - 1];
     const points = (Array.isArray(state.measurements) ? state.measurements : [])
       .filter(row => validDate(String(row.date)) && number(row.weight) !== null && String(row.date) >= from && String(row.date) <= to)
       .map(row => ({date: String(row.date), weight: number(row.weight)}))
@@ -311,7 +316,7 @@
     const spanDays = Math.max(1, Math.round((Date.parse(points[points.length - 1].date) - Date.parse(points[0].date)) / 86400000));
     const deltaKg = points[points.length - 1].weight - points[0].weight;
     // 只加完整日的摄入：以前把「只吃了一餐的那天」也当整天算，等于替用户少算热量。
-    const meanIntake = intakeDays.reduce((sum, date) => sum + (byDay.get(date) || 0), 0) / intakeDays.length;
+    const meanIntake = trustedDays.reduce((sum, date) => sum + (byDay.get(date) || 0), 0) / trustedDays.length;
     const tdee = Math.round(meanIntake - deltaKg * 7700 / spanDays);
     return {
       ok: true,
@@ -319,7 +324,7 @@
       meanIntake: Math.round(meanIntake),
       deltaKg: Math.round(deltaKg * 10) / 10,
       spanDays,
-      days: intakeDays.length,
+      days: trustedDays.length,
       skippedDays,
       typicalMeals,
       completeFloor,

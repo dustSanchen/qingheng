@@ -10,8 +10,8 @@ let fail = 0;
 const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + label + (detail === undefined ? '' : '  -> ' + detail)); if (!ok) fail++; };
 
 const source = fs.readFileSync('app/src/fragments/10-rich-answer.fragment.js', 'utf8').replace(/\r\n/g, '\n');
-const start = source.indexOf('  function intakeConfidence() {');
-const end = source.indexOf('  function renderIntakeConfidence(totals) {');
+const start = source.indexOf('  function intakeConfidence(date = activeDate) {');
+const end = source.indexOf('  function recordIntakeConfidence() {');
 if (start < 0 || end < 0) throw new Error('intakeConfidence slice markers not found');
 
 const sandbox = {
@@ -56,12 +56,15 @@ sandbox.state.meals = [];
 const empty = confidence();
 check('a day with no records has no level at all', empty.level === 'none', empty.level);
 
-// --- 6. 接线：卡片里真的有这一行，并且低可信度时数字前加 ≈ --------------------------------------------
+// --- 6. 接线：只存内部，不对外展示 ---------------------------------------------------------------------
 const app = fs.readFileSync('app/src/main/assets/app.js', 'utf8');
 const html = fs.readFileSync('app/src/main/assets/index.html', 'utf8');
-check('the energy card has the confidence slot', html.includes('id="intake-confidence"'));
-check('the renderer is wired after the macro grid', app.includes('renderIntakeConfidence(totals);'));
-check('a low-confidence number is prefixed with ≈', app.includes("(confidence.level === 'low' ? '≈' : '')"));
+check('the confidence is recorded on every render', app.includes('recordIntakeConfidence();'));
+check('it is stored under a local key', app.includes('qingheng.intakeConfidence'));
+check('other modules can ask for a day level', app.includes('function intakeConfidenceLevelFor'));
+check('low-confidence days are excluded from calibration', app.includes('intakeConfidenceLevelFor(date) !== \'low\''));
+check('the user-facing confidence line is gone', !html.includes('id="intake-confidence"') && !app.includes('记录可信度：'));
+check('the calorie number is no longer prefixed with ≈', !app.includes("(confidence.level === 'low' ? '≈' : '')"));
 
 console.log('\nFAIL total: ' + fail);
 process.exitCode = fail ? 1 : 0;

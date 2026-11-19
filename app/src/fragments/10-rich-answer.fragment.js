@@ -272,13 +272,15 @@
       actionBox.innerHTML = parts.length ? '<p class="energy-hint">' + esc(parts[0]) + '</p>' + note : '';
     }
   /**
-   * 记录可信度（1.4.56）：这个 App 的热量是估的，估的基础是「记录得全不全」。
-   * 与其再显示一个精确到个位的 kcal，不如把「这个数有多可信」说出来。
-   * 扣分项按「对总量影响大」排序：餐数、烹调用油、逐项明细、近 7 天记录习惯。
+   * 记录可信度（1.4.56 引入，1.4.58 起只存内部）：这个 App 的热量是估的，估的基础是记录全不全。
+   * 用户明确要求「允许误差、不对外展示」——所以不占界面，只给内部两处逻辑用：
+   * 目标校准（低可信度的日子不同权）与 AI 提示（别把估算说成精确值）。
    */
-  function intakeConfidence() {
+  // 可信度缓存键（只存内部；键名走常量，避免裸字面量散落）
+  const INTAKE_CONFIDENCE_KEY = 'qingheng.intakeConfidence';
+  function intakeConfidence(date = activeDate) {
     const history = Array.isArray(state.meals) ? state.meals : [];
-    const meals = history.filter(row => row && row.date === activeDate && number(row.calories) !== null);
+    const meals = history.filter(row => row && row.date === date && number(row.calories) !== null);
     if (!meals.length) return {level: 'none', score: 0, reasons: ['今天还没有可用记录'], meals: 0, recordedDays: 0};
     let score = 100;
     const reasons = [];
@@ -290,7 +292,7 @@
     if (detailed / meals.length < 0.5) { score -= 10; reasons.push('有一半餐只有总数、没有逐项'); }
     let recordedDays = 0;
     for (let offset = 0; offset < 7; offset++) {
-      const day = typeof shiftDay === 'function' ? shiftDay(activeDate, -offset) : activeDate;
+      const day = typeof shiftDay === 'function' ? shiftDay(date, -offset) : date;
       if (history.some(row => row && row.date === day && number(row.calories) !== null)) recordedDays += 1;
     }
     if (recordedDays <= 2) { score -= 15; reasons.push('近 7 天只记了 ' + recordedDays + ' 天'); }
@@ -300,26 +302,30 @@
     const level = meals.length < 2 ? 'low' : score >= 85 ? 'high' : score >= 60 ? 'medium' : 'low';
     return {level, score, reasons, meals: meals.length, recordedDays};
   }
-  function renderIntakeConfidence(totals) {
-    const node = $('#intake-confidence');
-    const valueNode = $('#calorie-value');
+  /** 只写本地缓存，不改界面。上限 60 天，滚动保留。 */
+  function recordIntakeConfidence() {
     const confidence = intakeConfidence();
-    if (valueNode) valueNode.textContent = (confidence.level === 'low' ? '≈' : '') + fmt(totals.calories, 0);
-    if (!node) return;
-    if (confidence.level === 'none' || confidence.level === 'high') {
-      node.hidden = true;
-      node.textContent = '';
-      return;
-    }
-    const label = confidence.level === 'medium' ? '记录一般' : '记录偏少';
-    node.hidden = false;
-    node.className = 'fine-print intake-confidence is-' + confidence.level;
-    node.textContent = '记录可信度：' + label + ' · ' + confidence.reasons.slice(0, 2).join('；')
-      + (confidence.level === 'low' ? '。今天的热量可能明显偏低，先补全再据此调目标。' : '。');
+    if (!confidence || confidence.level === 'none') return confidence;
+    try {
+      const map = JSON.parse(localStorage.getItem(INTAKE_CONFIDENCE_KEY) || '{}') || {};
+      map[activeDate] = {level: confidence.level, score: confidence.score, reasons: confidence.reasons.slice(0, 3)};
+      const dates = Object.keys(map).sort();
+      for (const old of dates.slice(0, Math.max(0, dates.length - 60))) delete map[old];
+      localStorage.setItem(INTAKE_CONFIDENCE_KEY, JSON.stringify(map));
+    } catch {}
+    return confidence;
+  }
+  /** 按日期取可信度：当天现算，历史读缓存；取不到时返回 high（不参与扣分）。 */
+  function intakeConfidenceLevelFor(date) {
+    if (date === activeDate) return intakeConfidence(date).level;
+    try {
+      const map = JSON.parse(localStorage.getItem(INTAKE_CONFIDENCE_KEY) || '{}') || {};
+      return (map[date] && map[date].level) || 'high';
+    } catch { return 'high'; }
   }
     $('#macro-summary').innerHTML = [['protein','蛋白质',p.proteinMin,p.proteinMax],['fat','脂肪',p.fatMin,p.fatMax],['carbs','碳水',null,carbCap(p, range)]].map(([key,label,min,max]) => {const value = totals[key], progress = value !== null && number(max)>0 ? Math.min(100,value/max*100) : 0; return `<div><span class="macro-label">${label}</span><div class="macro-value">${fmt(value)} <small>g</small></div><div class="progress-track"><span data-progress="${progress}"></span></div><span class="macro-target">${min !== null && number(min)!==null && number(max)!==null ? `目标 ${fmt(min)}–${fmt(max)} g` : key === 'carbs' ? (number(max)>0 ? `参考上限约 ${fmt(max,0)} g` : '设置热量目标后显示进度') : '目标未设置'}</span></div>`;}).join('');
-    $$('#macro-summary [data-progress]').forEach(node => {node.style.width=`${Number(node.dataset.progress)}%`;
-    renderIntakeConfidence(totals);});
+    $$('#macro-summary [data-progress]').forEach(node => {node.style.width=`${Number(node.dataset.progress)}%`;});
+    recordIntakeConfidence();
     const measurements = state.measurements.filter(item => validDate(item.date) && item.date <= activeDate).sort((a,b) => b.date.localeCompare(a.date));
     const weight = latestField(measurements,'weight'), waist = latestField(measurements,'waist'), bodyFat = latestField(measurements,'bodyFat');
     const bmi = weight && number(p.height)>0 ? weight.weight / ((p.height/100)**2) : null;

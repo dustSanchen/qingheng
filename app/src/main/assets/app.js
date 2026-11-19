@@ -1512,13 +1512,15 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
       actionBox.innerHTML = parts.length ? '<p class="energy-hint">' + esc(parts[0]) + '</p>' + note : '';
     }
   /**
-   * 记录可信度（1.4.56）：这个 App 的热量是估的，估的基础是「记录得全不全」。
-   * 与其再显示一个精确到个位的 kcal，不如把「这个数有多可信」说出来。
-   * 扣分项按「对总量影响大」排序：餐数、烹调用油、逐项明细、近 7 天记录习惯。
+   * 记录可信度（1.4.56 引入，1.4.58 起只存内部）：这个 App 的热量是估的，估的基础是记录全不全。
+   * 用户明确要求「允许误差、不对外展示」——所以不占界面，只给内部两处逻辑用：
+   * 目标校准（低可信度的日子不同权）与 AI 提示（别把估算说成精确值）。
    */
-  function intakeConfidence() {
+  // 可信度缓存键（只存内部；键名走常量，避免裸字面量散落）
+  const INTAKE_CONFIDENCE_KEY = 'qingheng.intakeConfidence';
+  function intakeConfidence(date = activeDate) {
     const history = Array.isArray(state.meals) ? state.meals : [];
-    const meals = history.filter(row => row && row.date === activeDate && number(row.calories) !== null);
+    const meals = history.filter(row => row && row.date === date && number(row.calories) !== null);
     if (!meals.length) return {level: 'none', score: 0, reasons: ['今天还没有可用记录'], meals: 0, recordedDays: 0};
     let score = 100;
     const reasons = [];
@@ -1530,7 +1532,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     if (detailed / meals.length < 0.5) { score -= 10; reasons.push('有一半餐只有总数、没有逐项'); }
     let recordedDays = 0;
     for (let offset = 0; offset < 7; offset++) {
-      const day = typeof shiftDay === 'function' ? shiftDay(activeDate, -offset) : activeDate;
+      const day = typeof shiftDay === 'function' ? shiftDay(date, -offset) : date;
       if (history.some(row => row && row.date === day && number(row.calories) !== null)) recordedDays += 1;
     }
     if (recordedDays <= 2) { score -= 15; reasons.push('近 7 天只记了 ' + recordedDays + ' 天'); }
@@ -1540,26 +1542,30 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     const level = meals.length < 2 ? 'low' : score >= 85 ? 'high' : score >= 60 ? 'medium' : 'low';
     return {level, score, reasons, meals: meals.length, recordedDays};
   }
-  function renderIntakeConfidence(totals) {
-    const node = $('#intake-confidence');
-    const valueNode = $('#calorie-value');
+  /** 只写本地缓存，不改界面。上限 60 天，滚动保留。 */
+  function recordIntakeConfidence() {
     const confidence = intakeConfidence();
-    if (valueNode) valueNode.textContent = (confidence.level === 'low' ? '≈' : '') + fmt(totals.calories, 0);
-    if (!node) return;
-    if (confidence.level === 'none' || confidence.level === 'high') {
-      node.hidden = true;
-      node.textContent = '';
-      return;
-    }
-    const label = confidence.level === 'medium' ? '记录一般' : '记录偏少';
-    node.hidden = false;
-    node.className = 'fine-print intake-confidence is-' + confidence.level;
-    node.textContent = '记录可信度：' + label + ' · ' + confidence.reasons.slice(0, 2).join('；')
-      + (confidence.level === 'low' ? '。今天的热量可能明显偏低，先补全再据此调目标。' : '。');
+    if (!confidence || confidence.level === 'none') return confidence;
+    try {
+      const map = JSON.parse(localStorage.getItem(INTAKE_CONFIDENCE_KEY) || '{}') || {};
+      map[activeDate] = {level: confidence.level, score: confidence.score, reasons: confidence.reasons.slice(0, 3)};
+      const dates = Object.keys(map).sort();
+      for (const old of dates.slice(0, Math.max(0, dates.length - 60))) delete map[old];
+      localStorage.setItem(INTAKE_CONFIDENCE_KEY, JSON.stringify(map));
+    } catch {}
+    return confidence;
+  }
+  /** 按日期取可信度：当天现算，历史读缓存；取不到时返回 high（不参与扣分）。 */
+  function intakeConfidenceLevelFor(date) {
+    if (date === activeDate) return intakeConfidence(date).level;
+    try {
+      const map = JSON.parse(localStorage.getItem(INTAKE_CONFIDENCE_KEY) || '{}') || {};
+      return (map[date] && map[date].level) || 'high';
+    } catch { return 'high'; }
   }
     $('#macro-summary').innerHTML = [['protein','蛋白质',p.proteinMin,p.proteinMax],['fat','脂肪',p.fatMin,p.fatMax],['carbs','碳水',null,carbCap(p, range)]].map(([key,label,min,max]) => {const value = totals[key], progress = value !== null && number(max)>0 ? Math.min(100,value/max*100) : 0; return `<div><span class="macro-label">${label}</span><div class="macro-value">${fmt(value)} <small>g</small></div><div class="progress-track"><span data-progress="${progress}"></span></div><span class="macro-target">${min !== null && number(min)!==null && number(max)!==null ? `目标 ${fmt(min)}–${fmt(max)} g` : key === 'carbs' ? (number(max)>0 ? `参考上限约 ${fmt(max,0)} g` : '设置热量目标后显示进度') : '目标未设置'}</span></div>`;}).join('');
-    $$('#macro-summary [data-progress]').forEach(node => {node.style.width=`${Number(node.dataset.progress)}%`;
-    renderIntakeConfidence(totals);});
+    $$('#macro-summary [data-progress]').forEach(node => {node.style.width=`${Number(node.dataset.progress)}%`;});
+    recordIntakeConfidence();
     const measurements = state.measurements.filter(item => validDate(item.date) && item.date <= activeDate).sort((a,b) => b.date.localeCompare(a.date));
     const weight = latestField(measurements,'weight'), waist = latestField(measurements,'waist'), bodyFat = latestField(measurements,'bodyFat');
     const bmi = weight && number(p.height)>0 ? weight.weight / ((p.height/100)**2) : null;
@@ -2984,11 +2990,16 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     const typicalMeals = counts[Math.floor(counts.length / 2)];
     const completeFloor = Math.max(1, Math.ceil(typicalMeals * 0.8));
     const intakeDays = allDays.filter(date => (countByDay.get(date) || 1) >= completeFloor);
-    const skippedDays = allDays.length - intakeDays.length;
-    if (intakeDays.length < 14) {
-      return {ok: false, reason: `记录基本完整的天只有 ${intakeDays.length} 天（另有 ${skippedDays} 天只记了一部分），至少需要 14 天`};
+    // 内部口径（1.4.58）：那天记录可信度低（只记一餐、普遍没标用油）不进平均摄入，
+    // 免得把「少记」算成「代谢低」。只影响计算，界面上不提示。
+    const trustedDays = typeof intakeConfidenceLevelFor === 'function'
+      ? intakeDays.filter(date => intakeConfidenceLevelFor(date) !== 'low')
+      : intakeDays;
+    const skippedDays = allDays.length - trustedDays.length;
+    if (trustedDays.length < 14) {
+      return {ok: false, reason: `记录基本完整的天只有 ${trustedDays.length} 天（另有 ${skippedDays} 天只记了一部分或可信度偏低），至少需要 14 天`};
     }
-    const from = intakeDays[0], to = intakeDays[intakeDays.length - 1];
+    const from = trustedDays[0], to = trustedDays[trustedDays.length - 1];
     const points = (Array.isArray(state.measurements) ? state.measurements : [])
       .filter(row => validDate(String(row.date)) && number(row.weight) !== null && String(row.date) >= from && String(row.date) <= to)
       .map(row => ({date: String(row.date), weight: number(row.weight)}))
@@ -2999,7 +3010,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     const spanDays = Math.max(1, Math.round((Date.parse(points[points.length - 1].date) - Date.parse(points[0].date)) / 86400000));
     const deltaKg = points[points.length - 1].weight - points[0].weight;
     // 只加完整日的摄入：以前把「只吃了一餐的那天」也当整天算，等于替用户少算热量。
-    const meanIntake = intakeDays.reduce((sum, date) => sum + (byDay.get(date) || 0), 0) / intakeDays.length;
+    const meanIntake = trustedDays.reduce((sum, date) => sum + (byDay.get(date) || 0), 0) / trustedDays.length;
     const tdee = Math.round(meanIntake - deltaKg * 7700 / spanDays);
     return {
       ok: true,
@@ -3007,7 +3018,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
       meanIntake: Math.round(meanIntake),
       deltaKg: Math.round(deltaKg * 10) / 10,
       spanDays,
-      days: intakeDays.length,
+      days: trustedDays.length,
       skippedDays,
       typicalMeals,
       completeFloor,
@@ -6529,7 +6540,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.57';
+  const APP_VERSION = '1.4.58';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
