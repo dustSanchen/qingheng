@@ -1308,3 +1308,12 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 断言：layout-four 插入点改锁 slotHint.before(row) + energyCard.after(slotHint)；training-day-budget 第 33 条改为锁 basis 行的 ange.trained ? '按训练日' : '按休息日'；layout-four / p0-p1 删掉与快速记录图标无关的 iconMarkup('icon-copy.svg') 耦合。均已登记 03-global-changes §5.1。
 - 验收：test-all 74/74；dev-loop 1.4.40/440 装机成功；截图 uild/today-1440d.png。
 - 未验证：诗笺在 320px 的折行、负 margin 命中区在真机的实际热区、ledger/night 皮肤下标题行的观感；建议真机点一次训练摘要与复制一餐确认不误触。
+
+## r163 · 2026-11-19 · 1.4.41（标题行推广：记录/问答/趋势/我的）
+- 用户：「标题与诗笺同基线，将该点用于其他功能（如记录、问答）」。
+- 结构：五页统一 .page-head-row（h1 + 诗笺同基线、诗笺右对齐、nowrap）；记录页 meta 下移；问答/我的标题行只留标题 + 诗笺；趋势页 page-heading--trends 改 block，观察范围控件落到标题行下、左对齐。
+- 去掉 prependHeadingKicker 对记录/趋势的调用（「日常记录 · 三栏台账」「周期观察」）：JS 会把 kicker 插进新标题行的第一个 div，把 h1 挤到中间甚至竖排；回到「页眉 + 栏目名」两层。
+- 趋势筛选器：全局 label{display:flex;flex-direction:column} 让 .range-picker 竖排且横向居中，补 lex-direction:row 才落到左轴；sr-only「观察范围」保留无障碍名。
+- 修 .page-heading--today,.page-heading--trends{display:block} 覆盖旧的两列 grid。
+- 验收：test-all 74/74；dev-loop 1.4.41/441 装机；截图 build/p3-today.png、p2-records.png、p2-chat.png、p3-trends.png、p2-profile.png。
+- 未验证：ledger/night 皮肤下的标题行；360px 下趋势页 select 与标题行是否折行；「重新设置档案」被 JS 搬到设置子页后，标题行的 .text-button 规则目前是备用。

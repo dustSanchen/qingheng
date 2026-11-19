@@ -1879,8 +1879,11 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 /* 今日页收束（2026-11-19）：标题与诗笺同基线；提醒落到能量卡之后；建议跟宏量走 */
 .page-heading--today{display:block;margin:8px 0 14px;padding-bottom:0;border-bottom:0}
 .page-heading--today h1{margin:0}
-.today-head-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
-#view-today .epigraph{margin:0;text-align:right;font-size:13px;opacity:.42;letter-spacing:.16em;white-space:nowrap}
+.page-head-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;min-width:0}
+.page-head-row h1{margin:0;min-width:0}
+:where(.page-head-row) .epigraph{margin:0;text-align:right;white-space:nowrap;flex:0 0 auto}
+.page-heading .text-button{min-height:0;padding:13px 0;margin:-13px 0}
+
 .today-meta-row{margin-top:6px}
 #view-today #today-quick-actions{margin:0}
 #view-today .energy-card{order:2}
@@ -1904,3 +1907,9 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 @media (max-width:370px){#view-today .energy-card .energy-body{grid-template-columns:120px minmax(0,1fr)}}
 .page-heading--today{margin:10px 0 16px}
 #view-today .slot-hint{margin:0 0 12px}
+
+
+/* 标题行推广（2026-11-19）：记录/问答/趋势/我的 与今天同基线；趋势筛选器落到标题行下 */
+.page-heading--today,.page-heading--trends{display:block;margin:10px 0 16px}
+.page-heading--trends .range-picker{width:auto;margin:10px 0 0;align-self:auto;display:flex;flex-direction:row;align-items:center;gap:8px;font-size:var(--text-xs);color:var(--muted)}
+.page-heading--trends .range-picker select{width:132px}

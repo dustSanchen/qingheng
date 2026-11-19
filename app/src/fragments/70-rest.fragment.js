@@ -154,7 +154,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.40';
+  const APP_VERSION = '1.4.41';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1149,14 +1149,14 @@
     const recordHeading = $('.page-heading', $('#view-records'));
     if (recordHeading) {
       recordHeading.classList.add('page-heading--records');
-      prependHeadingKicker(recordHeading, '日常记录 · 三栏台账');
+      
     }
     const trendsHeading = $('.page-heading', $('#view-trends'));
     const rangeLabel = trendsHeading?.querySelector('label');
     const rangeSelect = $('#trend-range');
     if (trendsHeading && rangeLabel && rangeSelect) {
       trendsHeading.classList.add('page-heading--trends');
-      prependHeadingKicker(trendsHeading, '周期观察');
+      
       rangeLabel.className = 'range-picker';
       rangeSelect.setAttribute('aria-label', '观察范围');
       const accessibleLabel = document.createElement('span');
