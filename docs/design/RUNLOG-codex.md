@@ -1020,3 +1020,9 @@
 ode tools/test-all.mjs 72/72；dev-loop 1.4.09/409 装机成功、smoke 无 JS 错误；design-audit.mjs site/index.html 18/18 PASS；esthetic-audit 仅既有 WARN（卡片阴影 6 处、字号 10 级、token 外硬编码）。
 - 未验证：关于页/页脚在真机上的排版未截图核对（导入链接与新增两行说明只由断言守）。
 - APK：dist/qingheng-1.4.09.apk（646365 B，sha256 78cde93a99754119f95b2f7bdc83f15d53d6eed6dc21fdb0975842b5247f952）。
+### r130 附：GitHub 侧动作（2026-11-19）
+- 仓库由私有转公开（PATCH /repos private=false），简介改为「源码可见，禁止二次转售」，homepage 指向 Pages。
+- 展示页发布：新建 gh-pages 分支（根目录 index.html + .nojekyll，内容镜像 site/index.html），启用 Pages，地址 https://dustsanchen.github.io/qingheng/ （200，424945 B，与仓库内文件一致）。
+- 发版：创建 Release 1.4.09，上传 qingheng-1.4.09.apk（646365 B）作为 asset；releases/latest 已指向该 tag，asset 下载 200。
+- 公开前清理：删除根目录散落文件、替换 3 处个人邮箱；仓库仍不含 .signing、key 与健康记录。历史提交未改写（git 历史里仍可检索到旧邮箱，如需彻底清除要 filter-repo 重写，本轮未做）。
+- 教训：PowerShell 直接给 Invoke-RestMethod -Body 传字符串会把中文写成 ?，必须 [System.Text.Encoding]::UTF8.GetBytes() + pplication/json; charset=utf-8；本轮仓库简介第一次就这样被写成问号，第二次重发才修好。
