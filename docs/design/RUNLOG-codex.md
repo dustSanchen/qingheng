@@ -1317,3 +1317,12 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 修 .page-heading--today,.page-heading--trends{display:block} 覆盖旧的两列 grid。
 - 验收：test-all 74/74；dev-loop 1.4.41/441 装机；截图 build/p3-today.png、p2-records.png、p2-chat.png、p3-trends.png、p2-profile.png。
 - 未验证：ledger/night 皮肤下的标题行；360px 下趋势页 select 与标题行是否折行；「重新设置档案」被 JS 搬到设置子页后，标题行的 .text-button 规则目前是备用。
+## r164 · 2026-11-19 · 1.4.42（快捷动作移到能量卡下：读数在前、动作在后）
+- 用户：「app轻衡中记一餐、训练、身体按钮功能放在蛋白质、脂肪、碳水数值指标下是不是更好？」
+- 判断：方向对——宏量三列是能量卡的收尾行，动作紧接其后才构成「读数 → 动作」，今天补蛋白还差 44 g 就紧挨着记一餐。但两处没照字面做：①没塞进卡里（卡内动作条会把一张卡切成两半，1.4.37 的教训）；②没挂在宏量节点之后（空态时 `#energy-ring` 与 `#macro-summary` 都 hidden，锚点会随数字一起消失，而第一天新用户最需要的正是这个按钮）。
+- 实现：`energyCard.after(row)` 打底，边注改为 `row.after(slotHint)`，DOM 变成 能量卡 → 动作组 → 时段边注 → 今日体检；CSS `#view-today #today-quick-actions{margin:12px 0 0}`、`#view-today .slot-hint{margin:12px 0 12px}`。
+- 断言：`layout-four` 插入点改为 `energyCard.after(row)` + `row.after(slotHint)`，登记 03-global-changes §5.1。
+- 顺带：README 发行事实同步 1.4.42 / versionCode 442。`ci-and-versions` 钉 `version-<APP_VERSION>`，改版本号必须同步 README，否则 dev-loop 在测试阶段就红（本轮先红了一次）。
+- 验收：test-all 74/74；dev-loop 1.4.42/442 装机 + smoke 无 JS 错误；截图 `build/today-quick-1.4.42.png`（记一餐紧贴「优先补蛋白：还差 44 g」之下，三枚按钮仍在首屏）。
+- 未验证：空态（当天无餐食）下按钮与矮卡片的相对位置没有实点截图，属代码级推断；ledger/night 皮肤的 12px 节奏。
+- APK：`dist/qingheng-1.4.42.apk`，642,271 B，sha256 `ca6d0351270f4b6edce04f502012f9b3aad342062b391381c795d452d014279a`。

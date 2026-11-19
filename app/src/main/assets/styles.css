@@ -1901,12 +1901,12 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 
 
 /* 今日页排版修整（2026-11-19）：动作组按内容宽、去掉 44px 幻影行高、环不再压字 */
-#view-today #today-quick-actions{grid-template-columns:repeat(3,auto);justify-content:start;margin:0 0 12px}
+#view-today #today-quick-actions{grid-template-columns:repeat(3,auto);justify-content:start;margin:12px 0 0}
 .today-training-line,.quick-record-link{min-height:0;padding:13px 0;margin:-13px 0}
 #view-today .energy-card .energy-body{grid-template-columns:132px minmax(0,1fr)}
 @media (max-width:370px){#view-today .energy-card .energy-body{grid-template-columns:120px minmax(0,1fr)}}
 .page-heading--today{margin:10px 0 16px}
-#view-today .slot-hint{margin:0 0 12px}
+#view-today .slot-hint{margin:12px 0 12px}
 
 
 /* 标题行推广（2026-11-19）：记录/问答/趋势/我的 与今天同基线；趋势筛选器落到标题行下 */

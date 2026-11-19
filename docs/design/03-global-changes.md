@@ -227,3 +227,5 @@
 | 2026-11-19 | `tests/layout-four.test.mjs` | 快捷动作插入点 `energyCard.before` → `slotHint.before(row)` + `energyCard.after(slotHint)` | 边注物理移到能量卡之后，不再依赖空转的 order |
 | 2026-11-19 | `tests/training-day-budget.test.mjs` | 「caption 命名训练日」→「basis 行命名训练日」（`range.trained ? '按训练日' : '按休息日'`） | 去掉 caption 与依据行重复的「按训练日区间：」前缀 |
 | 2026-11-19 | `tests/p0-p1-round.test.mjs`、`tests/layout-four.test.mjs` | 去掉无关的 `iconMarkup('icon-copy.svg')` 断言 | 快速记录按钮降为文字链后不再使用该图标，断言与页面主题无关 |
+
+| 2026-11-19 | `tests/layout-four.test.mjs` | 快捷动作插入点 `slotHint.before(row)` + `energyCard.after(slotHint)` → `energyCard.after(row)` + `row.after(slotHint)` | 动作组移到能量卡之下（宏量三列之后），读数在前、动作在后；不塞进卡内、不挂宏量节点，空态不丢锚点 |
