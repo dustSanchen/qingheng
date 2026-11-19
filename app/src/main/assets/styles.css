@@ -1760,3 +1760,13 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 
 /* 顶部品牌行已移除（2026-11-19）：页眉只在有加载/离线状态时出现 */
 .app-header{padding:8px 0 0;border:0;justify-content:flex-end}
+
+/* 书页页眉：日期在左，状态只在异常时出现（2026-11-19） */
+.running-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 0 10px;border-bottom:1px solid var(--line);font-size:var(--text-xs);letter-spacing:.08em;color:var(--muted);font-variant-numeric:tabular-nums}
+.running-head .status-chip{margin-left:auto}
+.page-heading h1{font-size:28px;letter-spacing:-.01em}
+
+/* 书页版心与页脚（2026-11-19） */
+.app-shell{padding-left:20px;padding-right:20px}
+@media (max-width:360px){.app-shell{padding-left:16px;padding-right:16px}}
+.folio{margin:28px 0 8px;text-align:center;font-size:var(--text-xs);letter-spacing:.28em;color:var(--muted);font-variant-numeric:tabular-nums}

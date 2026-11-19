@@ -181,13 +181,13 @@
     const hint=$('#chat-data-context'); if(hint)hint.textContent=`分析日期：${activeDate} · 已保存 ${count} 条餐食（未确认预览和问答照片不计入饮食）`;
     const dateLabel=$('#chat-date-label'); if(dateLabel) dateLabel.textContent = activeDate === localDate() ? '今天' : activeDate.slice(5);
     // 页眉用日期而不是口号：今天页首先回答「这是哪一天」。
-    const mastheadTitle=$('#today-title'), mastheadMeta=$('#today-meta');
-    if (mastheadTitle) {
-      const day=new Date(activeDate+'T00:00:00');
-      const week='日一二三四五六'[day.getDay()];
-      mastheadTitle.textContent=`${day.getMonth()+1} 月 ${day.getDate()} 日`;
-      if (mastheadMeta) mastheadMeta.textContent=`周${week}${activeDate===localDate()?' · 今天':''}${count?` · ${count} 餐`:' · 还没有餐食'}${typeof trainedOn==='function' && trainedOn(activeDate)?' · 训练已记录':''}`;
-    }
+    const runningDate=$('#running-date');
+    const day=new Date(activeDate+'T00:00:00');
+    const week='日一二三四五六'[day.getDay()];
+    if (runningDate) runningDate.textContent=`${day.getMonth()+1} 月 ${day.getDate()} 日 · 周${week}`;
+    const folioDay=$('#folio-day'); if (folioDay) folioDay.textContent=String(day.getDate());
+    const mastheadMeta=$('#today-meta');
+    if (mastheadMeta) mastheadMeta.textContent=`${activeDate===localDate()?'今天':''}${count?` · ${count} 餐`:' · 还没有餐食'}${typeof trainedOn==='function' && trainedOn(activeDate)?' · 训练已记录':''}`.replace(/^ · /,'');
     const adviceHint=$('#advice-data-context'); if(adviceHint)adviceHint.textContent=`分析日期：${activeDate} · 已保存 ${count} 条餐食`;
     const adviceNode=$('#advice-content'), stale=$('#advice-stale');
     if (stale) {
@@ -198,15 +198,12 @@
     }
     const meals = state.meals.filter(meal => meal.date === activeDate);
     const totals = totalsFor(meals), p = effectiveProfileForDate(activeDate);
-    // 记录页页眉：日期 + 当日摘要（几餐、多少 kcal、训练动作数），不再用口号。
-    const recordsTitle=$('#records-title'), recordsMeta=$('#records-meta');
-    if (recordsTitle) {
-      const day=new Date(activeDate+'T00:00:00');
-      const week='日一二三四五六'[day.getDay()];
+    // 记录页页眉：只留当日摘要，日期由 running head 负责。
+    const recordsMeta=$('#records-meta');
+    if (recordsMeta) {
       const habitRow=(state.habits||[]).find(row=>row && row.date===activeDate);
       const exerciseRows=habitRow && Array.isArray(habitRow.exercises) ? habitRow.exercises : [];
-      recordsTitle.textContent=`${day.getMonth()+1} 月 ${day.getDate()} 日`;
-      if (recordsMeta) recordsMeta.textContent=`周${week}${count?` · ${count} 餐`:' · 还没有餐食'}${Math.round(Number(totals.calories)||0)?` · ${Math.round(Number(totals.calories))} kcal`:''}${exerciseRows.length?` · 训练 ${exerciseRows.length} 个动作`:''}`;
+      recordsMeta.textContent=`${count?`${count} 餐`:'还没有餐食'}${Math.round(Number(totals.calories)||0)?` · ${Math.round(Number(totals.calories))} kcal`:''}${exerciseRows.length?` · 训练 ${exerciseRows.length} 个动作`:''}`;
     }
     // 饮食页也要看得到训练：一行「今天练了什么 / 多少容量」，点进去就是训练面板。
     const trainingLine = $('#today-training-line');

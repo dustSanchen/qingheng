@@ -11,10 +11,11 @@ const app = read('app/src/main/assets/app.js');
 const css = read('app/src/main/assets/styles.css');
 const html = read('app/src/main/assets/index.html');
 
-check('the top brand row is gone and the header only carries status', !html.includes('class="brand"') && html.includes('id="connection-status"') &&
-   app.includes('header.hidden = node.hidden') &&
-   css.includes('.app-header{padding:8px 0 0;border:0;justify-content:flex-end}'));
+check('the top brand row is gone and a date running head replaces it', !html.includes('class="brand"') && html.includes('class="running-head"') && html.includes('id="running-date"') &&
+   app.includes('runningDate.textContent') &&
+   css.includes('.running-head{display:flex'));
 
+check('the page closes with a folio', html.includes('class="folio"') && app.includes('folioDay.textContent'));
 // --- 1. today quick actions ---------------------------------------------------------------------------
 check('a quick action row is installed on today', app.includes('function installTodayQuickActions()') && app.includes("row.id = 'today-quick-actions'"));
 check('energy ring and target detail share one compact summary', app.includes('body.replaceChildren(ring, detail)') &&

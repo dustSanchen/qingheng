@@ -622,9 +622,6 @@
     // 常驻的「已保存到手机」没信息量（数据本来就在本机），刚好还会被误读成已备份到云。
     // 只在「还没加载完」与「浏览器演示」这两种真需要说明的情况下才显示。
     node.hidden = !offline && !demo;
-    // 品牌行去掉后，页眉只剩连接状态：没有状态就整行收起。
-    const header = node.closest('.app-header');
-    if (header) header.hidden = node.hidden;
     node.textContent = offline ? (loadFailed ? '本地记录加载失败：点上方的「重新加载」再试' : '正在加载本地记录') : demo ? '浏览器本地演示' : '';
   }
   function populate(form, values) {for (const [key, value] of Object.entries(values || {})) {const control = form.elements.namedItem(key); if (!control || control.type === 'password' || control.type === 'checkbox') continue; control.value = value ?? '';}}

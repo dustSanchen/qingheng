@@ -220,3 +220,4 @@
 | 2026-11-19 | `tests/plan-from-today.test.mjs`、`tests/plan-shared-template.test.mjs` | 按钮文本断言 `一键排课` → `排进本周` | 去 AI 味批次 1 文案替换 |
 | 2026-11-19 | `tests/records-panels.test.mjs` | hub-row 断言不再要求 `box-shadow:none`（只守分隔线/边框与底色） | 阴影清理删掉 none 重置，契约改为形状而非实现细节 |
 | 2026-11-19 | `tests/layout-four.test.mjs` | 「统一品牌页头」→「品牌行已移除、页眉只剩连接状态并会收起」 | 用户要求去掉顶部图标 + 轻衡一行 |
+| 2026-11-19 | `tests/layout-four.test.mjs` | 品牌页头断言 → running head；新增 folio 断言 | 书页化阶段 0：品牌行 → 日期页眉 + 版心 + 页脚 |
