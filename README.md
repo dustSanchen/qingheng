@@ -2,7 +2,7 @@
 
 一个把「记录」认真做好的本地优先 Android 健康应用：饮食、训练、身体数据与睡眠饮水都留在手机里，需要 AI 时再按你的明确同意调用你自己的模型服务。
 
-![Version](https://img.shields.io/badge/version-1.4.10-informational) ![Tests](https://img.shields.io/badge/tests-72%20%2F%2072-green) ![MinSdk](https://img.shields.io/badge/minSdk-26-blue) ![TargetSdk](https://img.shields.io/badge/targetSdk-35-blue) ![APK](https://img.shields.io/badge/APK-631%20KB-lightgrey) ![License](https://img.shields.io/badge/license-%E7%A6%81%E6%AD%A2%E8%BD%AC%E5%94%AE-critical)
+![Version](https://img.shields.io/badge/version-1.4.11-informational) ![Tests](https://img.shields.io/badge/tests-72%20%2F%2072-green) ![MinSdk](https://img.shields.io/badge/minSdk-26-blue) ![TargetSdk](https://img.shields.io/badge/targetSdk-35-blue) ![APK](https://img.shields.io/badge/APK-631%20KB-lightgrey) ![License](https://img.shields.io/badge/license-%E7%A6%81%E6%AD%A2%E8%BD%AC%E5%94%AE-critical)
 
 **[展示页](https://dustsanchen.github.io/qingheng/)**（单文件静态页，内含真机截图） · **[下载最新安装包](https://github.com/dustSanchen/qingheng/releases/latest)** · **[更新记录](https://github.com/dustSanchen/qingheng/releases)**
 
@@ -19,13 +19,13 @@
 
 | 项 | 值 |
 |---|---|
-| 最新版本 | 1.4.10（versionCode 410） |
-| 安装包 | [`qingheng-1.4.10.apk`](https://github.com/dustSanchen/qingheng/releases/latest)，631 KB |
+| 最新版本 | 1.4.11（versionCode 411） |
+| 安装包 | [`qingheng-1.4.11.apk`](https://github.com/dustSanchen/qingheng/releases/latest)，631 KB |
 | 系统要求 | Android 8.0+（minSdk 26），targetSdk 35 |
 | SHA-256 | 见 Release 说明（每个版本单独公布） |
 | 签名证书 SHA-256 | `b23aba9a2955e620dad5453c15a879ffab3ca4ad90a3e5b1b63beb5f55fab1ac` |
 
-安装前可用 `apksigner verify --print-certs qingheng-1.4.10.apk` 核对签名：指纹不一致的包不是官方构建，也**无法覆盖安装**官方版本（签名不同会拒绝升级）。
+安装前可用 `apksigner verify --print-certs qingheng-1.4.11.apk` 核对签名：指纹不一致的包不是官方构建，也**无法覆盖安装**官方版本（签名不同会拒绝升级）。
 
 ## 功能地图
 
@@ -65,7 +65,7 @@
 
 ## 作者与许可
 
-作者：**散尘**。本应用为个人作品，不提供源码；安装包由作者签名发布。
+作者：**Sanchen**。本应用为个人作品，不提供源码；安装包由作者签名发布。
 
 1. **可以**：下载并安装到自己的 Android 设备；在自己的记录中使用全部功能；向作者反馈问题。
 2. **禁止反编译改造**：不得反编译、反汇编、提取资源或代码后修改再发布。

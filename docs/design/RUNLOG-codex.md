@@ -1026,3 +1026,16 @@ ode tools/test-all.mjs 72/72；dev-loop 1.4.09/409 装机成功、smoke 无 JS �
 - 发版：创建 Release 1.4.09，上传 qingheng-1.4.09.apk（646365 B）作为 asset；releases/latest 已指向该 tag，asset 下载 200。
 - 公开前清理：删除根目录散落文件、替换 3 处个人邮箱；仓库仍不含 .signing、key 与健康记录。历史提交未改写（git 历史里仍可检索到旧邮箱，如需彻底清除要 filter-repo 重写，本轮未做）。
 - 教训：PowerShell 直接给 Invoke-RestMethod -Body 传字符串会把中文写成 ?，必须 [System.Text.Encoding]::UTF8.GetBytes() + pplication/json; charset=utf-8；本轮仓库简介第一次就这样被写成问号，第二次重发才修好。
+
+## r131 · 2026-11-19 · 1.4.11（收紧开源范围：公开仓只剩安装包与展示页）
+- 用户原话：「删除github上的源码跳转选项，未避免APP被直接简单修改成他人项目，请尝试修改开源内容范围，修改作者与许可中的内容」；随后「作者名从中文改为拼音 Sanchen」。
+- 应用：关于页与「我的」页脚删除 GitHub 链接，改为「作者 Sanchen · 不提供源码」与「禁止二次转售、反编译改造、重新打包、上架」；关于摘要留「vX · 作者与许可」。
+- 许可：LICENSE 从「源码可见」改成「仅二进制分发」——可安装自用；禁止反编译/反汇编/提取资源、重打包、转售、冒名、把界面文案用于训练再发布；明确不授予源码与改编权。
+- 公开内容范围：新增 	ools/publish-public.ps1，用 whitelist（README.md、LICENSE、site/index.html）构造孤立提交并 force push 到 public，同时刷新 gh-pages；**不发** app/tests/tools/docs。仓库远端拆成 localmirror（C 盘全量）、source（GitHub 私有 qingheng-source，全量）、public（只发作附件）；AGENTS.md 已写死这条规矩。
+- 公开仓重写：public master 由源码历史改为 3 文件孤立提交（旧提交只能按 SHA 访问，无法从分支/标签浏览）；删掉 v1.4.09 release 与 tag（它们指向旧源码提交）；新建 v1.4.11 release 并上传 APK。
+- README 重写为发行说明：不提供源码、只保留安装包/更新记录/许可；移除源码链接与构建命令；「展示页」保留 Pages 地址；校验指纹保留。
+- 展示页：期号 1.4.11、下载 CTA、去掉「打开仓库」、页脚作者改 Sanchen、许可改为仅二进制分发。
+- 断言：	ests/ci-and-versions.test.mjs 改为守新边界（作者 Sanchen、不提供源码、应用内无源码链接、反编译与转售条款、发布脚本白名单），登记 §5.1。
+- 验收：test-all 72/72；dev-loop 1.4.11/411 装机成功、smoke 无 JS 错误；APK 内 index.html 含「作者 Sanchen」「不提供源码」且不含 github 链接；design-audit site 18/18。
+- 未验证：公开仓旧的源码提交仍可能按 SHA 访问（GitHub 不会立即 GC 不可达对象）；要彻底清除需删除重建仓库或联系 GitHub 支持。
+- APK：dist/qingheng-1.4.11.apk（646366 B，sha256 106ff8110aa1a04f91267037e0b26df9bbff818231a723b1ba14f798f57e9378）。

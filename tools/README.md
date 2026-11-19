@@ -23,8 +23,12 @@ Supporting tools:
 | Tool | What it removes |
 | --- | --- |
 | `tools/dev-loop.ps1` | the 8-command manual sequence and its ordering mistakes |
+| `tools/publish-public.ps1` | publishing to the public repo by hand: whitelists README.md, LICENSE and site/index.html, force-pushes master, mirrors the page to gh-pages. Never sends source, tests, tools or docs |
 | `tools/lib/patch.mjs` | CRLF/anchor/idempotency boilerplate in one-off edit scripts (and their retry cycles) |
 | `tools/device.mjs` | blind taps: `--preview` converts 877x1904 preview coordinates to device pixels; `smoke` checks version + JS errors + screenshot in one call |
 | `tools/verify-all.ps1` | tests + build + packaging checks only (no device) |
+
+Remotes: `localmirror` (bare mirror) and `source` (private GitHub) take the full history;
+`public` (public GitHub) only receives the whitelisted distribution files via `publish-public.ps1`.
 
 Keep `backups/` and `.signing/` out of version control; they hold a full pre-change copy and the key.

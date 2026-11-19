@@ -46,7 +46,7 @@ const html = read('app/src/main/assets/index.html');
 check('the about page shows the versions', html.includes('id="version-info"') && app.includes('async function loadVersions()'));
 check('it explains why the versions matter', html.includes('旧记录不会被重新解释'));
 check('it loads when the about subpage opens', app.includes("loadStorageStatus(false).catch(() => {}); loadVersions().catch(() => {});"));
-check('the about page names the author and states no source', html.includes('作者 散尘') && html.includes('不提供源码'));
+check('the about page names the author and states no source', html.includes('作者 Sanchen') && html.includes('不提供源码'));
 check('the app no longer links to the source repository', !html.includes('github.com/dustSanchen/qingheng'));
 check('it states the anti-decompile and no-resale terms', html.includes('严禁二次转售') && html.includes('反编译') && read('LICENSE').includes('二次转售') && read('LICENSE').includes('反编译'));
 const readme = read('README.md');
@@ -54,6 +54,8 @@ const site = read('site/index.html');
 const apkVersion = (read('app/src/fragments/70-rest.fragment.js').match(/APP_VERSION = '([0-9.]+)'/) || [])[1];
 check('the readme keeps the release facts', readme.includes('不提供源码') && readme.includes('version-' + apkVersion) && readme.includes('b23aba9a2955e620dad5453c15a879ffab3ca4ad90a3e5b1b63beb5f55fab1ac'));
 check('the showcase page also drops the source link', site.includes('不提供源码') && !site.includes('>打开仓库<'));
+const publisher = read('tools/publish-public.ps1');
+check('publishing to the public repo is whitelisted', publisher.includes("'site/index.html=site/index.html'") && publisher.includes('README.md=README.md') && !publisher.includes('app/src') && !publisher.includes('tests/'));
 
 check('the one-command dev loop exists', fs.existsSync('tools/dev-loop.ps1') && fs.readFileSync('tools/dev-loop.ps1', 'utf8').includes('install + smoke'));
 check('the patcher library exists', fs.existsSync('tools/lib/patch.mjs'));

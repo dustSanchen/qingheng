@@ -190,3 +190,4 @@
 | 2026-11-19 | `tests/p0-p1-round.test.mjs` | `the data/appearance summary has an icon`（断言 app 含「数据、外观与说明」）→ `settings pointers name entries that exist`（断言含「我的 → 更多设置 → 数据管理」且不再含旧名） | 旧断言守的正是失效指路文案；入口在 `installSubpageLayout` 里被搬走 |
 | 2026-11-19 | `tests/meal-date-java.test.mjs` | `APP_VERSION = '1.4.06'` → `'1.4.07'` | 发布版本同步 |
 | 2026-11-19 | `tests/ci-and-versions.test.mjs` | 新增 3 条：关于页写作者与仓库地址、页面/许可都写「严禁二次转售」、README 保留 631 KB 与签名指纹 | 1.4.09 开源化：关于页与页脚补作者信息与 GitHub 地址，许可证改为「源码可见 + 禁止转售」；README 成为对外展示页，下载与签名事实必须可核对 |
+| 2026-11-19 | `tests/ci-and-versions.test.mjs` | 断言改为「关于页写作者并声明不提供源码」+「应用不再含源码仓库链接」+「反编译与禁止转售条款」+「公开发布脚本只发白名单文件」 | 1.4.10/1.4.11 收紧开源范围：应用内移除代码仓库入口，许可改为仅二进制分发，公开仓库只放 README/LICENSE/展示页，断言守着新边界 |
