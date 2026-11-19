@@ -1144,3 +1144,10 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 处理：把这 16 张未引用图整包归档到 ackups/archive/docs-art-unreferenced-20261119.zip（5.35 MB，gitignore），随后从仓库删除；保留仍被 RUNLOG/26 号文档引用的 4 张（light-ledger、training-20261111-6-log、training-20261117-1-cues、training-20261117-5-run-log）与 light-ledger.md。
 - 结果：docs 13.6 → 8.15 MB（−5.45 MB）；test-all 74/74 不受影响。
 - 说明：dist/ 215.7 MB 是 gitignore 的本地产物，不影响仓库体积，本轮未动；如需腾磁盘可另做保留最近 N 个 APK 的清理。
+
+## r143 · 2026-11-19 · 1.4.21（底栏去模糊）
+- 底栏 .bottom-nav 本来是 ackground:var(--paper) 不透明底色，却又叠了 ackdrop-filter:blur(12px)——视觉上看不出区别，却让固定元素在每一帧滚动时重新模糊背景。
+- 删除这一条 ackdrop-filter，其余 4 处（弹层/对话框的遮罩）保持不动，因为它们确实需要背景模糊。
+- 验收：test-all 74/74；dev-loop 1.4.21/421 装机成功、smoke 无 JS 错误；aesthetic-audit 仅既有 WARN。
+- 未验证：真机滚动的帧率未量化（没有做 before/after 采样），观感需你亲自看一眼底栏是否仍是原样。
+- APK：dist/qingheng-1.4.21.apk（638176 B）。
