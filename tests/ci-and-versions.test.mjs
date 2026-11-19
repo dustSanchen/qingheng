@@ -54,7 +54,7 @@ const site = read('site/index.html');
 const apkVersion = (read('app/src/fragments/70-rest.fragment.js').match(/APP_VERSION = '([0-9.]+)'/) || [])[1];
 check('the readme keeps the release facts', readme.includes('LICENSE') && readme.includes('site/shots/today.jpg') && readme.includes('version-' + apkVersion) && readme.includes('b23aba9a2955e620dad5453c15a879ffab3ca4ad90a3e5b1b63beb5f55fab1ac'));
 check('the readme screenshots are on disk', fs.readdirSync('site/shots').filter(name => name.endsWith('.jpg')).length >= 8);
-check('the showcase page also drops the source link', site.includes('不提供源码') && !site.includes('>打开仓库<'));
+check('the showcase page also drops the source link', site.includes('个人作品') && site.includes('许可') && !site.includes('>打开仓库<'));
 const publisher = read('tools/publish-public.ps1');
 check('publishing to the public repo is whitelisted', publisher.includes("'site/index.html=site/index.html'") && publisher.includes('README.md=README.md') && !publisher.includes('app/src') && !publisher.includes('tests/'));
 
