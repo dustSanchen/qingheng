@@ -47,7 +47,7 @@ check('external consent is one switch in settings', app.includes("EXTERNAL_CONSE
 check('the per-box consent rows are gone', !html.includes('training-advice-consent') && !html.includes('id="advice-ai"') && !html.includes('id="ai-plan-consent"') && !html.includes('id="chat-consent"') && !html.includes('id="estimate-consent"'));
 check('the data previews are hidden', html.includes('id="chat-data-preview-panel" hidden') && html.includes('id="advice-data-preview-panel" hidden'));
 check('quick record lists favourites first', app.includes('收藏的餐食优先出现在'));
-check('the data/appearance summary has an icon', app.includes('数据、外观与说明') && app.includes("iconMarkup('icon-copy.svg')"));
+check('settings pointers name entries that exist', app.includes('我的 → 更多设置 → 数据管理') && !app.includes('数据、外观与说明') && app.includes("iconMarkup('icon-copy.svg')"));
 check('web search is a toggle, not a details section', html.includes('id="chat-web-toggle"') && !html.includes('id="chat-consent-panel"'));
 check('the chat notes move into the profile drawer', app.includes("#view-chat .card-notes"));
 

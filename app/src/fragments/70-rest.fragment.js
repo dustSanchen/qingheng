@@ -154,7 +154,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.06';
+  const APP_VERSION = '1.4.07';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -631,7 +631,7 @@
   }
   async function askAiPlan(button) {
     if (!button) return;
-    if (!externalConsent()) { notice("请先到「我的 → 数据、外观与说明」开启外部模型授权。"); return; }
+    if (!externalConsent()) { notice("请先到「我的 → 更多设置 → 数据管理」开启外部模型授权。"); return; }
     button.disabled = true;
     const original = button.textContent;
     button.textContent = "正在排…";
@@ -1198,7 +1198,7 @@
     if (draft) chips.after(draft);
   }
   /**
-   * 我的 is a list of entries, so the low-frequency block is one too: 数据、外观与说明 opens its own
+   * 我的 is a list of entries, so the low-frequency block is one too: 数据管理 opens its own
    * sub-page exactly like 模型连接 (same .subpage shell, same 21px hub icon, same back header)
    * instead of unfolding a second-level details inside the list.
    */
@@ -2054,8 +2054,8 @@
     event.preventDefault();const form=event.currentTarget,button=$('button[type=submit]',form),message=$('#estimate-feedback');if(estimateBusy || savingDraft || !form.reportValidity())return;
     if(imageBusy){feedback(message,'图片仍在压缩，请稍等。',true);return;}
     if(!loaded || !settingsKnown){feedback(message,'尚未加载手机模型配置，请重新打开应用后再估算。',true);return;}
-    if(imageData && (!state.settings.apiConfigured || !state.settings.visionEnabled || !state.settings.visionModel)){feedback(message,'照片需要已启用的视觉模型：请到「我的 → 模型连接」为所选服务商填写并启用支持图片的模型。',true);return;}
-    if(imageData && !externalConsent()){feedback(message,'照片估算需要外部模型：请到「我的 → 数据、外观与说明」开启授权。',true);return;}
+    if(imageData && (!state.settings.apiConfigured || !state.settings.visionEnabled || !state.settings.visionModel)){feedback(message,'照片需要已启用的视觉模型：请到「我的 → AI 模型与密钥」为所选服务商填写并启用支持图片的模型。',true);return;}
+    if(imageData && !externalConsent()){feedback(message,'照片估算需要外部模型：请到「我的 → 更多设置 → 数据管理」开启授权。',true);return;}
     if(imageData && !navigator.onLine){feedback(message,'当前离线，照片无法识别；请移除照片并用明确克重文字做本地估算。',true);return;}
     const text=form.elements.text.value.trim();if(!text && !imageData){feedback(message,'请描述餐食或添加一张图片。',true);return;}
     if(draft && !await askConfirm('新估算会替换当前未保存的预览，继续吗？', {title:'替换预览'}))return;
@@ -2314,7 +2314,7 @@ feedback(message,'数据已导入。'+report);
       event.preventDefault();
       const question = input.value.trim();
       if (!question) {feedback(feedbackBox, '先写一句要问的训练问题。', true); return;}
-      if (!externalConsent()) {feedback(feedbackBox, '请先到「我的 → 数据、外观与说明」开启外部模型授权。', true); return;}
+      if (!externalConsent()) {feedback(feedbackBox, '请先到「我的 → 更多设置 → 数据管理」开启外部模型授权。', true); return;}
       feedback(feedbackBox, '正在生成…');
       const button = form.querySelector('button[type="submit"]');
       if (button) button.disabled = true;

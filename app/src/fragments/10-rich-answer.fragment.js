@@ -551,7 +551,7 @@
     if (box) {box.value = String(row.question || ''); box.focus();}
     window.scrollTo({top: 0, behavior: 'smooth'});
     if (typeof externalConsent === 'function' && externalConsent()) {await sendChat();}
-    else notice('问题已填回输入框；到「我的 → 数据、外观与说明」开启外部模型授权后点「提问」即可重新生成。');
+    else notice('问题已填回输入框；到「我的 → 更多设置 → 数据管理」开启外部模型授权后点「提问」即可重新生成。');
   }
   let chatQuery = "";
   /** 按日期分组，组内保持倒序（最新在前）。 */
@@ -672,7 +672,7 @@
       // instead of showing the raw text, even if the stored record was never repaired.
       const raw = String(row.answer || '');
       const answer = /^(?:[\s\u200b-\u200f\u2060\ufeff]*null){3,}/i.test(raw)
-        ? '这次回答没有正确返回（模型只返回了思考过程，没有输出内容）。请重新提问；如果反复出现，请在「我的 → 模型连接」换一个非推理模型。'
+        ? '这次回答没有正确返回（模型只返回了思考过程，没有输出内容）。请重新提问；如果反复出现，请在「我的 → AI 模型与密钥」换一个非推理模型。'
         : raw;
       if (streamExpandedAnswer && row.question === streamExpandedAnswer.question && answer === streamExpandedAnswer.answer) {
         streamExpandedAnswer.row = row;
@@ -708,7 +708,7 @@
     if (node) {
       const base = state.settings.apiConfigured === true
         ? '已配置模型：确认上方已勾选同意即可提问；问题与部分健康数据会发送给该服务商，按 token 计费。'
-        : '尚未配置 API Key：请先到「我的 → 模型连接」保存密钥；本地记录功能不受影响。';
+        : '尚未配置 API Key：请先到「我的 → AI 模型与密钥」保存密钥；本地记录功能不受影响。';
       node.textContent = base;
     }
   }
@@ -830,7 +830,7 @@
     if (button.disabled) return;
     if (chatImageBusy) {feedback(message,'照片还在压缩，请稍等一下。',true); return;}
     if (!question && !chatImage) {feedback(message,'请先写下你的问题，或拍一张照片。',true); $('#chat-question').focus(); return;}
-    if (!externalConsent()) {feedback(message,'请先到「我的 → 数据、外观与说明」开启外部模型授权。',true); return;}
+    if (!externalConsent()) {feedback(message,'请先到「我的 → 更多设置 → 数据管理」开启外部模型授权。',true); return;}
     if (question.length > 2000) {feedback(message,'问题请控制在 2000 字以内。',true); return;}
     // A sentence describing finished training becomes a draft card; nothing is written until confirmed.
     if (typeof parseTrainingDraft === 'function') {
@@ -890,7 +890,7 @@
     button.disabled = true; feedback(message,'正在保存推送设置…');
     const body = {enabled:form.elements.enabled.checked, morningTime:form.elements.morningTime.value, eveningTime:form.elements.eveningTime.value, weeklyEnabled:form.elements.weeklyEnabled.checked, weeklyDay:Number(form.elements.weeklyDay.value) || 7, weeklyTime:form.elements.weeklyTime.value, analysisEnabled:form.elements.analysisEnabled.checked};
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(body.morningTime) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(body.eveningTime)) {feedback(message,'请输入 24 小时制时间，例如 07:00 与 20:30。',true); button.disabled = false; return;}
-    if (body.analysisEnabled && state.settings.apiConfigured !== true) {feedback(message,'后台自动分析需要先在「我的 → 模型连接」保存 API Key。',true); button.disabled = false; return;}
+    if (body.analysisEnabled && state.settings.apiConfigured !== true) {feedback(message,'后台自动分析需要先在「我的 → AI 模型与密钥」保存 API Key。',true); button.disabled = false; return;}
     if (body.enabled) {
       const granted = await ensureNotificationPermission();
       if (!granted) feedback(message,'已保存设置，但系统通知权限未允许：请到手机「设置 → 应用 → 轻衡 → 通知」开启，否则到点不会有提醒。',true);

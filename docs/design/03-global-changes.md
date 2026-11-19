@@ -186,3 +186,6 @@
 | 2026-11-19 | `tests/week-switch.test.mjs` | 新增 5 条：折叠块不再列 AI 的逐动作理由、标题改为「这周怎么排的」、理由仍在今日顺序每行、`aiPlanEntries` 已删、`previewDay`/`aiEntries` 残骸归零 | 用户反馈「会展示当天动作安排，切预览日期不变会误导」；块里的按天内容要么跟着预览日走，要么删掉——选了删 |
 | 2026-11-19 | `tests/training-library.test.mjs` | `the why block reflects the AI order`（断言 `aiPlanEntries` 存在 + `plan-why-ai` 存在）→ `the AI order reasons live on the order rows`（断言 `ai-plan-reason` 存在且 `plan-why-ai` 已消失） | 折叠块不再重复 AI 的逐动作理由：它只讲一周口径，按天的理由留在「今日顺序」每行；旧断言保护的正是被删的行为 |
 | 2026-11-19 | `tests/meal-date-java.test.mjs` | `APP_VERSION = '1.4.05'` → `'1.4.06'` | 发布版本同步 |
+| 2026-11-19 | 新增 `tests/explain-text.test.mjs` | 说明文本只有一个字号口径（`.card p.fine-print` 等比 `.card p` 更具体）、相邻说明收距、`.note-safe` 存在且≥3 处、指路只指向存在的入口、外发开关在 `subpage-data` 内、三条重复文案不再回来 | 1.4.07 解释性文本收口：旧文案把入口写成「数据、外观与说明」，运行时该 hub 已被拆成「更多设置 → 数据管理」 |
+| 2026-11-19 | `tests/p0-p1-round.test.mjs` | `the data/appearance summary has an icon`（断言 app 含「数据、外观与说明」）→ `settings pointers name entries that exist`（断言含「我的 → 更多设置 → 数据管理」且不再含旧名） | 旧断言守的正是失效指路文案；入口在 `installSubpageLayout` 里被搬走 |
+| 2026-11-19 | `tests/meal-date-java.test.mjs` | `APP_VERSION = '1.4.06'` → `'1.4.07'` | 发布版本同步 |

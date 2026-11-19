@@ -983,3 +983,18 @@
 - 验收：assemble 通过；test-all 71/71；aesthetic-audit `OK（无阻塞项）`，仅 WARN「强调色收敛 11 处 accent token 声明」（既有，非本轮引入）；dev-loop 1.4.06/406 装机、smoke 无 JS 错误；logcat 无 `Uncaught/SyntaxError/ReferenceError`。真机：`build/r127-04.png`（19 号展开「这周怎么排的」只有周口径三段，无动作清单）、`build/r127-05.png`（切到六 21 后要点变「11-21（拉）」三条、该块内容不变且不再提 19 号的动作）。
 - 教训：改「某块内容要跟选中项变」之前，先确认这块在点击时有没有被重渲染——只改取值不改宿主，等于只改了首屏。
 - APK：`dist/qingheng-1.4.06.apk`（631 KB）；回滚：`git revert <本轮提交>`。
+
+## r128 · 2026-11-19 · 1.4.06 → 1.4.07（解释性文本：分类成册，修失效指路与字号漂移）
+- 用户原话：「整理并分类APP中的解释性文本，并尝试优化或删除不影响用户使用的解释性文本，优化文本布局排版。」
+- 先盘点：`index.html` 67 处 `fine-print`、123 个 `<p>`；`fragments` 里 32 处 `fine-print`、46 处 `hint`。用一次性脚本把静态段落按 view 抽成清单（`build/text-inventory.md`、`build/view-*.html.txt`，均在 gitignore 内），再逐条判处置。
+- 分类落到 `docs/design/28-explanatory-text.md`：口径 `why` / 边界 `safe` / 隐私 `privacy` / 操作 `how` / 状态 `state` / 来源 `src` 六类，每类给「写什么、长度上限、放哪、什么样式」；三条硬规则：一段一件事、同一事实不写第二遍、指路必须指向存在的入口。
+- 四个真问题（都不是长短问题）：
+  1. **指路指向不存在的入口**：6 处文案写「我的 → 数据、外观与说明」，运行时该 hub 已被拆开，`installSubpageLayout` 把 `data`/`about` 两行搬进「更多设置」子页——用户照做找不到。统一改成「我的 → 更多设置 → 数据管理」；问答页那句「我的 → 模型连接」也改「AI 模型与密钥」（`模型连接` 只是子页小标题）。
+  2. **外发授权开关放错页**：`#settings-consent` 物理上在「外观皮肤」卡片里，而皮肤卡会被搬进「外观与餐次时间」子页。移到「数据管理」子页介绍句下方（只保留 id，JS 按 id 绑定，无需改逻辑）。
+  3. **说明文本字号随容器漂移**：`.card p`（0,1,1）压过 `.fine-print`（0,1,0），于是同一个类在卡片内是 13.5px、卡片外是 11px；另外 `styles.css` 第 91 行还藏着第二处 `.fine-print{…line-height:1.8}`。收成一条 `.card p.fine-print,p.fine-print,details p.fine-print{…}`，并删掉散落声明。
+  4. **同屏重复**：记录页「会标记为「复制」。」与上句重复（并入引导句）；数据管理页「浏览器演示只把记录存在本机、不保存密钥。」对 APK 用户无意义（删）；致谢里的免责与同页「说明」重复（删一句，免责在应用里原本出现 6 次）。
+- 排版：相邻两条说明 `.fine-print + .fine-print{margin-top:2px}`；新增 `.note-safe`（左侧 2px 发丝线）标记「边界句」，用在 BMI/体脂、问答免责、训练要点三处，让「提醒」与「数据」在视觉上分开。
+- 断言：新增 `tests/explain-text.test.mjs`（14 条，守字号单一口径、收距、`.note-safe` 用法、指路只指向存在的入口、开关在 data 子页内、三条重复文案不回来）；`tests/p0-p1-round.test.mjs` 的旧断言（守「数据、外观与说明」这个失效文案）按新契约改写。两处登记 §5.1。
+- 验收：assemble 通过；test-all 72/72；aesthetic-audit `OK（无阻塞项）`，3 条 WARN 均为既有（卡片阴影 6 处、字号 10 级、accent 11 处）；dev-loop 1.4.07/407 装机、smoke 无 JS 错误。真机：`build/r128-13.png`（数据管理页——外发开关就在这里，「浏览器演示」句已消失，说明文字比正文小一号）、`build/r128-15.png`（问答说明里免责句带左侧竖线）、`build/r128-11.png`+`r128-12.png`（路径 我的 → 更多设置 → 数据管理）。
+- 未验证：记录页「复制一餐」卡的合并句只由断言守（该卡默认折叠，没截到）；`.note-safe` 在账本/夜间皮肤下的观感未单独截图。
+- APK：`dist/qingheng-1.4.07.apk`；回滚：`git revert <本轮提交>`。

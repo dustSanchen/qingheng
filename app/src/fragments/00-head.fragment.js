@@ -78,7 +78,7 @@
   // ---- Default meal slot ----------------------------------------------------------------
   // Which meal a new record starts on, by the clock: before lunchFrom breakfast, then lunch,
   // from dinnerFrom dinner, from snackFrom a snack. Three thresholds, editable in
-  // 我的 → 数据、外观与说明.
+  // 我的 → 数据管理.
   const MEAL_WINDOW_KEY = 'qingheng.mealWindow';
   /** 长期偏好：一句话一条，最多 20 条，注入估算/建议/训练的提示词。 */
   const PREFERENCES_KEY = 'qingheng.preferences';
@@ -621,7 +621,7 @@
   const consentBox=id=>document.getElementById(id==='ob-allow'?'ob-allow':id+'-consent');
   function restoreConsent(){const ids=readConsent();for(const id of consentIds){const box=consentBox(id);if(!box)continue;box.checked=ids.has(id);const row=box.closest('[data-consent-once]');if(row)row.hidden=false;box.addEventListener('change',()=>{const next=readConsent();if(box.checked)next.add(id);else next.delete(id);persistConsent(next);});}}
   function acceptConsent(id){const ids=readConsent();ids.add(id);persistConsent(ids);const box=consentBox(id);if(box)box.checked=true;setExternalConsent(true);}
-  // 外发授权只问一次：向导里勾过，之后开关在「我的 → 数据、外观与说明」。
+  // 外发授权只问一次：向导里勾过，之后开关在「我的 → 数据管理」。
   const EXTERNAL_CONSENT_KEY = 'qingheng.consent.external';
   function externalConsent() {
     try {

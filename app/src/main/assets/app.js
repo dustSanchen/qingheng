@@ -78,7 +78,7 @@
   // ---- Default meal slot ----------------------------------------------------------------
   // Which meal a new record starts on, by the clock: before lunchFrom breakfast, then lunch,
   // from dinnerFrom dinner, from snackFrom a snack. Three thresholds, editable in
-  // 我的 → 数据、外观与说明.
+  // 我的 → 数据管理.
   const MEAL_WINDOW_KEY = 'qingheng.mealWindow';
   /** 长期偏好：一句话一条，最多 20 条，注入估算/建议/训练的提示词。 */
   const PREFERENCES_KEY = 'qingheng.preferences';
@@ -621,7 +621,7 @@
   const consentBox=id=>document.getElementById(id==='ob-allow'?'ob-allow':id+'-consent');
   function restoreConsent(){const ids=readConsent();for(const id of consentIds){const box=consentBox(id);if(!box)continue;box.checked=ids.has(id);const row=box.closest('[data-consent-once]');if(row)row.hidden=false;box.addEventListener('change',()=>{const next=readConsent();if(box.checked)next.add(id);else next.delete(id);persistConsent(next);});}}
   function acceptConsent(id){const ids=readConsent();ids.add(id);persistConsent(ids);const box=consentBox(id);if(box)box.checked=true;setExternalConsent(true);}
-  // 外发授权只问一次：向导里勾过，之后开关在「我的 → 数据、外观与说明」。
+  // 外发授权只问一次：向导里勾过，之后开关在「我的 → 数据管理」。
   const EXTERNAL_CONSENT_KEY = 'qingheng.consent.external';
   function externalConsent() {
     try {
@@ -1852,7 +1852,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     if (box) {box.value = String(row.question || ''); box.focus();}
     window.scrollTo({top: 0, behavior: 'smooth'});
     if (typeof externalConsent === 'function' && externalConsent()) {await sendChat();}
-    else notice('问题已填回输入框；到「我的 → 数据、外观与说明」开启外部模型授权后点「提问」即可重新生成。');
+    else notice('问题已填回输入框；到「我的 → 更多设置 → 数据管理」开启外部模型授权后点「提问」即可重新生成。');
   }
   let chatQuery = "";
   /** 按日期分组，组内保持倒序（最新在前）。 */
@@ -1973,7 +1973,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
       // instead of showing the raw text, even if the stored record was never repaired.
       const raw = String(row.answer || '');
       const answer = /^(?:[\s\u200b-\u200f\u2060\ufeff]*null){3,}/i.test(raw)
-        ? '这次回答没有正确返回（模型只返回了思考过程，没有输出内容）。请重新提问；如果反复出现，请在「我的 → 模型连接」换一个非推理模型。'
+        ? '这次回答没有正确返回（模型只返回了思考过程，没有输出内容）。请重新提问；如果反复出现，请在「我的 → AI 模型与密钥」换一个非推理模型。'
         : raw;
       if (streamExpandedAnswer && row.question === streamExpandedAnswer.question && answer === streamExpandedAnswer.answer) {
         streamExpandedAnswer.row = row;
@@ -2009,7 +2009,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     if (node) {
       const base = state.settings.apiConfigured === true
         ? '已配置模型：确认上方已勾选同意即可提问；问题与部分健康数据会发送给该服务商，按 token 计费。'
-        : '尚未配置 API Key：请先到「我的 → 模型连接」保存密钥；本地记录功能不受影响。';
+        : '尚未配置 API Key：请先到「我的 → AI 模型与密钥」保存密钥；本地记录功能不受影响。';
       node.textContent = base;
     }
   }
@@ -2131,7 +2131,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     if (button.disabled) return;
     if (chatImageBusy) {feedback(message,'照片还在压缩，请稍等一下。',true); return;}
     if (!question && !chatImage) {feedback(message,'请先写下你的问题，或拍一张照片。',true); $('#chat-question').focus(); return;}
-    if (!externalConsent()) {feedback(message,'请先到「我的 → 数据、外观与说明」开启外部模型授权。',true); return;}
+    if (!externalConsent()) {feedback(message,'请先到「我的 → 更多设置 → 数据管理」开启外部模型授权。',true); return;}
     if (question.length > 2000) {feedback(message,'问题请控制在 2000 字以内。',true); return;}
     // A sentence describing finished training becomes a draft card; nothing is written until confirmed.
     if (typeof parseTrainingDraft === 'function') {
@@ -2191,7 +2191,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     button.disabled = true; feedback(message,'正在保存推送设置…');
     const body = {enabled:form.elements.enabled.checked, morningTime:form.elements.morningTime.value, eveningTime:form.elements.eveningTime.value, weeklyEnabled:form.elements.weeklyEnabled.checked, weeklyDay:Number(form.elements.weeklyDay.value) || 7, weeklyTime:form.elements.weeklyTime.value, analysisEnabled:form.elements.analysisEnabled.checked};
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(body.morningTime) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(body.eveningTime)) {feedback(message,'请输入 24 小时制时间，例如 07:00 与 20:30。',true); button.disabled = false; return;}
-    if (body.analysisEnabled && state.settings.apiConfigured !== true) {feedback(message,'后台自动分析需要先在「我的 → 模型连接」保存 API Key。',true); button.disabled = false; return;}
+    if (body.analysisEnabled && state.settings.apiConfigured !== true) {feedback(message,'后台自动分析需要先在「我的 → AI 模型与密钥」保存 API Key。',true); button.disabled = false; return;}
     if (body.enabled) {
       const granted = await ensureNotificationPermission();
       if (!granted) feedback(message,'已保存设置，但系统通知权限未允许：请到手机「设置 → 应用 → 轻衡 → 通知」开启，否则到点不会有提醒。',true);
@@ -5278,7 +5278,7 @@ const values = points.length<=7 ? points.map((item,i) => {
         if (jump) {
           // 「用 AI 排今天」就地排：跳页再让用户点第二次，是最伤直觉的一步。
           if (jump.dataset.todayPlan === "ai" && typeof askAiPlan === "function") {
-            if (!externalConsent()) { notice("请先到「我的 → 数据、外观与说明」开启外部模型授权。"); return; }
+            if (!externalConsent()) { notice("请先到「我的 → 更多设置 → 数据管理」开启外部模型授权。"); return; }
             askAiPlan(jump);
             return;
           }
@@ -6325,7 +6325,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.06';
+  const APP_VERSION = '1.4.07';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -6802,7 +6802,7 @@ function metricIcon(label) {
   }
   async function askAiPlan(button) {
     if (!button) return;
-    if (!externalConsent()) { notice("请先到「我的 → 数据、外观与说明」开启外部模型授权。"); return; }
+    if (!externalConsent()) { notice("请先到「我的 → 更多设置 → 数据管理」开启外部模型授权。"); return; }
     button.disabled = true;
     const original = button.textContent;
     button.textContent = "正在排…";
@@ -7369,7 +7369,7 @@ function metricIcon(label) {
     if (draft) chips.after(draft);
   }
   /**
-   * 我的 is a list of entries, so the low-frequency block is one too: 数据、外观与说明 opens its own
+   * 我的 is a list of entries, so the low-frequency block is one too: 数据管理 opens its own
    * sub-page exactly like 模型连接 (same .subpage shell, same 21px hub icon, same back header)
    * instead of unfolding a second-level details inside the list.
    */
@@ -8225,8 +8225,8 @@ function metricIcon(label) {
     event.preventDefault();const form=event.currentTarget,button=$('button[type=submit]',form),message=$('#estimate-feedback');if(estimateBusy || savingDraft || !form.reportValidity())return;
     if(imageBusy){feedback(message,'图片仍在压缩，请稍等。',true);return;}
     if(!loaded || !settingsKnown){feedback(message,'尚未加载手机模型配置，请重新打开应用后再估算。',true);return;}
-    if(imageData && (!state.settings.apiConfigured || !state.settings.visionEnabled || !state.settings.visionModel)){feedback(message,'照片需要已启用的视觉模型：请到「我的 → 模型连接」为所选服务商填写并启用支持图片的模型。',true);return;}
-    if(imageData && !externalConsent()){feedback(message,'照片估算需要外部模型：请到「我的 → 数据、外观与说明」开启授权。',true);return;}
+    if(imageData && (!state.settings.apiConfigured || !state.settings.visionEnabled || !state.settings.visionModel)){feedback(message,'照片需要已启用的视觉模型：请到「我的 → AI 模型与密钥」为所选服务商填写并启用支持图片的模型。',true);return;}
+    if(imageData && !externalConsent()){feedback(message,'照片估算需要外部模型：请到「我的 → 更多设置 → 数据管理」开启授权。',true);return;}
     if(imageData && !navigator.onLine){feedback(message,'当前离线，照片无法识别；请移除照片并用明确克重文字做本地估算。',true);return;}
     const text=form.elements.text.value.trim();if(!text && !imageData){feedback(message,'请描述餐食或添加一张图片。',true);return;}
     if(draft && !await askConfirm('新估算会替换当前未保存的预览，继续吗？', {title:'替换预览'}))return;
@@ -8485,7 +8485,7 @@ feedback(message,'数据已导入。'+report);
       event.preventDefault();
       const question = input.value.trim();
       if (!question) {feedback(feedbackBox, '先写一句要问的训练问题。', true); return;}
-      if (!externalConsent()) {feedback(feedbackBox, '请先到「我的 → 数据、外观与说明」开启外部模型授权。', true); return;}
+      if (!externalConsent()) {feedback(feedbackBox, '请先到「我的 → 更多设置 → 数据管理」开启外部模型授权。', true); return;}
       feedback(feedbackBox, '正在生成…');
       const button = form.querySelector('button[type="submit"]');
       if (button) button.disabled = true;
