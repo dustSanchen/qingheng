@@ -1457,3 +1457,11 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 验收：dev-loop 1.4.62/462 装机；真机排课出清单 5 个动作 14 组；截图 `build/v161-fast-plan.png`、`build/v162-locate.png`。
 - 遗留：14 组折算 48 分钟，超设定 45 分钟 3 分钟（本地校验器容忍 +3），要不要把容差收紧到 +0，待定。
 - APK：`dist/qingheng-1.4.62.apk`，650461 B，sha256 `f3c73aa6643c7f4d51d6ffc893a74d6edbb3d6f7be0b322107b3f54d9bc1e115`。
+## r180 · 2026-11-19 · 1.4.63（建议输出 A：关思考 + 删 4 倍重试）
+- 用户：「先A」——A 方案：建议路径显式关思考，并删掉「空回复就 ×4 预算重试一次」的路径。
+- 改动：`ChatCompletion.complete` 新增 `thinking` 重载；`MainActivity.chat` 新增带 thinking 的版本（旧的 4 参重载默认 true，行为不变）；`advice()` 改成 `chat(..., CAP_ADVICE, false)`，并删掉 catch 里 `CAP_ADVICE * 4` 的重试——空回复直接抛错，由前端本地规则兜底。
+- 实测（真机 1.4.63，今天页点「获取建议」）：**advice 1159ms / 81 字**。对比历史：本机曾记录 4,414ms 与 16,197ms（同一条提示词、同一模型，差别就是思考）。输出质量未见下降：一句评价 + 两条动作 + 「已带上 1 条偏好」，与提示词要求的结构一致。
+- 断言：`ai-upgrade` 新增 3 条（建议关思考、4 倍重试已删、complete 暴露 thinking 开关）；81/81。
+- 验收：dev-loop 1.4.63/463 装机；截图 `build/v163-advice-result.png`；logcat `advice 1159ms chars=81 cap=700`。
+- 未验证：连续多次调用时的稳定性（空回复兜底是否真会触发）、周复盘是否该保留思考（本轮未动）。
+- APK：`dist/qingheng-1.4.63.apk`，650464 B，sha256 `4cbce614844c8e0c13202ee45f79caec49e5fc8e17f410864fb095f4726d204f`。

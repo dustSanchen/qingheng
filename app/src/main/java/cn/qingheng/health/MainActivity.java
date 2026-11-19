@@ -3250,7 +3250,12 @@ import java.util.concurrent.Executors;
      * rather than a quality trade: it only cuts the model's room to ramble past the answer.
      */
     private String chat(JSONObject c, String model, JSONArray messages, int maxTokens) throws Exception {
-        JSONObject result = ChatCompletion.complete(c, apiKey(c.optString("provider", provider())), model, messages, maxTokens);
+        return chat(c, model, messages, maxTokens, true);
+    }
+
+    /** 1.4.63：短文本任务（建议）显式关思考；thinking 也要走 complete 的同一条路径。 */
+    private String chat(JSONObject c, String model, JSONArray messages, int maxTokens, boolean thinking) throws Exception {
+        JSONObject result = ChatCompletion.complete(c, apiKey(c.optString("provider", provider())), model, messages, maxTokens, thinking);
         recordUsage(result.optJSONObject("usage"), model);
         return result.getString("content");
     }
@@ -3685,14 +3690,9 @@ import java.util.concurrent.Executors;
                 .put(new JSONObject().put("role", "system").put("content", adviceSystemPrompt() + (b.optBoolean("relaxDay", false) ? "\n\n今天是用户本周的放松日：吃得比目标多是计划内的，不要说教、不要建议第二天节食或加练去补偿。" : "") + preferenceSuffix(b)))
                 .put(new JSONObject().put("role", "user").put("content", input.toString()));
         long adviceStarted = System.currentTimeMillis();
-        String summary;
-        try {
-            summary = chat(c, c.getString("model"), messages, CAP_ADVICE).trim();
-        } catch (Exception first) {
-            // 模型把预算全用在思考过程上时 content 会是空的：放宽上限重试一次，别让建议卡直接空着。
-            if (!EMPTY_REPLY.equals(first.getMessage())) throw first;
-            summary = chat(c, c.getString("model"), messages, CAP_ADVICE * 4).trim();
-        }
+        // 建议是 40 字的动作句：不需要思考。以前默认开着思考，小预算下还会空回复、再用 4 倍预算重试一次，
+        // 于是「一句话建议」要等十几到几十秒。现在显式关思考，空回复直接交给前端本地兜底。
+        String summary = chat(c, c.getString("model"), messages, CAP_ADVICE, false).trim();
         android.util.Log.i("qingheng", "advice " + (System.currentTimeMillis() - adviceStarted) + "ms chars=" + summary.length() + " cap=" + CAP_ADVICE);
         if (summary.length() > 8000) throw fail("API 建议过长");
         JSONArray output = adviceMessages(summary);

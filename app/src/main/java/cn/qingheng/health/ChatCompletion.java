@@ -44,6 +44,12 @@ public final class ChatCompletion {
         return completeMessage(config, apiKey, model, messages, null, maxTokens);
     }
 
+    /** 短文本、结构化输出这类任务不需要思考：显式传 false 可把 20 秒级降到 1~2 秒（1.4.63）。 */
+    public static JSONObject complete(JSONObject config, String apiKey, String model, JSONArray messages,
+                                      int maxTokens, boolean thinking) throws Exception {
+        return completeMessage(config, apiKey, model, messages, null, maxTokens, thinking);
+    }
+
     /**
      * Same call, but optionally advertises tools and returns the whole assistant message so the
      * caller can run the tool loop. The API never executes a tool itself.

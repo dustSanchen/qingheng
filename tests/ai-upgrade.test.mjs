@@ -62,5 +62,9 @@ check('a short entity question skips the rewrite call', main.includes('if (isSin
 check('the heuristic refuses long questions', main.includes('question.length() > 14) return false;'));
 check('the heuristic refuses interrogatives', main.includes('"多少", "怎么", "如何"'));
 
+// 1.4.63：建议路径关思考，且删掉「空回复 ×4 预算」的重试（那是把拖延写进代码）。
+check('advice disables thinking', main.includes('CAP_ADVICE, false') && main.includes('boolean thinking'));
+check('the slow 4x retry is gone', !main.includes('CAP_ADVICE * 4'));
+check('complete exposes a thinking switch', completion.includes('int maxTokens, boolean thinking') && completion.includes('if (!thinking) disableThinking'));
 console.log('\nFAIL total: ' + fail);
 process.exitCode = fail ? 1 : 0;
