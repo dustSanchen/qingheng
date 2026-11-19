@@ -169,7 +169,7 @@ button.food-result.list-row:hover,button.food-result.list-row:active{background:
 .voice-panel{animation:voice-rise var(--dur-base) var(--ease-out)}
 @keyframes voice-rise{from{transform:translateY(18px);opacity:.6}to{transform:translateY(0);opacity:1}}
 .voice-bars{display:flex;align-items:flex-end;justify-content:center;gap:6px;height:54px;margin:14px 0 4px}
-.voice-bars span{display:block;width:7px;border-radius:8px;background:linear-gradient(180deg,var(--accent),var(--tone-weight));height:12px;animation:voice-level var(--dur-pulse) ease-in-out infinite}
+.voice-bars span{display:block;width:7px;border-radius:8px;background:var(--accent);height:12px;animation:voice-level var(--dur-pulse) ease-in-out infinite}
 .voice-bars span:nth-child(2){animation-delay:.15s}.voice-bars span:nth-child(3){animation-delay:.3s}.voice-bars span:nth-child(4){animation-delay:.45s}.voice-bars span:nth-child(5){animation-delay:.6s}
 @keyframes voice-level{0%,100%{height:12px;opacity:.55}50%{height:46px;opacity:1}}
 .voice-status{margin:8px 0 0;text-align:center;font-size:13px;font-weight:var(--fw-semibold);color:var(--ink)}
@@ -1269,9 +1269,9 @@ details:not(.day-more)[open]>summary::after{transform:rotate(180deg)}
 details:not(.day-more)>summary:active::after{background:var(--accent-line);border-color:var(--line-strong);transform:scale(.92)}
 details:not(.day-more)[open]>summary:active::after{transform:rotate(180deg) scale(.92)}
 @media (prefers-reduced-motion: reduce){details:not(.day-more)>summary::after{transition:none}}
-.inline-busy{display:flex;align-items:center;gap:10px;margin:10px 0 0;padding:10px 14px;border-radius:999px;background:var(--surface-soft);border:1px solid var(--line);position:relative;overflow:hidden}
+.inline-busy{display:flex;align-items:center;gap:10px;margin:10px 0 0;padding:10px 14px;border-radius:12px;background:var(--surface-soft);border:1px solid var(--line);position:relative;overflow:hidden}
 .inline-busy[hidden]{display:none}
-.inline-busy::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);transform:translateX(-100%);animation:busy-sheen var(--dur-pulse) ease-in-out infinite}
+
 .busy-ring{width:16px;height:16px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--accent);animation:busy-spin var(--dur-spin) linear infinite;flex:0 0 auto}
 .inline-busy-text{font-size:var(--text-sm);color:var(--body-text);letter-spacing:var(--tracking-label)}
 .inline-busy.estimate-progress{display:block;border-radius:8px;padding:11px 13px}

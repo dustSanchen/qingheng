@@ -42,7 +42,7 @@ check('原生提示词也按休息折算，不再数动作个数',
 
 // --- P2 日期文案与两套清单的关系 -----------------------------------------------------------------
 check('采纳按钮按所看日期取名', training.includes("把 ' + esc(dayLabel(activeDate)) + ' 这节采纳到"));
-check('一键排课按所看日期取名', training.includes("一键排课 · 写入' + esc(dayLabel(activeDate)) + '起 "));
+check('排进本周按所看日期取名', training.includes("排进本周 · 写入' + esc(dayLabel(activeDate)) + '起 "));
 check('能量卡按所看日期取名', rest.includes('const noteDay = typeof dayLabel === "function" ? dayLabel(activeDate) : "今天";'));
 check('两套清单有了关系说明', training.includes('两者不一致时以今日顺序为准'));
 

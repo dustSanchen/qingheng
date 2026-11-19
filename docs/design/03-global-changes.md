@@ -217,3 +217,4 @@
 | 2026-11-19 | `tests/plan-shared-template.test.mjs` | 组数断言从「整节课 6~10」改为「每部位 6~10 + 60 分钟 12~20 组」 | 建议 #4：提示词把每部位口径误写成整节课上限 |
 | 2026-11-19 | `tests/targets.test.mjs` | 新增「周均随训练天数变化」 | 建议 #7：周均固定 4 练 3 休 |
 | 2026-11-19 | `tests/onboarding-backup.test.mjs` | 新增 3 条：首日快速记录引导、今日空态记一餐动作、ACWR/平台期阈值常量 | 审视建议 #1 首日死路与阈值集中化 |
+| 2026-11-19 | `tests/plan-from-today.test.mjs`、`tests/plan-shared-template.test.mjs` | 按钮文本断言 `一键排课` → `排进本周` | 去 AI 味批次 1 文案替换 |

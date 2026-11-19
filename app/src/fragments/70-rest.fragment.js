@@ -154,7 +154,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.21';
+  const APP_VERSION = '1.4.22';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -2543,7 +2543,7 @@ feedback(message,'数据已导入。'+report);
     if (!button) return;
     const plan = lastWeekPlan;
     if (!plan) return;
-    const ok = await askConfirm('将把 ' + plan.days.length + ' 次训练写入 ' + plan.startDate + ' 起的一周（每天一条训练记录），继续？', {title: '一键排课'});
+    const ok = await askConfirm('将把 ' + plan.days.length + ' 次训练写入 ' + plan.startDate + ' 起的一周（每天一条训练记录），继续？', {title: '排进本周'});
     if (!ok) return;
     button.disabled = true;
     try {

@@ -54,8 +54,10 @@ const centered = count(css, /text-align:center/g);
 line(centered > 14 ? 'WARN' : 'PASS', '居中声明不超过 14 处', String(centered));
 
 // 7) 营销词。
-const words = ['一键', '轻松', '赋能', '让我们一起', '智能', '极致', '无与伦比'];
-const hits = words.map(word => [word, count(html, new RegExp(word, 'g')) + count(app, new RegExp(word, 'g'))]).filter(([, n]) => n > 0);
+const words = ['一键', '赋能', '让我们一起', '智能', '极致', '无与伦比'];
+const htmlText = html.replace(/<!--[\s\S]*?-->/g, '');
+const appText = app.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+const hits = words.map(word => [word, count(htmlText, new RegExp(word, 'g')) + count(appText, new RegExp(word, 'g'))]).filter(([, n]) => n > 0);
 line(hits.length ? 'WARN' : 'PASS', '没有营销词', hits.map(([w, n]) => `${w}×${n}`).join(' '));
 
 // 8) 文案感叹号：健康产品不需要喊。

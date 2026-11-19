@@ -1309,7 +1309,7 @@
     // 一键排课：1.3.44 把 7 行表格换成周条时，这个按钮留在了一段死表达式里，handler 一直在、按钮再也
     // 没渲染出来。2026-11-18 顺手接回来：写入的是「今天起 7 天」，确认框里写清日期。
     const scheduleHtml = plan.days.length
-      ? '<div class="button-row"><button type="button" class="button subtle full-width" data-plan-schedule="1">一键排课 · 写入' + esc(dayLabel(activeDate)) + '起 ' + plan.days.length + ' 次训练</button></div>'
+      ? '<div class="button-row"><button type="button" class="button subtle full-width" data-plan-schedule="1">排进本周 · 写入' + esc(dayLabel(activeDate)) + '起 ' + plan.days.length + ' 次训练</button></div>'
       : '';
     // 两套清单同屏容易混：先说清谁是谁、冲突时听谁的，再让用户读数据。
     const relationHtml = plan.days.length
@@ -1378,7 +1378,7 @@
     box.innerHTML = rows.length ? rows.map(row => {
       const label = `${row.date === shiftDay(activeDate,-1) ? '昨天' : String(row.date).slice(5)} · ${mealNames[row.mealType] || '餐食'} · ${stripQuickTag(row.name) || '未命名'}`;
       return `<button type="button" class="button subtle" data-copy-meal="${esc(row.id ?? '')}">${esc(label)}</button>`;
-    }).join('') : empty('还没有可复制的餐食记录', '记下一餐后，这里会列出来供一键复制。');
+    }).join('') : empty('还没有可复制的餐食记录', '记下一餐后，这里会列出来可直接复制。');
   }
   /** Copies one meal to the viewed date with a fresh id; totals and items are carried over as-is. */
   async function copyMeal(id) {
