@@ -189,3 +189,4 @@
 | 2026-11-19 | 新增 `tests/explain-text.test.mjs` | 说明文本只有一个字号口径（`.card p.fine-print` 等比 `.card p` 更具体）、相邻说明收距、`.note-safe` 存在且≥3 处、指路只指向存在的入口、外发开关在 `subpage-data` 内、三条重复文案不再回来 | 1.4.07 解释性文本收口：旧文案把入口写成「数据、外观与说明」，运行时该 hub 已被拆成「更多设置 → 数据管理」 |
 | 2026-11-19 | `tests/p0-p1-round.test.mjs` | `the data/appearance summary has an icon`（断言 app 含「数据、外观与说明」）→ `settings pointers name entries that exist`（断言含「我的 → 更多设置 → 数据管理」且不再含旧名） | 旧断言守的正是失效指路文案；入口在 `installSubpageLayout` 里被搬走 |
 | 2026-11-19 | `tests/meal-date-java.test.mjs` | `APP_VERSION = '1.4.06'` → `'1.4.07'` | 发布版本同步 |
+| 2026-11-19 | `tests/ci-and-versions.test.mjs` | 新增 3 条：关于页写作者与仓库地址、页面/许可都写「严禁二次转售」、README 保留 631 KB 与签名指纹 | 1.4.09 开源化：关于页与页脚补作者信息与 GitHub 地址，许可证改为「源码可见 + 禁止转售」；README 成为对外展示页，下载与签名事实必须可核对 |

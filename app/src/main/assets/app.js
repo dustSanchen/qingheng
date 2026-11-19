@@ -6325,7 +6325,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.08';
+  const APP_VERSION = '1.4.09';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -6362,7 +6362,7 @@ function metricIcon(label) {
       model.textContent = settings.apiConfigured === true ? `${provider} · 已配置${settings.visionEnabled === true ? '（含图片）' : ''}` : `${provider} · 未配置`;
     }
     const about = $('#hub-summary-about');
-    if (about) about.textContent = `v${APP_VERSION} · 本机存储`;
+    if (about) about.textContent = `v${APP_VERSION} · 作者与许可`;
   }
   /** Shows which prompt/口径/anchors produced the records, and when the last backup was made. */
   async function loadVersions() {

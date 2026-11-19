@@ -1006,3 +1006,17 @@
 - 验：assemble + `node --check` 通过；`node tools/test-all.mjs` 72/72；`node tools/aesthetic-audit.mjs` OK（无阻塞项，WARN 为既有）；dev-loop 构建 1.4.08/408 成功，手动 `adb install -r` 覆盖后 `versionName=1.4.08 / versionCode=408`；smoke 阶段未见 JS 错误。真机截图：`build/shot-today-408.png`、`build/shot-records-408.png`、`build/shot-profile-408.png`、`build/shot-chat-408.png`。
 - 未验证：截图已保存，但当前模型无法读取图片，故未对视觉密度效果做人工复核；建议下轮打开截图检查 360–420px 宽度下卡片留白与字体是否仍显拥挤或过松。
 - APK：`dist/qingheng-1.4.08.apk`；回滚：`git revert <本轮提交>`。
+
+
+## r130 · 2026-11-19 · 1.4.09（开源展示页：源码可见、禁止转售、安装包进 GitHub）
+- 用户原话：「优化当前APP的github展示页，利用先前生成的展示网页，确保APP不会被轻易复刻的情况下开源，并放入最新版本安装包至github中」；随后补充「并在APP中添加作者信息与github网址，严禁二次转售」。
+- 许可是这轮的取舍核心：MIT / AGPL 都允许转售，与「严禁二次转售」直接冲突。于是 LICENSE 改为自写的「轻衡软件许可 1.0（源码可见，禁止转售）」——允许个人非商业阅读/修改/自建；禁止二次转售、再分发安装包、商业利用、品牌冒用；商业使用需书面许可。
+- README.md 重写为对外门户：徽章更新到 1.4.09 / 72 测试 / 631 KB / 「源码可见·禁止转售」；新增下载表（版本、包名、SHA-256、签名证书指纹）、展示页与 Release 链接；「作者与许可」段写清允许与禁止各四条；构建命令同步到 1.4.09/409。
+- site/index.html（既有展示网页）更新：期号 1.4.09、安装包 631 KB、测试 72 项、工程表同步、导航与 CTA 加下载按钮（指向 releases/latest）、页脚补作者与 GitHub 地址、许可文案改为「源码公开 · 禁止二次转售」；新增 1.4.06 与 1.4.09 两条设计台账。
+- APP 内补作者与许可：index.html 关于页新增「作者与许可」段（作者 散尘、GitHub 地址、禁止二次转售），页脚补一行作者与仓库链接；70-rest 的关于摘要改为「vX · 作者与许可」。
+- 开源前的清理：删除仓库根散落文件  )counts.pushHistory++；把 docs/design/01-audit.md 与两个 one-off 脚本里的个人邮箱替换为「<已删除>」。仓库不含 .signing、API Key 或健康记录。
+- 断言：	ests/ci-and-versions.test.mjs 新增 3 条（关于页写作者与仓库地址、页面与许可都写「严禁二次转售」、README 保留当前版本、签名指纹与许可），已登记  3-global-changes.md §5.1。
+- 验收：assemble 14 片段；
+ode tools/test-all.mjs 72/72；dev-loop 1.4.09/409 装机成功、smoke 无 JS 错误；design-audit.mjs site/index.html 18/18 PASS；esthetic-audit 仅既有 WARN（卡片阴影 6 处、字号 10 级、token 外硬编码）。
+- 未验证：关于页/页脚在真机上的排版未截图核对（导入链接与新增两行说明只由断言守）。
+- APK：dist/qingheng-1.4.09.apk（646365 B，sha256 78cde93a99754119f95b2f7bdc83f15d53d6eed6dc21fdb0975842b5247f952）。

@@ -16,7 +16,7 @@ s = s.replace(old_range, new_range)
 
 old_footer = '<p>所有信息仅供日常记录参考，不能替代医疗诊断与专业指导。</p></footer>'
 new_footer = ('<p>所有信息仅供日常记录参考，不能替代医疗诊断与专业指导。</p>'
-              '<p class="page-author">作者：散尘 · 邮箱：<a href="mailto:877638452@qq.com">877638452@qq.com</a></p></footer>')
+              '<p class="page-author">作者：散尘 · 邮箱：<已删除></p></footer>')
 assert s.count(old_footer) == 1, 'profile footer markup changed'
 s = s.replace(old_footer, new_footer)
 html.write_text(s, encoding='utf-8')
