@@ -5017,6 +5017,27 @@ const values = points.length<=7 ? points.map((item,i) => {
     }
     return prefix + '休息';
   }
+  /**
+   * 周条下方那块「那天练什么 + 动作要点」。要点按那天周计划里实际要做的动作点名，
+   * 所以计划换一版、动作变了，要点内容也跟着变；那天是休息日就直说，不硬凑要点。
+   */
+  function weekCueHtml(day, plan) {
+    if (!day) return '';
+    const planDay = (plan && Array.isArray(plan.days) ? plan.days : []).find(item => item && item.date === day) || null;
+    const label = dayLabel(day);
+    if (!planDay) return '<p class="fine-print">' + esc(label) + ' 是休息日，不排动作要点。</p>';
+    const cues = typeof libraryCuesFor === 'function' ? libraryCuesFor(planDay) : [];
+    const templateCues = !cues.length && typeof libraryCues === 'function' ? libraryCues(planDay.template) : [];
+    const body = cues.length
+      ? '<ul class="plan-cue-list">' + cues.map(cue =>
+        '<li><b>' + esc(cue.name) + '</b><span class="plan-cue-text">' + annotateTerms(esc(cue.text)) + '</span></li>').join('') + '</ul>'
+      : (templateCues.length
+        ? annotateTerms('<p class="plan-cue">' + templateCues.map(cue => esc(cue)).join('；') + '</p>')
+        : '');
+    if (!body) return '';
+    const head = esc(label + '（' + (TRAINING_TEMPLATES[planDay.template] || planDay.template) + '）的动作要点');
+    return '<details class="plan-why plan-cue-block" id="week-cues" open><summary>' + head + '</summary>' + body + '</details>';
+  }
 
   /** Five-metric check for the selected day, plus the single action to take. */
   function renderDailyCheck() {
@@ -5445,16 +5466,15 @@ const values = points.length<=7 ? points.map((item,i) => {
         + '<p class="fine-print">负荷比 = 近 7 天 ÷ 近 4 周平均负荷；0.8–1.3 为维持区。</p>';
     })();
     const suggestedNote = plan.days.some(day => day.suggested) ? '<p class="fine-print">带「建议」的动作来自训练库（该模板你还没有记录），先按 3 组建立基线。</p>' : '';
-    // 依据与说明沉到默认折叠的 details 里：首屏只留数据。
-    // 要点与理由都跟着「今天或下一个训练日」走：周计划第一天是周一，直接用 days[0] 会在休息日
-    // 弹出与今天无关的提示，读起来像凭空冒出来的警告。
-    const cueDay = plan.days.find(day => day.date === activeDate)
-      || plan.days.find(day => day.date > activeDate)
-      || plan.days[0];
+    // 预览日：点周条只换「看哪天」，不动 activeDate——页面不跳、周条窗口也不挪，随时能点回今天。
+    const previewStart = startDate;
+    const previewEnd = shiftDay(previewStart, 7);
+    if (!weekDetailDay || weekDetailDay < previewStart || weekDetailDay >= previewEnd) weekDetailDay = activeDate;
+    const previewDay = plan.days.find(day => day.date === weekDetailDay) || null;
     // 先回答「你排的那份清单为什么这么排」：AI 排的顺序带着它自己给的理由；
     // 没有 AI 清单时，才解释这一周按规则是怎么来的。
     const aiEntries = (() => {
-      const wanted = [cueDay && cueDay.date, activeDate].filter(Boolean);
+      const wanted = [previewDay && previewDay.date, activeDate].filter(Boolean);
       for (const day of wanted) {
         const list = aiPlanEntries(day);
         if (list.length) return {day, list};
@@ -5467,32 +5487,15 @@ const values = points.length<=7 ? points.map((item,i) => {
         + '<ol class="plan-why-ai">' + aiEntries.list.slice(0, 6).map(item =>
           '<li><b>' + esc(item.name) + '</b><span>' + esc(item.reason || '按训练库安排') + '</span></li>').join('') + '</ol>'
       : '';
-    // 2026-11-17：要点与依据合成一块「这份计划怎么来的」，不再让用户读两处。
     const whyBody = aiWhy
       + '<p class="plan-why-lead">为什么这样排：' + (aiWhy ? '这一周的框架按训练库与你最近两周的记录生成。' : '这一周按训练库与你最近两周的记录生成。') + '</p>'
       + '<p>' + esc(plan.note) + '</p>'
       + (Array.isArray(plan.reasons) ? plan.reasons.map(reason =>
         '<p>' + esc(reason.text) + '</p>').join('') : '');
-    // 要点跟着「今天或下一个训练日」走：优先按那天实际要做的动作点名给要点。
-    const cues = (typeof libraryCuesFor === 'function' && cueDay) ? libraryCuesFor(cueDay) : [];
-    const templateCues = !cues.length && (typeof libraryCues === 'function' && cueDay) ? libraryCues(cueDay.template) : [];
-    // 标签按「正在看的那天」取名：只有日历上的今天才写「今天」，否则写日期——
-    // 切到别的一天还挂着「今天（推）」正是这次要修的回显错误。那天是休息日就写清要点属于下一个训练日。
-    const today = localDate();
-    const cueIsViewed = !!(cueDay && cueDay.date === activeDate);
-    const cuePrefix = !cueDay ? "" : cueDay.date === today ? "今天"
-      : cueIsViewed ? activeDate.slice(5) : "下一个训练日（" + cueDay.date.slice(5) + "）";
-    const cueLabel = cueDay
-      ? esc(cuePrefix + "（" + (TRAINING_TEMPLATES[cueDay.template] || cueDay.template) + "）的动作要点")
-      : "";
-    const cueBody = cues.length
-      ? '<ul class="plan-cue-list">' + cues.map(cue =>
-        '<li><b>' + esc(cue.name) + '</b><span class="plan-cue-text">' + annotateTerms(esc(cue.text)) + '</span></li>').join('') + '</ul>'
-      : (templateCues.length
-        ? annotateTerms('<p class="plan-cue">' + templateCues.map(cue => esc(cue)).join('；') + '</p>')
-        : '');
-    const explainHtml = '<details class="plan-why plan-cue-block"' + (cueIsViewed ? ' open' : '') + '><summary>' + (cueBody ? cueLabel : '这份计划怎么来的') + '</summary>'
-      + cueBody + whyBody + '</details>';
+    // 要点跟着周条上选中的那天走，按那天计划里实际要做的动作点名：计划换一版、动作变了，要点跟着变。
+    const cueHtml = weekCueHtml(weekDetailDay, plan);
+    // 「怎么来的」单独折叠：要点是每次看都要读的，理由是按需才读的。
+    const whyHtml = '<details class="plan-why"><summary>这份计划怎么来的</summary>' + whyBody + '</details>';
     // 本周安排：完全按用户偏好生成；没有偏好就不出方案。
     const planBox = $("#week-plan");
     if (planBox && !planBox.dataset.adoptWired) {
@@ -5500,15 +5503,21 @@ const values = points.length<=7 ? points.map((item,i) => {
       planBox.addEventListener("click", event => {
         const cell = event.target.closest("[data-week-day]");
         if (cell) {
-          // 2026-11-19（用户：切日期要回显那天的动作要点与当天训练日志，并能改）：
-          // 点周条不再只是「换一行预览」，而是把那天切成正在看的那天——要点、训练日志表单
-          // 与今日顺序都读 activeDate，切过去就一起跟，改完直接保存到那一天。
+          // 2026-11-19（用户：点 21 号页面不要跳，能点回 19；下方显示那天练什么 + 那天的动作要点）：
+          // 只换「看哪天」，不动 activeDate——周条窗口还从原来那天起算，页面也不跳。
           const day = cell.dataset.weekDay || "";
           if (!day) return;
           weekDetailDay = day;
-          if (typeof setActiveDate === "function") { setActiveDate(day); return; }
+          for (const node of planBox.querySelectorAll("[data-week-day]")) {
+            const on = node.dataset.weekDay === day;
+            node.classList.toggle("is-selected", on);
+            node.setAttribute("aria-pressed", String(on));
+          }
           const detail = $("#week-detail");
           if (detail) detail.textContent = weekDetailHtml(day, lastWeekPlan);
+          // 要点整块换掉：内容按那天的动作重算，不重渲染整页，避免闪一下和滚动位置丢失。
+          const cueHost = $("#week-cues-host");
+          if (cueHost) cueHost.innerHTML = weekCueHtml(day, lastWeekPlan);
           return;
         }
         const button = event.target.closest("[data-adopt-today]");
@@ -5526,8 +5535,6 @@ const values = points.length<=7 ? points.map((item,i) => {
       // 而是一条 7 格周条——训练日一根绿短线、已练实心、今天加深；点某格在下面换一行详情。
       // 2026-11-18：周条改成「从今天起的 7 天」，与计划同日出发，标题也从「下周安排」改回「本周安排」。
       const weekStartPlan = startDate;
-      // 选中的格子始终是「正在看的那天」：点周条会切 activeDate，不再单独保存预览状态。
-      weekDetailDay = activeDate;
       const cells = [];
       for (let offset = 0; offset < 7; offset++) {
         const day = shiftDay(weekStartPlan, offset);
@@ -5574,7 +5581,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     const relationHtml = plan.days.length
       ? '<p class="fine-print">上面按偏好与最近记录排周框架，下面的「今日顺序」是模型照它排的执行顺序；两者不一致时以今日顺序为准。</p>'
       : '';
-    box.innerHTML = annotateTerms(thisWeekHtml + goalRequirementHtml + relationHtml + explainHtml + acwrHtml + driftHtml + adoptHtml + suggestedNote + scheduleHtml);
+    box.innerHTML = annotateTerms(thisWeekHtml + goalRequirementHtml + relationHtml + '<div id="week-cues-host">' + cueHtml + '</div>' + whyHtml + acwrHtml + driftHtml + adoptHtml + suggestedNote + scheduleHtml);
   }
 
   /** Load and plateau warnings shown above the weight chart. */
@@ -6342,7 +6349,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.03';
+  const APP_VERSION = '1.4.04';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
