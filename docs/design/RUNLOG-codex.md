@@ -1289,3 +1289,13 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 验收：test-all 74/74；dev-loop 1.4.37/437 装机成功、smoke 无 JS 错误。
 - 未验证：动作条在能量卡与时段提醒之间的 8px 节奏、能量环改为「kcal」后的观感需真机。
 - APK：dist/qingheng-1.4.37.apk（638173 B，sha256 2e73d1c74e3f4b990062715055479784e926f3a54f824db818d969691dd37607）。
+
+## r161 · 2026-11-19 · 1.4.38（今日页：按钮上移、训练摘要并排、说明收束）
+- 快捷动作从能量卡下方上移到标题之后、能量卡之前（energyCard.before），order 1；记一餐文字改 ar(--paper) 白字，训练/身体保持描边。
+- 训练摘要从能量卡底部的 fine-print 上移到标题下方，与餐数/热量并排一行（.today-meta-row flex）；文案去掉重复的「今天」，改为「训练 N 个动作 · 容量 X kg」，仍可点击跳记录。
+- 碳水下方解释从「参考上限约 X g（热量目标扣除蛋白质与脂肪）」缩为「参考上限约 X g」；.macro-target 加 6px 上距，解释不与数值贴在一起。
+- 时段提醒边注加强：12→13px、--body-text、左边线 3px --accent-line、上下 12px；仍是边注，不是卡片。
+- 断言：layout-four 的插入点 energyCard.after → energyCard.before，登记 §5.1。
+- 验收：test-all 74/74；dev-loop 1.4.38/438 装机成功、smoke 无 JS 错误。
+- 未验证：标题下 meta + 训练摘要并排在 360px 屏是否换行、动作条上移后与标题的 12px 节奏需真机。
+- APK：dist/qingheng-1.4.38.apk（638173 B，sha256 26dab19b4ec6d1c5fe9d4af799e87dd7895024ef293eadfd168bae01759a6d3a）。

@@ -1493,7 +1493,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
       const rows = habit && Array.isArray(habit.exercises) ? habit.exercises : [];
       const volume = typeof trainingVolumeOf === 'function' ? trainingVolumeOf(rows) : 0;
       trainingLine.hidden = !rows.length;
-      trainingLine.textContent = rows.length ? `今天训练 ${rows.length} 个动作 · 容量 ${fmt(volume, 0)} kg` : '';
+      trainingLine.textContent = rows.length ? `训练 ${rows.length} 个动作 · 容量 ${fmt(volume, 0)} kg` : '';
 
     }
     $('#calorie-value').textContent = fmt(totals.calories,0);
@@ -1551,7 +1551,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
         : '';
       actionBox.innerHTML = parts.length ? '<p class="energy-hint">' + esc(parts[0]) + '</p>' + note : '';
     }
-    $('#macro-summary').innerHTML = [['protein','蛋白质',p.proteinMin,p.proteinMax],['fat','脂肪',p.fatMin,p.fatMax],['carbs','碳水',null,carbCap(p, range)]].map(([key,label,min,max]) => {const value = totals[key], progress = value !== null && number(max)>0 ? Math.min(100,value/max*100) : 0; return `<div><span class="macro-label">${label}</span><div class="macro-value">${fmt(value)} <small>g</small></div><div class="progress-track"><span data-progress="${progress}"></span></div><span class="macro-target">${min !== null && number(min)!==null && number(max)!==null ? `目标 ${fmt(min)}–${fmt(max)} g` : key === 'carbs' ? (number(max)>0 ? `参考上限约 ${fmt(max,0)} g（热量目标扣除蛋白质与脂肪）` : '设置热量目标后显示进度') : '目标未设置'}</span></div>`;}).join('');
+    $('#macro-summary').innerHTML = [['protein','蛋白质',p.proteinMin,p.proteinMax],['fat','脂肪',p.fatMin,p.fatMax],['carbs','碳水',null,carbCap(p, range)]].map(([key,label,min,max]) => {const value = totals[key], progress = value !== null && number(max)>0 ? Math.min(100,value/max*100) : 0; return `<div><span class="macro-label">${label}</span><div class="macro-value">${fmt(value)} <small>g</small></div><div class="progress-track"><span data-progress="${progress}"></span></div><span class="macro-target">${min !== null && number(min)!==null && number(max)!==null ? `目标 ${fmt(min)}–${fmt(max)} g` : key === 'carbs' ? (number(max)>0 ? `参考上限约 ${fmt(max,0)} g` : '设置热量目标后显示进度') : '目标未设置'}</span></div>`;}).join('');
     $$('#macro-summary [data-progress]').forEach(node => {node.style.width=`${Number(node.dataset.progress)}%`;});
     const measurements = state.measurements.filter(item => validDate(item.date) && item.date <= activeDate).sort((a,b) => b.date.localeCompare(a.date));
     const weight = latestField(measurements,'weight'), waist = latestField(measurements,'waist'), bodyFat = latestField(measurements,'bodyFat');
@@ -6278,7 +6278,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.37';
+  const APP_VERSION = '1.4.38';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -7305,7 +7305,7 @@ function metricIcon(label) {
       ['icon-glyph-training.svg', '训练', 'training-form', ''],
       ['icon-glyph-balance.svg', '身体', 'measurement-weight', '']
     ].filter(([, , focus]) => focus !== 'training-form' || trainingEnabled()).map(([icon, label, focus, className = '']) => `<button type="button" class="quick-chip ${className}" data-quick-focus="${focus}" data-quick-icon="${icon}"><span class="quick-chip-icon" aria-hidden="true">${iconMarkup(icon)}</span>${label}</button>`).join('');
-    energyCard.after(row);
+    energyCard.before(row);
     row.addEventListener('click', event => {
       const chip = event.target.closest('[data-quick-focus]');
       if (!chip) return;

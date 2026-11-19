@@ -223,3 +223,4 @@
 | 2026-11-19 | `tests/layout-four.test.mjs` | 品牌页头断言 → running head；新增 folio 断言 | 书页化阶段 0：品牌行 → 日期页眉 + 版心 + 页脚 |
 | 2026-11-19 | `tests/records-panels.test.mjs` | hub-row 内边距 `16px 18px` → `16px 20px` | 大间距离格从 83 压到 60，18px 属离格值 |
 | 2026-11-19 | `tests/layout-four.test.mjs` | 快捷动作插入点 `energyBody.after(row)` → `energyCard.after(row)` | 快捷记录移出能量卡，避免把卡片切成两半 |
+| 2026-11-19 | `tests/layout-four.test.mjs` | 快捷动作插入点 `energyCard.after` → `energyCard.before` | 用户要求三个按钮上移到标题下方 |

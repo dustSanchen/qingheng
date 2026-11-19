@@ -1854,3 +1854,15 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 .energy-detail p:first-child{margin:0 0 4px;font-size:var(--text-sm);color:var(--body-text)}
 .energy-detail p:first-child strong{font-size:var(--text-lg);font-variant-numeric:tabular-nums}
 .energy-detail .muted{font-size:var(--text-xs)}
+
+/* 今日页：训练摘要与标题并排；快捷动作上移；提醒边注加强（2026-11-19） */
+.today-meta-row{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.today-meta-row .masthead-meta{margin:0}
+.today-training-line{font-size:var(--text-xs);color:var(--muted);padding:0;border:0;background:transparent;text-align:left}
+.today-training-line:hover{color:var(--ink-soft)}
+#view-today #today-quick-actions{order:1;margin:0 0 12px}
+#view-today .energy-card{order:2}
+#view-today #daily-check-card{order:4}
+#view-today #today-quick-actions .quick-chip-primary{color:var(--paper)}
+#view-today .slot-hint{order:3;font-size:var(--text-sm);color:var(--body-text);border-left:3px solid var(--accent-line);padding:4px 0 4px 12px;margin:0 0 12px}
+.macro-target{margin-top:6px;line-height:1.45}
