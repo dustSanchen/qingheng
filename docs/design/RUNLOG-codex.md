@@ -1062,4 +1062,4 @@ otifyHealthResult、两个桥方法、/api/health-connect/* 路由、healthConne
 - 断言：meal-date-java 的 15 条 HC 正向断言改为 4 条「已移除」守护（文件不存在、无 health 权限、无 HC 路由/桥、无 rationale）；onboarding-backup 改为两项且无 health；wizard-action-bar 的权限上限断言去掉 HC；ci-and-versions 改「作者 + 源码公开」「无源码链接」「禁止转售」「pages 脚本只碰 gh-pages」。全部登记 §5.1。
 - 验收：assemble 14 片段；test-all 72/72；dev-loop 1.4.12/412 装机成功、smoke 无 JS 错误；aapt2 dump 确认 APK 无 health.* 权限；design-audit site 18/18。APK 631 KB → 623 KB（638174 B）。
 - 未验证：真机权限卡只剩两项的实际排版未截图；以后要恢复 HC 需从 git 历史取回 HealthConnectSync.java 与对应桥接代码。
-- APK：dist/qingheng-1.4.12.apk（sha256 82e057d28c1cacd1387697041143f6e606c62306362aa40fd1c22a61c37b2216）。
+- APK：dist/qingheng-1.4.12.apk（sha256 82e057d28c1cacd1387697041143f6e606c62306362aa40fd1c22a61c37b2216）。- 发布：public master 用 --force-with-lease 从发行版孤儿提交切回全量源码历史（1264 个文件，含 app/ tests/ tools/ docs/，无 HealthConnectSync）；publish-pages.ps1 刷新 gh-pages；Release 1.4.12 上传 qingheng-1.4.12.apk（638174 B）。GitHub Pages 约 1 分钟后生效（复核 1.4.12 / 623 KB / 源码公开）。
