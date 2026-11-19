@@ -9,11 +9,11 @@
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
   <div class="app-shell">
-    <div class="running-head"><span id="running-date">—</span><span class="status-chip" id="connection-status" hidden>正在加载本地记录</span></div>
+    <div class="running-head"><span id="running-date">—</span><label class="date-jump"><span>换一天</span><input type="date" id="active-date" required aria-label="查看日期"></label><span class="status-chip" id="connection-status" hidden>正在加载本地记录</span></div>
     <div class="notice" id="global-notice" role="status" aria-live="polite" hidden><span id="global-notice-text"></span><button type="button" class="button subtle notice-action" id="global-notice-action" hidden></button><button type="button" class="notice-close" id="global-notice-close" aria-label="关闭提示" title="关闭">×</button></div>
     <div id="render-error" class="render-error" role="alert" hidden><span id="render-error-text">页面渲染出错</span><div id="render-error-body"></div><button type="button" class="button subtle" id="render-error-retry">重新加载</button></div><main id="main" tabindex="-1">
       <section id="view-today" class="view" aria-labelledby="today-title">
-        <div class="page-heading"><div><h1 id="today-title">今天</h1><p class="masthead-meta" id="today-meta"></p></div><label class="date-picker">查看日期<input type="date" id="active-date" required></label></div>
+        <div class="page-heading"><div><h1 id="today-title">今天</h1><p class="masthead-meta" id="today-meta"></p></div></div>
         <div class="dashboard-grid">
           <div class="slot-hint" id="slot-hint"><span class="slot-time" id="slot-time">—</span><span class="slot-text" id="slot-text">—</span></div>
         <article class="card energy-card"><div class="card-heading"><h2>今日能量</h2></div><div class="energy-body"><div class="energy-ring" id="energy-ring"><div><strong id="calorie-value" class="count-roll" data-count>—</strong><span>已记录 kcal</span></div></div><div class="energy-detail"><p>每日目标 <strong id="calorie-target">—</strong> kcal <span class="target-note" id="calorie-basis"></span></p><p class="muted" id="calorie-caption">记录一餐，让今天更清晰。</p><p class="fine-print" id="calorie-action"></p></div></div><div class="macro-grid" id="macro-summary"></div><p class="fine-print"><button type="button" class="text-button" id="today-training-line" hidden></button></p></article><article class="card" id="daily-check-card"><div class="card-heading"><h2>今日体检</h2><span class="tag" id="daily-check-tag">—</span></div><div id="daily-check"><p class="muted">正在计算…</p></div></article>

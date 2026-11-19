@@ -1464,10 +1464,11 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     const runningDate=$('#running-date');
     const day=new Date(activeDate+'T00:00:00');
     const week='日一二三四五六'[day.getDay()];
-    if (runningDate) runningDate.textContent=`${day.getMonth()+1} 月 ${day.getDate()} 日 · 周${week}`;
+    const cnNum=n=>{const d='零一二三四五六七八九'; if(n<10)return d[n]; if(n<20)return '十'+(n%10?d[n%10]:''); return d[Math.floor(n/10)]+'十'+(n%10?d[n%10]:'');};
+    if (runningDate) runningDate.textContent=`${cnNum(day.getMonth()+1)}月${cnNum(day.getDate())}日 · 周${week}`;
     const folioDay=$('#folio-day'); if (folioDay) folioDay.textContent=String(day.getDate());
     const mastheadMeta=$('#today-meta');
-    if (mastheadMeta) mastheadMeta.textContent=`${activeDate===localDate()?'今天':''}${count?` · ${count} 餐`:' · 还没有餐食'}${typeof trainedOn==='function' && trainedOn(activeDate)?' · 训练已记录':''}`.replace(/^ · /,'');
+    if (mastheadMeta) mastheadMeta.textContent=`${count?`${count} 餐`:'还没有餐食'}${typeof trainedOn==='function' && trainedOn(activeDate)?' · 训练已记录':''}`;
     const adviceHint=$('#advice-data-context'); if(adviceHint)adviceHint.textContent=`分析日期：${activeDate} · 已保存 ${count} 条餐食`;
     const adviceNode=$('#advice-content'), stale=$('#advice-stale');
     if (stale) {
@@ -6277,7 +6278,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.25';
+  const APP_VERSION = '1.4.26';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
