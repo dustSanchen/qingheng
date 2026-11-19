@@ -154,7 +154,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.36';
+  const APP_VERSION = '1.4.37';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1169,8 +1169,8 @@
   function installTodayQuickActions() {
     const view = $('#view-today');
     if (!view || $('#today-quick-actions')) return;
-    const energyBody = $('.energy-body', $('.energy-card', view));
-    if (!energyBody) return;
+    const energyCard = $('.energy-card', view);
+    if (!energyCard) return;
     const row = document.createElement('div');
     row.className = 'quick-actions';
     row.id = 'today-quick-actions';
@@ -1181,7 +1181,7 @@
       ['icon-glyph-training.svg', '训练', 'training-form', ''],
       ['icon-glyph-balance.svg', '身体', 'measurement-weight', '']
     ].filter(([, , focus]) => focus !== 'training-form' || trainingEnabled()).map(([icon, label, focus, className = '']) => `<button type="button" class="quick-chip ${className}" data-quick-focus="${focus}" data-quick-icon="${icon}"><span class="quick-chip-icon" aria-hidden="true">${iconMarkup(icon)}</span>${label}</button>`).join('');
-    energyBody.after(row);
+    energyCard.after(row);
     row.addEventListener('click', event => {
       const chip = event.target.closest('[data-quick-focus]');
       if (!chip) return;
