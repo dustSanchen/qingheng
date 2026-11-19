@@ -1039,3 +1039,13 @@ ode tools/test-all.mjs 72/72；dev-loop 1.4.09/409 装机成功、smoke 无 JS �
 - 验收：test-all 72/72；dev-loop 1.4.11/411 装机成功、smoke 无 JS 错误；APK 内 index.html 含「作者 Sanchen」「不提供源码」且不含 github 链接；design-audit site 18/18。
 - 未验证：公开仓旧的源码提交仍可能按 SHA 访问（GitHub 不会立即 GC 不可达对象）；要彻底清除需删除重建仓库或联系 GitHub 支持。
 - APK：dist/qingheng-1.4.11.apk（646366 B，sha256 106ff8110aa1a04f91267037e0b26df9bbff818231a723b1ba14f798f57e9378）。
+
+## r132 · 2026-11-19 · 1.4.11（主页改成产品页：截图、功能、用途与实现路径）
+- 用户反馈：许可段「本仓库只发布…目的是让应用不被直接改造成他人项目」写得太直白；并要「在主页用展示页的结果布局优化显示，优先美观推销 APP 的构成功能、用途与实现路径」。
+- README 重做为产品主页：首屏 4 张真机截图横排（今天/训练/问答/趋势）→「它解决什么问题」→ 五页功能地图 → 四个每天会用的细节（各配图）→「怎么实现的」数据流图（原生层 / WebView / 本地数据 / 可选 AI）→ 设计取向 → 隐私 → 模型接入 → 下载安装 → 版本验证 → 关于许可 → 已知限制 → 反馈。
+- 许可段改为中性表述：先讲「可以自由下载、安装与分享体验」，再一句「界面、文案与安装包的修改与再发布不在授权范围内，见 LICENSE」，不再解释「防止被改造成他人项目」。
+- 截图来源：从 site/index.html 的 base64 抽出 12 张到 site/shots/*.jpg（约 294 KB），README 以相对路径引用；展示页仍是单文件内联，不改。
+- 工具：	ools/publish-public.ps1 白名单加入 site/shots/*.jpg；	ools/README.md 同步说明。
+- 断言：ci-and-versions 的 README 检查改为「引用截图 + 有 LICENSE + 版本徽章 + 签名指纹」，并新增「截图文件在盘上（≥8 张）」；已登记 §5.1。
+- 验收：test-all 72/72；公开发布成功，public master 现为 README/LICENSE/site/index.html + 12 张截图；raw README 200（6821 B）、截图 200；Pages 仍为 1.4.11。
+- 未验证：GitHub 页面的实际排版未做像素级核对（本模型无法读图），已截 uild/gh-readme.png 供人工复核。
