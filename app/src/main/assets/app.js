@@ -622,6 +622,9 @@
     // 常驻的「已保存到手机」没信息量（数据本来就在本机），刚好还会被误读成已备份到云。
     // 只在「还没加载完」与「浏览器演示」这两种真需要说明的情况下才显示。
     node.hidden = !offline && !demo;
+    // 品牌行去掉后，页眉只剩连接状态：没有状态就整行收起。
+    const header = node.closest('.app-header');
+    if (header) header.hidden = node.hidden;
     node.textContent = offline ? (loadFailed ? '本地记录加载失败：点上方的「重新加载」再试' : '正在加载本地记录') : demo ? '浏览器本地演示' : '';
   }
   function populate(form, values) {for (const [key, value] of Object.entries(values || {})) {const control = form.elements.namedItem(key); if (!control || control.type === 'password' || control.type === 'checkbox') continue; control.value = value ?? '';}}
@@ -1478,6 +1481,16 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     }
     const meals = state.meals.filter(meal => meal.date === activeDate);
     const totals = totalsFor(meals), p = effectiveProfileForDate(activeDate);
+    // 记录页页眉：日期 + 当日摘要（几餐、多少 kcal、训练动作数），不再用口号。
+    const recordsTitle=$('#records-title'), recordsMeta=$('#records-meta');
+    if (recordsTitle) {
+      const day=new Date(activeDate+'T00:00:00');
+      const week='日一二三四五六'[day.getDay()];
+      const habitRow=(state.habits||[]).find(row=>row && row.date===activeDate);
+      const exerciseRows=habitRow && Array.isArray(habitRow.exercises) ? habitRow.exercises : [];
+      recordsTitle.textContent=`${day.getMonth()+1} 月 ${day.getDate()} 日`;
+      if (recordsMeta) recordsMeta.textContent=`周${week}${count?` · ${count} 餐`:' · 还没有餐食'}${Math.round(Number(totals.calories)||0)?` · ${Math.round(Number(totals.calories))} kcal`:''}${exerciseRows.length?` · 训练 ${exerciseRows.length} 个动作`:''}`;
+    }
     // 饮食页也要看得到训练：一行「今天练了什么 / 多少容量」，点进去就是训练面板。
     const trainingLine = $('#today-training-line');
     if (trainingLine) {
@@ -6270,7 +6283,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.23';
+  const APP_VERSION = '1.4.24';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}

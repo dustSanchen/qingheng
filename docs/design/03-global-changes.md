@@ -219,3 +219,4 @@
 | 2026-11-19 | `tests/onboarding-backup.test.mjs` | 新增 3 条：首日快速记录引导、今日空态记一餐动作、ACWR/平台期阈值常量 | 审视建议 #1 首日死路与阈值集中化 |
 | 2026-11-19 | `tests/plan-from-today.test.mjs`、`tests/plan-shared-template.test.mjs` | 按钮文本断言 `一键排课` → `排进本周` | 去 AI 味批次 1 文案替换 |
 | 2026-11-19 | `tests/records-panels.test.mjs` | hub-row 断言不再要求 `box-shadow:none`（只守分隔线/边框与底色） | 阴影清理删掉 none 重置，契约改为形状而非实现细节 |
+| 2026-11-19 | `tests/layout-four.test.mjs` | 「统一品牌页头」→「品牌行已移除、页眉只剩连接状态并会收起」 | 用户要求去掉顶部图标 + 轻衡一行 |

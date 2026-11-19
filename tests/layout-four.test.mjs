@@ -11,11 +11,9 @@ const app = read('app/src/main/assets/app.js');
 const css = read('app/src/main/assets/styles.css');
 const html = read('app/src/main/assets/index.html');
 
-check('all tabs share one compact brand header', html.includes('<img src="./icon.svg" alt="" width="28" height="28">') &&
-  css.includes('.app-header{padding:14px 0 12px;margin-bottom:4px;border-bottom:1px solid var(--line)}') &&
-  css.includes('.brand small{display:none}') && css.includes('.brand img{width:28px;height:28px}') &&
-  css.includes('.brand>span{font-size:var(--text-lg)}') &&
-  !css.includes('html[data-tab]:not([data-tab="today"]) .app-header'));
+check('the top brand row is gone and the header only carries status', !html.includes('class="brand"') && html.includes('id="connection-status"') &&
+   app.includes('header.hidden = node.hidden') &&
+   css.includes('.app-header{padding:8px 0 0;border:0;justify-content:flex-end}'));
 
 // --- 1. today quick actions ---------------------------------------------------------------------------
 check('a quick action row is installed on today', app.includes('function installTodayQuickActions()') && app.includes("row.id = 'today-quick-actions'"));

@@ -198,6 +198,16 @@
     }
     const meals = state.meals.filter(meal => meal.date === activeDate);
     const totals = totalsFor(meals), p = effectiveProfileForDate(activeDate);
+    // 记录页页眉：日期 + 当日摘要（几餐、多少 kcal、训练动作数），不再用口号。
+    const recordsTitle=$('#records-title'), recordsMeta=$('#records-meta');
+    if (recordsTitle) {
+      const day=new Date(activeDate+'T00:00:00');
+      const week='日一二三四五六'[day.getDay()];
+      const habitRow=(state.habits||[]).find(row=>row && row.date===activeDate);
+      const exerciseRows=habitRow && Array.isArray(habitRow.exercises) ? habitRow.exercises : [];
+      recordsTitle.textContent=`${day.getMonth()+1} 月 ${day.getDate()} 日`;
+      if (recordsMeta) recordsMeta.textContent=`周${week}${count?` · ${count} 餐`:' · 还没有餐食'}${Math.round(Number(totals.calories)||0)?` · ${Math.round(Number(totals.calories))} kcal`:''}${exerciseRows.length?` · 训练 ${exerciseRows.length} 个动作`:''}`;
+    }
     // 饮食页也要看得到训练：一行「今天练了什么 / 多少容量」，点进去就是训练面板。
     const trainingLine = $('#today-training-line');
     if (trainingLine) {
