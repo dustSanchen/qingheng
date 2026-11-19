@@ -16,6 +16,9 @@ check('renderPlanTiming runs with the plan render', /function renderAiPlan\(\)[\
 check('a failed run also leaves evidence', /catch \(error\) \{[\s\S]{0,400}qingheng\.planTiming\.[\s\S]{0,200}error:/.test(app));
 check('the toast still carries the numbers', app.includes('耗时 ') && app.includes('首条 '));
 check('both numbers come from the same measurement', app.includes('planFirstRowAt') && app.includes('planTotalMs'));
+check('the wait is staged with real numbers', app.includes('已取 " + (planStageInfo.recordDays') && app.includes('正在按你的口径排'));
+check('the streamed rows take over the busy text', app.includes('if (planShownRows > 0) return;'));
+check('the card also reports sets and minutes after the local check', app.includes('Number(timing.sets)') && app.includes('折算 '));
 
 console.log('\nFAIL total: ' + fail);
 process.exitCode = fail ? 1 : 0;

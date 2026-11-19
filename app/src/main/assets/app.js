@@ -6482,7 +6482,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.50';
+  const APP_VERSION = '1.4.51';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -6872,7 +6872,9 @@ function metricIcon(label) {
     node.hidden = false;
     node.textContent = timing.error
       ? "上次排课失败（" + seconds + " 秒）：" + timing.error
-      : "上次排课耗时 " + seconds + " 秒" + first + " · " + (Number(timing.rows) || 0) + " 个动作";
+      : "上次排课耗时 " + seconds + " 秒" + first + " · " + (Number(timing.rows) || 0) + " 个动作"
+        + (Number(timing.sets) > 0 ? "、" + Number(timing.sets) + " 组" : "")
+        + (Number(timing.minutes) > 0 ? " / 折算 " + Number(timing.minutes) + " 分钟" + (Number(timing.limit) > 0 ? "（上限 " + Number(timing.limit) + "）" : "") : "");
   }
   function aiPlanDose(item) {
     if (item && item.dose) return item.dose; // 旧数据只存了 dose 字符串
@@ -7101,6 +7103,11 @@ function metricIcon(label) {
     const gear = prefs ? (typeof GEAR_LABELS === "object" && GEAR_LABELS[prefs.gear] ? GEAR_LABELS[prefs.gear] : prefs.gear) : null;
     const template = typeof dayTemplateNote === "function" ? dayTemplateNote(date) : "";
     const done = exercisesFor(date).filter(item => item && item.name).map(item => item.name);
+    // 近 28 天有动作记录的天数：用来在等待时给用户一个真实进度（「已取 N 天记录」）。
+    let recordDays = 0;
+    for (let offset = 0; offset < 28; offset++) {
+      if (exercisesFor(shiftDay(date, -offset)).some(item => item && item.name)) recordDays += 1;
+    }
     // 只给该部位相关的基线：跨部位的历史对今天没帮助，还会把 prompt 撑长。
     const family = /腿|蹲|硬拉|臀|提踵/.test(template) ? /深蹲|硬拉|腿|臀|提踵/
       : /拉|背/.test(template) ? /划船|引体|下拉|弯举|面拉/
@@ -7121,7 +7128,7 @@ function metricIcon(label) {
       baselines.length ? "- 该部位基线：" + baselines.join("；") : "- 该部位基线：没有记录，按体重比例给起步重量",
       done.length ? "- 今天已记录：" + done.join("、") : "- 今天还没有训练记录"
     ];
-    return {date, minutes, template, baselines, done, text: lines.join("\n")};
+    return {date, minutes, template, baselines, done, recordDays, sets, text: lines.join("\n")};
   }
   /**
    * 本地校验器（1.4.47）：规则搬出提示词之后，必须在这里兜住。
@@ -7156,11 +7163,22 @@ function metricIcon(label) {
     const original = button.textContent;
     button.textContent = "正在排…";
     showBusy("正在排今天的动作顺序…", "plan-busy");
-    // 首包要等十几秒时，静止的转圈读起来像卡死：每秒把已等秒数写出来。
+    // 首包要等十几秒：把等待拆成可读的阶段，能用真实数字的地方就用真实数字。
     const waitStarted = Date.now();
+    let planStageInfo = null;
+    let planShownRows = 0;
     const tickTimer = setInterval(() => {
+      if (planShownRows > 0) return; // 流式已开始，文案交给 onDelta
       const waited = Math.round((Date.now() - waitStarted) / 1000);
-      if (waited >= 3) showBusy("正在排今天的动作顺序…（已等 " + waited + " 秒）", "plan-busy");
+      if (planStageInfo && waited < 3) {
+        showBusy("已取 " + (planStageInfo.recordDays || 0) + " 天记录、" + (planStageInfo.baselines.length || 0) + " 条基线，正在排…", "plan-busy");
+      } else if (planStageInfo && waited < 8) {
+        showBusy("正在按你的口径排（" + planStageInfo.minutes + " 分钟 · 每部位 " + planStageInfo.sets[0] + "~" + planStageInfo.sets[1] + " 组）…已等 " + waited + " 秒", "plan-busy");
+      } else if (waited < 15) {
+        showBusy("模型在思考，一般 10~15 秒…已等 " + waited + " 秒", "plan-busy");
+      } else {
+        showBusy("模型还在排，已等 " + waited + " 秒（不用重点）", "plan-busy");
+      }
     }, 1000);
     // 慢的时候要说清还在等模型，别让按钮无声地停在「正在排…」。
     const slowTimer = setTimeout(() => showBusy("模型还在排，一般要半分钟左右，请再等一会儿…", "plan-busy"), 12000);
@@ -7178,6 +7196,7 @@ function metricIcon(label) {
       const requestText = String((requestBox && requestBox.value) || "").trim().slice(0, 200);
       // 规则与数据先在本地编译成一张上下文卡；提示词不再贴原始记录（token 与隐私双赢）。
       const context = compilePlanContext(activeDate);
+      planStageInfo = context;
       const library = typeof librarySummary === "function" ? librarySummary(2) : "";
       // 部位只有一个来源：与问答的「训练建议」共用 dayTemplateNote，别再各猜一次。
       const rotationText = typeof dayTemplateNote === "function" ? dayTemplateNote(activeDate) : "";
@@ -7217,6 +7236,7 @@ function metricIcon(label) {
           const rows = partialPlanRows(streamed);
           if (rows.length > shown) {
             shown = rows.length;
+            planShownRows = rows.length;
             if (!planFirstRowAt) planFirstRowAt = Date.now();
             aiPlanStore(activeDate, rows.slice(0, 12).map(planItemFromRow));
             renderAiPlan();
@@ -7254,8 +7274,11 @@ function metricIcon(label) {
       // 耗时写进提示与本地缓存：慢的时候能分开「首条就慢」和「写得长」。
       const planTotalMs = Date.now() - planStarted;
       const firstMs = planFirstRowAt ? planFirstRowAt - planStarted : null;
+      // 本地校验后的真实结果也写进去：几个动作、几组、折算多少分钟、上限多少。
+      const planSets = plan.reduce((sum, item) => sum + (Number(item && item.sets) || 0), 0);
+      const planNeed = typeof planMinutes === "function" ? planMinutes(plan) : null;
       const timingText = "（耗时 " + (planTotalMs / 1000).toFixed(1) + " 秒" + (firstMs !== null ? "，首条 " + (firstMs / 1000).toFixed(1) + " 秒" : "") + "）";
-      try { localStorage.setItem("qingheng.planTiming." + activeDate, JSON.stringify({total: planTotalMs, first: firstMs, rows: plan.length, chars: String((data && data.reply) || "").length, at: new Date().toISOString()})); } catch {}
+      try { localStorage.setItem("qingheng.planTiming." + activeDate, JSON.stringify({total: planTotalMs, first: firstMs, rows: plan.length, sets: planSets, minutes: planNeed, limit: context.minutes, chars: String((data && data.reply) || "").length, at: new Date().toISOString()})); } catch {}
       if (plan.length < 3 && wantMinutes >= 30) {
         notice("模型这次只排了 " + plan.length + " 个动作，比 " + wantMinutes + " 分钟的量少；可以点「修改」补动作，或再点一次重排。" + timingText);
       } else {
