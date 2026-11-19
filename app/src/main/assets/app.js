@@ -6482,7 +6482,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.47';
+  const APP_VERSION = '1.4.48';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -7144,6 +7144,9 @@ function metricIcon(label) {
     // 慢的时候要说清还在等模型，别让按钮无声地停在「正在排…」。
     const slowTimer = setTimeout(() => showBusy("模型还在排，一般要半分钟左右，请再等一会儿…", "plan-busy"), 12000);
     const planBefore = aiPlanStore(activeDate) || [];
+    // 本地计时：慢的时候要能说清是「模型第一句就慢」还是「写得长」，别靠感觉。
+    const planStarted = Date.now();
+    let planFirstRowAt = 0;
     try {
       // 素材也放在 try 里：任何一步抛错都要落进 catch，不能让按钮卡死在「正在排…」。
       const prefs = typeof planPrefs === "function" ? planPrefs() : null;
@@ -7154,7 +7157,7 @@ function metricIcon(label) {
       const requestText = String((requestBox && requestBox.value) || "").trim().slice(0, 200);
       // 规则与数据先在本地编译成一张上下文卡；提示词不再贴原始记录（token 与隐私双赢）。
       const context = compilePlanContext(activeDate);
-      const library = typeof librarySummary === "function" ? librarySummary(4) : "";
+      const library = typeof librarySummary === "function" ? librarySummary(2) : "";
       // 部位只有一个来源：与问答的「训练建议」共用 dayTemplateNote，别再各猜一次。
       const rotationText = typeof dayTemplateNote === "function" ? dayTemplateNote(activeDate) : "";
       const prompt = [
@@ -7175,7 +7178,7 @@ function metricIcon(label) {
         })(),
         requestText ? "用户今天的要求（可能不专业，需要你判断）：" + requestText : "",
         requestText ? "判断原则：先保目标口径（部位轮换、每周组数、时长预算）与安全。要求合理就照办；会挤爆时长、违背轮换或增加受伤风险就不照办，改成更合适的安排，并把一句不超过 40 字的原因写进第一个动作的 note 字段。没有上述情况时不要输出 note。" : "",
-        "每个动作的 reason 只写一句、不超过 12 个字，写为什么排它。",
+        "每个动作的 reason 只写一句、不超过 8 个字，写为什么排它；动作总数按上面的时长装，宁少勿多。",
         "负重（每个配重动作都必须给 weight，不要留空）：①上面有同名记录就按渐进给——上次做到 8 次以上进一档（上肢 +2.5 kg、下肢 +5 kg），6~7 次持平，5 次以下退一档；②只有同族动作的记录就按它的 85% 估；③完全没记录就按体重起步：杠铃卧推 0.5 倍体重、深蹲 0.6、硬拉 0.7、划船 0.45、肩推 0.3，哑铃按单手减半，器械取杠铃的 0.8 倍。",
         "重量要装得出来：杠铃 = 20 kg 空杆 + 每侧 2.5 kg 的整数倍（如 60、65、70），不要给 62.5 这种装不出的数；哑铃按 2 kg、器械按 5 kg 递增。",
         "自重动作（引体向上、俯卧撑、双杠臂屈伸、平板支撑、卷腹）weight 留空，用次数表达进步。",
@@ -7193,6 +7196,7 @@ function metricIcon(label) {
           const rows = partialPlanRows(streamed);
           if (rows.length > shown) {
             shown = rows.length;
+            if (!planFirstRowAt) planFirstRowAt = Date.now();
             aiPlanStore(activeDate, rows.slice(0, 12).map(planItemFromRow));
             renderAiPlan();
             showBusy("已排好 " + shown + " 个动作，继续中…", "plan-busy");
@@ -7226,10 +7230,15 @@ function metricIcon(label) {
       if (typeof renderAdviceOrder === "function") renderAdviceOrder();
       // 模型偶尔只回一两个动作：留着重排的入口，但要说清"这次偏少"，别让用户以为本该如此。
       const wantMinutes = Number(prefs && prefs.minutes ? prefs.minutes : 45) || 45;
+      // 耗时写进提示与本地缓存：慢的时候能分开「首条就慢」和「写得长」。
+      const planTotalMs = Date.now() - planStarted;
+      const firstMs = planFirstRowAt ? planFirstRowAt - planStarted : null;
+      const timingText = "（耗时 " + (planTotalMs / 1000).toFixed(1) + " 秒" + (firstMs !== null ? "，首条 " + (firstMs / 1000).toFixed(1) + " 秒" : "") + "）";
+      try { localStorage.setItem("qingheng.planTiming." + activeDate, JSON.stringify({total: planTotalMs, first: firstMs, rows: plan.length, chars: String((data && data.reply) || "").length, at: new Date().toISOString()})); } catch {}
       if (plan.length < 3 && wantMinutes >= 30) {
-        notice("模型这次只排了 " + plan.length + " 个动作，比 " + wantMinutes + " 分钟的量少；可以点「修改」补动作，或再点一次重排。");
+        notice("模型这次只排了 " + plan.length + " 个动作，比 " + wantMinutes + " 分钟的量少；可以点「修改」补动作，或再点一次重排。" + timingText);
       } else {
-        notice("已按顺序排好今天的 " + plan.length + " 个动作。");
+        notice("已按顺序排好今天的 " + plan.length + " 个动作" + timingText + "。");
       }
     } catch (error) {
       notice("排训练顺序失败：" + (error && error.message ? error.message : "未知错误"));

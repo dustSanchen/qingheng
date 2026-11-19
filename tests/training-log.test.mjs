@@ -71,7 +71,7 @@ check('edit mode can add a blank row and keeps the reason visible', app.includes
 check('only the checkbox uses order:-1 so edit inputs keep their grid slot', css.includes('.ai-plan-row input[type=checkbox]{order:-1') && !css.includes('.ai-plan-row input{order:-1'));
 check('removing a row names it from the edit input too', app.includes('已移除这个动作') && app.includes('nameField.value'));
 check('askAiPlan sees the same baselines as the rule engine', app.includes('function recentExerciseBaselines') && app.includes('compilePlanContext(activeDate)'));
-check('askAiPlan follows the training library', /askAiPlan[\s\S]{0,4200}librarySummary\(4\)/.test(app));
+check('askAiPlan follows the training library', /askAiPlan[\s\S]{0,6000}librarySummary\(2\)/.test(app));
 
 check('AI plan fills missing weights from the last recorded set', app.includes('function planWeightFor') && app.includes('plannedWeightFor(row && row.name)'));check('run km/minutes come from the cardio inputs, not inheritance', app.includes('data-cardio="distance"') && !app.includes('runsByName'));
 
