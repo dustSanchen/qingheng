@@ -1930,3 +1930,5 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 /* 教练说明：模型调整了用户的要求时，一句话解释为什么不照办 */
 .ai-plan-note{margin:var(--space-2) 0 0;padding:2px 0 2px var(--space-2);border-left:2px solid var(--accent-line);color:var(--body-text);font-size:var(--text-sm);line-height:1.6}
 .ai-plan-weight-note{margin:var(--space-2) 0 0}
+/* 上次排课的耗时/失败原因：toast 10 秒就没，这行留在清单上方 */
+.ai-plan-timing{margin:var(--space-1) 0 0;color:var(--muted)}

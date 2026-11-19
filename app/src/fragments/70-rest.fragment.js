@@ -154,7 +154,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.48';
+  const APP_VERSION = '1.4.50';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -532,6 +532,20 @@
     node.hidden = !text;
     node.textContent = text || "";
   }
+  /** 把上一次排课的耗时/失败原因贴在清单上方：toast 只活 10 秒，看完就没了。 */
+  function renderPlanTiming() {
+    const node = $("#ai-plan-timing");
+    if (!node) return;
+    let timing = null;
+    try { timing = JSON.parse(localStorage.getItem("qingheng.planTiming." + activeDate) || "null"); } catch { timing = null; }
+    if (!timing || !Number(timing.total)) { node.hidden = true; node.textContent = ""; return; }
+    const seconds = (Number(timing.total) / 1000).toFixed(1);
+    const first = Number(timing.first) > 0 ? "，首条 " + (Number(timing.first) / 1000).toFixed(1) + " 秒" : "";
+    node.hidden = false;
+    node.textContent = timing.error
+      ? "上次排课失败（" + seconds + " 秒）：" + timing.error
+      : "上次排课耗时 " + seconds + " 秒" + first + " · " + (Number(timing.rows) || 0) + " 个动作";
+  }
   function aiPlanDose(item) {
     if (item && item.dose) return item.dose; // 旧数据只存了 dose 字符串
     const run = [];
@@ -597,6 +611,7 @@
     const box = $("#ai-plan-list"), tag = $("#ai-plan-tag"), clear = $("#ai-plan-clear"), summary = $("#ai-plan-summary");
     if (!box) return;
     renderPlanNote();
+    renderPlanTiming();
     const plan = aiPlanStore(activeDate);
     // 已经有清单时，「用 AI 排今天」不再是主行动：主行动是把清单落成记录。
     // 同一个按钮两种状态，文案也分开（排 / 重排），避免「已经排好了却还在喊排」。
@@ -813,6 +828,12 @@
     const original = button.textContent;
     button.textContent = "正在排…";
     showBusy("正在排今天的动作顺序…", "plan-busy");
+    // 首包要等十几秒时，静止的转圈读起来像卡死：每秒把已等秒数写出来。
+    const waitStarted = Date.now();
+    const tickTimer = setInterval(() => {
+      const waited = Math.round((Date.now() - waitStarted) / 1000);
+      if (waited >= 3) showBusy("正在排今天的动作顺序…（已等 " + waited + " 秒）", "plan-busy");
+    }, 1000);
     // 慢的时候要说清还在等模型，别让按钮无声地停在「正在排…」。
     const slowTimer = setTimeout(() => showBusy("模型还在排，一般要半分钟左右，请再等一会儿…", "plan-busy"), 12000);
     const planBefore = aiPlanStore(activeDate) || [];
@@ -913,8 +934,12 @@
         notice("已按顺序排好今天的 " + plan.length + " 个动作" + timingText + "。");
       }
     } catch (error) {
+      // 失败也要留证据：toast 会消失，卡片上这行不会。
+      try { localStorage.setItem("qingheng.planTiming." + activeDate, JSON.stringify({total: Date.now() - planStarted, first: null, rows: 0, error: String(error && error.message ? error.message : error).slice(0, 80), at: new Date().toISOString()})); } catch {}
+      renderAiPlan();
       notice("排训练顺序失败：" + (error && error.message ? error.message : "未知错误"));
     } finally {
+      clearInterval(tickTimer);
       clearTimeout(slowTimer);
       button.disabled = false;
       button.textContent = original;
