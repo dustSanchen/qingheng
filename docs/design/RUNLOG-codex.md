@@ -1326,3 +1326,11 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 验收：test-all 74/74；dev-loop 1.4.42/442 装机 + smoke 无 JS 错误；截图 `build/today-quick-1.4.42.png`（记一餐紧贴「优先补蛋白：还差 44 g」之下，三枚按钮仍在首屏）。
 - 未验证：空态（当天无餐食）下按钮与矮卡片的相对位置没有实点截图，属代码级推断；ledger/night 皮肤的 12px 节奏。
 - APK：`dist/qingheng-1.4.42.apk`，642,271 B，sha256 `ca6d0351270f4b6edce04f502012f9b3aad342062b391381c795d452d014279a`。
+## r165 · 2026-11-19 · 1.4.43（动作条规格化：三等分、48px、token 圆角）
+- 用户：「优化三个按钮的大小间距样式，要求匹配页面设计」。
+- 诊断（对着 1.4.42 实测截图）：①三枚按内容宽（`repeat(3,auto)` + `justify-content:start`），右缘参差，读成三个大小不一的标签；②高度 44px 却把圆角写死 10px——不在 8/12 圆角阶梯上，也不跟皮肤 token（paper 10 / ledger 12 / night 8）；③字号 12.5px 比卡片正文 13.5px 小一档，48px 高度里偏空；④同一选择器在 1845 行与 1904 行各写一次，靠书写顺序取胜。
+- 改法：合并成一处定义。三等分 `repeat(3,minmax(0,1fr))` 与卡片同宽（动作带读作「这张卡的动作」，不再是页面工具条）、高 48px、`border-radius:var(--shape-ctrl-radius)`、字号 `var(--text-md)` + `var(--fw-medium)`、内边距与 gap 统一 `var(--space-2)`；删掉 1904 行的 auto 覆盖和 1909 行重复的 slot-hint margin。
+- 断言：无改动（layout-four 仍钉插入点与 `.quick-actions` 的三等分基础规则、44px 触达）。
+- 验收：test-all 74/74；aesthetic-audit OK（无阻塞）；dev-loop 1.4.43/443 装机 + smoke 无 JS；截图 `build/today-quick-1.4.43.png`（三枚等宽成带、48px、右缘与卡片对齐）。
+- 未验证：ledger / night 皮肤下的动作条——`#view-today` 的两个 id 会盖掉 `[data-skin="ledger"] .quick-chip` 的底色，1.4.42 起就是如此，本轮仍未实点；360px 窄屏三等分（估算每格约 104px，图标 18 + 8 + 三字 40 + 内边距 16 = 82，应不挤，但没实机核）。
+- APK：`dist/qingheng-1.4.43.apk`，642,270 B，sha256 `64dcb4ff545e61cf4b6739128a97fbf490d75bfe06ed7acba03c08822c313734`。
