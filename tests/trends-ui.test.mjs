@@ -43,6 +43,8 @@ assert(chartTextRules.length >= 2, 'the final chart-text rule is checked, not on
 assert(/var\(--text-sm\)/.test(chartTextRules[chartTextRules.length - 1][1]), 'the last chart-text rule stays at text-sm');
 assert(/\.chart-point\{stroke-width:3\}/.test(css), 'the last chart-point rule stays 3px');
 assert(app.includes("view.classList.toggle('is-subpage'") && css.includes('#view-profile.is-subpage .page-heading'), 'subpages hide the redundant page heading even without :has()');
+assert(css.includes('[data-theme="dark"] input[type=date]::-webkit-calendar-picker-indicator') && css.includes('[data-theme="dark"] img[src^="./icon-"]'), 'night native picker and fixed-color icons are brightened');
+assert(css.includes('@media(max-width:360px){.macro-target') && css.includes('@media(max-width:340px){.skin-pick'), '320px macro and skin-pick fixes stay scoped');
 assert(/\.chart-value\{[^}]*font-size:(12px|var\(--text-sm\))/.test(css), 'per-point value labels are styled');
 assert(/\.chart-point\{[^}]*stroke-width:3\}/.test(css), 'data points are thick enough to see');
 assert(/\.chart-wrap\{[^}]*max-width:560px/.test(css), 'chart does not balloon on wide screens');

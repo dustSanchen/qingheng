@@ -2043,6 +2043,15 @@ details.energy-more p{margin:var(--space-1) 0 var(--space-1);font-size:var(--tex
 .state-block[data-kind="empty"] .state-block-action{margin-top:var(--space-1)}
 [data-skin="ledger"] .state-block[data-kind="empty"]::before,[data-theme="dark"] .state-block[data-kind="empty"]::before{opacity:.6}
 
+/* 9. 夜间原生控件与固定绿色 SVG 的可见性；不新增颜色，只提亮现有资产。 */
+[data-theme="dark"] input[type=date]::-webkit-calendar-picker-indicator,
+[data-theme="dark"] input[type=time]::-webkit-calendar-picker-indicator{filter:invert(1)}
+[data-theme="dark"] img[src^="./icon-"]{filter:brightness(1.55)}
+
+/* 10. 320px 的窄屏收口：宏量单位不孤立换行；皮肤选择改成纵向，避免“账/本结构”断行。 */
+@media(max-width:360px){.macro-target{display:block;text-wrap:balance}}
+@media(max-width:340px){.skin-pick{flex-direction:column}.skin-pick button{width:100%;text-align:left}}
+
 /* 8. 折叠区默认是一行发丝线，只有「控件组」.advanced 保留虚线框；
       来源、说明、更多数据不再各自套一个盒子。 */
 details:where(:not(.advanced):not(.day-more)){border:0;border-radius:0;background:transparent;padding:0}

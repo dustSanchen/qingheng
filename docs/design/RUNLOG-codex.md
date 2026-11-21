@@ -1578,3 +1578,8 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 算法：`localFoodEstimate` 支持“半碗 / 一碗半 / 两片”等中文份量，统一转成数字后使用 `portionGrams`；未知、无标准份量或任一行失败仍整体回退。
 - 测试：`local-food-estimate` 增加半份、一份半、中文数字断言；全量 93/93。
 - 构建：`dist/qingheng-1.4.84.apk`（666,848 B / 651 KB，sha256 `BAFF1E488FAFFE83…`），设备 3cba2bdc 安装 1.4.84，smoke js errors none。未推送、未发 Release。
+## r198 · 2026-11-22 · 1.4.85（前置数量 + 夜间/320 视觉修复）
+- 估算：本地匹配支持“200克米饭 / 半碗米饭”这类数量前置写法；未知、无标准份量或混合未知仍整体回退。
+- 视觉审计（子代理发现，主代理落地）：夜间原生日期/时间选择器图标 `filter:invert(1)`；夜间固定绿色 SVG 图标提亮；320px 宏量单位 `text-wrap:balance`；≤340px 皮肤选择改纵向。
+- 测试：`trends-ui` 增加夜间图标与 320 收口断言；`local-food-estimate` 增加前置数量断言；全量 93/93。
+- 构建：`dist/qingheng-1.4.85.apk`（670,941 B / 655 KB，sha256 `DC633B6D3A7A5668…`），设备 3cba2bdc 安装 1.4.85，smoke js errors none。未推送、未发 Release。

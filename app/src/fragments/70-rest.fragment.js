@@ -161,7 +161,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.84';
+  const APP_VERSION = '1.4.85';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -2353,10 +2353,13 @@
     let rangeNote = '';
     const cnNumbers = {'一': 1, '二': 2, '两': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9, '十': 10};
     for (const part of parts) {
-      const normalizedPart = part
+      let normalizedPart = part
         .replace(/([一二两三四五六七八九十])(个|碗|份|片|根|块|勺|杯)半/g, (_, n, unit) => `${cnNumbers[n] + 0.5}${unit}`)
         .replace(/半(个|碗|份|片|根|块|勺|杯)/g, '0.5$1')
         .replace(/([一二两三四五六七八九十])(?=(个|碗|份|片|根|块|勺|杯))/g, (_, n) => String(cnNumbers[n]));
+      // "200克米饭" is as common as "米饭200克"; normalize the leading amount before parsing.
+      const leading = normalizedPart.match(/^(\d+(?:\.\d+)?)\s*(千克|公斤|kg|克|g|毫升|ml|个|碗|份|片|根|块|勺|杯)\s*(.+)$/i);
+      if (leading) normalizedPart = `${leading[3].trim()} ${leading[1]}${leading[2]}`;
       const match = normalizedPart.match(/^(.*?)\s*(\d+(?:\.\d+)?)\s*(?:[-~至]\s*(\d+(?:\.\d+)?))?\s*(千克|公斤|kg|克|g|毫升|ml|个|碗|份|片|根|块|勺|杯)\s*$/i);
       if (!match) return null;
       const namePart = match[1].replace(/[（(].*?[)）]/g, '').trim();
