@@ -1199,9 +1199,8 @@
       reasonNode.hidden = !(primary && primary.reason);
     }
     node.classList.toggle("is-next", !!primary);
-    const quickPrimaryFocus = primary ? primary.target : "meal-text";
     document.querySelectorAll("#today-quick-actions .quick-chip").forEach(button => {
-      button.classList.toggle("quick-chip-primary", button.dataset.quickFocus === quickPrimaryFocus);
+      button.classList.remove("quick-chip-primary");
     });
     const action = primary ? primary.target : "";
     const clickable = !!action || !!missing.length;

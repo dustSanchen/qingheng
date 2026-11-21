@@ -12,7 +12,7 @@ const check = (label, ok, detail) => {
 const css = fs.readFileSync('app/src/main/assets/styles.css', 'utf8');
 
 check('records/trends/profile share the ruled paper sheet', css.includes('[data-skin="paper"] #view-records,[data-skin="paper"] #view-trends,[data-skin="paper"] #view-profile{position:relative;background-image:repeating-linear-gradient'));
-check('all paper pages share the margin rule', css.includes('#view-profile::before'));
+check('paper pages do not run a continuous margin line through cards', css.includes('[data-skin="paper"] #view-profile::before{display:none}') && !css.includes('background:rgba(138,82,55'));
 check('all paper pages share the header divider', css.includes('[data-skin="paper"] .page-heading{border-bottom:1px solid var(--line)'));
 check('records/training/body first card is a paper hero', css.includes('[data-skin="paper"] #view-records .record-panel:not([hidden]) .card:first-of-type'));
 check('trends chart is a paper hero', css.includes('[data-skin="paper"] #view-trends .card:first-of-type{background:var(--surface)'));

@@ -26,7 +26,7 @@ check('energy summary keeps a responsive two-column layout', css.includes('.ener
 // 2026-11-18：首页「拍照」胶囊删除——「记一餐」那张卡里本来就有添加照片，重复一步。
 for (const label of ['记一餐', '训练', '身体']) check(`chip: ${label}`, app.includes(label));
 check('no camera chip on today', !app.includes("['icon-glyph-camera.svg', '拍照', 'photo']"));
-check('the quick-chip primary follows the agenda, not a fixed meal chip', app.includes('quick-chip-primary') && app.includes('button.dataset.quickFocus === quickPrimaryFocus') && css.includes('.quick-chip.quick-chip-primary{background:var(--accent)'));
+check('the next step is the only primary; quick chips stay shortcuts', app.includes('classList.remove("quick-chip-primary")') && !app.includes('quickPrimaryFocus'));
 check('chips route through the shared record target', app.includes('function openRecordTarget(target, options = {})') && app.includes('openRecordTarget(chip.dataset.quickFocus)'));
 check('the photo entry stays on the meal card', html.includes('id="photo-add"') && html.includes('id="photo-sheet"'));
 check('the training chip scrolls without focusing', app.includes("flashTarget(form.closest('.card'))") && app.includes("revealField(focus, {focus: false, block: 'start'});"));
@@ -77,7 +77,7 @@ check('quick record meal type is an in-dialog chip row, not a native select', ap
 check('today records empty state does not add a dashed inner frame', css.includes('#today-records-card .empty-state.is-empty{border:0;border-radius:0}'));
 
 // --- styles ---------------------------------------------------------------------------------------------
-check('quick actions follow the energy summary without overlaying content', app.includes('energyCard.after(row)') && app.includes('row.after(slotHint)') && css.includes('.quick-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))') && !css.includes('.quick-actions{position:fixed'));
+check('quick actions follow the next-step note without overlaying content', app.includes('energyCard.after(slotHint)') && app.includes('slotHint.after(row)') && css.includes('.quick-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))') && !css.includes('.quick-actions{position:fixed'));
 check('quick action targets stay at least 44px with 8px gaps', css.includes('gap:8px') && css.includes('min-height:52px'));
 check('bottom navigation keeps 52px targets and 8px spacing', /\.bottom-nav button\{[^}]*min-height:52px/.test(css) && /\.bottom-nav\{[^}]*gap:8px/.test(css));
 check('record and trend tabs keep 44px targets and 8px spacing', /\.segment-bar\{[^}]*gap:8px/.test(css) && /\.segment\{[^}]*min-height:44px/.test(css));
