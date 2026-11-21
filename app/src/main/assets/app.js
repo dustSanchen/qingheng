@@ -332,6 +332,14 @@
     hideNotice();
     if (action) action.run();
   });
+  // Three symbols, one geometry contract. Do not add symbols to controls, numbers,
+  // or error/warning copy: those are read as decoration or as a second status.
+  const SYMBOL_USAGE = Object.freeze({
+    empty: {glyph: 'leaf', size: 40},
+    loading: {glyph: 'ring', size: 20, duration: '1.2s linear'},
+    complete: {glyph: 'leaf', size: 24, tone: 'ok'},
+    forbidden: ['buttons/list rows/card badges', 'numbers and units', 'error/warning copy']
+  });
   const feedback = (node, message, error = false) => {
     if (!node) return;
     const value = String(message ?? '');
@@ -341,6 +349,8 @@
     const svgNS = 'http://www.w3.org/2000/svg';
     const leaf = document.createElementNS(svgNS, 'svg');
     leaf.setAttribute('viewBox', '0 0 24 24');
+    leaf.setAttribute('width', String(SYMBOL_USAGE.complete.size));
+    leaf.setAttribute('height', String(SYMBOL_USAGE.complete.size));
     leaf.setAttribute('fill', 'none');
     leaf.setAttribute('stroke', 'currentColor');
     leaf.setAttribute('stroke-width', '1.5');
@@ -1045,7 +1055,7 @@
     // 空态改用图像语言里的「叶」符号（24 网格 / 1.5px 圆头），与其它态共用一套几何；
     // denied / error 仍用文字符号：它们是例外态，不该被当成常规空态被反复看到（2026-10-29）。
     const glyph = kind === "denied" ? "⊘" : kind === "error" ? "!"
-      : '<img src="./icon-glyph-leaf.svg" alt="" width="40" height="40">';
+      : `<img src="./icon-glyph-leaf.svg" alt="" width="${SYMBOL_USAGE.empty.size}" height="${SYMBOL_USAGE.empty.size}">`;
     const role = kind === "error" ? ' role="alert"' : "";
     return `<div class="empty-state is-${esc(kind)}"${role}><span class="empty-icon" aria-hidden="true">${glyph}</span><p class="empty-title">${esc(text)}</p>${hint ? `<p class="empty-hint">${esc(hint)}</p>` : ""}</div>`;
   }
@@ -7170,7 +7180,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.87';
+  const APP_VERSION = '1.4.88';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
