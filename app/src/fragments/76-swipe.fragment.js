@@ -10,7 +10,7 @@
     const SWIPE_RATIO = 1.6;   // 斜着划以纵向滚动为准
     let start = null;
     const blocked = (target) => !!(target && target.closest && target.closest(
-      'input,textarea,select,[contenteditable="true"],.app-dialog,.sheet-panel,.pref-chips,.chips,.segmented,.table-wrap,[data-swipe-ignore]'));
+      'input,textarea,select,[contenteditable="true"],.app-dialog,.sheet-panel,.pref-chips,.chips,.segmented,.table-wrap,#chat-chips,.chat-composer,[data-swipe-ignore]'));
     const currentTab = () => document.querySelector('[data-tab][aria-current="page"]')?.dataset.tab || 'today';
     document.addEventListener('touchstart', (event) => {
       if (event.touches.length !== 1) { start = null; return; }

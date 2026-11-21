@@ -1644,3 +1644,8 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 非对象/数组/非数值/负数/超限行直接拒绝，不进入预览、不写草稿。
 - 新增 `malformed-estimate` 测试；全量 103/103。APK 655 KB，sha256 `9054021FDB3BBAE6…`；真机 1.4.96；30 号清单剩 5 项验证缺口。
 - 未推送、未发 Release。
+## r211 · 2026-11-22 · 1.4.97（Gemini 式问答 composer + 滑动排除）
+- 问答输入改为一个圆角 composer：textarea + 拍照/相册 + 圆形上箭头发送都在同一输入面内；移除右下 132px 大按钮与独立上传盒子。
+- 滑动手势新增 `#chat-chips,.chat-composer` 排除，横向 chip 不再误触整页切换。
+- 修复：Tab 切换聚焦 #main 时不再给整页画 2px 绿框（改为 `#main:focus-visible{outline:none}`）。
+- 全量 103/103；真机 1.4.97 问答截图核对；APK 655 KB，sha256 `7DD808D9FAF5DF21…`；未推送、未发 Release。

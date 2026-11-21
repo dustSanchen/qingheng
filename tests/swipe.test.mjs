@@ -16,7 +16,7 @@ assert(/switchTab\(next, true\)/.test(app), 'the swipe reuses the existing tab t
 
 // 手势不能吃掉输入、浮层与横向滚动的操作，也不能在「我的」二层页里切走。
 assert(/input,textarea,select,\[contenteditable="true"\],\.app-dialog,\.sheet-panel/.test(app), 'inputs and overlays are excluded');
-assert(/\.pref-chips,\.chips,\.segmented,\.table-wrap/.test(app), 'horizontal scrollers are excluded');
+assert(/\.pref-chips,\.chips,\.segmented,\.table-wrap,#chat-chips,\.chat-composer/.test(app), 'horizontal scrollers and the chat composer are excluded');
 assert(/profile-hub'\)\?\.hidden\) return;/.test(app), 'a profile subpage keeps the tab put');
 assert(/touchstart[\s\S]{0,400}\{ passive: true \}/.test(app), 'the swipe listener never blocks scrolling');
 

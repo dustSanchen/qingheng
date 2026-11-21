@@ -161,7 +161,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.96';
+  const APP_VERSION = '1.4.97';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1209,7 +1209,7 @@
   let chatSearchTimer = 0;
   /** 输入区一聚焦，把「提问」滚进可视区：键盘弹起后按钮不会被压在键盘下面。 */
   function installChatFocusReveal() {
-    const box = $('#chat-question'), bar = $('.chat-send-bar'), trainingInput = $('#training-advice-input');
+    const box = $('#chat-question'), bar = $('.chat-composer'), trainingInput = $('#training-advice-input');
     if (!box || !bar || bar.dataset.wired) return;
     bar.dataset.wired = '1';
     box.addEventListener('focus', () => setTimeout(() => {

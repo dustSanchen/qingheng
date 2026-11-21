@@ -7230,7 +7230,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.96';
+  const APP_VERSION = '1.4.97';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -8278,7 +8278,7 @@ function metricIcon(label) {
   let chatSearchTimer = 0;
   /** 输入区一聚焦，把「提问」滚进可视区：键盘弹起后按钮不会被压在键盘下面。 */
   function installChatFocusReveal() {
-    const box = $('#chat-question'), bar = $('.chat-send-bar'), trainingInput = $('#training-advice-input');
+    const box = $('#chat-question'), bar = $('.chat-composer'), trainingInput = $('#training-advice-input');
     if (!box || !bar || bar.dataset.wired) return;
     bar.dataset.wired = '1';
     box.addEventListener('focus', () => setTimeout(() => {
@@ -10373,7 +10373,7 @@ feedback(message,'数据已导入。'+report);
     const SWIPE_RATIO = 1.6;   // 斜着划以纵向滚动为准
     let start = null;
     const blocked = (target) => !!(target && target.closest && target.closest(
-      'input,textarea,select,[contenteditable="true"],.app-dialog,.sheet-panel,.pref-chips,.chips,.segmented,.table-wrap,[data-swipe-ignore]'));
+      'input,textarea,select,[contenteditable="true"],.app-dialog,.sheet-panel,.pref-chips,.chips,.segmented,.table-wrap,#chat-chips,.chat-composer,[data-swipe-ignore]'));
     const currentTab = () => document.querySelector('[data-tab][aria-current="page"]')?.dataset.tab || 'today';
     document.addEventListener('touchstart', (event) => {
       if (event.touches.length !== 1) { start = null; return; }
