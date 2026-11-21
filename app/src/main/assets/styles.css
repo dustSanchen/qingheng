@@ -2145,3 +2145,20 @@ details:not(.advanced):not(.day-more)>summary::after{width:auto;height:auto;bord
 #view-today .slot-hint.is-next{background:var(--accent-soft);border-left-color:var(--accent);color:var(--ink);font-size:var(--text-md);font-weight:var(--fw-semibold);min-height:48px;align-items:center;cursor:pointer}
 #view-today .slot-hint.is-next .slot-time{color:var(--accent);font-weight:var(--fw-semibold);font-size:var(--text-xs);letter-spacing:var(--tracking-caps)}
 #view-today .slot-hint.is-next .slot-text::after{content:" →";color:var(--accent);font-weight:var(--fw-regular)}
+
+/* 16. Paper sheet for Today: ruled grain, margin line, one hero card. */
+[data-skin="paper"] #view-today{position:relative;background-image:repeating-linear-gradient(180deg,transparent 0 31px,rgba(92,73,43,.018) 31px 32px);background-size:100% 32px}
+[data-skin="paper"] #view-today::before{content:"";position:absolute;left:5px;top:0;bottom:0;width:1px;background:rgba(138,82,55,.14);pointer-events:none}
+.page-heading--today{border-bottom:1px solid var(--line);padding-bottom:var(--space-3)}
+#view-today .energy-card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:18px;box-shadow:none}
+#view-today .energy-card .card-heading{margin-bottom:12px}
+#view-today .energy-card .card-heading h2{font-family:var(--font-display);font-size:18px;letter-spacing:var(--tracking-label)}
+#view-today .slot-hint.is-next{flex-wrap:wrap;row-gap:2px}
+#view-today .slot-hint.is-next .slot-text{font-size:var(--text-lg);line-height:1.35}
+#view-today .slot-reason{flex:1 1 100%;color:var(--muted);font-size:var(--text-sm);line-height:1.5;font-weight:var(--fw-regular)}
+[data-skin="ledger"] #view-today .energy-card{border-radius:0;background:var(--surface);border:1px solid var(--line)}
+
+/* Next-step note is two rows: action, then reason. */
+#view-today .slot-hint.is-next{display:grid;grid-template-columns:auto 1fr;column-gap:10px;row-gap:3px;align-items:center}
+#view-today .slot-hint.is-next .slot-text{min-width:0}
+#view-today .slot-hint.is-next .slot-reason{grid-column:1/-1;display:block;width:100%}

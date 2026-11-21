@@ -1193,6 +1193,11 @@
     const timeNode = $("#slot-time"), textNode = $("#slot-text");
     if (timeNode) timeNode.textContent = primary ? "下一步" : clock;
     if (textNode) textNode.textContent = primary ? primary.label : slot.label + "：" + slot.hint + suffix;
+    const reasonNode = $("#slot-reason");
+    if (reasonNode) {
+      reasonNode.textContent = primary && primary.reason ? primary.reason : "";
+      reasonNode.hidden = !(primary && primary.reason);
+    }
     node.classList.toggle("is-next", !!primary);
     const action = primary ? primary.target : "";
     const clickable = !!action || !!missing.length;
@@ -7228,7 +7233,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.02';
+  const APP_VERSION = '1.5.03';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
