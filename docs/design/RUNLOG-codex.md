@@ -1497,5 +1497,5 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 根因 2（覆盖当天记录）：「排进本周」对每天是 `[...existing, ...计划全部动作]`，同名不去重、也不判断这天是否已有记录，且无条件写 `training:true`——重排一次就会给当天的记录加一串重复动作、把休息日标成训练日。
 - 修法 2：按名字去重、只追加；一天没有新增就整条不写（不动 training），当天原有记录原样保留；确认文案改为「已记录的动作会保留，只补充缺的动作」，完成提示报「新增 N 个动作；X 天已排过，未改动」。
 - 断言：`oil-estimation` 新增 4 条（包装零食不加、显式方式优先、packaged 标记、三档不碰包装）；新增 `tests/week-schedule-merge.test.mjs` 8 条（去重、跳过、旧覆盖写法已消失、app.js 同步）。
-- 验收：83/83 全绿；dev-loop 1.4.70/470 装机 3cba2bdc，js errors none；APK `dist/qingheng-1.4.70.apk`（654,7xx B / 639 KB，sha256 `643EFD41…8573`）。
+- 验收：83/83 全绿；dev-loop 1.4.70/470 装机 3cba2bdc，js errors none；APK `dist/qingheng-1.4.70.apk`（654,560 B / 639 KB，sha256 `643EFD41…8573`）。
 - 环境备注：dev-loop 的 `Run` 用 ProcessStartInfo 起子进程但不设 WorkingDirectory，子进程继承的是 **pwsh 进程的 CWD**——在本工作台里必须用 `workdir` 参数指定仓库根，只 `cd` 会让它去 D:\AI\tools 找 assemble 脚本而失败。
