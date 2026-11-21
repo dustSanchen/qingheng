@@ -17,7 +17,7 @@ check('empty uses the leaf at 40', app.includes("empty: {glyph: 'leaf', size: 40
 check('the leaf is inline currentColor, not a fixed-color img', app.includes("'icon-glyph-leaf.svg': svgIcon(") && app.includes("iconMarkup('icon-glyph-leaf.svg')"));
 check('empty icon CSS keeps the 40px inline leaf', css.includes('.empty-icon svg{display:block;width:40px;height:40px'));
 check('state-block empty leaf uses currentColor via a mask', css.includes('background-color:var(--muted)') && css.includes('mask:url("./icon-glyph-leaf.svg")'));
-check('loading declares a 20px 1.2s ring', app.includes("loading: {glyph: 'ring', size: 20, duration: '1.2s linear'}") && /\.busy-ring\{width:20px;height:20px;animation:busy-spin 1\.2s linear infinite\}/.test(css));
+check('loading declares a 20px 1.2s ring', app.includes("loading: {glyph: 'ring', size: 20, duration: '1.2s linear'}") && /\.busy-ring\{width:20px;height:20px;border:2px solid var\(--accent-soft\);border-top-color:var\(--accent\)/.test(css));
 check('completion uses the leaf at 24', app.includes("complete: {glyph: 'leaf', size: 24, tone: 'ok'}") && app.includes("leaf.setAttribute('width', String(SYMBOL_USAGE.complete.size))"));
 check('completion color comes from the ok token', css.includes('.form-feedback.success{display:flex;align-items:center;gap:var(--space-1);color:var(--ok)}'));
 check('the contract names exactly three forbidden uses', (app.match(/'buttons\/list rows\/card badges'|'numbers and units'|'error\/warning copy'/g) || []).length === 3);

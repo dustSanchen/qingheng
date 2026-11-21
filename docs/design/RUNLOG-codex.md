@@ -1615,3 +1615,8 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 主行动：聊天复用现有 `.chat-send-bar` 固定在底部导航上方；记录页当前面板唯一的 `type=submit` 主按钮同样固定；不复制第二个按钮。
 - 测试：新增 `main-action`，并更新 `symbol-usage` 对内联叶/mask 的断言；全量 99/99。
 - 构建：`dist/qingheng-1.4.90.apk`（670,944 B / 655 KB，sha256 `E0D82F4713EBB0ED…`），设备 3cba2bdc 安装 1.4.90，smoke js errors none。未推送、未发 Release。
+## r205 · 2026-11-22 · 1.4.91（撤记录浮层 + 加载环优化）
+- 修复：记录页“保存今天”固定浮层会压住身体数据；撤掉记录页固定 submit，恢复表单内主按钮，避免遮挡。
+- 加载：`.busy-ring` 改为 20px、2px accent-soft 底、accent 弧、border-box、中心旋转；1.2s linear。
+- 视觉：聊天固定发送栏保留；记录页保持正常流式提交；真机 1.4.91 记录页截图确认无浮层遮挡。
+- 测试：`main-action`/`symbol-usage` 更新；全量 99/99。APK `dist/qingheng-1.4.91.apk` 655 KB，sha256 `1C8C04C1B8F3A62C…`；未推送、未发 Release。
