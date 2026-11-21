@@ -396,5 +396,6 @@ node D:\AI\design-corpus\design-audit.mjs app\src\main\assets\index.html
 - 已随 `1.4.73` 落地：训练三态与显式休息、今天页单一行动、建议 `actionItems`、偏好来源/时间/编辑与备份同步、趋势页本地周回看。
 - 已随 `1.4.74` 继续落地：AI /权限步骤明确可跳过；已保存餐食可在原有餐食行点「改」进入同一预览，按原记录 id 更新，不新增副本，编辑时不重复加油。
 - 已随 `1.4.75` 继续落地：完成必要信息后可直接「先开始记录」，AI 与提醒不必经过；320 / 360px 与夜间关键页已做真机截图核验。
-- 对应测试：`training-state`、`today-agenda`、`advice-actions`、`preference-compat`、`weekly-review-local`、`onboarding-p2`、`meal-edit`；全量 90/90。
-- 仍保留的偏差/未做：偏好按兼容性采用「字符串主表 + preferenceMeta」，而不是清单建议的对象数组；P2 的全站视觉重做、餐食估算算法改版未做；320/360px 与夜间已完成关键页核验，但不等于全页；社交/课程/会员始终不做。
+- 已随 `1.4.76` 继续落地：确认框、长按菜单和餐食重算弹层关闭后把键盘/读屏焦点还给触发点；320 / 360 / 390px 与夜间关键页已截图核验。
+- 对应测试：`training-state`、`today-agenda`、`advice-actions`、`preference-compat`、`weekly-review-local`、`onboarding-p2`、`meal-edit`、`accessibility-focus`；全量 91/91。
+- 仍保留的偏差/未做：偏好按兼容性采用「字符串主表 + preferenceMeta」，而不是清单建议的对象数组；P2 的全站视觉重做、餐食估算算法改版未做；320/360/390px 与夜间已完成关键页核验，但不等于全页；社交/课程/会员始终不做。

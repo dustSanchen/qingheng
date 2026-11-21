@@ -384,11 +384,12 @@
     if (field?.matches?.('input,select,textarea') && field.getAttribute('aria-invalid') === 'true') clearFieldError(field);
   });
   // In-app replacement for window.confirm(): the WebView would show a browser-style prompt.
-  let dialogResolve = null;
+  let dialogResolve = null, dialogReturnFocus = null;
   function askConfirm(text, options = {}) {
     const root = $('#app-dialog');
     if (!root) return Promise.resolve(false);
     if (dialogResolve) dialogResolve(false);
+    dialogReturnFocus = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
     $('#app-dialog-title').textContent = options.title || '请确认';
     $('#app-dialog-text').textContent = text;
     $('#app-dialog-ok').textContent = options.ok || '确定';
@@ -400,6 +401,8 @@
   }
   function closeDialog(result) {
     const root = $('#app-dialog'); if (root) root.hidden = true;
+    const returnTo = dialogReturnFocus; dialogReturnFocus = null;
+    if (returnTo && returnTo.isConnected && typeof returnTo.focus === 'function') returnTo.focus({preventScroll: true});
     const resolve = dialogResolve; dialogResolve = null;
     if (resolve) resolve(result);
   }
@@ -425,7 +428,7 @@
   // The platform draws <select> as a plain white dialog with system radio buttons, which clashes
   // with this app, and a long-press needs a place for its actions. Both use one sheet built from
   // the app's own tokens: same radii, same mint accents, same list rows.
-  let sheetResolve = null;
+  let sheetResolve = null, sheetReturnFocus = null;
   // Inline SVG copies of the semantic icons (currentColor). Loaded via <img> an SVG cannot inherit
   // the page colour and renders black; inline markup follows the surrounding CSS colour instead.
   const svgIcon = paths => `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><g stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${paths}</g></svg>`;
@@ -456,6 +459,7 @@
     if (!root) return Promise.resolve(null);
     clearSelectionMode();
     if (sheetResolve) {const previous = sheetResolve; sheetResolve = null; previous(null);}
+    sheetReturnFocus = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
     $('#action-sheet-title').textContent = config?.title || '';
     $('#action-sheet-list').innerHTML = (config?.options || []).map((option, index) =>
       `<button type="button" class="sheet-option${option.current ? ' is-current' : ''}${option.danger ? ' is-danger' : ''}" data-sheet-index="${index}" role="menuitem">`
@@ -463,11 +467,17 @@
       + `<span class="sheet-option-label">${esc(option.label)}</span>`
       + `${option.current ? `<span class="inline-icon" aria-hidden="true">${SVG_ICONS['icon-check.svg']}</span>` : ''}</button>`).join('');
     root.hidden = false;
+    setTimeout(() => {
+      const first = $('#action-sheet-list [data-sheet-index]');
+      if (!root.hidden && first && typeof first.focus === 'function') first.focus({preventScroll: true});
+    }, 0);
     return new Promise(resolve => {sheetResolve = resolve;});
   }
   function closeSheet(result) {
     const root = $('#action-sheet');
     if (root) root.hidden = true;
+    const returnTo = sheetReturnFocus; sheetReturnFocus = null;
+    if (returnTo && returnTo.isConnected && typeof returnTo.focus === 'function') returnTo.focus({preventScroll: true});
     const resolve = sheetResolve; sheetResolve = null;
     if (resolve) resolve(result === undefined ? null : result);
   }

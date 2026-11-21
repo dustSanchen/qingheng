@@ -1793,10 +1793,12 @@
     }
     updatePreviewTotals();
   }
+  let itemRecalcReturnFocus = null;
   function openItemRecalc(row) {
     if (!row) return;
     const root = $('#item-recalc-dialog'), grams = number($('[data-item-field="grams"]', row)?.value), baseGrams = number(row.dataset.baseGrams);
     if (!(grams > 0) || !(baseGrams > 0)) return;
+    itemRecalcReturnFocus = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
     $('#item-recalc-summary').textContent = `${$('[data-item-field="name"]', row)?.value || '这项食品'}：当前 ${fmt(grams)}g。`;
     $('#item-recalc-name').value = $('[data-item-field="name"]', row)?.value || '';
     $('#item-recalc-grams').value = grams;
@@ -1816,6 +1818,8 @@
     root.hidden = true; delete root.dataset.itemIndex;
     $('#item-recalc-form').reset();
     $('#item-recalc-feedback').textContent = '';
+    const returnTo = itemRecalcReturnFocus; itemRecalcReturnFocus = null;
+    if (returnTo && returnTo.isConnected && typeof returnTo.focus === 'function') returnTo.focus({preventScroll: true});
   }
   /** The user's own anchor table, sent along so the model reuses the same numbers (rules.md 第五节). */
   function anchorSummary() {
