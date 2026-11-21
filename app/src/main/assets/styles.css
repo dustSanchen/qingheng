@@ -2107,3 +2107,19 @@ details:not(.advanced):not(.day-more)>summary::after{width:auto;height:auto;bord
 #training-advice-order .button-row .text-button{padding-left:0;padding-right:0}
 #week-plan .plan-sub{font-size:var(--text-xs);letter-spacing:var(--tracking-caps);color:var(--muted);font-weight:var(--fw-semibold)}
 #week-detail{font-size:18px;line-height:1.5;font-weight:var(--fw-semibold);color:var(--ink);margin:var(--space-2) 0}
+
+/* 14. Cross-page interaction finish: one press language, one focus language. */
+#today-meta,#records-meta{font-size:var(--text-md);color:var(--ink-soft);font-weight:var(--fw-medium)}
+.segment{transition:color var(--dur-fast) var(--ease-opus),border-color var(--dur-fast) var(--ease-opus),background var(--dur-fast) var(--ease-opus)}
+.chip-toggle{transition:background var(--dur-fast) var(--ease-opus),border-color var(--dur-fast) var(--ease-opus),color var(--dur-fast) var(--ease-opus)}
+.hub-row{transition:background var(--dur-fast) var(--ease-opus)}
+.button{transition:background var(--dur-fast) var(--ease-opus),border-color var(--dur-fast) var(--ease-opus),color var(--dur-fast) var(--ease-opus),transform var(--dur-fast) var(--ease-opus)}
+.text-button,.icon-button{transition:background var(--dur-fast) var(--ease-opus),color var(--dur-fast) var(--ease-opus),border-color var(--dur-fast) var(--ease-opus)}
+@media(hover:hover){
+  .button.primary:hover{background:var(--accent-press)}
+  .button.subtle:hover{border-color:var(--accent-line);background:var(--accent-soft)}
+  .text-button:hover{background:var(--accent-soft);border-radius:8px}
+  .icon-button:hover{border-color:var(--accent-line);color:var(--accent)}
+  .chip-toggle:hover{border-color:var(--accent-line);color:var(--ink)}
+  .hub-row:hover{background:var(--surface-soft)}
+}

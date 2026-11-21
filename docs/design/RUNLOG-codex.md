@@ -1653,3 +1653,7 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 训练建议：`本周计划今天 · 推` 提到 20px 结论层；「改用 AI 排今天」从同权按钮降为文字行动，只留「采纳到今日清单」一个实心主行动。
 - 训练页：周条标题降为 meta，当天详情 `#week-detail` 提到 18px；周历仍是上下文，不再抢当天执行。
 - 新增 training-hierarchy 测试；全量 104/104。真机 1.4.98 训练建议截图核对；APK 655 KB，sha256 `BE1FFCB8627FFE5A…`；未推送、未发 Release。
+## r213 · 2026-11-22 · 1.4.99（跨页按钮/动效收口）
+- 按钮统一 hover/press/focus：primary/subtle/text/icon 各自有反馈；segment/chip 有状态过渡；保留全局 reduced-motion。
+- 记录/今天页摘要从灰注释升为 13.5px 数据行；训练建议已有 20px 结论层、训练当天 18px 详情。
+- 新增 interaction-finish 测试；全量 105/105。APK 655 KB，sha256 `380308B88379DF0E…`；真机 1.4.99；未推送、未发 Release。
