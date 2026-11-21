@@ -220,6 +220,7 @@
     arrangeEnergyCard();
     const count=state.meals.filter(row=>row.date===activeDate).length;
     const hint=$('#chat-data-context'); if(hint)hint.textContent=`分析日期：${activeDate} · 已保存 ${count} 条餐食（未确认预览和问答照片不计入饮食）`;
+    const recordLink=$('#chat-record-link'); if(recordLink)recordLink.textContent=count>0?'查看这一天的记录':'去记录这一天';
     const dateLabel=$('#chat-date-label'); if(dateLabel) dateLabel.textContent = activeDate === localDate() ? '今天' : activeDate.slice(5);
     // 页眉用日期而不是口号：今天页首先回答「这是哪一天」。
     const runningDate=$('#running-date');
