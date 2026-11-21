@@ -482,6 +482,8 @@
     'icon-meal.svg': svgIcon('<path d="M3.5 12h17a7 7 0 0 1-7 7h-3a7 7 0 0 1-7-7Z"/><path d="M6 4v4M8 4v4M10 4v4M6 8a2 2 0 0 0 4 0M8 10v2"/><path d="M17 4v7M17 7c2 0 3-1 3-3"/>'),
     'icon-glyph-balance.svg': svgIcon('<path d="M12 4v16"/><path d="M4 8h16"/><path d="M7 8l-3 6h6z"/><path d="M17 8l-3 6h6z"/><path d="M8 20h8"/>'),
     'icon-glyph-training.svg': svgIcon('<path d="M4 10v4M7 7v10M17 7v10M20 10v4M7 12h10"/>'),
+    'icon-glyph-leaf.svg': svgIcon('<path d="M5 19c0-8 5-13 14-14 0 9-5 14-13 14H5z"/><path d="M5 19c4-4 7-6 11-8"/>'),
+    'icon-glyph-ring.svg': svgIcon('<circle cx="12" cy="12" r="8"/><path d="M12 4v3"/><path d="M12 20v-3"/>'),
     'icon-habit-sleep.svg': svgIcon('<path d="M19.5 14.3A8 8 0 0 1 9.7 4.5a8.2 8.2 0 1 0 9.8 9.8z"/>'),
     'icon-water.svg': svgIcon('<path d="M6 3.5h12l-1.5 15a1.5 1.5 0 0 1-1.5 1.5h-6a1.5 1.5 0 0 1-1.5-1.5Z"/><path d="M6.8 12.5h10.4"/>'),
     'icon-warn.svg': svgIcon('<path d="M10.2 4.1a2.1 2.1 0 0 1 3.6 0l6.3 11a2.1 2.1 0 0 1-1.8 3.1H5.7a2.1 2.1 0 0 1-1.8-3.1Z"/><path d="M12 9v4"/><path d="M12 16.4h.01"/>'),
@@ -1055,7 +1057,7 @@
     // 空态改用图像语言里的「叶」符号（24 网格 / 1.5px 圆头），与其它态共用一套几何；
     // denied / error 仍用文字符号：它们是例外态，不该被当成常规空态被反复看到（2026-10-29）。
     const glyph = kind === "denied" ? "⊘" : kind === "error" ? "!"
-      : `<img src="./icon-glyph-leaf.svg" alt="" width="${SYMBOL_USAGE.empty.size}" height="${SYMBOL_USAGE.empty.size}">`;
+      : iconMarkup('icon-glyph-leaf.svg').replace('<svg ', `<svg width="${SYMBOL_USAGE.empty.size}" height="${SYMBOL_USAGE.empty.size}" `);
     const role = kind === "error" ? ' role="alert"' : "";
     return `<div class="empty-state is-${esc(kind)}"${role}><span class="empty-icon" aria-hidden="true">${glyph}</span><p class="empty-title">${esc(text)}</p>${hint ? `<p class="empty-hint">${esc(hint)}</p>` : ""}</div>`;
   }

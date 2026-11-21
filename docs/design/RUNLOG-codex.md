@@ -1610,3 +1610,8 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 根因：`setOilLevel` 用当前输入值做 delta，且用 `base×旧档位` 推算旧油；用户改过克重/热量、编辑已保存餐食或混合菜时，旧油与实际不符，脂肪/热量可被减成负数。
 - 修复：新增 `oilAdjustedValues`——当前值减行内实际油量得到基底，再加新油量，热量/脂肪 clamp 到 0；油量改档后可逆。改克重时同步缩放 `data-oil`。已含油的保存餐/混合菜跳过餐级档位调整。
 - 测试：新增 `oil-level`（正常档→少、旧油大于当前脂肪、无旧油、改克重后）；全量 98/98。APK `dist/qingheng-1.4.89.apk` 655 KB，sha256 `334F31284E8977F4…`；装机 1.4.89；未推送、未发 Release。
+## r204 · 2026-11-22 · 1.4.90（图形语言内联 + 主行动固定）
+- 图形：空态叶改为内联 `currentColor` SVG；stateBlock 空态改用 mask + 当前墨色；保留完成叶 24/--ok。
+- 主行动：聊天复用现有 `.chat-send-bar` 固定在底部导航上方；记录页当前面板唯一的 `type=submit` 主按钮同样固定；不复制第二个按钮。
+- 测试：新增 `main-action`，并更新 `symbol-usage` 对内联叶/mask 的断言；全量 99/99。
+- 构建：`dist/qingheng-1.4.90.apk`（670,944 B / 655 KB，sha256 `E0D82F4713EBB0ED…`），设备 3cba2bdc 安装 1.4.90，smoke js errors none。未推送、未发 Release。

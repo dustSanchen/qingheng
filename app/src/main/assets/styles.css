@@ -1386,6 +1386,7 @@ html{scroll-padding-bottom:calc(var(--tabbar-safe,96px) + 16px)}
 
 /* 空态符号：图片按 40px 渲染，颜色跟随后代 color（SVG 用 currentColor 描边） */
 .empty-icon img{display:block;width:40px;height:40px;opacity:.9}
+.empty-icon svg{display:block;width:40px;height:40px;opacity:.9}
 
 /* 体检格：恢复无边框（1.1.79 做过、被文件恢复回滚），分隔改内阴影 */
 .check-item{border:0;background:transparent;border-radius:0}
@@ -2038,7 +2039,7 @@ details.energy-more p{margin:var(--space-1) 0 var(--space-1);font-size:var(--tex
 
 /* 7. 空态：用叶符号 + 一句话，去掉又一层描边盒子；动作仍只在真有空态时出现。 */
 .state-block[data-kind="empty"]{align-items:center;gap:var(--space-2);padding:var(--space-5) var(--space-4);border:0;background:transparent;text-align:center}
-.state-block[data-kind="empty"]::before{content:"";width:40px;height:40px;background:url("./icon-glyph-leaf.svg") center/contain no-repeat;opacity:.55}
+.state-block[data-kind="empty"]::before{content:"";width:40px;height:40px;background-color:var(--muted);opacity:.55;-webkit-mask:url("./icon-glyph-leaf.svg") center/contain no-repeat;mask:url("./icon-glyph-leaf.svg") center/contain no-repeat}
 .state-block[data-kind="empty"] .state-block-title{margin:0;font-size:var(--text-md);color:var(--body-text);font-weight:var(--fw-medium)}
 .state-block[data-kind="empty"] .state-block-body{max-width:26em;font-size:var(--text-sm);color:var(--muted)}
 .state-block[data-kind="empty"] .state-block-action{margin-top:var(--space-1)}
@@ -2052,6 +2053,14 @@ details.energy-more p{margin:var(--space-1) 0 var(--space-1);font-size:var(--tex
 /* 10. 320px 的窄屏收口：宏量单位不孤立换行；皮肤选择改成纵向，避免“账/本结构”断行。 */
 @media(max-width:360px){.macro-target{display:block;text-wrap:balance}}
 @media(max-width:340px){.skin-pick{flex-direction:column}.skin-pick button{width:100%;text-align:left}}
+
+/* 11. Chat primary action: reuse the existing send bar; one button, fixed above the tab bar. */
+@media(max-width:699px){
+  #view-chat .chat-send-bar{position:fixed;left:0;right:0;bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom,0px));z-index:calc(var(--z-tabbar) + 1);background:var(--paper);border-top:1px solid var(--line);padding:10px 20px;margin:0;max-width:none}
+  #view-chat{padding-bottom:calc(84px + 92px + env(safe-area-inset-bottom,0px))}
+  #view-records .record-panel:not([hidden]) form>.button.primary[type=submit]{position:fixed;left:0;right:0;bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom,0px));z-index:calc(var(--z-tabbar) + 1);width:100%;min-height:56px;margin:0;border-radius:0;padding:12px 20px}
+  #view-records{padding-bottom:calc(84px + 92px + env(safe-area-inset-bottom,0px))}
+}
 
 /* 8. 折叠区默认是一行发丝线，只有「控件组」.advanced 保留虚线框；
       来源、说明、更多数据不再各自套一个盒子。 */
