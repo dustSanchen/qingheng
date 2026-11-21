@@ -5976,6 +5976,21 @@ const values = points.length<=7 ? points.map((item,i) => {
    */
   const OIL_METHOD_FACTORS = {炒: 8.1, 爆炒: 11, 红烧: 12, 干锅: 14, 煎: 9, 炸: 14, 油淋: 12, 烤: 6, 蒸: 0, 煮: 1, 炖: 2, 凉拌: 4, 白灼: 0, 生食: 0, 其他: 6};
   const OIL_LEVELS = {low: {ratio: 0.6, label: '少'}, normal: {ratio: 1, label: '一般'}, high: {ratio: 1.5, label: '多'}};
+  /**
+   * 包装/成品（薯片、饼干、坚果、酸奶、饮料…）的营养表里已经含了本身那份脂肪，
+   * 再按「烹调用油」加一遍就是重复计算。只有明确写了炒/炸这类烹饪方式时才照常算油
+   * （「炸薯条」确实吸油，但「薯片」不是我们炸的）。
+   */
+  const PACKAGED_METHODS = ['包装', '即食', '零食', '成品', '预包装'];
+  const PACKAGED_NAME_HINTS = /薯片|薯条|饼干|曲奇|巧克力|面包|蛋糕|吐司|坚果|花生|核桃|腰果|瓜子|酸奶|牛奶|豆奶|奶酪|芝士|饮料|可乐|雪碧|果汁|咖啡|奶茶|蛋白棒|能量棒|糖果|果冻|冰淇淋|雪糕|布丁|香肠|火腿肠|培根|罐头|方便面|泡面|麦片|谷物|代餐|蛋白粉|乳清蛋白|奶昔/;
+  function isPackagedFood(item) {
+    if (!item) return false;
+    if (item.packaged === true) return true;
+    const method = String(item.method || '').trim();
+    if (PACKAGED_METHODS.includes(method)) return true;
+    if (method && Object.prototype.hasOwnProperty.call(OIL_METHOD_FACTORS, method) && method !== '其他') return false;
+    return PACKAGED_NAME_HINTS.test(String(item.name || ''));
+  }
   let estimateOilLevel = 'normal';
   let estimateRawItems = [];
   let estimateView = null;
@@ -5991,6 +6006,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     return (Array.isArray(items) ? items : []).map(item => {
       const next = {...item};
       if (number(next.oilGrams) > 0 && next.oilIncluded === true) return next;
+      if (isPackagedFood(next)) return next;
       const oil = Math.round(oilRuleFor(next.method, next.grams) * ratio * 10) / 10;
       if (!(oil > 0)) return next;
       next.oilGrams = oil;
@@ -6015,6 +6031,8 @@ const values = points.length<=7 ? points.map((item,i) => {
       const raw = estimateRawItems[index] || {};
       const gramsField = $('[data-item-field="grams"]', row);
       const grams = number(gramsField && gramsField.value) ?? number(raw.grams);
+      const nameField = $('[data-item-field="name"]', row);
+      if (isPackagedFood({...raw, name: (nameField && nameField.value) || raw.name})) return;
       const base = oilRuleFor(raw.method, grams);
       if (!(base > 0)) return;
       const oldOil = Math.round(base * ratioFrom * 10) / 10;
@@ -6605,7 +6623,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.69';
+  const APP_VERSION = '1.4.70';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -9245,23 +9263,36 @@ feedback(message,'数据已导入。'+report);
     }
   });
   // ---- One-tap scheduling of the generated week ------------------------------------------------
+  // 只追加、不覆盖：每天原有记录整条保留，同名动作跳过；一天都没新增就不写，也不改 training 标记。
   $('#week-plan')?.addEventListener('click', async event => {
     const button = event.target.closest('[data-plan-schedule]');
     if (!button) return;
     const plan = lastWeekPlan;
     if (!plan) return;
-    const ok = await askConfirm('将把 ' + plan.days.length + ' 次训练写入 ' + plan.startDate + ' 起的一周（每天一条训练记录），继续？', {title: '排进本周'});
+    const ok = await askConfirm('将把 ' + plan.days.length + ' 次训练写入 ' + plan.startDate + ' 起的一周（每天一条训练记录）。已记录的动作会保留，只补充缺的动作。', {title: '排进本周'});
     if (!ok) return;
     button.disabled = true;
     try {
+      let written = 0, kept = 0, addedTotal = 0;
       for (const day of plan.days) {
         const habit = habitRowFor(day.date) || {date: day.date};
         const existing = Array.isArray(habit.exercises) ? habit.exercises : [];
-        await api('/api/habits', {...habit, date: day.date, training: true,
-          exercises: [...existing, ...day.exercises.map(item => ({name: item.name, sets: item.sets, reps: item.reps, weight: item.weight}))]});
+        const have = new Set(existing.map(row => String(row && row.name || '').trim()));
+        const additions = [];
+        for (const item of day.exercises) {
+          const name = String(item && item.name || '').trim();
+          if (!name || have.has(name)) continue;
+          have.add(name);
+          additions.push({name, sets: item.sets, reps: item.reps, weight: item.weight});
+        }
+        if (!additions.length) { kept++; continue; }
+        await api('/api/habits', {...habit, date: day.date, training: true, exercises: [...existing, ...additions]});
+        written++;
+        addedTotal += additions.length;
       }
       await loadState({quiet: true});
-      notice('已排好 ' + plan.days.length + ' 次训练，可在「记录 · 训练」逐日调整。');
+      const tail = kept ? '；' + kept + ' 天已排过，未改动' : '';
+      notice('已排好 ' + written + ' 次训练（新增 ' + addedTotal + ' 个动作）' + tail + '，可在「记录 · 训练」逐日调整。');
     } catch (error) {
       notice(error.message, true);
     } finally {

@@ -154,7 +154,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.69';
+  const APP_VERSION = '1.4.70';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -2794,23 +2794,36 @@ feedback(message,'数据已导入。'+report);
     }
   });
   // ---- One-tap scheduling of the generated week ------------------------------------------------
+  // 只追加、不覆盖：每天原有记录整条保留，同名动作跳过；一天都没新增就不写，也不改 training 标记。
   $('#week-plan')?.addEventListener('click', async event => {
     const button = event.target.closest('[data-plan-schedule]');
     if (!button) return;
     const plan = lastWeekPlan;
     if (!plan) return;
-    const ok = await askConfirm('将把 ' + plan.days.length + ' 次训练写入 ' + plan.startDate + ' 起的一周（每天一条训练记录），继续？', {title: '排进本周'});
+    const ok = await askConfirm('将把 ' + plan.days.length + ' 次训练写入 ' + plan.startDate + ' 起的一周（每天一条训练记录）。已记录的动作会保留，只补充缺的动作。', {title: '排进本周'});
     if (!ok) return;
     button.disabled = true;
     try {
+      let written = 0, kept = 0, addedTotal = 0;
       for (const day of plan.days) {
         const habit = habitRowFor(day.date) || {date: day.date};
         const existing = Array.isArray(habit.exercises) ? habit.exercises : [];
-        await api('/api/habits', {...habit, date: day.date, training: true,
-          exercises: [...existing, ...day.exercises.map(item => ({name: item.name, sets: item.sets, reps: item.reps, weight: item.weight}))]});
+        const have = new Set(existing.map(row => String(row && row.name || '').trim()));
+        const additions = [];
+        for (const item of day.exercises) {
+          const name = String(item && item.name || '').trim();
+          if (!name || have.has(name)) continue;
+          have.add(name);
+          additions.push({name, sets: item.sets, reps: item.reps, weight: item.weight});
+        }
+        if (!additions.length) { kept++; continue; }
+        await api('/api/habits', {...habit, date: day.date, training: true, exercises: [...existing, ...additions]});
+        written++;
+        addedTotal += additions.length;
       }
       await loadState({quiet: true});
-      notice('已排好 ' + plan.days.length + ' 次训练，可在「记录 · 训练」逐日调整。');
+      const tail = kept ? '；' + kept + ' 天已排过，未改动' : '';
+      notice('已排好 ' + written + ' 次训练（新增 ' + addedTotal + ' 个动作）' + tail + '，可在「记录 · 训练」逐日调整。');
     } catch (error) {
       notice(error.message, true);
     } finally {

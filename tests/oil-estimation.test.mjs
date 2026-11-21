@@ -23,6 +23,7 @@ vm.createContext(sandbox);
 vm.runInContext(source.slice(start, end) + `
 this.oilRuleFor = oilRuleFor;
 this.applyOilToItems = applyOilToItems;
+this.isPackagedFood = isPackagedFood;
 `, sandbox);
 
 // --- 1. 方式 × 克重 ---------------------------------------------------------------------------------------
@@ -43,6 +44,14 @@ check('the meal-level switch scales oil once', low.oilGrams < oiled.oilGrams && 
 check('a draft that already carries oil is left untouched', sandbox.applyOilToItems([{...base[0], oilGrams: 12, oilIncluded: true}], 'high')[0].oilGrams === 12);
 check('steamed dishes are not inflated', sandbox.applyOilToItems([{name: '清蒸鱼', grams: 300, method: '蒸', calories: 180, protein: 30, fat: 6, carbs: 0}], 'high')[0].calories === 180);
 
+// --- 2b. 包装/成品零食不再加烹调用油（2026-11-21 用户反馈） ------------------------------------------------
+const snack = [{name: '薯片', grams: 50, method: '其他', calories: 270, protein: 3, fat: 17, carbs: 26}];
+const snackOiled = sandbox.applyOilToItems(snack, 'normal')[0];
+check('a packaged snack keeps its own numbers', snackOiled.calories === 270 && snackOiled.fat === 17 && !snackOiled.oilGrams, `${snackOiled.calories} kcal / ${snackOiled.fat} g`);
+check('isPackagedFood flags ready-to-eat items', sandbox.isPackagedFood({name: '酸奶', method: '其他'}) === true && sandbox.isPackagedFood({name: '饼干'}) === true && sandbox.isPackagedFood({name: '青椒肉丝', method: '炒'}) === false);
+check('an explicit cooking method still wins over the name hint', sandbox.applyOilToItems([{name: '炸薯条', grams: 100, method: '炸', calories: 300, protein: 4, fat: 15, carbs: 40}], 'normal')[0].oilGrams === 14);
+check('an explicit packaged marker also skips oil', sandbox.applyOilToItems([{name: '鸡胸沙拉', grams: 200, method: '其他', packaged: true, calories: 200, protein: 30, fat: 6, carbs: 5}], 'high')[0].calories === 200);
+
 // --- 3. 接线：提示词只要方式、解析保留方式、界面有三档 ----------------------------------------------------
 const prompts = fs.readFileSync('app/src/main/java/cn/qingheng/health/ai/Prompts.java', 'utf8');
 const main = fs.readFileSync('app/src/main/java/cn/qingheng/health/MainActivity.java', 'utf8');
@@ -53,6 +62,7 @@ check('the prompt enumerates the method vocabulary', prompts.includes('炒/爆�
 check('the native parser keeps the method field', main.includes('clean.put("method", method)'));
 check('the preview exposes a three-level oil switch', html.includes('id="estimate-oil-level"') && html.includes('data-oil-level="high"'));
 check('the switch is wired and preserves edited grams', app.includes('setOilLevel(button.dataset.oilLevel)') && app.includes('只调整油量差额'));
+check('the level switch leaves packaged items alone', app.includes('isPackagedFood({...raw, name: (nameField && nameField.value) || raw.name})'));
 
 console.log('\nFAIL total: ' + fail);
 process.exitCode = fail ? 1 : 0;

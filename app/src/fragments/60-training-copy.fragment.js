@@ -1735,6 +1735,21 @@
    */
   const OIL_METHOD_FACTORS = {炒: 8.1, 爆炒: 11, 红烧: 12, 干锅: 14, 煎: 9, 炸: 14, 油淋: 12, 烤: 6, 蒸: 0, 煮: 1, 炖: 2, 凉拌: 4, 白灼: 0, 生食: 0, 其他: 6};
   const OIL_LEVELS = {low: {ratio: 0.6, label: '少'}, normal: {ratio: 1, label: '一般'}, high: {ratio: 1.5, label: '多'}};
+  /**
+   * 包装/成品（薯片、饼干、坚果、酸奶、饮料…）的营养表里已经含了本身那份脂肪，
+   * 再按「烹调用油」加一遍就是重复计算。只有明确写了炒/炸这类烹饪方式时才照常算油
+   * （「炸薯条」确实吸油，但「薯片」不是我们炸的）。
+   */
+  const PACKAGED_METHODS = ['包装', '即食', '零食', '成品', '预包装'];
+  const PACKAGED_NAME_HINTS = /薯片|薯条|饼干|曲奇|巧克力|面包|蛋糕|吐司|坚果|花生|核桃|腰果|瓜子|酸奶|牛奶|豆奶|奶酪|芝士|饮料|可乐|雪碧|果汁|咖啡|奶茶|蛋白棒|能量棒|糖果|果冻|冰淇淋|雪糕|布丁|香肠|火腿肠|培根|罐头|方便面|泡面|麦片|谷物|代餐|蛋白粉|乳清蛋白|奶昔/;
+  function isPackagedFood(item) {
+    if (!item) return false;
+    if (item.packaged === true) return true;
+    const method = String(item.method || '').trim();
+    if (PACKAGED_METHODS.includes(method)) return true;
+    if (method && Object.prototype.hasOwnProperty.call(OIL_METHOD_FACTORS, method) && method !== '其他') return false;
+    return PACKAGED_NAME_HINTS.test(String(item.name || ''));
+  }
   let estimateOilLevel = 'normal';
   let estimateRawItems = [];
   let estimateView = null;
@@ -1750,6 +1765,7 @@
     return (Array.isArray(items) ? items : []).map(item => {
       const next = {...item};
       if (number(next.oilGrams) > 0 && next.oilIncluded === true) return next;
+      if (isPackagedFood(next)) return next;
       const oil = Math.round(oilRuleFor(next.method, next.grams) * ratio * 10) / 10;
       if (!(oil > 0)) return next;
       next.oilGrams = oil;
@@ -1774,6 +1790,8 @@
       const raw = estimateRawItems[index] || {};
       const gramsField = $('[data-item-field="grams"]', row);
       const grams = number(gramsField && gramsField.value) ?? number(raw.grams);
+      const nameField = $('[data-item-field="name"]', row);
+      if (isPackagedFood({...raw, name: (nameField && nameField.value) || raw.name})) return;
       const base = oilRuleFor(raw.method, grams);
       if (!(base > 0)) return;
       const oldOil = Math.round(base * ratioFrom * 10) / 10;
