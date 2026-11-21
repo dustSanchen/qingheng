@@ -65,7 +65,7 @@ check('the timeline reads weight from the same-day measurement record', app.incl
 check('today and historical meals share one bottom separator per row', /#today-meals \.meal-row,#record-meals \.meal-row\{[^}]*border-top:0;[^}]*border-bottom:1px solid var\(--record-separator\)/s.test(css) &&
   css.includes('#today-meals > :last-child,#record-meals .meal-day > .meal-row:last-child{border-bottom:0}') &&
   css.includes('.day-event{padding:var(--space-2) 0;border:0;border-bottom:1px solid var(--line)}'));
-check('the three things merged into the check card', !html.includes('id="daily-three"') && app.includes('check-fix-row'));
+check('the three things merged into the single next step', !html.includes('id="daily-three"') && app.includes("id: 'protein-gap'") && app.includes('is-next'));
 // 2026-11-17 用户要求「把今天的建议从更多收纳中移出至今天中」：小习惯仍留在更多里，建议回到主流程。
 check('habits stay in the folded more section, advice moves to the main flow', html.indexOf('今天的小习惯') > html.indexOf('id="day-more"') &&
   html.indexOf('给今天的一点建议') < html.indexOf('id="day-more"') && html.indexOf('给今天的一点建议') < html.indexOf('id="today-records-card"'));

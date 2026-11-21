@@ -1191,8 +1191,9 @@
     const primary = agenda && agenda.primary ? agenda.primary : null;
     const suffix = missing.length ? "；" + missing.map(item => item.label).join("、") + "好像还没记，点一下去补" : "";
     const timeNode = $("#slot-time"), textNode = $("#slot-text");
-    if (timeNode) timeNode.textContent = clock;
+    if (timeNode) timeNode.textContent = primary ? "下一步" : clock;
     if (textNode) textNode.textContent = primary ? primary.label : slot.label + "：" + slot.hint + suffix;
+    node.classList.toggle("is-next", !!primary);
     const action = primary ? primary.target : "";
     const clickable = !!action || !!missing.length;
     node.style.cursor = clickable ? "pointer" : "";
@@ -1720,11 +1721,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
       const fat = number(totals.fat), fatMax = number(p.fatMax);
       const kcal = number(totals.calories), actionCap = range ? number(range.max) : number(p.calorieTarget);
       if (protein !== null && proteinMin !== null && protein < proteinMin) {
-        const gap = proteinMin - protein;
-        // 只说方向、不点名具体食物：以前按缺口给「一掌心大小的鸡胸」这类健身语境例子，
-        // 对普通用户是额外门槛；1.1.37 也删过克数等价换算，这里不回到「吃什么、吃多少」的清单。
-        if (gap > 30) parts.push(`优先补蛋白：还差 ${fmt(gap,0)} g，接下来两餐各补一份蛋白质（蛋、豆制品、奶或瘦肉）`);
-        else parts.push(`优先补蛋白：还差 ${fmt(gap,0)} g，下一餐补一份蛋白质（蛋、豆制品、奶或瘦肉）`);
+        // The deficit is status here; slot-hint owns the single next action.
       }
       if (fat !== null && fatMax !== null && fat > fatMax) parts.push(`脂肪超 ${fmt(fat - fatMax,0)} g：剩下的菜改白灼或清蒸，别再额外加油`);
       if (kcal !== null && actionCap !== null && kcal > actionCap) parts.push(`热量已超上限 ${fmt(kcal - actionCap,0)} kcal：不再加餐，晚餐只吃蛋白加蔬菜`);
@@ -5473,20 +5470,8 @@ const values = points.length<=7 ? points.map((item,i) => {
         + `<small>${esc(item.label)}</small></div>`;
     }).join('') + '</div>'
       + `<p class="check-verdict">${esc(check.verdict)}</p>`;
-    // 2026-11-18：今日三样并入体检——缺哪项直接给入口，不再单独占一张卡。
-    // 训练不再在这里补：明确休息/未记录/不训练都不该被说成少练了一次；
-    // 今天要练什么由 slot-hint 的单一主行动负责。
-    // 用 hash 链接跳转：不依赖运行时绑定，WebView 的合成 click 丢了也能走路由。
-    const chip = (label, icon, focus) => `<a class="check-fix" href="#records"${focus ? ` data-focus="${focus}"` : ''}>`
-      + `<img src="./${icon}" alt="" width="16" height="16">${label}</a>`;
-    // 与 slot-hint 共用同一份 agenda；这里只渲染 secondary（补睡眠/补体重），不再另造一套。
-    const agenda = typeof todayAgendaState === 'function' ? todayAgendaState() : null;
-    const fixes = (agenda && Array.isArray(agenda.secondary) ? agenda.secondary : []).map(item => {
-      const icon = item.kind === 'sleep' ? 'icon-habit-sleep.svg' : 'icon-glyph-balance.svg';
-      return chip(item.label, icon, item.target);
-    });
-    if (fixes.length) box.innerHTML += '<div class="check-fix-row"><span>还差</span>' + fixes.join('') + '</div>';
-    // 运行时渲染的节点直接绑定，避免委托在某些 WebView 里拿不到合成 click（2026-11-18）。
+    // A single next step lives in slot-hint; the check itself only reports state.
+    // (The old secondary chips made the check a second action surface.)
     box.querySelectorAll('.check-fix').forEach(button => {
       button.dataset.goBound = '1';
       button.addEventListener('click', () => {
@@ -5697,6 +5682,14 @@ const values = points.length<=7 ? points.map((item,i) => {
         target: 'meal-text', mealSlot: src.mealSlot || 'lunch', reason: '今天还没有餐食记录'
       };
     }
+    if (!primary && src.proteinGap > 0) {
+      primary = {
+        id: 'protein-gap', kind: 'meal',
+        label: `下一餐补蛋白（还差 ${Math.round(src.proteinGap)} g）`,
+        target: 'meal-text', mealSlot: src.mealSlot || 'lunch',
+        reason: '蛋白质还没到目标'
+      };
+    }
 
     if (src.sleepMissing) addSecondary({id: 'sleep', kind: 'sleep', label: '补睡眠', target: 'habit-sleep'});
     if (src.weightMissing) addSecondary({id: 'weight', kind: 'weight', label: '补体重', target: 'measurement-weight'});
@@ -5711,6 +5704,11 @@ const values = points.length<=7 ? points.map((item,i) => {
     const exercises = exercisesFor(activeDate);
     const meals = (state && Array.isArray(state.meals) ? state.meals : []).filter(row => row && row.date === activeDate);
     const measurement = measurementRowFor(activeDate) || {};
+    const profile = effectiveProfileForDate(activeDate);
+    const totals = totalsFor(meals);
+    const proteinMin = number(profile.proteinMin);
+    const protein = number(totals.protein);
+    const proteinGap = proteinMin !== null && protein !== null && protein < proteinMin ? Math.round((proteinMin - protein) * 10) / 10 : 0;
     const currentMealSlot = typeof defaultMealTypeFor === 'function' ? defaultMealTypeFor(nowClock()) : 'lunch';
     let aiPlan = [];
     if (activeDate === today && typeof aiPlanStore === 'function') {
@@ -5727,7 +5725,8 @@ const values = points.length<=7 ? points.map((item,i) => {
       aiPlan,
       mealSlot: currentMealSlot,
       sleepMissing: number(habit.sleep) === null,
-      weightMissing: number(measurement.weight) === null
+      weightMissing: number(measurement.weight) === null,
+      proteinGap
     });
   }
   /** 把周计划今天那一节写进今日清单，两处入口（今日页 / 记录页）共用。 */
@@ -7229,7 +7228,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.01';
+  const APP_VERSION = '1.5.02';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}

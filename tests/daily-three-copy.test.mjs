@@ -14,7 +14,7 @@ const main = fs.readFileSync('app/src/main/java/cn/qingheng/health/MainActivity.
 
 // --- today's two things -----------------------------------------------------------------------------
 // 2026-11-18：三样卡并入体检后，记录页「身体」面板新增「今天两样」：体重 + 睡眠一次保存。
-check('the three things merged into the check card', !html.includes('id="daily-three"') && app.includes('check-fix-row'));
+check('the three things merged into the single next step', !html.includes('id="daily-three"') && app.includes("id: 'protein-gap'") && app.includes('is-next'));
 check('the body panel asks for weight and sleep in one row', html.includes('id="body-quick-form"') && html.includes('name="weight"') && html.includes('name="sleep"'));
 check('the manual oil field is not duplicated outside the estimate flow', !html.includes('name="oilSpoons"'));
 check('weight is asked for under the documented conditions', html.includes('空腹、同一状态'));

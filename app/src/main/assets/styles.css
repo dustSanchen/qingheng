@@ -2140,3 +2140,8 @@ details:not(.advanced):not(.day-more)>summary::after{width:auto;height:auto;bord
 @media(hover:none){
   .chip-toggle:active,.segment:active,.icon-button:active,.text-button:active,.hub-row:active,.week-cell:active{transform:scale(.985);opacity:.92}
 }
+
+/* One next step: the agenda primary is the only action surface on Today. */
+#view-today .slot-hint.is-next{background:var(--accent-soft);border-left-color:var(--accent);color:var(--ink);font-size:var(--text-md);font-weight:var(--fw-semibold);min-height:48px;align-items:center;cursor:pointer}
+#view-today .slot-hint.is-next .slot-time{color:var(--accent);font-weight:var(--fw-semibold);font-size:var(--text-xs);letter-spacing:var(--tracking-caps)}
+#view-today .slot-hint.is-next .slot-text::after{content:" →";color:var(--accent);font-weight:var(--fw-regular)}

@@ -296,11 +296,7 @@
       const fat = number(totals.fat), fatMax = number(p.fatMax);
       const kcal = number(totals.calories), actionCap = range ? number(range.max) : number(p.calorieTarget);
       if (protein !== null && proteinMin !== null && protein < proteinMin) {
-        const gap = proteinMin - protein;
-        // 只说方向、不点名具体食物：以前按缺口给「一掌心大小的鸡胸」这类健身语境例子，
-        // 对普通用户是额外门槛；1.1.37 也删过克数等价换算，这里不回到「吃什么、吃多少」的清单。
-        if (gap > 30) parts.push(`优先补蛋白：还差 ${fmt(gap,0)} g，接下来两餐各补一份蛋白质（蛋、豆制品、奶或瘦肉）`);
-        else parts.push(`优先补蛋白：还差 ${fmt(gap,0)} g，下一餐补一份蛋白质（蛋、豆制品、奶或瘦肉）`);
+        // The deficit is status here; slot-hint owns the single next action.
       }
       if (fat !== null && fatMax !== null && fat > fatMax) parts.push(`脂肪超 ${fmt(fat - fatMax,0)} g：剩下的菜改白灼或清蒸，别再额外加油`);
       if (kcal !== null && actionCap !== null && kcal > actionCap) parts.push(`热量已超上限 ${fmt(kcal - actionCap,0)} kcal：不再加餐，晚餐只吃蛋白加蔬菜`);

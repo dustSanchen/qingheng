@@ -1191,8 +1191,9 @@
     const primary = agenda && agenda.primary ? agenda.primary : null;
     const suffix = missing.length ? "；" + missing.map(item => item.label).join("、") + "好像还没记，点一下去补" : "";
     const timeNode = $("#slot-time"), textNode = $("#slot-text");
-    if (timeNode) timeNode.textContent = clock;
+    if (timeNode) timeNode.textContent = primary ? "下一步" : clock;
     if (textNode) textNode.textContent = primary ? primary.label : slot.label + "：" + slot.hint + suffix;
+    node.classList.toggle("is-next", !!primary);
     const action = primary ? primary.target : "";
     const clickable = !!action || !!missing.length;
     node.style.cursor = clickable ? "pointer" : "";
