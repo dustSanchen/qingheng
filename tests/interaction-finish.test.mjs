@@ -16,6 +16,8 @@ check('hover feedback exists for primary/subtle/text/icon', css.includes('.butto
 check('segments and chips have state transitions', css.includes('.segment{transition:color var(--dur-fast) var(--ease-opus)') && css.includes('.chip-toggle{transition:background var(--dur-fast)'));
 check('record summary is a readable data line, not muted fine print', css.includes('#today-meta,#records-meta{font-size:var(--text-md);color:var(--ink-soft)'));
 check('reduced motion remains globally respected', css.includes('@media(prefers-reduced-motion:reduce)'));
+check('chat send and attachments give press feedback', css.includes('.chat-send-button:active,.chat-attach-button:active{transform:scale(.94)}'));
+check('notice slides in with the shared ease', css.includes('@keyframes noticeIn') && css.includes('.notice{animation:noticeIn'));
 check('no transition-all fallback is introduced', !/transition:\s*all/.test(css));
 
 console.log('FAIL total: ' + fail);

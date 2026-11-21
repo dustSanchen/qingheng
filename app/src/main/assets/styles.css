@@ -2131,3 +2131,12 @@ details:not(.advanced):not(.day-more)>summary::after{width:auto;height:auto;bord
 .plan-schedule-more>summary::after{content:"可选";margin-left:auto;font-size:var(--text-xs);color:var(--muted);font-weight:var(--fw-regular)}
 .plan-schedule-more[open]>summary{margin-bottom:var(--space-1)}
 .plan-schedule-more .button{margin-top:var(--space-1)}
+
+/* 15. Press feedback + notice motion. Only transform/opacity/color; no layout. */
+.chat-send-button,.chat-attach-button{transition:background var(--dur-fast) var(--ease-opus),transform var(--dur-fast) var(--ease-opus)}
+.chat-send-button:active,.chat-attach-button:active{transform:scale(.94)}
+.notice{animation:noticeIn var(--dur-2) var(--ease-opus) both}
+@keyframes noticeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@media(hover:none){
+  .chip-toggle:active,.segment:active,.icon-button:active,.text-button:active,.hub-row:active,.week-cell:active{transform:scale(.985);opacity:.92}
+}
