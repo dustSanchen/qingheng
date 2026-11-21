@@ -5445,7 +5445,7 @@ const values = points.length<=7 ? points.map((item,i) => {
         : '');
     if (!body) return '';
     const head = esc(label + '（' + (TRAINING_TEMPLATES[planDay.template] || planDay.template) + '）的动作要点');
-    return '<details class="plan-why plan-cue-block" id="week-cues" open><summary>' + head + '</summary>' + body + '</details>';
+    return '<details class="plan-why plan-cue-block" id="week-cues"><summary>' + head + '</summary>' + body + '</details>';
   }
 
   /** Five-metric check for the selected day, plus the single action to take. */
@@ -6221,7 +6221,13 @@ const values = points.length<=7 ? points.map((item,i) => {
           if (detail) detail.textContent = weekDetailHtml(day, lastWeekPlan);
           // 要点整块换掉：内容按那天的动作重算，不重渲染整页，避免闪一下和滚动位置丢失。
           const cueHost = $("#week-cues-host");
-          if (cueHost) cueHost.innerHTML = weekCueHtml(day, lastWeekPlan);
+          if (cueHost) {
+            cueHost.innerHTML = weekCueHtml(day, lastWeekPlan);
+            // Default is folded so the log stays near the first screen; picking a date opens
+            // that day's cue immediately.
+            const cue = cueHost.querySelector('#week-cues');
+            if (cue) cue.open = true;
+          }
           return;
         }
         const button = event.target.closest("[data-adopt-today]");
@@ -7199,7 +7205,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.92';
+  const APP_VERSION = '1.4.93';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}

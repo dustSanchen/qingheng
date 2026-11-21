@@ -834,7 +834,7 @@
         : '');
     if (!body) return '';
     const head = esc(label + '（' + (TRAINING_TEMPLATES[planDay.template] || planDay.template) + '）的动作要点');
-    return '<details class="plan-why plan-cue-block" id="week-cues" open><summary>' + head + '</summary>' + body + '</details>';
+    return '<details class="plan-why plan-cue-block" id="week-cues"><summary>' + head + '</summary>' + body + '</details>';
   }
 
   /** Five-metric check for the selected day, plus the single action to take. */
@@ -1610,7 +1610,13 @@
           if (detail) detail.textContent = weekDetailHtml(day, lastWeekPlan);
           // 要点整块换掉：内容按那天的动作重算，不重渲染整页，避免闪一下和滚动位置丢失。
           const cueHost = $("#week-cues-host");
-          if (cueHost) cueHost.innerHTML = weekCueHtml(day, lastWeekPlan);
+          if (cueHost) {
+            cueHost.innerHTML = weekCueHtml(day, lastWeekPlan);
+            // Default is folded so the log stays near the first screen; picking a date opens
+            // that day's cue immediately.
+            const cue = cueHost.querySelector('#week-cues');
+            if (cue) cue.open = true;
+          }
           return;
         }
         const button = event.target.closest("[data-adopt-today]");

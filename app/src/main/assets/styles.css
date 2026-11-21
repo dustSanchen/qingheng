@@ -897,6 +897,11 @@ details[open]{background:var(--surface)}
 .card-notes > summary{cursor:pointer;font-size:var(--text-xs);color:var(--muted)}
 .card-notes[open] > summary{margin-bottom:var(--space-1)}
 .card-notes .fine-print{margin:var(--space-1) 0}
+.card-fold>summary{list-style:none;cursor:pointer;margin-bottom:0}
+.card-fold>summary::-webkit-details-marker{display:none}
+.card-fold>summary::after{content:'展开';font-size:var(--text-xs);color:var(--accent);flex:0 0 auto}
+.card-fold[open]>summary{margin-bottom:var(--space-3)}
+.card-fold[open]>summary::after{content:'收起'}
 
 /* 术语：虚线下划线，点一下出解释；不跳页、不打断记录。 */
 .term{display:inline;padding:0;border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;text-decoration:underline dotted var(--muted);text-underline-offset:3px;text-decoration-thickness:1px;line-height:inherit;vertical-align:baseline}

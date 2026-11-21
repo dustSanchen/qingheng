@@ -37,7 +37,7 @@ check('要点由预览日计算', training.includes('const cueHtml = weekCueHtml
 check('要点点名那天计划里的动作', training.includes('const cues = typeof libraryCuesFor === \'function\' ? libraryCuesFor(planDay) : [];'));
 check('要点块有稳定宿主，点日期时只换这一块', handler.includes('cueHost.innerHTML = weekCueHtml(day, lastWeekPlan);')
   && training.includes('<div id="week-cues-host">'));
-check('要点默认展开（点日期就能看到）', training.includes('class="plan-why plan-cue-block" id="week-cues" open'));
+check('要点默认收起，点日期展开', training.includes('class="plan-why plan-cue-block" id="week-cues"><summary>') && !training.includes('id="week-cues" open') && handler.includes('if (cue) cue.open = true;'));
 check('休息日不给要点', training.includes('是休息日，不排动作要点'));
 check('要点标题按日期取名，不写死在「今天」', training.includes('const head = esc(label + \'（\' + (TRAINING_TEMPLATES[planDay.template] || planDay.template) + \'）的动作要点\');'));
 
