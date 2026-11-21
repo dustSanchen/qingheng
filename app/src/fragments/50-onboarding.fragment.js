@@ -514,7 +514,9 @@
     $('#stats-table').innerHTML = statsTableHtml();
     renderWeeklyReview();
     if (!points.length) {
-      $('#weight-chart').innerHTML = stateBlock({kind: 'empty', title: '记录第一笔体重', body: '趋势从这里开始；之后每次记录都会画进折线。在记录页「身体」或今天的动作条里记。'});
+      const weekly = $('#trend-weekly');
+      if (weekly) {weekly.hidden = true; weekly.textContent = '';}
+      $('#weight-chart').innerHTML = stateBlock({kind: 'empty', title: '记录第一笔体重', body: '趋势从这里开始；之后每次记录都会画进折线。', action: {label: '去记录体重', go: 'records', focus: 'measurement-weight'}});
       $('#trend-stats').innerHTML = '';
       return;
     }

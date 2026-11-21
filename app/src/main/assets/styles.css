@@ -1965,3 +1965,89 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 .ai-plan-weight-note{margin:var(--space-2) 0 0}
 /* 上次排课的耗时/失败原因：toast 10 秒就没，这行留在清单上方 */
 .ai-plan-timing{margin:var(--space-1) 0 0;color:var(--muted)}
+
+/* ── 全站视觉收口（1.4.79，2026-11-21）────────────────────────────────────────────
+   只动视觉层：页眉、页内分区、折叠行、图表与空态；不改信息、不改状态、不改 DOM 语义。
+   值全部取自既有 token；账本差异收在 [data-skin="ledger"]，夜间跟随其暗色 token。 */
+
+/* 1. 页眉：日期退成一行小字，页头不再被横线切成「工具条 + 横幅」两段。 */
+.running-head{padding:12px 0 0;border-bottom:0;font-size:var(--text-xs);letter-spacing:.12em;color:var(--muted)}
+.running-head .date-jump{padding:6px 0;font-size:var(--text-xs);letter-spacing:.06em;color:var(--muted)}
+.running-head .date-jump:hover span,.running-head .date-jump:focus-within span{border-bottom-color:var(--line)}
+.page-heading{margin:var(--space-3) 0 var(--space-5);row-gap:var(--space-2)}
+.page-heading--today,.page-heading--records,.page-heading--trends{margin-top:var(--space-2)}
+.page-heading h1{font-size:26px;line-height:1.18}
+
+/* 诗笺退到副标题明度：同一行里先读到标题，再读到句子。 */
+.epigraph,#view-today .epigraph{font-family:var(--font-display);font-size:var(--text-sm);line-height:1.4;letter-spacing:.14em;color:var(--muted);opacity:.72}
+[data-skin="ledger"] .epigraph{opacity:.55}
+[data-skin="night"] .epigraph,[data-theme="dark"] .epigraph{opacity:.55}
+
+/* 我的页进入副页后，页面标题让位给副页标题：不再「我的 / 外观与偏好」两级并排。 */
+#view-profile:has(#profile-hub[hidden]) .page-heading{display:none}
+
+/* 2. 观察范围：从 48px 描边下拉框退回「一行筛选项」，不再截断标题下方。 */
+.page-head-tools{display:flex;align-items:center;gap:var(--space-2);margin-top:var(--space-1)}
+.page-head-tools-label{font-size:var(--text-xs);color:var(--muted);letter-spacing:.06em}
+.page-heading--trends .range-picker{display:flex;align-items:center;width:auto;margin:0}
+.page-heading--trends .range-picker select{width:auto;min-height:36px;padding:4px 24px 4px 10px;border:1px solid transparent;border-radius:var(--radius-sm);background:var(--surface-soft);color:var(--ink-soft);font-size:var(--text-sm);font-weight:var(--fw-medium);font-variant-numeric:tabular-nums}
+
+/* 3. 页内分区：选中态用一道下划线，而不是第二个导航条；三个页面同一套读法。 */
+.segment-bar,#view-records .segment-bar,#view-trends .segment-bar{position:sticky;top:0;display:flex;gap:0;margin:0 0 var(--space-4);padding:0;border:0;border-bottom:1px solid var(--line);border-radius:0;background:var(--paper)}
+#view-records .segment,#view-trends .segment,.segment{flex:1 1 0;min-height:44px;padding:var(--space-2) var(--space-3);border:0;border-radius:0;background:transparent;color:var(--muted);font-size:var(--text-sm);font-weight:var(--fw-regular)}
+.segment[aria-selected="true"]{background:transparent;color:var(--ink);font-weight:var(--fw-semibold);box-shadow:inset 0 -2px 0 var(--accent)}
+.segment:active{transform:none;color:var(--ink)}
+[data-skin="ledger"] .segment-bar{border-bottom-color:var(--line-strong)}
+[data-skin="ledger"] .segment{font-size:var(--text-sm)}
+[data-skin="ledger"] .segment[aria-selected="true"]{box-shadow:inset 0 -2px 0 var(--ink)}
+
+/* 4. 今日能量：目标与「复制一餐」退为辅助；折叠提示从大盒子改成一行发丝线。 */
+.energy-card .card-heading .text-button{color:var(--muted);font-weight:var(--fw-regular);padding:var(--space-1)}
+.energy-card .card-heading .text-button:active{color:var(--accent)}
+details.energy-more{margin:var(--space-1) 0 0;padding:0;border:0;border-radius:0;background:transparent}
+details.energy-more[open]{background:transparent}
+details.energy-more>summary{min-height:44px;padding:0;font-size:var(--text-xs);color:var(--muted)}
+details.energy-more>summary::after{content:"\25BE";width:auto;height:auto;border:0;border-radius:0;background:none;font-size:var(--text-xs);line-height:1;color:var(--muted)}
+details.energy-more[open]>summary::after{transform:rotate(180deg)}
+details.energy-more p{margin:var(--space-1) 0 var(--space-1);font-size:var(--text-xs);color:var(--muted)}
+[data-skin="ledger"] details.energy-more>summary{min-height:40px}
+
+/* 5. 问答：删掉与页面标题重复的卡内标题后，让输入与主行动连成一条视线。 */
+#view-chat .card-heading--chat{justify-content:flex-start;margin-bottom:var(--space-2)}
+#view-chat #chat-data-context{margin:0 0 var(--space-2)}
+#view-chat .chat-toolbar{margin-bottom:var(--space-2)}
+#chat-chips .button.subtle{background:var(--surface);border-color:var(--line);color:var(--ink-soft);font-weight:var(--fw-regular)}
+#chat-chips .button.subtle:active{background:var(--surface-soft);border-color:var(--line-strong)}
+#view-chat .capture-card{min-height:44px;padding:6px 10px;font-size:var(--text-xs)}
+#view-chat .capture-card img{width:18px;height:18px;padding:0;background:transparent}
+#view-chat .upload-area.compact{margin:var(--space-1) 0 var(--space-2)}
+#view-chat .chat-send-bar{margin-top:var(--space-1);padding-top:var(--space-1)}
+#chat-question{min-height:96px}
+
+/* 6. 趋势：细一档的折线与网格；轴字退成注释，数字仍等宽。 */
+.chart-note{margin:0 0 var(--space-2);font-size:var(--text-xs);line-height:1.5;color:var(--muted);font-variant-numeric:tabular-nums;opacity:1}
+.chart-text{font-size:var(--text-xs);font-weight:var(--fw-medium);fill:var(--muted)}
+.chart-line{stroke-width:2}
+.chart-point{stroke-width:2}
+.chart-mean{stroke-width:1.5;stroke-dasharray:5 4;opacity:.55}
+.chart-grid{stroke-width:1;stroke-dasharray:2 6}
+.chart-value{font-size:var(--text-xs)}
+.trend-stats strong{font-variant-numeric:tabular-nums}
+
+/* 7. 空态：用叶符号 + 一句话，去掉又一层描边盒子；动作仍只在真有空态时出现。 */
+.state-block[data-kind="empty"]{align-items:center;gap:var(--space-2);padding:var(--space-5) var(--space-4);border:0;background:transparent;text-align:center}
+.state-block[data-kind="empty"]::before{content:"";width:40px;height:40px;background:url("./icon-glyph-leaf.svg") center/contain no-repeat;opacity:.55}
+.state-block[data-kind="empty"] .state-block-title{margin:0;font-size:var(--text-md);color:var(--body-text);font-weight:var(--fw-medium)}
+.state-block[data-kind="empty"] .state-block-body{max-width:26em;font-size:var(--text-sm);color:var(--muted)}
+.state-block[data-kind="empty"] .state-block-action{margin-top:var(--space-1)}
+[data-skin="ledger"] .state-block[data-kind="empty"]::before,[data-theme="dark"] .state-block[data-kind="empty"]::before{opacity:.6}
+
+/* 8. 折叠区默认是一行发丝线，只有「控件组」.advanced 保留虚线框；
+      来源、说明、更多数据不再各自套一个盒子。 */
+details:where(:not(.advanced):not(.day-more)){border:0;border-radius:0;background:transparent;padding:0}
+details:where(:not(.advanced):not(.day-more))[open]{background:transparent}
+details:where(:not(.advanced):not(.day-more))>summary{padding:0;color:var(--ink-soft)}
+details:not(.advanced):not(.day-more)>summary::after{width:auto;height:auto;border:0;border-radius:0;background:none;font-size:var(--text-xs);color:var(--muted)}
+
+/* 9. 加载：20px 环、1.2s 匀速；prefers-reduced-motion 下静止（已有规则保留）。 */
+.busy-ring{width:20px;height:20px;animation:busy-spin 1.2s linear infinite}

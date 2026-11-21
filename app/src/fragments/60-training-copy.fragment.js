@@ -1908,7 +1908,8 @@
     const ratio = (OIL_LEVELS[level] || OIL_LEVELS.normal).ratio;
     return (Array.isArray(items) ? items : []).map(item => {
       const next = {...item};
-      if (number(next.oilGrams) > 0 && next.oilIncluded === true) return next;
+      // A dish that already includes its cooking oil must stay untouched even when its oilGrams is 0.
+      if (next.oilIncluded === true) return next;
       if (isPackagedFood(next)) return next;
       const oil = Math.round(oilRuleFor(next.method, next.grams) * ratio * 10) / 10;
       if (!(oil > 0)) return next;

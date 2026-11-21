@@ -161,7 +161,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.78';
+  const APP_VERSION = '1.4.79';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -2339,6 +2339,42 @@
       .replace(/^(?:吃了|还有|另外|加了)\s*/,'').trim())
       .filter(name=>name && name.length<=48);
   }
+  /**
+   * Exact local-food pre-pass. Only consumes lines that name a USDA-backed entry and an explicit
+   * gram/kg amount; any unknown item returns null so the existing AI/local fallback still owns it.
+   * This is a matcher, not a second nutrition algorithm: macros come from FoodModels.estimate().
+   */
+  function localFoodEstimate(value) {
+    const foods = window.QinghengFoods;
+    if (!foods || typeof foods.find !== 'function' || typeof foods.estimate !== 'function') return null;
+    const parts = String(value || '').split(/[，,、；;\n+]+/).map(part => part.trim()).filter(Boolean);
+    if (!parts.length) return null;
+    const items = [];
+    for (const part of parts) {
+      const match = part.match(/^(.*?)\s*(\d+(?:\.\d+)?)\s*(千克|公斤|kg|克|g|毫升|ml)\s*$/i);
+      if (!match) return null;
+      const namePart = match[1].replace(/[（(].*?[)）]/g, '').trim();
+      const gramValue = Number(match[2]);
+      const unit = match[3].toLowerCase();
+      const grams = unit === '千克' || unit === '公斤' || unit === 'kg' ? gramValue * 1000 : gramValue;
+      if (!(grams > 0) || !(grams <= 20000)) return null;
+      const methodHit = namePart.match(/^(爆炒|红烧|干锅|油淋|清蒸|白灼|凉拌|煎|炸|炒|烤|蒸|煮|炖)/);
+      const method = methodHit ? methodHit[1] : '蒸';
+      const foodName = methodHit ? namePart.slice(methodHit[1].length).trim() : namePart;
+      const entry = foods.find(foodName);
+      if (!entry) return null;
+      const item = foods.estimate(entry.name, grams);
+      items.push({...item, method, ...(entry.includesOil === true ? {oilIncluded: true} : {})});
+    }
+    return {
+      draftId: 'local-food-' + Date.now(),
+      source: 'local',
+      confidence: 'medium',
+      uncertaintyPercent: 8,
+      items,
+      notes: ['按本地食品库精确匹配，未调用外部模型；份量与烹饪油仍需在预览里确认。']
+    };
+  }
   function estimateStreamNames(value) {
     const names=[];
     for(const match of String(value||'').matchAll(/"name"\s*:\s*"((?:\\.|[^"\\]){1,240})"/g)){
@@ -2363,6 +2399,18 @@
     if(draft && !await askConfirm('新估算会替换当前未保存的预览，继续吗？', {title:'替换预览'}))return;
     const submittedForm={elements:{date:{value:form.elements.date.value},mealType:{value:form.elements.mealType.value}},
       text, photo:photoMeta(imageData?mealPhotoMeta:null)};
+    // Exact USDA/local entries can finish instantly and offline; unknown or estimated portions
+    // still go through the existing model/local adapter, never through a second nutrition formula.
+    if (!imageData) {
+      const local = localFoodEstimate(text);
+      if (local) {
+        try {
+          previewDraft(local, submittedForm);
+          feedback(message, '本地食品库已匹配；请核对克重与用油后确认。');
+        } catch (error) { feedback(message, error.message, true); }
+        return;
+      }
+    }
     estimateBusy=true;button.disabled=true;feedback(message,'正在准备估算…');
     const payload={text,allowExternal:externalConsent() && navigator.onLine,anchors:anchorSummary(),preferences:readPreferences(),...(imageData?{image:imageData}:{})};
     // Render the first useful frame before settings, transport, or model latency can delay it.

@@ -1547,3 +1547,10 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 测试：新增 `meal-draft` 14 项（92 总数全绿）；修正 `training-draft` 对新检测顺序的断言。审美审计 3 个既有 WARN、AI 味 1 个既有 WARN、入口预算 9/9 PASS。
 - 构建：`dist/qingheng-1.4.78.apk`（666,848 B / 651 KB，sha256 `46871207F6BE2F2E…`），设备 3cba2bdc 安装 1.4.78，smoke js errors none。未推送远端、未发 Release。
 - 未验证：中文餐食文本的真机键盘输入路径尚未自动化；由 `meal-draft` 纯函数/源码断言覆盖，真机仅做启动 smoke。
+## r192 · 2026-11-21 · 1.4.79（全站视觉收口 + 本地食品库优先）
+- 视觉：页眉/诗笺层级、记录/趋势/问答分段底线、趋势范围 chip、趋势曲线与网格、空态叶、提问区高度；新增 CSS 全部用既有 token，账本差异收在 `[data-skin="ledger"]`。真机 360/390 五页截图，账本/夜间 390 关键页。
+- 算法：`localFoodEstimate` 对“精确食品名 + 克重”先查 USDA 本地库，全部命中才生成 `source:local` 预览；未知/估份量继续走现有模型/适配器。`applyOilToItems` 对 `oilIncluded:true` 的菜品不再重复加油。
+- 修复：趋势空数据时清空残留周均值，并给“去记录体重”动作；空态不再只是叶+一句话。
+- 测试：新增 `local-food-estimate`；全量 93/93。审美审计 3 个既有 WARN、AI 味 1 个既有 WARN、入口预算 9/9 PASS。
+- 构建：`dist/qingheng-1.4.79.apk`（666,847 B / 651 KB，sha256 `0960A7ACC0A1B026…`），设备 3cba2bdc 安装 1.4.79，smoke js errors none。未推送、未发 Release。
+- 未完成：全站逐页美术审计、体重目标区间带（文档标“待字段决策”）、旧 WebView `:has()` 兼容、真机输入法下问答按钮可见性；本轮视觉是一轮收口，不等于终版。
