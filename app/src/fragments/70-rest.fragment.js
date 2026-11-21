@@ -143,7 +143,9 @@
     if (node.dataset.loaded === date) return;
     node.textContent = '正在整理本次将发送的数据…';
     try {
-      const data = await api('/api/context-preview', {date, kind});
+      const payload = {date, kind};
+      if (kind === 'advice') payload.preferences = readPreferences();
+      const data = await api('/api/context-preview', payload);
       node.textContent = `【系统提示词】\n${data?.system || ''}\n\n【本次数据】\n${JSON.stringify(data?.user ?? null, null, 2)}`;
       node.dataset.loaded = date;
     } catch (error) {node.textContent = error.message;}
@@ -154,7 +156,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.70';
+  const APP_VERSION = '1.4.73';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1440,18 +1442,7 @@
     row.addEventListener('click', event => {
       const chip = event.target.closest('[data-quick-focus]');
       if (!chip) return;
-      const focus = chip.dataset.quickFocus;
-      switchTab('records', true);
-      switchRecordPanel(recordPanelForField(focus));
-      setTimeout(() => {
-        if (focus === 'training-form') {
-          const form = $('#training-form');
-          if (form) { form.closest('.card')?.scrollIntoView({block: 'start', behavior: 'smooth'}); flashTarget(form.closest('.card')); }
-          return;
-        }
-        // No focus: the keyboard used to cover the very form the user wanted to see.
-        revealField(focus, {focus: false, block: 'start'});
-      }, 80);
+      openRecordTarget(chip.dataset.quickFocus);
     });
   }
   function installChatTaskOrder() {
@@ -1570,7 +1561,7 @@
     const cardFor = heading => cards.find(card => $('h2', card)?.textContent.trim() === heading);
     const host = $('.record-grid', view) || view;
     const panels = [
-      {key: 'weight', label: '体重', headings: ['体重变化', '身体成分对照', '身体记录明细'], foldedHeadings: ['身体记录明细']},
+      {key: 'weight', label: '体重', headings: ['体重变化', '上周回看', '身体成分对照', '身体记录明细'], foldedHeadings: ['身体记录明细']},
       {key: 'diet', label: '饮食', headings: [], extra: true},
       {key: 'training', label: '训练', headings: ['训练容量（渐进超负荷）']}
     ];
@@ -1911,6 +1902,35 @@
     if (['training-form', 'training-exercises'].includes(id)) return 'training';
     return 'food';
   }
+  /** One jump contract shared by today's hint, quick chips and advice buttons. */
+  function openRecordTarget(target, options = {}) {
+    const focus = String(target || '');
+    if (!focus) return;
+    switchTab('records', true);
+    if (focus === 'ai-plan') {
+      switchRecordPanel('training');
+      setTimeout(() => {
+        const card = $('#ai-plan');
+        if (card) {card.scrollIntoView({block: 'start', behavior: 'smooth'}); flashTarget(card);}
+      }, 80);
+      return;
+    }
+    if (focus === 'training-form') {
+      switchRecordPanel('training');
+      setTimeout(() => {
+        const form = $('#training-form');
+        if (form) {form.closest('.card')?.scrollIntoView({block: 'start', behavior: 'smooth'}); flashTarget(form.closest('.card'));}
+      }, 80);
+      return;
+    }
+    if (focus === 'meal-text' && ['breakfast', 'lunch', 'dinner', 'snack'].includes(options.mealSlot)) {
+      const select = $('#estimate-form [name="mealType"]');
+      if (select) select.value = options.mealSlot;
+      const date = $('#estimate-form [name="date"]');
+      if (date && !date.value) date.value = activeDate;
+    }
+    revealField(focus, {focus: false, block: 'start'});
+  }
   /**
    * Jumps to a form field that may live inside a collapsed card: open the details, scroll it into view,
    * then focus. Without the open() step the tap looks like nothing happened.
@@ -2216,8 +2236,22 @@
     const next = {...existing};
     delete next.exercises;
     delete next.template;
+    delete next.training;
     try {await api('/api/habits', next); await loadState({quiet: true}); renderTrainingLog(); notice('已清空今天的训练记录。');}
     catch (error) {notice(error.message, true);}
+  });
+  $('#training-rest')?.addEventListener('click', async () => {
+    const existing = habitRowFor(activeDate);
+    const restMarked = !!existing && (existing.training === false || String(existing.training) === 'false') && !exercisesFor(activeDate).length;
+    if (!restMarked && !await askConfirm('把今天记为休息日？已有的步数、睡眠和饮水会保留，之后仍可记录训练。', {title: '记为休息', ok: '记为休息'})) return;
+    const next = {...(existing || {}), date: activeDate};
+    if (restMarked) delete next.training; else next.training = false;
+    try {
+      await api('/api/habits', next);
+      await loadState({quiet: true});
+      renderTrainingLog();
+      notice(restMarked ? '已取消休息标记。' : '已记为休息日。');
+    } catch (error) {notice(error.message, true);}
   });
   $('#today-training-line')?.addEventListener('click', () => {
     switchTab('records', true);
@@ -2841,15 +2875,52 @@ feedback(message,'数据已导入。'+report);
   installTodayQuickActions();
   installChatTaskOrder();
   installProfileMore();
+  let editingPreferenceIndex = -1;
+  const PREFERENCE_SOURCE_LABEL = {manual: '手动添加', chat: '来自问答', legacy: '旧记录'};
+  function preferenceMetaText(row) {
+    const source = PREFERENCE_SOURCE_LABEL[row.source] || PREFERENCE_SOURCE_LABEL.manual;
+    const date = row.updatedAt ? row.updatedAt.slice(0, 10) : '';
+    return source + (date ? ' · ' + date : '');
+  }
+  function syncPreferenceEditor() {
+    const add = $('#preference-add'), cancel = $('#preference-cancel');
+    if (add) add.textContent = editingPreferenceIndex >= 0 ? '保存修改' : '记住这条';
+    if (cancel) cancel.hidden = editingPreferenceIndex < 0;
+  }
+  function resetPreferenceEditor() {
+    editingPreferenceIndex = -1;
+    const input = $('#preference-input'), feedback = $('#preference-feedback');
+    input?.closest('article.card')?.classList.remove('is-editing-preference');
+    if (input) input.value = '';
+    if (feedback) feedback.textContent = '';
+    syncPreferenceEditor();
+  }
+  function beginPreferenceEdit(index) {
+    const rows = readPreferenceRows();
+    const row = rows[index];
+    const input = $('#preference-input'), feedback = $('#preference-feedback');
+    if (!row || !input) {resetPreferenceEditor(); return;}
+    editingPreferenceIndex = index;
+    input.value = row.text;
+    input.closest('article.card')?.classList.add('is-editing-preference');
+    if (feedback) feedback.textContent = '改完点「保存修改」。';
+    syncPreferenceEditor();
+    // Add scroll room first; a focused input at the page bottom otherwise hides the save row behind the keyboard.
+    const align = () => input.scrollIntoView({block: 'center', behavior: 'smooth'});
+    align();
+    setTimeout(() => {if (document.activeElement !== input) input.focus({preventScroll: true}); align();}, 140);
+    setTimeout(align, 460);
+  }
   function renderPreferences() {
-    const list = readPreferences();
+    const rows = readPreferenceRows();
     const box = $('#preference-list'), tag = $('#preference-count'), hub = $('#hub-summary-prefs');
-    if (tag) tag.textContent = list.length + ' 条';
-    if (hub) hub.textContent = list.length ? list.slice(0, 2).join(' · ') + (list.length > 2 ? '…' : '') : '让建议记住你的习惯';
-    if (!box) return;
-    box.innerHTML = list.length
-      ? list.map((item, index) => `<div class="hub-row preference-row" role="listitem"><span class="hub-text"><span class="hub-title">${esc(item)}</span></span><button type="button" class="icon-button danger" data-preference-remove="${index}" aria-label="删除这条偏好">×</button></div>`).join('')
+    if (tag) tag.textContent = rows.length + ' 条';
+    if (hub) hub.textContent = rows.length ? rows.slice(0, 2).map(row => row.text).join(' · ') + (rows.length > 2 ? '…' : '') : '让建议记住你的习惯';
+    if (!box) {syncPreferenceEditor(); return;}
+    box.innerHTML = rows.length
+      ? rows.map((row, index) => `<div class="hub-row preference-row" role="listitem"><span class="hub-text"><span class="hub-title">${esc(row.text)}</span><span class="hub-summary">${esc(preferenceMetaText(row))}</span></span><span class="preference-row-actions"><button type="button" class="icon-button" data-preference-edit="${index}" aria-label="编辑这条偏好">改</button><button type="button" class="icon-button danger" data-preference-remove="${index}" aria-label="删除这条偏好">×</button></span></div>`).join('')
       : '<p class="empty-note">还没有偏好。写一句「不吃香菜」或「早餐固定两个鸡蛋加豆浆」，之后的估算与建议都会避开它。</p>';
+    syncPreferenceEditor();
   }
   function installPreferences() {
     const add = $('#preference-add'), input = $('#preference-input'), feedback = $('#preference-feedback');
@@ -2858,33 +2929,55 @@ feedback(message,'数据已导入。'+report);
     const submit = () => {
       const text = input.value.trim();
       if (!text) {feedback.textContent = '写一句再记。'; return;}
-      const list = readPreferences();
-      if (list.includes(text)) {feedback.textContent = '这条已经记过了。'; return;}
-      if (list.length >= 20) {feedback.textContent = '最多 20 条，先删掉旧的再记。'; return;}
-      writePreferences([...list, text]);
+      const rows = readPreferenceRows();
+      if (rows.some((row, index) => index !== editingPreferenceIndex && row.text === text)) {
+        feedback.textContent = '这条已经记过了。';
+        return;
+      }
+      if (editingPreferenceIndex >= 0) {
+        if (!rows[editingPreferenceIndex]) {resetPreferenceEditor(); feedback.textContent = '这条偏好已经不在了。'; return;}
+        rows[editingPreferenceIndex] = {...rows[editingPreferenceIndex], text, updatedAt: new Date().toISOString()};
+        writePreferenceRows(rows);
+        feedback.textContent = '已更新。';
+      } else {
+        if (rows.length >= 20) {feedback.textContent = '最多 20 条，先删掉旧的再记。'; return;}
+        const now = new Date().toISOString();
+        rows.push({id: preferenceIdFor(text), text, source: 'manual', createdAt: now, updatedAt: now});
+        writePreferenceRows(rows);
+        feedback.textContent = '已记住。';
+      }
+      editingPreferenceIndex = -1;
       input.value = '';
-      feedback.textContent = '已记住。';
+      input.closest('article.card')?.classList.remove('is-editing-preference');
       renderPreferences();
     };
     add.addEventListener('click', submit);
     input.addEventListener('keydown', event => {if (event.key === 'Enter') {event.preventDefault(); submit();}});
+    $('#preference-cancel')?.addEventListener('click', () => {resetPreferenceEditor(); renderPreferences();});
     $('#preference-list')?.addEventListener('click', event => {
+      const edit = event.target.closest('[data-preference-edit]');
+      if (edit) {beginPreferenceEdit(Number(edit.dataset.preferenceEdit)); return;}
       const remove = event.target.closest('[data-preference-remove]');
       if (!remove) return;
       const index = Number(remove.dataset.preferenceRemove);
-      const list = readPreferences();
-      list.splice(index, 1);
-      writePreferences(list);
+      const rows = readPreferenceRows();
+      if (!rows[index]) return;
+      rows.splice(index, 1);
+      writePreferenceRows(rows);
+      if (editingPreferenceIndex === index) resetPreferenceEditor();
+      else if (editingPreferenceIndex > index) editingPreferenceIndex -= 1;
       renderPreferences();
     });
   }
   function addPreferenceFromChat(record) {
     const text = String(record?.question || record?.prompt || record?.answer || '').trim().slice(0, 80);
     if (!text) {notice('这条记录没有可记的内容。', true); return;}
-    const list = readPreferences();
-    if (list.includes(text)) {notice('这条已经记过了。'); return;}
-    if (list.length >= 20) {notice('最多 20 条，先到「我的 → 偏好与记忆」删掉旧的。', true); return;}
-    writePreferences([...list, text]);
+    const rows = readPreferenceRows();
+    if (rows.some(row => row.text === text)) {notice('这条已经记过了。'); return;}
+    if (rows.length >= 20) {notice('最多 20 条，先到「我的 → 偏好与记忆」删掉旧的。', true); return;}
+    const now = new Date().toISOString();
+    rows.push({id: preferenceIdFor(text), text, source: 'chat', createdAt: now, updatedAt: now});
+    writePreferenceRows(rows);
     renderPreferences();
     notice('已记为偏好，之后的估算与建议会带上它。');
   }

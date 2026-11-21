@@ -287,6 +287,10 @@ label.sheet-option{flex-direction:row;margin:0;cursor:pointer}
 .hub{display:flex;flex-direction:column;gap:10px}
 .hub-row{display:flex;align-items:center;gap:14px;width:100%;min-height:var(--btn-h);padding:16px 20px;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;color:var(--ink);text-align:left;}
 .hub-row:active{background:var(--accent-soft)}
+.preference-row .hub-text{min-width:0;flex:1}
+.preference-row-actions{display:flex;align-items:center;gap:4px;flex:0 0 auto}
+.preference-row-actions .icon-button{min-width:44px;min-height:44px}
+.card.is-editing-preference{padding-bottom:48vh}
 .hub-icon{display:grid;place-items:center;width:40px;height:40px;min-width:40px;border-radius:12px;background:var(--accent-soft);color:var(--accent);flex:0 0 auto}
 .hub-icon img{width:21px;height:21px}
 .hub-text{display:flex;flex-direction:column;gap:3px;flex:1 1 auto;min-width:0}
@@ -506,6 +510,15 @@ label.sheet-option{flex-direction:row;margin:0;cursor:pointer}
 /* Warnings */
 .trend-warnings{margin:0 0 10px}
 .trend-warnings[hidden]{display:none}
+.weekly-review-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:8px 0 12px}
+.weekly-review-grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.weekly-review-metric{min-width:0}
+.weekly-review-metric small{display:block;font-size:var(--text-xs);color:var(--muted);margin-bottom:4px}
+.weekly-review-metric strong{display:block;font-size:20px;font-weight:var(--fw-semibold);font-variant-numeric:tabular-nums}
+.weekly-review-metric strong span{font-size:var(--text-xs);font-weight:var(--fw-regular);color:var(--muted)}
+.weekly-review-metric>span{display:block;margin-top:3px;font-size:var(--text-xs);color:var(--muted);line-height:1.5;overflow-wrap:anywhere}
+.weekly-review-action{margin:8px 0 0;font-size:var(--text-sm);color:var(--body-text);line-height:1.6}
+@media(max-width:360px){.weekly-review-grid{gap:8px}.weekly-review-metric strong{font-size:18px}}
 .warn-line{margin:0 0 var(--space-1);padding:10px 12px;border-radius:var(--radius-sm);background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--danger);font-size:var(--text-sm);line-height:1.6;color:var(--body-text)}
 
 /* density pass: same information, less vertical space */
@@ -1527,6 +1540,8 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 /* advice card: verdict line, then actions */
 .advice-verdict{margin:0 0 8px;font-size:17px;line-height:1.55;font-weight:500}
 .advice-actions{margin:0}
+.advice-action-row{margin-top:10px}
+.advice-action{min-height:44px}
 .advice-pref-note{margin:10px 0 0}
 
 /* plan rows: one-tap log entry */

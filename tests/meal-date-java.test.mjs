@@ -69,7 +69,7 @@ check('drafts are capped', main.includes('private static final int DRAFT_LIMIT =
 check('a stored draft re-arms its id for confirmation', main.includes('!storedDraftExists(draftId)'));
 check('confirming a meal clears its draft atomically', main.includes('next.put(DRAFTS, withoutDraft(next.optJSONArray(DRAFTS), draftId));'));
 check('drafts are scrubbed before storage', /saveStoredDraft[\s\S]{0,500}scrub\(draft\)/.test(main));
-check('the preview route exists and shares the builders', main.includes('private JSONObject contextPreview(JSONObject b)') && main.includes('.put("system", adviceSystemPrompt()).put("user", adviceInput(day))'));
+check('the preview route exists and shares the builders', main.includes('private JSONObject contextPreview(JSONObject b)') && main.includes('.put("system", adviceSystemPrompt() + preferenceSuffix(b)).put("user", adviceInput(day))'));
 check('chat and advice share one system prompt each', main.includes('private static String adviceSystemPrompt()') && main.includes('chatSystemPrompt()'));
 check('the advice request uses the shared payload builder', /JSONObject input = adviceInput\(day\);/.test(main));
 check('the preview never calls a provider', !/contextPreview[\s\S]{0,600}chat\(c,/.test(main));
@@ -136,7 +136,7 @@ check('entering a sub-page pushes history for the system back button', app.inclu
 check('restoring the tab ignores the sub-page', /function restoreTab\(\) \{\s*const fromHash = parseHash\(\)\.tab;/.test(app));
 check('hub summaries are refreshed from state', app.includes('function renderHub()') && app.includes('renderHub();'));
 check('the storage panel is driven by the new route', app.includes("api(remirror ? '/api/storage-remirror' : '/api/storage-status'"));
-check('the app version is a single constant', app.includes("const APP_VERSION = '1.4.70'"));
+check('the app version is a single constant', app.includes("const APP_VERSION = '1.4.73'"));
 check('the shown version matches the build script', (() => {
   const shown = /const APP_VERSION = '([0-9.]+)'/.exec(app);
   const built = /\$Version='([0-9.]+)'/.exec(fs.readFileSync('build.ps1', 'utf8'));

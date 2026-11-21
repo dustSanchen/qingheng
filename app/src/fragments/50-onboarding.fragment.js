@@ -377,6 +377,123 @@
       + `<tbody>${rows.join('')}</tbody></table>`;
   }
   let trendTooltipTimer = null;
+  /** The most recent completed Monday–Sunday week ends on or before `date`. */
+  function completedWeekEnd(date) {
+    const value = String(date || '');
+    const day = new Date(`${value}T12:00:00`);
+    if (Number.isNaN(day.getTime())) return value;
+    day.setDate(day.getDate() - day.getDay());
+    const pad = part => String(part).padStart(2, '0');
+    return `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`;
+  }
+  /**
+   * Pure weekly review: current/previous seven-day summaries in, honest comparison out.
+   * It never reads the network, never invents a score, and omits training for a no-training profile.
+   */
+  function buildWeeklyReview(input) {
+    const src = input || {};
+    const current = Array.isArray(src.currentDays) ? src.currentDays.slice(0, 7) : [];
+    const previous = Array.isArray(src.previousDays) ? src.previousDays.slice(0, 7) : [];
+    const weightOf = day => {
+      const value = Number(day && day.weight);
+      return Number.isFinite(value) && value > 0 ? value : null;
+    };
+    const numberOrNull = value => value === null || value === undefined || value === '' ? null : Number(value);
+    const average = days => {
+      const values = days.map(weightOf).filter(value => value !== null);
+      return {count: values.length, mean: values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length * 10) / 10 : null};
+    };
+    const currentWeight = average(current), previousWeight = average(previous);
+    const currentHasRecord = day => day && (day.hasMeal === true || weightOf(day) !== null || day.hasExercise === true || day.hasRecord === true);
+    const recordedDays = current.filter(currentHasRecord).length;
+    const mealDays = current.filter(day => day && day.hasMeal === true).length;
+    const targetKnownDays = current.filter(day => {
+      const min = numberOrNull(day && day.min), max = numberOrNull(day && day.max), calories = numberOrNull(day && day.calories);
+      return Number.isFinite(min) && Number.isFinite(max) && Number.isFinite(calories);
+    }).length;
+    const targetDays = current.filter(day => {
+      const min = numberOrNull(day && day.min), max = numberOrNull(day && day.max), calories = numberOrNull(day && day.calories);
+      return Number.isFinite(min) && Number.isFinite(max) && Number.isFinite(calories) && calories >= min && calories <= max;
+    }).length;
+    const trainingDays = current.filter(day => day && day.hasExercise === true).length;
+    const training = src.trainingEnabled === false ? null : {days: trainingDays};
+    const comparable = currentWeight.count >= 2 && previousWeight.count >= 2;
+    let action = '保持现在的记录节奏，下周同一时间再看。';
+    if (!recordedDays) action = '上周还没有记录；下周先记两天，回看才有内容。';
+    else if (currentWeight.count < 2) action = '固定两天早上称重，周均值才有参考。';
+    else if (training && trainingDays === 0) action = '下周安排一次能完成的训练，不用补课。';
+    else if (mealDays < 4) action = '下周先记满四天餐食，再看摄入和体重的关系。';
+    else if (comparable) {
+      const delta = Math.round((currentWeight.mean - previousWeight.mean) * 10) / 10;
+      if (Math.abs(delta) >= 0.1) action = `体重周均值变化 ${delta >= 0 ? '+' : ''}${delta} kg；先保持现在的节奏。`;
+    }
+    return {
+      enough: recordedDays > 0,
+      rangeLabel: src.weekStart && src.weekEnd ? `${String(src.weekStart).slice(5)}–${String(src.weekEnd).slice(5)}` : '',
+      recordedDays, mealDays, targetDays, targetKnownDays,
+      weight: {
+        currentMean: currentWeight.mean,
+        previousMean: previousWeight.mean,
+        currentCount: currentWeight.count,
+        previousCount: previousWeight.count,
+        comparable,
+        delta: comparable ? Math.round((currentWeight.mean - previousWeight.mean) * 10) / 10 : null
+      },
+      training,
+      action
+    };
+  }
+  function weeklyDaySummary(date) {
+    const meals = (state.meals || []).filter(row => row && row.date === date);
+    const habit = habitRowFor(date) || {};
+    const measurement = measurementRowFor(date) || {};
+    const exercises = exercisesFor(date);
+    const range = intakeRangeForDate(date);
+    const calories = meals.length ? totalsFor(meals).calories : null;
+    return {
+      date,
+      weight: number(measurement.weight),
+      hasMeal: meals.length > 0,
+      calories,
+      min: range && !range.unset ? number(range.min) : null,
+      max: range && !range.unset ? number(range.max) : null,
+      hasExercise: exercises.some(item => item && String(item.name || '').trim()),
+      hasRecord: meals.length > 0 || number(measurement.weight) !== null || number(habit.sleep) !== null ||
+        number(habit.steps) !== null || number(habit.water) !== null || exercises.length > 0
+    };
+  }
+  function renderWeeklyReview() {
+    const body = $('#weekly-review-body'), range = $('#weekly-review-range');
+    if (!body) return;
+    const weekEnd = completedWeekEnd(activeDate);
+    const weekStart = shiftDate(weekEnd, -6);
+    const previousEnd = shiftDate(weekEnd, -7);
+    const previousStart = shiftDate(weekEnd, -13);
+    const currentDays = [], previousDays = [];
+    for (let offset = 0; offset < 7; offset++) currentDays.push(weeklyDaySummary(shiftDate(weekStart, offset)));
+    for (let offset = 0; offset < 7; offset++) previousDays.push(weeklyDaySummary(shiftDate(previousStart, offset)));
+    const data = buildWeeklyReview({weekStart, weekEnd, currentDays, previousDays, trainingEnabled: trainingEnabled()});
+    if (range) range.textContent = data.rangeLabel || '—';
+    if (!data.enough) {
+      body.innerHTML = '<p class="muted">这一周记录不足，暂时不能比较。</p><p class="fine-print">' + esc(data.action) + '</p>';
+      return;
+    }
+    const weightText = data.weight.currentMean === null ? '—' : fmt(data.weight.currentMean) + ' kg';
+    const compareText = data.weight.comparable
+      ? `较前一周 ${data.weight.delta >= 0 ? '+' : ''}${fmt(data.weight.delta)} kg`
+      : data.weight.currentCount < 2 ? '称重不足两次' : '前一周数据不足';
+    const training = data.training
+      ? `<div class="weekly-review-metric"><small>训练</small><strong>${data.training.days} <span>天</span></strong><span>按实际动作计</span></div>`
+      : '';
+    const targetText = data.targetKnownDays
+      ? `有 ${data.targetKnownDays} 天能核对热量，其中 ${data.targetDays} 天在区间内`
+      : '目标尚未测算';
+    body.innerHTML = `<div class="weekly-review-grid${data.training ? '' : ' two'}">`
+      + `<div class="weekly-review-metric"><small>体重周均值</small><strong>${weightText}</strong><span>${compareText}</span></div>`
+      + `<div class="weekly-review-metric"><small>餐食记录</small><strong>${data.mealDays} <span>天</span></strong><span>有记录才计数</span></div>`
+      + training
+      + `</div><p class="fine-print">${targetText}；未记录不代表没做。</p><p class="weekly-review-action">${esc(data.action)}</p>`;
+  }
   function renderTrends() {
     if (trendTooltipTimer) {clearTimeout(trendTooltipTimer); trendTooltipTimer = null;}
     const range = $('#trend-range').value;
@@ -388,6 +505,7 @@
     // Body-composition comparison, computed locally: the previous 30-day window versus the last
     // 30 days. It reports direction only, never a medical verdict, and shows — for missing values.
     $('#stats-table').innerHTML = statsTableHtml();
+    renderWeeklyReview();
     if (!points.length) {
       $('#weight-chart').innerHTML = stateBlock({kind: 'empty', title: '记录第一笔体重', body: '趋势从这里开始；之后每次记录都会画进折线。在记录页「身体」或今天的动作条里记。'});
       $('#trend-stats').innerHTML = '';
@@ -798,9 +916,14 @@ const values = points.length<=7 ? points.map((item,i) => {
     $$('[data-exercise-row]', box).filter(node => node.dataset.cardio === '1').forEach(node => refreshCardioPace(node));
     renderTrainingPresets();
     const tag = $('#training-tag');
-    // 训练状态只认动作（2026-11-18）：「已练 · 动作未填」这个状态随手填开关一起消失，
-    // 旧数据里残留的 training:true 不再被当成练过。
-    if (tag) tag.textContent = exercises.length ? `${TRAINING_TEMPLATES[template]} · ${exercises.length} 个动作` : '未记录';
+    // 训练状态只认动作（2026-11-18）；rest 是用户明确记下的「今天休息」，缺失才是「未记录」。
+    const restMarked = !!row && (row.training === false || String(row.training) === 'false') && !exercises.length;
+    if (tag) tag.textContent = exercises.length ? `${TRAINING_TEMPLATES[template]} · ${exercises.length} 个动作` : restMarked ? '休息日' : '未记录';
+    const restButton = $('#training-rest');
+    if (restButton) {
+      restButton.hidden = !trainingEnabled() || exercises.length > 0;
+      restButton.textContent = restMarked ? '取消休息' : '记为休息';
+    }
   }
   /** 照上一次训练预填表单（只改草稿，不落库）；主流健身 App 都靠这一下省掉重复输入。 */
   function repeatLastTraining() {

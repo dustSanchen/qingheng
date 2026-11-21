@@ -825,15 +825,14 @@
     }).join('') + '</div>'
       + `<p class="check-verdict">${esc(check.verdict)}</p>`;
     // 2026-11-18：今日三样并入体检——缺哪项直接给入口，不再单独占一张卡。
-    // 训练情况由动作决定：没有当天动作就点名「补训练」，点了落到训练日志，不再有手填开关。
-    const trainedToday = trainedOn(activeDate);
+    // 训练不再在这里补：明确休息/未记录/不训练都不该被说成少练了一次；
+    // 今天要练什么由 slot-hint 的单一主行动负责。
     const sleepValue = number(habit.sleep);
     const weightLogged = (state.measurements || []).some(row => row && row.date === activeDate && number(row.weight) !== null);
     // 用 hash 链接跳转：不依赖运行时绑定，WebView 的合成 click 丢了也能走路由。
     const chip = (label, icon, focus) => `<a class="check-fix" href="#records"${focus ? ` data-focus="${focus}"` : ''}>`
       + `<img src="./${icon}" alt="" width="16" height="16">${label}</a>`;
     const fixes = [];
-    if (!trainedToday) fixes.push(chip('补训练', 'icon-glyph-training.svg', 'training-form'));
     if (sleepValue === null) fixes.push(chip('补睡眠', 'icon-habit-sleep.svg', 'habit-sleep'));
     if (!weightLogged) fixes.push(chip('补体重', 'icon-glyph-balance.svg', 'measurement-weight'));
     if (fixes.length) box.innerHTML += '<div class="check-fix-row"><span>还差</span>' + fixes.join('') + '</div>';
@@ -974,6 +973,110 @@
   /** 本周计划里「今天」那一节：与 weekPlanToday 共用同一个来源，不再各算一遍。 */
   function weekTodaySession() {
     return weekPlanToday().day;
+  }
+  /** 今天页只读已有缓存，不为了显示「今天该练」临时生成一份新计划。 */
+  function cachedWeekPlan() {
+    const cached = readWeekPlanCache(planStartDate());
+    return cached && cached.plan && Array.isArray(cached.plan.days) ? cached.plan : null;
+  }
+  /**
+   * 今天页的单一行动模型：只读、无网络、无写库。最多一个 primary 加两个 secondary。
+   * 休息/未记录/不训练都不在这里被当成「漏练」；计划只来自已存在的周计划缓存。
+   */
+  function buildTodayAgenda(input) {
+    const src = input || {};
+    const meals = Array.isArray(src.meals) ? src.meals : [];
+    const aiPlan = Array.isArray(src.aiPlan) ? src.aiPlan : [];
+    const trainingState = trainingStateFor({
+      exercises: src.exercises,
+      habitTraining: src.habitTraining,
+      profileTraining: src.profileTraining,
+      hasPlan: src.hasPlan,
+      planDay: src.planDay
+    });
+    const secondary = [];
+    const addSecondary = item => {
+      if (!item || secondary.length >= 2) return;
+      if (secondary.some(row => row.id === item.id)) return;
+      secondary.push(item);
+    };
+    let primary = null;
+
+    if (src.isToday === false) {
+      if (!meals.length) {
+        primary = {
+          id: 'meal', kind: 'meal', label: '补记一餐', target: 'meal-text',
+          mealSlot: src.mealSlot || 'lunch', reason: '这一天还没有餐食记录'
+        };
+      }
+      return {primary, secondary, state: trainingState};
+    }
+
+    const trainingAvailable = trainingState !== 'disabled';
+    if (trainingAvailable) {
+      const pending = aiPlan.filter(item => item && !item.done);
+      if (pending.length) {
+        const started = aiPlan.some(item => item && item.done);
+        primary = {
+          id: 'training-next', kind: 'training',
+          label: started ? '继续今天的训练' : '按今天的顺序开始训练',
+          target: 'ai-plan', reason: `${pending.length} 个动作还没完成`
+        };
+      }
+    }
+
+    const missing = Array.isArray(src.missingMeals) ? src.missingMeals : [];
+    if (!primary && missing.length) {
+      const names = missing.map(item => item.label).join('、');
+      primary = {
+        id: 'meal-missing', kind: 'meal', label: `补记${names}`,
+        target: 'meal-text', mealSlot: missing[0].key, reason: '按现在的时段还没有看到记录'
+      };
+    }
+    if (!primary && trainingAvailable && trainingState === 'planned') {
+      primary = {
+        id: 'training-plan', kind: 'training', label: '记录今天的训练',
+        target: 'training-form', reason: '今天有安排，还没有动作记录'
+      };
+    }
+    if (!primary && !meals.length) {
+      primary = {
+        id: 'meal-first', kind: 'meal', label: '记下今天的一餐',
+        target: 'meal-text', mealSlot: src.mealSlot || 'lunch', reason: '今天还没有餐食记录'
+      };
+    }
+
+    if (src.sleepMissing) addSecondary({id: 'sleep', kind: 'sleep', label: '补睡眠', target: 'habit-sleep'});
+    if (src.weightMissing) addSecondary({id: 'weight', kind: 'weight', label: '补体重', target: 'measurement-weight'});
+    return {primary, secondary, state: trainingState};
+  }
+  /** Current-page adapter: gathers state, cache and today's clock for the pure builder. */
+  function todayAgendaState() {
+    const today = localDate();
+    const plan = cachedWeekPlan();
+    const planDay = plan && Array.isArray(plan.days) ? plan.days.find(item => item && item.date === activeDate) || null : null;
+    const habit = habitRowFor(activeDate) || {};
+    const exercises = exercisesFor(activeDate);
+    const meals = (state && Array.isArray(state.meals) ? state.meals : []).filter(row => row && row.date === activeDate);
+    const measurement = measurementRowFor(activeDate) || {};
+    const currentMealSlot = typeof defaultMealTypeFor === 'function' ? defaultMealTypeFor(nowClock()) : 'lunch';
+    let aiPlan = [];
+    if (activeDate === today && typeof aiPlanStore === 'function') {
+      try {aiPlan = aiPlanStore(activeDate) || [];} catch {aiPlan = [];}
+    }
+    return buildTodayAgenda({
+      isToday: activeDate === today,
+      meals, exercises,
+      habitTraining: habit.training,
+      profileTraining: state && state.profile ? state.profile.training : '',
+      hasPlan: !!plan,
+      planDay,
+      missingMeals: activeDate === today ? missingMealSlots(activeDate, new Date()) : [],
+      aiPlan,
+      mealSlot: currentMealSlot,
+      sleepMissing: number(habit.sleep) === null,
+      weightMissing: number(measurement.weight) === null
+    });
   }
   /** 把周计划今天那一节写进今日清单，两处入口（今日页 / 记录页）共用。 */
   async function adoptWeekDay() {
@@ -1650,13 +1753,13 @@
       const line=container.querySelector('[data-advice-wait]');
       if (line) line.textContent=`正在读今天的记录…已等 ${Math.round((Date.now()-adviceStartedAt)/1000)}s`;
     },800);
-    try {const relax=relaxDayInfoFor(date); const data=await api('/api/advice',{date,relaxDay:!!relax.relax,preferences:readPreferences(),...(useAI?{useAI:true,allowExternal:true}:{})}); if(date!==activeDate) return; if(!Array.isArray(data?.messages)) throw new Error('建议数据格式不正确。'); renderAdvice(data.messages,date);}
+    try {const relax=relaxDayInfoFor(date); const data=await api('/api/advice',{date,relaxDay:!!relax.relax,preferences:readPreferences(),...(useAI?{useAI:true,allowExternal:true}:{})}); if(date!==activeDate) return; if(!Array.isArray(data?.messages)) throw new Error('建议数据格式不正确。'); renderAdvice(data.messages,date,data.actionItems);}
     catch(error) {
       // 模型不可用时退回本地建议：这张卡空着比给一条本地结论更糟。
       try {
         const local=await api('/api/advice',{date});
         if(date!==activeDate) return;
-        if(Array.isArray(local?.messages) && local.messages.length) {renderAdvice(local.messages,date); container.dataset.fallback='1'; container.setAttribute('data-note','模型暂时不可用，以下是本地建议。'); return;}
+        if(Array.isArray(local?.messages) && local.messages.length) {renderAdvice(local.messages,date,local.actionItems); container.dataset.fallback='1'; container.setAttribute('data-note','模型暂时不可用，以下是本地建议。'); return;}
       } catch {}
       container.textContent=error.message;
     }

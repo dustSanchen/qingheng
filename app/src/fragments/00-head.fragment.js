@@ -82,12 +82,77 @@
   const MEAL_WINDOW_KEY = 'qingheng.mealWindow';
   /** 长期偏好：一句话一条，最多 20 条，注入估算/建议/训练的提示词。 */
   const PREFERENCES_KEY = 'qingheng.preferences';
+  const PREFERENCE_META_KEY = 'qingheng.preferenceMeta';
   function readPreferences() {
     try {const raw = localStorage.getItem(PREFERENCES_KEY); const list = raw ? JSON.parse(raw) : []; return Array.isArray(list) ? list.filter(item => typeof item === 'string' && item.trim()).slice(0, 20) : [];} catch {return [];}
   }
   function writePreferences(list) {
     const clean = (Array.isArray(list) ? list : []).map(item => String(item || '').trim()).filter(Boolean).slice(0, 20);
     try {localStorage.setItem(PREFERENCES_KEY, JSON.stringify(clean));} catch {}
+    return clean;
+  }
+  /** A stable id for a legacy preference that had no metadata yet. */
+  function preferenceIdFor(text) {
+    let hash = 5381;
+    for (const ch of String(text || '')) hash = ((hash << 5) + hash + ch.charCodeAt(0)) | 0;
+    return 'pref-' + (hash >>> 0).toString(36);
+  }
+  const PREFERENCE_SOURCES = ['manual', 'chat', 'legacy'];
+  function preferenceTimestamp(value) {
+    return typeof value === 'string' && /^\d{4}-\d\d-\d\dT/.test(value) ? value.slice(0, 32) : null;
+  }
+  /** Metadata is keyed by text, so the legacy string list stays the source of truth and old backups keep working. */
+  function readPreferenceMeta() {
+    let raw = {};
+    try {raw = JSON.parse(localStorage.getItem(PREFERENCE_META_KEY) || '{}') || {};} catch {raw = {};}
+    const out = Object.create(null);
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+    for (const text of Object.keys(raw)) {
+      const item = raw[text];
+      if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+      out[text] = {
+        id: typeof item.id === 'string' && item.id ? item.id.slice(0, 80) : preferenceIdFor(text),
+        source: PREFERENCE_SOURCES.includes(item.source) ? item.source : 'legacy',
+        createdAt: preferenceTimestamp(item.createdAt),
+        updatedAt: preferenceTimestamp(item.updatedAt)
+      };
+    }
+    return out;
+  }
+  /** UI rows join the unchanged string list with optional source/timestamp metadata. */
+  function readPreferenceRows() {
+    const meta = readPreferenceMeta();
+    return readPreferences().map(text => {
+      const item = meta[text];
+      return {
+        id: item && item.id ? item.id : preferenceIdFor(text),
+        text,
+        source: item && PREFERENCE_SOURCES.includes(item.source) ? item.source : 'legacy',
+        createdAt: item ? item.createdAt : null,
+        updatedAt: item ? item.updatedAt : null
+      };
+    });
+  }
+  function writePreferenceRows(rows) {
+    const now = new Date().toISOString();
+    const clean = [];
+    const meta = Object.create(null);
+    for (const row of (Array.isArray(rows) ? rows : [])) {
+      const text = String(row && row.text !== undefined ? row.text : row || '').trim().slice(0, 80);
+      if (!text || clean.some(item => item.text === text)) continue;
+      const source = row && PREFERENCE_SOURCES.includes(row.source) ? row.source : 'manual';
+      const createdAt = row && preferenceTimestamp(row.createdAt) || (source === 'legacy' ? null : now);
+      const updatedAt = row && preferenceTimestamp(row.updatedAt) || (source === 'legacy' ? null : now);
+      const item = {id: row && typeof row.id === 'string' && row.id ? row.id.slice(0, 80) : preferenceIdFor(text), text, source, createdAt, updatedAt};
+      clean.push(item);
+      meta[text] = {id: item.id, source, createdAt, updatedAt};
+      if (clean.length >= 20) break;
+    }
+    writePreferences(clean.map(item => item.text));
+    try {localStorage.setItem(PREFERENCE_META_KEY, JSON.stringify(meta));} catch {}
+    if (typeof schedulePrefsSync === 'function') {
+      try {schedulePrefsSync({preferences: clean.map(item => item.text), preferenceMeta: meta});} catch {}
+    }
     return clean;
   }
   const DEFAULT_MEAL_WINDOW = {lunchFrom:'11:20', dinnerFrom:'16:30', snackFrom:'22:00'};
@@ -776,7 +841,10 @@
       if (Array.isArray(prefs.unhelpfulChats)) localStorage.setItem(CHAT_UNHELPFUL_KEY, JSON.stringify(prefs.unhelpfulChats));
       if (typeof prefs.chatWeb === 'boolean') localStorage.setItem(CHAT_WEB_KEY, prefs.chatWeb ? '1' : '0');
       if (prefs.trainingConsent === true) localStorage.setItem(TRAINING_CONSENT_KEY, '1');
+      if (Array.isArray(prefs.preferences)) localStorage.setItem(PREFERENCES_KEY, JSON.stringify(prefs.preferences));
+      if (prefs.preferenceMeta && typeof prefs.preferenceMeta === 'object' && !Array.isArray(prefs.preferenceMeta)) localStorage.setItem(PREFERENCE_META_KEY, JSON.stringify(prefs.preferenceMeta));
     } catch { }
+    if (typeof renderPreferences === 'function') renderPreferences();
   }
   /**
    * 配置注册表：localStorage 的即时缓存与 state.prefs 的对应关系只写在这一处。
@@ -785,6 +853,8 @@
   const CONFIG_REGISTRY = [
     {id: 'planPrefs', read: () => { try { return JSON.parse(localStorage.getItem(PLAN_PREFS_KEY) || 'null'); } catch { return null; } }, fromState: prefs => prefs.planPrefs ?? null},
     {id: 'aiPlans', read: () => collectedAiPlans(), fromState: prefs => prefs.aiPlans || {}},
+    {id: 'preferences', read: () => readPreferences(), fromState: prefs => Array.isArray(prefs.preferences) ? prefs.preferences : []},
+    {id: 'preferenceMeta', read: () => readPreferenceMeta(), fromState: prefs => prefs.preferenceMeta && typeof prefs.preferenceMeta === 'object' && !Array.isArray(prefs.preferenceMeta) ? prefs.preferenceMeta : {}},
   ];
   /** 启动时对齐一次：本地缓存是当前事实，state.prefs 是随备份走的那份；漂移时以本地为准回写。 */
   function verifyConfigSync() {
@@ -1045,19 +1115,46 @@
     const now = new Date();
     const slot = daySlot(now);
     const clock = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
-    const missing = missingMealSlots(activeDate, now);
+    const live = activeDate === localDate();
+    const missing = live ? missingMealSlots(activeDate, now) : [];
+    const agenda = typeof todayAgendaState === "function" ? todayAgendaState() : null;
+    const primary = agenda && agenda.primary ? agenda.primary : null;
     const suffix = missing.length ? "；" + missing.map(item => item.label).join("、") + "好像还没记，点一下去补" : "";
     const timeNode = $("#slot-time"), textNode = $("#slot-text");
     if (timeNode) timeNode.textContent = clock;
-    if (textNode) textNode.textContent = slot.label + "：" + slot.hint + suffix;
-    node.style.cursor = missing.length ? "pointer" : "";
+    if (textNode) textNode.textContent = primary ? primary.label : slot.label + "：" + slot.hint + suffix;
+    const action = primary ? primary.target : "";
+    const clickable = !!action || !!missing.length;
+    node.style.cursor = clickable ? "pointer" : "";
     node.dataset.missing = missing.length ? missing.map(item => item.key).join(",") : "";
+    if (action) {
+      node.dataset.todayAction = action;
+      node.setAttribute("role", "button");
+      node.tabIndex = 0;
+      node.setAttribute("aria-label", primary.label + "，打开记录");
+    } else {
+      delete node.dataset.todayAction;
+      node.removeAttribute("role");
+      node.removeAttribute("aria-label");
+      node.tabIndex = -1;
+    }
     if (!node.dataset.wired) {
       node.dataset.wired = "1";
-      node.addEventListener("click", () => {
+      const activate = () => {
+        if (node.dataset.todayAction) {
+          if (typeof openRecordTarget === "function") openRecordTarget(node.dataset.todayAction);
+          return;
+        }
         if (!node.dataset.missing) return;
         switchTab("records");
         const field = $("#meal-text"); if (field) { field.focus(); }
+      };
+      node.addEventListener("click", activate);
+      node.addEventListener("keydown", event => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        if (!event.target.closest("#slot-hint")) return;
+        event.preventDefault();
+        activate();
       });
     }
     node.dataset.slot = slot.key;
@@ -1106,6 +1203,23 @@
   function trainingEnabled() {
     const raw = state && state.profile ? String(state.profile.training ?? '') : '';
     return raw !== 'none';
+  }
+  /**
+   * One day's training state, independent of the DOM.
+   * `trained` wins over an old rest marker so a contradictory row can never hide real work.
+   * A missing `training` field means "not recorded", not "rest".
+   */
+  function trainingStateFor(input) {
+    const src = input || {};
+    const exercises = Array.isArray(src.exercises) ? src.exercises : [];
+    if (exercises.some(item => item && String(item.name || '').trim())) return 'trained';
+    if (String(src.profileTraining ?? '') === 'none') return 'disabled';
+    if (src.habitTraining === false || String(src.habitTraining ?? '') === 'false') return 'rest';
+    if (src.hasPlan) {
+      const planned = src.planDay && Array.isArray(src.planDay.exercises) ? src.planDay.exercises : [];
+      return planned.some(item => item && String(item.name || '').trim()) ? 'planned' : 'plan-rest';
+    }
+    return 'unrecorded';
   }
   /** Hides every training-only block when the profile says 不健身. Idempotent. */
   /** 分段控件键盘可达：←/→ 在 [role=tablist] 内移动并激活，Home/End 跳首尾。 */

@@ -108,7 +108,7 @@ assert.match(app, /const \{needsDate, \.\.\.rest\} = row; await api\('\/api\/mea
 for (const id of ['chat-data-preview-panel', 'chat-data-preview', 'advice-data-preview-panel', 'advice-data-preview']) {
   assert(ids.includes(id), `the page defines #${id}`);
 }
-assert.match(app, /api\('\/api\/context-preview', \{date, kind\}\)/, 'the preview asks the app what it would send');
+assert.match(app, /const payload = \{date, kind\};[\s\S]{0,120}payload\.preferences = readPreferences\(\);[\s\S]{0,120}api\('\/api\/context-preview', payload\)/, 'the preview asks the app what it would send, including advice preferences');
 assert.match(app, /if \(!window\.QinghengAdapter\.hasNative\(\)\)/, 'the browser demo states that it never sends anything');
 assert.match(css, /\.data-preview-panel pre\.data-preview\{/, 'the preview block is styled for long JSON');
 assert.match(adapter, /path==='\/api\/drafts'/, 'the browser demo keeps a draft box');

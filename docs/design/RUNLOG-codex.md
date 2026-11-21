@@ -1499,3 +1499,19 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 断言：`oil-estimation` 新增 4 条（包装零食不加、显式方式优先、packaged 标记、三档不碰包装）；新增 `tests/week-schedule-merge.test.mjs` 8 条（去重、跳过、旧覆盖写法已消失、app.js 同步）。
 - 验收：83/83 全绿；dev-loop 1.4.70/470 装机 3cba2bdc，js errors none；APK `dist/qingheng-1.4.70.apk`（654,560 B / 639 KB，sha256 `643EFD41…8573`）。
 - 环境备注：dev-loop 的 `Run` 用 ProcessStartInfo 起子进程但不设 WorkingDirectory，子进程继承的是 **pwsh 进程的 CWD**——在本工作台里必须用 `workdir` 参数指定仓库根，只 `cd` 会让它去 D:\AI\tools 找 assemble 脚本而失败。
+
+## r185 · 2026-11-21 · 文档（DeepSeek 优化执行清单）
+- 用户要求将优化方向整理为完整清单，交由 DeepSeek 执行；本轮不进入应用代码实现。
+- 新增 `docs/design/30-deepseek-optimization-checklist.md`：按 P0 行为纠错、P1 反馈闭环、P2 使用体验拆为 9 个工作包，含已有能力、逐项任务、验收矩阵、兼容与隐私边界、验证命令和分轮交付格式。
+- 已核对：现有「我的 → 偏好与记忆」副页已有新增、删除和问答手动收藏；清单只做元数据、编辑与兼容迁移，不重复建页。`renderDailyCheck()` 的 `!h.training` 未排除 `false`，列为首个行为修复项。
+- 验证：文档复读完成，已收紧休息日优先级——休息只消除训练催促，不生成新任务；本轮仅写文档，未运行应用测试、assemble、构建或装机，未提交、推送或发布。RUNLOG 原有少量 NUL 字节，故采用无 BOM 追加而不重写原日志。
+## r186 · 2026-11-21 · 1.4.73（Keep 对照优化：行动编排 + 建议动作 + 偏好透明 + 周回看）
+- 用户要求：「严格依据轻衡 × Keep：现状对照与分阶段优化方案实现APP优化」。
+- 训练语义：新增 `trainingStateFor`，区分 trained / rest / planned / plan-rest / unrecorded / disabled；训练日志补状态标签与「记为休息 / 取消休息」，明确休息不再产生补训练。今日体检不再无条件显示「补训练」，改由单一行动入口负责。
+- 今日行动：新增纯函数 `buildTodayAgenda` 与 `todayAgendaState`，最多 1 个主行动 + 2 个次行动；复用 `.slot-hint` 和现有快捷入口，`openRecordTarget` 统一跳转。主行动来源只读已有训练缓存，不为了提示临时生成计划。
+- 建议动作：`/api/advice` 新增可选 `actionItems`（record_meal / record_weight / record_sleep / open_training），本地与 Java 双重白名单；前端只打开表单、不直接写库，旧字符串 actions 仍兼容。
+- 偏好：保留 `qingheng.preferences` 字符串主表，新增 `qingheng.preferenceMeta` 来源/时间元数据；偏好页支持编辑、取消和删除，来源显示「手动 / 来自问答 / 旧记录」；偏好与元数据进入 `state.prefs` 同步和 JSON 备份；advice 上下文预览也会带上实际偏好。
+- 周回看：趋势页新增本地「上周回看」，按最近完整自然周读取体重均值、餐食天数、训练天数和目标区间天数；数据不足不伪造比较，训练关闭时整行不出现，不调用模型。
+- 测试：新增 `training-state`、`today-agenda`、`advice-actions`、`preference-compat`、`weekly-review-local`，更新受新语义影响的旧断言；全量 88/88 绿。审计：aesthetic-audit 仅 3 个既有 WARN、无阻塞；entry-budget 9/9 PASS。
+- 构建：首次 dev-loop 被 README 仍写 1.4.70 的 ci 断言拦住，更新 README 后重跑。最终 `dist/qingheng-1.4.73.apk`（662,749 B / 647 KB，sha256 `5076FAC11CF2817C…`），设备 3cba2bdc 安装 1.4.73，js errors none。
+- 真机检查：今日页、训练日志「记为休息」确认、偏好内联编辑与取消、趋势页周回看、paper/ledger 切换；已恢复 paper。未调用真实外部模型验证 `actionItems` 文案，动作解析以本地单元测试为准；夜间模式未逐页截图。用户数据未写入（休息确认按返回取消，偏好编辑按取消，日期选择仅切换查看日）。

@@ -3694,7 +3694,7 @@ import java.util.concurrent.Executors;
         String kind = b.optString("kind", "chat");
         if ("advice".equals(kind))
             return new JSONObject().put("kind", "advice").put("date", day)
-                    .put("system", adviceSystemPrompt()).put("user", adviceInput(day));
+                    .put("system", adviceSystemPrompt() + preferenceSuffix(b)).put("user", adviceInput(day));
         if (!"chat".equals(kind)) throw fail("未知的预览类型");
         return new JSONObject().put("kind", "chat").put("date", day)
                 .put("system", chatSystemPrompt()).put("user", new JSONObject(chatDataContext(day)));
@@ -3714,7 +3714,7 @@ import java.util.concurrent.Executors;
         return "\n\n用户长期偏好（遵守它们，不要给出冲突建议，也不要复述这份清单）：" + sb;
     }
     private JSONObject advice(JSONObject b) throws Exception {
-        if (!b.optBoolean("useAI", false)) return new JSONObject().put("messages", new JSONArray()).put("source", "local").put("summary", "请由前端离线适配器计算本地建议");
+        if (!b.optBoolean("useAI", false)) return new JSONObject().put("messages", new JSONArray()).put("actionItems", new JSONArray()).put("source", "local").put("summary", "请由前端离线适配器计算本地建议");
         String day = b.optString("date", b.optString("day", ""));
         if (!validDay(day)) throw fail("请选择有效的 YYYY-MM-DD 日期");
         JSONObject c = consent(b);
@@ -3729,9 +3729,57 @@ import java.util.concurrent.Executors;
         android.util.Log.i("qingheng", "advice " + (System.currentTimeMillis() - adviceStarted) + "ms chars=" + summary.length() + " cap=" + CAP_ADVICE);
         if (summary.length() > 8000) throw fail("API 建议过长");
         JSONArray output = adviceFromReply(summary);
+        JSONArray actionItems = adviceActionItemsFromReply(summary, output);
         String display = advicePlainText(output);
         saveAdviceHistory(day, output, "api");
-        return new JSONObject().put("messages", output).put("source", "api").put("summary", display);
+        return new JSONObject().put("messages", output).put("actionItems", actionItems).put("source", "api").put("summary", display);
+    }
+
+    /**
+     * Validates the optional actionItems array against the already-normalised advice messages.
+     * The model may only point at an existing text action and open a local form; it cannot write.
+     */
+    private static JSONArray adviceActionItemsFromReply(String reply, JSONArray messages) {
+        JSONArray out = new JSONArray();
+        String text = reply == null ? "" : reply.trim();
+        int start = text.indexOf('{'), end = text.lastIndexOf('}');
+        if (start < 0 || end <= start) return out;
+        try {
+            JSONObject obj = new JSONObject(text.substring(start, end + 1));
+            JSONArray raw = obj.optJSONArray("actionItems");
+            JSONArray rawActions = obj.optJSONArray("actions");
+            if (raw == null || rawActions == null) return out;
+            String verdict = clipAdvice(obj.optString("verdict", ""), 60);
+            int offset = verdict.isEmpty() ? 0 : 1;
+            for (int i = 0; i < raw.length() && out.length() < 2; i++) {
+                JSONObject item = raw.optJSONObject(i);
+                if (item == null) continue;
+                int actionIndex = item.optInt("index", -1);
+                int messageIndex = actionIndex + offset;
+                if (actionIndex < 0 || actionIndex >= rawActions.length() || messageIndex >= messages.length()) continue;
+                String type = item.optString("type", "");
+                JSONObject clean = new JSONObject();
+                if ("record_meal".equals(type)) {
+                    JSONObject payload = item.optJSONObject("payload");
+                    String slot = payload == null ? "" : payload.optString("slot", "");
+                    if (!java.util.Arrays.asList("breakfast", "lunch", "dinner", "snack").contains(slot)) continue;
+                    clean.put("payload", new JSONObject().put("slot", slot));
+                } else if ("record_weight".equals(type) || "record_sleep".equals(type) || "open_training".equals(type)) {
+                    clean.put("payload", new JSONObject());
+                } else {
+                    continue;
+                }
+                boolean duplicate = false;
+                for (int j = 0; j < out.length(); j++) {
+                    JSONObject seen = out.optJSONObject(j);
+                    if (seen != null && seen.optInt("index", -1) == messageIndex) { duplicate = true; break; }
+                }
+                if (duplicate) continue;
+                clean.put("index", messageIndex).put("type", type);
+                out.put(clean);
+            }
+        } catch (Exception ignored) { }
+        return out;
     }
 
     /**

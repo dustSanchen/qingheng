@@ -84,9 +84,12 @@ public final class Prompts {
                 + "body.anchors 是用户自己维护的估算锚点，同一食物沿用其中数值；份量按常见份量的中位值给，不要系统性往高报，拿不准写区间并注明是估计。"
                 + "不诊断、不处方、不推荐极端节食或运动，不做食物等价换算。"
                 + "输出必须是严格 JSON（1.4.64 起）：{\"verdict\":\"一句评价\",\"actions\":[\"动作1\",\"动作2\"]}，"
+                + "可再带可选的 actionItems：[{\"index\":0,\"type\":\"record_meal\",\"payload\":{\"slot\":\"lunch\"}}]。"
                 + "不要代码块、不要 Markdown、不要换行、不要开场白与免责声明。"
                 + "verdict 是一句明确评价：达标或接近要肯定，差就说清差什么（不超过 40 个汉字）。"
                 + "actions 是 1~2 条今天或明天能做的动作，动词开头，每条不超过 30 个汉字；不要把两条写成同一件事。"
+                + "actionItems 可选，只给能直接打开对应记录表单的动作：record_meal（slot 仅为 breakfast/lunch/dinner/snack）、record_weight、record_sleep、open_training；"
+                + "index 从 0 开始对应 actions；没有可直接完成的动作就不写 actionItems，不要编造类型或网址。"
                 + "不要复述界面上已有的热量/蛋白/脂肪数字。"
                 + (mealSlot
                     ? "这是记录后的即时反馈：verdict 评价这一餐，actions 给今天剩余时间的安排，不要用早晚复盘口吻。"

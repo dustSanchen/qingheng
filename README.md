@@ -2,7 +2,7 @@
 
 **每一天，轻一点。** 一本只存在你手机里的健康账：饮食、训练、身体三栏记在一处，断网也能用，不上传任何记录。
 
-![Version](https://img.shields.io/badge/version-1.4.70-informational) ![Tests](https://img.shields.io/badge/tests-82%20%2F%2082-green) ![MinSdk](https://img.shields.io/badge/minSdk-26-blue) ![TargetSdk](https://img.shields.io/badge/targetSdk-35-blue) ![APK](https://img.shields.io/badge/APK-639%20KB-lightgrey) ![License](https://img.shields.io/badge/license-%E7%A6%81%E6%AD%A2%E8%BD%AC%E5%94%AE-critical)
+![Version](https://img.shields.io/badge/version-1.4.73-informational) ![Tests](https://img.shields.io/badge/tests-88%20%2F%2088-green) ![MinSdk](https://img.shields.io/badge/minSdk-26-blue) ![TargetSdk](https://img.shields.io/badge/targetSdk-35-blue) ![APK](https://img.shields.io/badge/APK-647%20KB-lightgrey) ![License](https://img.shields.io/badge/license-%E7%A6%81%E6%AD%A2%E8%BD%AC%E5%94%AE-critical)
 
 [**展示页**](https://dustsanchen.github.io/qingheng/) · [**下载最新安装包**](https://github.com/dustSanchen/qingheng/releases/latest) · [**更新记录**](https://github.com/dustSanchen/qingheng/releases)
 
@@ -31,7 +31,7 @@
 | **今天** | 能量环与三大宏量、今日体检（四项加权，接近/偏离分档）、放松日、今日清单、建议卡；更多里放身体近况与小习惯 |
 | **记录** | 饮食：拍照 / 相册 / 一句话描述估算，预览确认后入档，本地食品库 150 条，一键复制一餐；训练：本周容量与概览、周计划、三行式今日顺序、逐组记录与组间休息、杠铃总重与照上次练、91 条动作说明、课后总结；身体：体重 + 睡眠一次保存 |
 | **问答** | 流式回答、联网检索开关、按天回看、收藏与搜索、拍照提问；发送前可展开核对将发送的数据 |
-| **趋势** | 体重按真实测量日期绘制、不插值；食物、训练与体重三块面板 |
+| **趋势** | 体重按真实测量日期绘制、不插值；上周回看；食物、训练与体重三块面板 |
 | **我的** | 身体档案与目标、AI 模型与密钥（含用量与余额）、提醒与每日建议、偏好与记忆、外观与餐次时间、数据管理、更多设置 |
 
 ## 四个每天都会用到的细节
@@ -53,7 +53,7 @@
 一句话：**单 Activity + WebView 的本地应用，逻辑只在你手机里跑。**
 
 ```
-Android 原生层  ──  Keystore 存密钥 · 权限 · 提醒 · Health Connect · 导出文件
+Android 原生层  ──  Keystore 存密钥 · 权限 · 提醒 · 导出文件
       │
   WebView 页面  ──  五页界面（静态资源，离线可用）
       │
@@ -65,7 +65,7 @@ Android 原生层  ──  Keystore 存密钥 · 权限 · 提醒 · Health Conn
 - **没有服务端、没有账号、没有云同步。** 关掉网络，除 AI 外全部功能照常。
 - **数据只有一份权威。** 记录写入手机私有目录的 `state.json`；SQLite 只做镜像，不一致时以 JSON 为准。
 - **AI 是可选项。** 没有配置 key 时，训练计划与热量口径仍由本地规则给出；配置后按 token 计费，调用前需你授权。
-- **每次发版都过门槛。** 72 项测试守住结构、口径、可访问性与数据契约，再在真机安装做冒烟。
+- **每次发版都过门槛。** 88 项测试守住结构、口径、可访问性与数据契约，再在真机安装做冒烟。
 - **窄屏专门收过一轮。** 640px 与 360px 两档断点，触控目标保持 44px 以上。
 
 ## 设计取向
@@ -94,17 +94,17 @@ Android 原生层  ──  Keystore 存密钥 · 权限 · 提醒 · Health Conn
 
 | 项 | 值 |
 |---|---|
-| 最新版本 | 1.4.70（versionCode 470） |
-| 安装包 | [`qingheng-1.4.70.apk`](https://github.com/dustSanchen/qingheng/releases/latest)，639 KB |
+| 最新版本 | 1.4.73（versionCode 473） |
+| 安装包 | [`qingheng-1.4.73.apk`](https://github.com/dustSanchen/qingheng/releases/latest)，647 KB |
 | 系统要求 | Android 8.0+（minSdk 26），targetSdk 35 |
 | 签名证书 SHA-256 | `b23aba9a2955e620dad5453c15a879ffab3ca4ad90a3e5b1b63beb5f55fab1ac` |
 
-安装前可用 `apksigner verify --print-certs qingheng-1.4.70.apk` 核对签名：指纹不一致的包不是官方构建，也无法覆盖安装官方版本。
+安装前可用 `apksigner verify --print-certs qingheng-1.4.73.apk` 核对签名：指纹不一致的包不是官方构建，也无法覆盖安装官方版本。
 
 ## 版本与验证
 
-- 版本规则：`1.<minor>.<patch>`，patch 两位补零；每个版本对应独立 versionCode（1.4.70 → 470）。
-- 发版前跑全量 72 项测试，并在真机安装做冒烟（启动、无 JS 错误、关键页面可进入）。
+- 版本规则：`1.<minor>.<patch>`，patch 两位补零；每个版本对应独立 versionCode（1.4.73 → 473）。
+- 发版前跑全量 88 项测试，并在真机安装做冒烟（启动、无 JS 错误、关键页面可进入）。
 - 每个版本的 APK SHA-256 写在对应 Release 说明里，可自行校验。
 
 ## 关于许可

@@ -121,16 +121,44 @@
       .map(row => [row.mealType || '', row.mealTime || '', number(row.calories), number(row.protein), number(row.fat), number(row.carbs)].join(','));
     return `${date}|${rows.length}|${rows.sort().join(';')}`;
   }
-  function renderAdvice(messages, date) {
+  /** Optional advice actions may only open an existing local form, never write by themselves. */
+  const ADVICE_ACTION_TARGETS = {record_meal: 'meal-text', record_weight: 'measurement-weight', record_sleep: 'habit-sleep', open_training: 'training-form'};
+  const ADVICE_ACTION_LABELS = {record_meal: '记这一餐', record_weight: '记录体重', record_sleep: '记录睡眠', open_training: '打开训练'};
+  function normalizeAdviceActions(raw, messages, trainingEnabled = true) {
+    const rows = Array.isArray(messages) ? messages : [];
+    const out = [];
+    for (const item of (Array.isArray(raw) ? raw : [])) {
+      if (!item || typeof item !== 'object') continue;
+      const index = Number(item.index);
+      const type = String(item.type || '');
+      if (!Number.isInteger(index) || index < 0 || index >= rows.length || !ADVICE_ACTION_TARGETS[type]) continue;
+      if (!String(rows[index] || '').trim()) continue;
+      if (type === 'open_training' && trainingEnabled === false) continue;
+      let mealSlot = '';
+      if (type === 'record_meal') {
+        mealSlot = String(item.payload && item.payload.slot || '');
+        if (!['breakfast', 'lunch', 'dinner', 'snack'].includes(mealSlot)) continue;
+      }
+      if (out.some(row => row.index === index)) continue;
+      out.push({index, type, mealSlot, target: ADVICE_ACTION_TARGETS[type], label: ADVICE_ACTION_LABELS[type], text: String(rows[index])});
+      if (out.length >= 2) break;
+    }
+    return out;
+  }
+  function renderAdvice(messages, date, actionItems = []) {
     const container = $('#advice-content');
     const rows = Array.isArray(messages) ? messages.map(value => String(value || '').trim()).filter(Boolean) : [];
     const rich = messages.some(message => /\n|^\s*\||^#{1,6}\s|^【/.test(String(message || '')));
     const prefCount = typeof readPreferences === 'function' ? readPreferences().length : 0;
     const prefNote = prefCount ? `<p class="fine-print advice-pref-note">已带上 ${prefCount} 条偏好</p>` : '';
+    const safeActions = normalizeAdviceActions(actionItems, rows, typeof trainingEnabled === 'function' ? trainingEnabled() : true);
+    const actionRow = safeActions.length
+      ? `<div class="button-row advice-action-row" role="group" aria-label="建议动作">${safeActions.map(item => `<button type="button" class="button subtle advice-action" data-advice-action="${esc(item.type)}" data-advice-target="${esc(item.target)}" data-advice-meal="${esc(item.mealSlot)}" title="${esc(item.text)}">${esc(item.label)}</button>`).join('')}</div>`
+      : '';
     if (!rows.length) {
       container.innerHTML = empty('目前记录不足，暂不作判断', '先记两三天，建议会自己长出来。');
     } else if (rich) {
-      container.innerHTML = `<div class="answer">${rows.map(message => answerHtml(message)).join('')}</div>${prefNote}`;
+      container.innerHTML = `<div class="answer">${rows.map(message => answerHtml(message)).join('')}</div>${actionRow}${prefNote}`;
     } else {
       // 第一句是评价，单独成行、加重；后面的动作保持列表，避免两句糊成一段。
       // 模型常把「评价 + 动作」塞进一条消息，这里按句号再拆一次，只为显示分层，不改内容。
@@ -142,7 +170,20 @@
       }
       container.innerHTML = `<div class="answer advice-answer"><p class="advice-verdict">${adviceHtml(verdict)}</p>`
         + (actions.length ? `<ul class="answer-list advice-actions">${actions.map(message => `<li>${adviceHtml(message)}</li>`).join('')}</ul>` : '')
-        + `</div>${prefNote}`;
+        + `</div>${actionRow}${prefNote}`;
+    }
+    if (!container.dataset.adviceActionWired) {
+      container.dataset.adviceActionWired = '1';
+      container.addEventListener('click', event => {
+        const button = event.target.closest('[data-advice-action]');
+        if (!button) return;
+        if (typeof openRecordTarget === 'function') {
+          openRecordTarget(button.dataset.adviceTarget, {mealSlot: button.dataset.adviceMeal});
+          notice('已打开记录表单，保存前不会写入。');
+        }
+        button.disabled = true;
+        setTimeout(() => {if (button.isConnected) button.disabled = false;}, 1200);
+      });
     }
     container.dataset.date = date || '';
     container.dataset.fingerprint = validDate(date) ? mealsFingerprint(date) : '';
