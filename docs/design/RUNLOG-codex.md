@@ -1574,3 +1574,7 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 算法：`localFoodEstimate` 支持“100–150g”这类区间，按中值计算并在 notes 明确写“按区间中值估算”；起止非法、未知食物、无标准份量仍整体回退。
 - 测试：`local-food-estimate` 增加区间中值与披露断言；全量 93/93。
 - 构建：`dist/qingheng-1.4.83.apk`（666,845 B / 651 KB，sha256 `3484AF7F9216A301…`），设备 3cba2bdc 安装 1.4.83，smoke js errors none。未推送、未发 Release。
+## r197 · 2026-11-21 · 1.4.84（中文份量）
+- 算法：`localFoodEstimate` 支持“半碗 / 一碗半 / 两片”等中文份量，统一转成数字后使用 `portionGrams`；未知、无标准份量或任一行失败仍整体回退。
+- 测试：`local-food-estimate` 增加半份、一份半、中文数字断言；全量 93/93。
+- 构建：`dist/qingheng-1.4.84.apk`（666,848 B / 651 KB，sha256 `BAFF1E488FAFFE83…`），设备 3cba2bdc 安装 1.4.84，smoke js errors none。未推送、未发 Release。

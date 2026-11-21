@@ -52,6 +52,12 @@ check('a countable portion multiplies portionGrams', slice && slice.items[0].gra
 const range = local('米饭 100-150g');
 check('a gram range uses the midpoint', range && range.items[0].grams === 125, range && range.items[0].grams);
 check('the range is disclosed, not silently exact', range && range.notes[0].includes('区间中值'), range && range.notes[0]);
+const half = local('米饭 半碗');
+check('a Chinese half portion is understood', half && half.items[0].grams === foods.find('米饭').portionGrams / 2, half && half.items[0].grams);
+const oneHalf = local('鸡胸肉 一碗半');
+check('a Chinese one-and-a-half portion is understood', oneHalf && oneHalf.items[0].grams === foods.find('鸡胸肉').portionGrams * 1.5, oneHalf && oneHalf.items[0].grams);
+const twoSlices = local('全麦面包 两片');
+check('a Chinese numeral portion is understood', twoSlices && twoSlices.items[0].grams === foods.find('全麦面包').portionGrams * 2, twoSlices && twoSlices.items[0].grams);
 const stir = local('炒鸡胸肉 150g');
 check('an explicit cooking method is preserved', stir && stir.items[0].method === '炒', stir && stir.items[0].method);
 check('an unknown food falls through', local('火星食物 100g') === null);

@@ -2,7 +2,7 @@
 
 **每一天，轻一点。** 一本只存在你手机里的健康账：饮食、训练、身体三栏记在一处，断网也能用，不上传任何记录。
 
-![Version](https://img.shields.io/badge/version-1.4.83-informational) ![Tests](https://img.shields.io/badge/tests-93%20%2F%2093-green) ![MinSdk](https://img.shields.io/badge/minSdk-26-blue) ![TargetSdk](https://img.shields.io/badge/targetSdk-35-blue) ![APK](https://img.shields.io/badge/APK-651%20KB-lightgrey) ![License](https://img.shields.io/badge/license-%E7%A6%81%E6%AD%A2%E8%BD%AC%E5%94%AE-critical)
+![Version](https://img.shields.io/badge/version-1.4.84-informational) ![Tests](https://img.shields.io/badge/tests-93%20%2F%2093-green) ![MinSdk](https://img.shields.io/badge/minSdk-26-blue) ![TargetSdk](https://img.shields.io/badge/targetSdk-35-blue) ![APK](https://img.shields.io/badge/APK-651%20KB-lightgrey) ![License](https://img.shields.io/badge/license-%E7%A6%81%E6%AD%A2%E8%BD%AC%E5%94%AE-critical)
 
 [**展示页**](https://dustsanchen.github.io/qingheng/) · [**下载最新安装包**](https://github.com/dustSanchen/qingheng/releases/latest) · [**更新记录**](https://github.com/dustSanchen/qingheng/releases)
 
@@ -94,16 +94,16 @@ Android 原生层  ──  Keystore 存密钥 · 权限 · 提醒 · 导出文�
 
 | 项 | 值 |
 |---|---|
-| 最新版本 | 1.4.83（versionCode 483） |
-| 安装包 | [`qingheng-1.4.83.apk`](https://github.com/dustSanchen/qingheng/releases/latest)，651 KB |
+| 最新版本 | 1.4.84（versionCode 484） |
+| 安装包 | [`qingheng-1.4.84.apk`](https://github.com/dustSanchen/qingheng/releases/latest)，651 KB |
 | 系统要求 | Android 8.0+（minSdk 26），targetSdk 35 |
 | 签名证书 SHA-256 | `b23aba9a2955e620dad5453c15a879ffab3ca4ad90a3e5b1b63beb5f55fab1ac` |
 
-安装前可用 `apksigner verify --print-certs qingheng-1.4.83.apk` 核对签名：指纹不一致的包不是官方构建，也无法覆盖安装官方版本。
+安装前可用 `apksigner verify --print-certs qingheng-1.4.84.apk` 核对签名：指纹不一致的包不是官方构建，也无法覆盖安装官方版本。
 
 ## 版本与验证
 
-- 版本规则：`1.<minor>.<patch>`，patch 两位补零；每个版本对应独立 versionCode（1.4.83 → 483）。
+- 版本规则：`1.<minor>.<patch>`，patch 两位补零；每个版本对应独立 versionCode（1.4.84 → 484）。
 - 发版前跑全量 93 项测试，并在真机安装做冒烟（启动、无 JS 错误、关键页面可进入）。
 - 每个版本的 APK SHA-256 写在对应 Release 说明里，可自行校验。
 
