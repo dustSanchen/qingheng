@@ -38,6 +38,11 @@ assert(app.includes('viewBox="0 0 ${W} ${H}"'), 'the view box uses the declared 
 
 const axisFont = Number(css.match(/\.chart-text\{[^}]*font-size:(\d+(?:\.\d+)?)px/)[1]);
 assert(axisFont >= 13, `axis numbers are legible on a phone (got ${axisFont}px)`);
+const chartTextRules = [...css.matchAll(/\.chart-text\{[^}]*font-size:([^;}]+)/g)];
+assert(chartTextRules.length >= 2, 'the final chart-text rule is checked, not only the first');
+assert(/var\(--text-sm\)/.test(chartTextRules[chartTextRules.length - 1][1]), 'the last chart-text rule stays at text-sm');
+assert(/\.chart-point\{stroke-width:3\}/.test(css), 'the last chart-point rule stays 3px');
+assert(app.includes("view.classList.toggle('is-subpage'") && css.includes('#view-profile.is-subpage .page-heading'), 'subpages hide the redundant page heading even without :has()');
 assert(/\.chart-value\{[^}]*font-size:(12px|var\(--text-sm\))/.test(css), 'per-point value labels are styled');
 assert(/\.chart-point\{[^}]*stroke-width:3\}/.test(css), 'data points are thick enough to see');
 assert(/\.chart-wrap\{[^}]*max-width:560px/.test(css), 'chart does not balloon on wide screens');

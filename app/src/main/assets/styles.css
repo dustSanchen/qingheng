@@ -1985,6 +1985,7 @@ details.plan-why>summary::after,details.plan-cue-block>summary::after{width:auto
 
 /* 我的页进入副页后，页面标题让位给副页标题：不再「我的 / 外观与偏好」两级并排。 */
 #view-profile:has(#profile-hub[hidden]) .page-heading{display:none}
+#view-profile.is-subpage .page-heading{display:none}
 
 /* 2. 观察范围：从 48px 描边下拉框退回「一行筛选项」，不再截断标题下方。 */
 .page-head-tools{display:flex;align-items:center;gap:var(--space-2);margin-top:var(--space-1)}
@@ -2026,9 +2027,9 @@ details.energy-more p{margin:var(--space-1) 0 var(--space-1);font-size:var(--tex
 
 /* 6. 趋势：细一档的折线与网格；轴字退成注释，数字仍等宽。 */
 .chart-note{margin:0 0 var(--space-2);font-size:var(--text-xs);line-height:1.5;color:var(--muted);font-variant-numeric:tabular-nums;opacity:1}
-.chart-text{font-size:var(--text-xs);font-weight:var(--fw-medium);fill:var(--muted)}
+.chart-text{font-size:var(--text-sm);font-weight:var(--fw-medium);fill:var(--muted)}
 .chart-line{stroke-width:2}
-.chart-point{stroke-width:2}
+.chart-point{stroke-width:3}
 .chart-mean{stroke-width:1.5;stroke-dasharray:5 4;opacity:.55}
 .chart-grid{stroke-width:1;stroke-dasharray:2 6}
 .chart-value{font-size:var(--text-xs)}

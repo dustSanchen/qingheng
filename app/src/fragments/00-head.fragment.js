@@ -991,8 +991,9 @@
     return {tab, sub};
   }
   function showSubpage(sub) {
-    const hub = $('#profile-hub');
+    const hub = $('#profile-hub'), view = $('#view-profile');
     if (hub) hub.hidden = !!sub;
+    if (view) view.classList.toggle('is-subpage', !!sub);
     SUBPAGES.forEach(id => {const node = $('#subpage-' + id); if (node) node.hidden = id !== sub;});
     // The storage panel is the only card that needs a read when it appears.
     if (sub === 'data') {loadStorageStatus(false).catch(() => {}); loadVersions().catch(() => {});}

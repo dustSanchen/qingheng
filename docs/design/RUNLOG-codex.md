@@ -1565,3 +1565,8 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 视觉：趋势空数据清空残留周均值，空态补“去记录体重”动作；`trends-ui` 增加对应断言。
 - 测试：全量 93/93。
 - 构建：`dist/qingheng-1.4.81.apk`（666,847 B / 651 KB，sha256 `AE0926432BFA1585…`），设备 3cba2bdc 安装 1.4.81，smoke js errors none。未推送、未发 Release。
+## r195 · 2026-11-21 · 1.4.82（视觉回退与图表可读性）
+- 修复：视觉层追加的 `.chart-text` 曾把轴字覆盖到 11px、`.chart-point` 覆盖到 2px，而旧测试只读第一条规则导致假绿；现在恢复 `text-sm` 与 3px，并在 `trends-ui` 检查最后一条生效规则。
+- 兼容：`#view-profile` 进入副页时同时加 `.is-subpage`，CSS 不再只依赖 `:has()` 隐藏重复页头；旧 WebView 也有回退。
+- 验证：93/93；设备 3cba2bdc 安装 1.4.82；smoke js errors none。未推送、未发 Release。
+- 构建：dist/qingheng-1.4.82.apk（666,845 B / 651 KB，sha256 FD224A9A5A6756E9…）。\n- 并行判断：视觉 CSS 与本地估算法可并行（写域分离）；体重目标区间带仍依赖先定字段，不能直接并做。
