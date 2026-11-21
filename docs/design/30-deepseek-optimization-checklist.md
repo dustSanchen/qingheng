@@ -1,9 +1,9 @@
 # 轻衡优化执行清单 · DeepSeek 交接版
 
-> 原始基线：`1.4.70 / versionCode 470`；当前实施状态：`1.4.93 / 493`（见文末）。
+> 原始基线：`1.4.70 / versionCode 470`；当前实施状态：`1.4.94 / 494`（见文末）。
 > 性质：1.4.70 起的历史任务书 + 当前状态；0–7 工作包已完成，8–9 只保留真实验证缺口。
 > 使用方式：不要再从第 0 轮重做；先看文末状态与未勾选项，只执行剩余验证。
-> 状态说明：0–7 工作包已按 1.4.93/100 核验并勾选；8–9 只保留真实验证缺口，不再把历史任务书当成全新待办。
+> 状态说明：0–7 工作包已按 1.4.94/101 核验并勾选；8–9 只保留真实验证缺口，不再把历史任务书当成全新待办。
 > 文件关系：本文件是逐项任务源；`31-keep-phased-plan.md` 记录阶段与版本；`32-keep-current-vs-target.md` 记录 Keep 对照与缺口。
 
 ## 0. 给执行者的总指令
@@ -410,6 +410,7 @@ node D:\AI\design-corpus\design-audit.mjs app\src\main\assets\index.html
 - 已随 `1.4.91` 继续落地：撤掉记录页固定 submit 浮层，避免“保存今天”遮住身体数据；加载环改为 accent-soft 底 + accent 弧。
 - 已随 `1.4.92` 继续落地：问答发送栏保留在输入卡内，聚焦后滚动到发送栏；拍照/相册入口降为轻量文字行，不再固定覆盖问答记录。
 - 已随 `1.4.93` 继续落地：训练动作要点默认收起；身体数据选填折叠，今天两样作为身体页首屏主表单。
-- 对应测试：`training-state`、`today-agenda`、`advice-actions`、`preference-compat`、`weekly-review-local`、`onboarding-p2`、`meal-edit`、`accessibility-focus`、`meal-draft`、`local-food-estimate`、`target-band`、`ui-state-matrix`、`offline-local`、`symbol-usage`、`oil-level`、`main-action`、`records-density`；全量 100/100。
+- 已随 `1.4.94` 继续落地：问答去掉计费标签条，常用问题横向单行，输入框收短，发送右对齐非整宽。
+- 对应测试：`training-state`、`today-agenda`、`advice-actions`、`preference-compat`、`weekly-review-local`、`onboarding-p2`、`meal-edit`、`accessibility-focus`、`meal-draft`、`local-food-estimate`、`target-band`、`ui-state-matrix`、`offline-local`、`symbol-usage`、`oil-level`、`main-action`、`records-density`、`chat-compose`；全量 101/101。
 - 仍未闭环（仅验证）：全状态长文本/离线、屏幕阅读器实机、重复监听/定时器、全部取消/撤销/失败重试、后台建议恢复、恶意畸形模型字段；人工视觉终审仍需用户确认。
 - 餐食估算为本地优先增强，不是一次性替换全部算法；社交/课程/会员始终不做。
