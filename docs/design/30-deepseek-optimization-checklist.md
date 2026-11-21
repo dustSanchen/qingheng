@@ -1,9 +1,9 @@
 # 轻衡优化执行清单 · DeepSeek 交接版
 
-> 原始基线：`1.4.70 / versionCode 470`；当前实施状态：`1.4.88 / 488`（见文末）。
+> 原始基线：`1.4.70 / versionCode 470`；当前实施状态：`1.4.89 / 489`（见文末）。
 > 性质：1.4.70 起的历史任务书 + 当前状态；0–7 工作包已完成，8–9 只保留真实验证缺口。
 > 使用方式：不要再从第 0 轮重做；先看文末状态与未勾选项，只执行剩余验证。
-> 状态说明：0–7 工作包已按 1.4.88/97 核验并勾选；8–9 只保留真实验证缺口，不再把历史任务书当成全新待办。
+> 状态说明：0–7 工作包已按 1.4.89/98 核验并勾选；8–9 只保留真实验证缺口，不再把历史任务书当成全新待办。
 > 文件关系：本文件是逐项任务源；`31-keep-phased-plan.md` 记录阶段与版本；`32-keep-current-vs-target.md` 记录 Keep 对照与缺口。
 
 ## 0. 给执行者的总指令
@@ -405,6 +405,7 @@ node D:\AI\design-corpus\design-audit.mjs app\src\main\assets\index.html
 - 已随 `1.4.86` 继续落地：混合菜按食品库标准份量匹配；我的档案增加可选目标体重上下限，趋势图只在两端都有值时画 12% 透明目标带。
 - 已随 `1.4.87` 继续落地：日检卡的“补睡眠/补体重”改为消费同一份 `buildTodayAgenda.secondary`，不再单独硬编码；slot-hint 与日检卡说同一套话。
 - 已随 `1.4.88` 继续落地：图形语言收口——叶 40 空态、环 20 加载、叶 24 + `--ok` 完成；三条禁用场景写入 `SYMBOL_USAGE` 并由测试锁定。
-- 对应测试：`training-state`、`today-agenda`、`advice-actions`、`preference-compat`、`weekly-review-local`、`onboarding-p2`、`meal-edit`、`accessibility-focus`、`meal-draft`、`local-food-estimate`、`target-band`、`ui-state-matrix`、`offline-local`、`symbol-usage`；全量 97/97。
+- 已随 `1.4.89` 继续落地：用油档位改为按行内实际油量做可逆加减，热量/脂肪不低于 0；编辑已保存餐食或混合菜不再被旧档位差减成负数。
+- 对应测试：`training-state`、`today-agenda`、`advice-actions`、`preference-compat`、`weekly-review-local`、`onboarding-p2`、`meal-edit`、`accessibility-focus`、`meal-draft`、`local-food-estimate`、`target-band`、`ui-state-matrix`、`offline-local`、`symbol-usage`、`oil-level`；全量 98/98。
 - 仍未闭环（仅验证）：全状态长文本/离线、屏幕阅读器实机、重复监听/定时器、全部取消/撤销/失败重试、后台建议恢复、恶意畸形模型字段；人工视觉终审仍需用户确认。
 - 餐食估算为本地优先增强，不是一次性替换全部算法；社交/课程/会员始终不做。

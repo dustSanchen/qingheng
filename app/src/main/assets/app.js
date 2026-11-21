@@ -6440,6 +6440,10 @@ const values = points.length<=7 ? points.map((item,i) => {
       const input = $(`[data-item-field="${key}"]`, row), base = number(input?.dataset.baseValue);
       if (input && base !== null) input.value = nutritionPrecision(base * ratio);
     }
+    // The row's calories/fat were scaled too; keep its oil marker in the same proportion,
+    // otherwise a later "少" subtracts the old (larger) oil and can go negative.
+    const oil = number(row.dataset.oil);
+    if (oil > 0) row.dataset.oil = String(Math.round(oil * ratio * 10) / 10);
     updatePreviewTotals();
   }
   let itemRecalcReturnFocus = null;
@@ -6538,10 +6542,20 @@ const values = points.length<=7 ? points.map((item,i) => {
     if (!box) return;
     $$('[data-oil-level]', box).forEach(btn => btn.setAttribute('aria-pressed', btn.dataset.oilLevel === estimateOilLevel ? 'true' : 'false'));
   }
+  /** Remove the oil already present in a row, then add the newly selected oil. Never return negative nutrition. */
+  function oilAdjustedValues(calories, fat, oldOil, newOil) {
+    const cal = number(calories), f = number(fat);
+    const old = Math.max(0, number(oldOil) ?? 0), next = Math.max(0, number(newOil) ?? 0);
+    const baseCal = Math.max(0, (cal ?? 0) - old * 9);
+    const baseFat = Math.max(0, (f ?? 0) - old);
+    return {
+      calories: Math.round(baseCal + next * 9),
+      fat: Math.round((baseFat + next) * 10) / 10
+    };
+  }
   /** 只调整油量差额，保留用户改过的克重与热量。 */
   function setOilLevel(level) {
     if (!OIL_LEVELS[level] || !estimateView) return;
-    const ratioFrom = (OIL_LEVELS[estimateOilLevel] || OIL_LEVELS.normal).ratio;
     const ratioTo = OIL_LEVELS[level].ratio;
     $$('.estimate-item').forEach((row, index) => {
       const raw = estimateRawItems[index] || {};
@@ -6549,15 +6563,18 @@ const values = points.length<=7 ? points.map((item,i) => {
       const grams = number(gramsField && gramsField.value) ?? number(raw.grams);
       const nameField = $('[data-item-field="name"]', row);
       if (isPackagedFood({...raw, name: (nameField && nameField.value) || raw.name})) return;
+      // A saved/mixed dish already carries its own oil; changing the meal-level level would
+      // subtract oil that is not independently represented in the row.
+      if (raw.oilIncluded === true) return;
       const base = oilRuleFor(raw.method, grams);
       if (!(base > 0)) return;
-      const oldOil = Math.round(base * ratioFrom * 10) / 10;
+      const oldOil = Math.max(0, number(row.dataset.oil) ?? number(raw.oilGrams) ?? 0);
       const newOil = Math.round(base * ratioTo * 10) / 10;
-      const delta = Math.round((newOil - oldOil) * 10) / 10;
       const cal = $('[data-item-field="calories"]', row);
       const fat = $('[data-item-field="fat"]', row);
-      if (cal) cal.value = Math.round((number(cal.value) || 0) + delta * 9);
-      if (fat) fat.value = Math.round(((number(fat.value) || 0) + delta) * 10) / 10;
+      const adjusted = oilAdjustedValues(cal && cal.value, fat && fat.value, oldOil, newOil);
+      if (cal) cal.value = adjusted.calories;
+      if (fat) fat.value = adjusted.fat;
       row.dataset.oil = String(newOil);
     });
     estimateOilLevel = level;
@@ -7180,7 +7197,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.88';
+  const APP_VERSION = '1.4.89';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
