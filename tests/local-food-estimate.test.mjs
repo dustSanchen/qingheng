@@ -44,10 +44,15 @@ check('a local draft has a stable-enough local id', /^local-food-\d+$/.test(draf
 
 const kg = local('鸡胸肉 0.15kg');
 check('kg is converted to grams', kg && kg.items[0].grams === 150, kg && kg.items[0].grams);
+const bowl = local('米饭 1碗');
+check('a standard portion uses the catalogue portionGrams', bowl && bowl.items[0].grams === foods.find('米饭').portionGrams, bowl && bowl.items[0].grams);
+const slice = local('全麦面包 2片');
+check('a countable portion multiplies portionGrams', slice && slice.items[0].grams === foods.find('全麦面包').portionGrams * 2, slice && slice.items[0].grams);
 const stir = local('炒鸡胸肉 150g');
 check('an explicit cooking method is preserved', stir && stir.items[0].method === '炒', stir && stir.items[0].method);
 check('an unknown food falls through', local('火星食物 100g') === null);
 check('a line without grams falls through', local('米饭') === null);
+check('a food without a standard portion falls through', local('不存在份量的食物 1碗') === null);
 check('a mixed known/unknown line falls through as a whole', local('米饭 100g、火星食物 100g') === null);
 
 check('the submit path tries local before the model', app.indexOf('localFoodEstimate(text)') > 0 && app.indexOf('localFoodEstimate(text)') < app.indexOf("api('/api/estimate/stream'"));

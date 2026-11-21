@@ -1554,3 +1554,9 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 测试：新增 `local-food-estimate`；全量 93/93。审美审计 3 个既有 WARN、AI 味 1 个既有 WARN、入口预算 9/9 PASS。
 - 构建：`dist/qingheng-1.4.79.apk`（666,847 B / 651 KB，sha256 `0960A7ACC0A1B026…`），设备 3cba2bdc 安装 1.4.79，smoke js errors none。未推送、未发 Release。
 - 未完成：全站逐页美术审计、体重目标区间带（文档标“待字段决策”）、旧 WebView `:has()` 兼容、真机输入法下问答按钮可见性；本轮视觉是一轮收口，不等于终版。
+## r193 · 2026-11-21 · 1.4.80（本地估算标准份量）
+- 算法：`localFoodEstimate` 现在接受“碗/份/片/个/根/块/勺/杯”，用食品库 `portionGrams` 换算；没有标准份量的条目、未知食物或任一行未匹配仍整体回退现有模型路径，避免半本地半模型的静默混算。
+- 守卫：`oilIncluded:true` 的混合菜不再重复加油；本地估算仍必须经过预览确认。
+- 测试：`local-food-estimate` 增加标准份量与无标准份量回退断言；全量 93/93。
+- 构建：`dist/qingheng-1.4.80.apk`（666,847 B / 651 KB，sha256 `C20F61E4DD7DDE4E…`），设备 3cba2bdc 安装 1.4.80，smoke js errors none。未推送、未发 Release。
+- 未完成：更复杂的自然语言份量、混合菜配方、全站逐页美术审计仍留给后续轮次。

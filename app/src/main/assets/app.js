@@ -7155,7 +7155,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.79';
+  const APP_VERSION = '1.4.80';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -9345,18 +9345,24 @@ function metricIcon(label) {
     if (!parts.length) return null;
     const items = [];
     for (const part of parts) {
-      const match = part.match(/^(.*?)\s*(\d+(?:\.\d+)?)\s*(千克|公斤|kg|克|g|毫升|ml)\s*$/i);
+      const match = part.match(/^(.*?)\s*(\d+(?:\.\d+)?)\s*(千克|公斤|kg|克|g|毫升|ml|个|碗|份|片|根|块|勺|杯)\s*$/i);
       if (!match) return null;
       const namePart = match[1].replace(/[（(].*?[)）]/g, '').trim();
-      const gramValue = Number(match[2]);
+      const amount = Number(match[2]);
       const unit = match[3].toLowerCase();
-      const grams = unit === '千克' || unit === '公斤' || unit === 'kg' ? gramValue * 1000 : gramValue;
-      if (!(grams > 0) || !(grams <= 20000)) return null;
       const methodHit = namePart.match(/^(爆炒|红烧|干锅|油淋|清蒸|白灼|凉拌|煎|炸|炒|烤|蒸|煮|炖)/);
       const method = methodHit ? methodHit[1] : '蒸';
       const foodName = methodHit ? namePart.slice(methodHit[1].length).trim() : namePart;
       const entry = foods.find(foodName);
       if (!entry) return null;
+      let grams = amount;
+      if (unit === '千克' || unit === '公斤' || unit === 'kg') grams = amount * 1000;
+      else if (!['克', 'g', '毫升', 'ml'].includes(unit)) {
+        // Common portions are explicit data in the USDA catalogue, not a guessed conversion.
+        if (!(Number(entry.portionGrams) > 0)) return null;
+        grams = amount * Number(entry.portionGrams);
+      }
+      if (!(grams > 0) || !(grams <= 20000)) return null;
       const item = foods.estimate(entry.name, grams);
       items.push({...item, method, ...(entry.includesOil === true ? {oilIncluded: true} : {})});
     }
