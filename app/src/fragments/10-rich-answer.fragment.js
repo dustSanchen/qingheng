@@ -942,13 +942,16 @@
     if (button.disabled) return;
     if (chatImageBusy) {feedback(message,'照片还在压缩，请稍等一下。',true); return;}
     if (!question && !chatImage) {feedback(message,'请先写下你的问题，或拍一张照片。',true); $('#chat-question').focus(); return;}
-    if (!externalConsent()) {feedback(message,'请先到「我的 → 数据与关于」开启外部模型授权。',true); return;}
     if (question.length > 2000) {feedback(message,'问题请控制在 2000 字以内。',true); return;}
-    // A sentence describing finished training becomes a draft card; nothing is written until confirmed.
+    // A finished sentence becomes a draft card; local recognition must not require external consent.
+    // Training writes after confirmation, food hands off to the existing estimate form and still
+    // needs a preview + confirmation before writing.
     if (typeof parseTrainingDraft === 'function') {
-      const draft = parseTrainingDraft(question, activeDate);
+      let draft = parseTrainingDraft(question, activeDate);
+      if (!draft && typeof parseMealDraft === 'function') draft = parseMealDraft(question, activeDate);
       if (draft) showTrainingDraft(draft); else renderTrainingDraft(null);
     }
+    if (!externalConsent()) {feedback(message,'请先到「我的 → 数据与关于」开启外部模型授权。',true); return;}
     if (chatImage && (state.settings.apiConfigured !== true || state.settings.visionEnabled !== true || !state.settings.visionModel)) {feedback(message,'带照片提问需要已启用的视觉模型：DeepSeek 请使用 deepseek-flash，B.AI 请填写其支持图片的模型。',true); return;}
     if (!navigator.onLine) {feedback(message,'当前离线；可先记录数据，联网后再问。',true); return;}
     syncCalendarDay();

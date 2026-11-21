@@ -1541,3 +1541,9 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 验证：拒绝畸形/超 20 条/重复/原型污染；`preference-compat` 28 项通过；全量 91/91。真机升级到 1.4.77 后偏好页仍显示原记录与来源。
 - 构建：`dist/qingheng-1.4.77.apk`（662,749 B / 647 KB，sha256 `93C8CCF507EFA0A3…`），设备 3cba2bdc 安装 1.4.77，js errors none。未推送远端、未发 Release。
 - 注意：对象数组是向前迁移；旧版本 1.4.76 不会读取新对象（会看不到偏好），回滚时需使用迁移前的 localStorage 备份/旧版本数据。旧备份导入仍兼容。
+## r191 · 2026-11-21 · 1.4.78（三份文档对齐 + P1-C 餐食草稿）
+- 文档：新建 `31-keep-phased-plan.md`、`32-keep-current-vs-target.md`；把 `1.4.70 / 83` 旧基线统一修正为 `1.4.78 / 92`，偏好方案按 1.4.77 的对象数组改写；`30` 与 `00-START-HERE` 增加三份文档关系。
+- P1-C：新增 `parseMealDraft`，聊天只把明确进食描述交接到现有餐食表单；草稿卡按钮为“去确认餐食”，生成估算预览并确认后才写入；`applyDraft` 拒绝 meal 直接写入。训练草稿仍优先。
+- 测试：新增 `meal-draft` 14 项（92 总数全绿）；修正 `training-draft` 对新检测顺序的断言。审美审计 3 个既有 WARN、AI 味 1 个既有 WARN、入口预算 9/9 PASS。
+- 构建：`dist/qingheng-1.4.78.apk`（666,848 B / 651 KB，sha256 `46871207F6BE2F2E…`），设备 3cba2bdc 安装 1.4.78，smoke js errors none。未推送远端、未发 Release。
+- 未验证：中文餐食文本的真机键盘输入路径尚未自动化；由 `meal-draft` 纯函数/源码断言覆盖，真机仅做启动 smoke。

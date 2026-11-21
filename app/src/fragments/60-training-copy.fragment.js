@@ -10,13 +10,16 @@
     const box = $('#chat-training-draft');
     if (!box) return;
     if (!draft) { box.hidden = true; box.innerHTML = ''; return; }
-    const missing = draft.missing.length
-      ? '<p class="fine-print">还缺：' + esc(draft.missing.join('、')) + '。可以先写入，稍后在训练日志里补；也可以点「补充信息」再改这句描述。</p>'
-      : '<p class="fine-print">信息齐全，确认后会写入当天的训练记录。</p>';
+    const isMeal = draft.kind === 'meal';
+    const missing = isMeal
+      ? '<p class="fine-print">会带入现有餐食表单；生成估算预览并确认后才会写入，不会直接落库。</p>'
+      : draft.missing.length
+        ? '<p class="fine-print">还缺：' + esc(draft.missing.join('、')) + '。可以先写入，稍后在训练日志里补；也可以点「补充信息」再改这句描述。</p>'
+        : '<p class="fine-print">信息齐全，确认后会写入当天的训练记录。</p>';
     box.hidden = false;
-    box.innerHTML = `<div class="card training-draft"><div class="card-heading"><h2>识别到训练草稿</h2><span class="tag">待确认</span></div>`
+    box.innerHTML = `<div class="card training-draft"><div class="card-heading"><h2>${isMeal ? '识别到餐食草稿' : '识别到训练草稿'}</h2><span class="tag">待确认</span></div>`
       + `<p><strong>${esc(draft.date)}</strong> · ${esc(draftSummary(draft))}</p>` + missing
-      + `<div class="button-row"><button type="button" class="button primary" data-draft-confirm="1">写入记录</button>`
+      + `<div class="button-row"><button type="button" class="button primary" data-draft-confirm="1">${isMeal ? '去确认餐食' : '写入记录'}</button>`
       + `<button type="button" class="button subtle" data-draft-cancel="1">取消</button></div></div>`;
   }
 
@@ -28,7 +31,7 @@
   const ACWR_LOW = 0.8;
   const PLATEAU_SPAN_KG = 0.2;
 
-  const DRAFT_KINDS = {training: '训练', weight: '体重', sleep: '睡眠', steps: '步数', water: '饮水', plan: '计划'};
+  const DRAFT_KINDS = {training: '训练', weight: '体重', sleep: '睡眠', steps: '步数', water: '饮水', plan: '计划', meal: '餐食'};
 
   /**
    * One sentence -> one draft. Recognises training, weight, sleep, steps and water.
@@ -123,6 +126,40 @@
   function parseTrainingDraft(text, baseDate) {
     const draft = parseDraft(text, baseDate);
     return draft && draft.kind === 'training' ? draft : null;
+  }
+
+  /**
+   * A finished meal sentence becomes a handoff draft, never a stored meal. The existing estimate
+   * form is the only writer, so the user still sees calories, grams and a confirmation step.
+   */
+  function parseMealDraft(text, baseDate) {
+    const raw = String(text || '').trim();
+    if (!raw) return null;
+    if (/[?？]|吗|什么|怎么|该不该|要不要|建议|打算|计划|准备/.test(raw)) return null;
+    if (!/(吃了|喝了|吃过|喝过|早餐|早饭|午餐|午饭|晚餐|晚饭|加餐|夜宵|零食)/.test(raw)) return null;
+    if (/(训练|卧推|深蹲|硬拉|跑步|体重|称重|睡眠|步数|饮水|kg|公斤)/.test(raw)) return null;
+    const pad2 = n => String(n).padStart(2, '0');
+    const shift = (day, delta) => {
+      const [y, m, d] = String(day).split('-').map(Number);
+      const date = new Date(y, m - 1, d + delta);
+      return date.getFullYear() + '-' + pad2(date.getMonth() + 1) + '-' + pad2(date.getDate());
+    };
+    const safeBase = /^\d{4}-\d{2}-\d{2}$/.test(String(baseDate || '')) ? baseDate : new Date().toISOString().slice(0, 10);
+    let date = safeBase;
+    const explicit = raw.match(/(\d{4})[\-\/](\d{1,2})[\-\/](\d{1,2})/) || raw.match(/(\d{1,2})月(\d{1,2})[日号]?/);
+    if (explicit) {
+      const year = explicit[3] ? Number(explicit[1]) : Number(safeBase.slice(0, 4));
+      const month = explicit[3] ? Number(explicit[2]) : Number(explicit[1]);
+      const day = explicit[3] ? Number(explicit[3]) : Number(explicit[2]);
+      if (month >= 1 && month <= 12 && day >= 1 && day <= 31) date = year + '-' + pad2(month) + '-' + pad2(day);
+    } else if (/大前天/.test(raw)) date = shift(safeBase, -3);
+    else if (/前天/.test(raw)) date = shift(safeBase, -2);
+    else if (/昨天|昨晚|昨日/.test(raw)) date = shift(safeBase, -1);
+    const mealType = /早餐|早饭/.test(raw) ? 'breakfast'
+      : /午餐|午饭/.test(raw) ? 'lunch'
+        : /晚餐|晚饭/.test(raw) ? 'dinner'
+          : /加餐|夜宵|零食/.test(raw) ? 'snack' : '';
+    return {kind: 'meal', date, rows: [{label: '餐食', value: raw}], missing: [], payload: {text: raw, mealType}};
   }
 
   function draftSummary(draft) {

@@ -2353,13 +2353,16 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     if (button.disabled) return;
     if (chatImageBusy) {feedback(message,'照片还在压缩，请稍等一下。',true); return;}
     if (!question && !chatImage) {feedback(message,'请先写下你的问题，或拍一张照片。',true); $('#chat-question').focus(); return;}
-    if (!externalConsent()) {feedback(message,'请先到「我的 → 数据与关于」开启外部模型授权。',true); return;}
     if (question.length > 2000) {feedback(message,'问题请控制在 2000 字以内。',true); return;}
-    // A sentence describing finished training becomes a draft card; nothing is written until confirmed.
+    // A finished sentence becomes a draft card; local recognition must not require external consent.
+    // Training writes after confirmation, food hands off to the existing estimate form and still
+    // needs a preview + confirmation before writing.
     if (typeof parseTrainingDraft === 'function') {
-      const draft = parseTrainingDraft(question, activeDate);
+      let draft = parseTrainingDraft(question, activeDate);
+      if (!draft && typeof parseMealDraft === 'function') draft = parseMealDraft(question, activeDate);
       if (draft) showTrainingDraft(draft); else renderTrainingDraft(null);
     }
+    if (!externalConsent()) {feedback(message,'请先到「我的 → 数据与关于」开启外部模型授权。',true); return;}
     if (chatImage && (state.settings.apiConfigured !== true || state.settings.visionEnabled !== true || !state.settings.visionModel)) {feedback(message,'带照片提问需要已启用的视觉模型：DeepSeek 请使用 deepseek-flash，B.AI 请填写其支持图片的模型。',true); return;}
     if (!navigator.onLine) {feedback(message,'当前离线；可先记录数据，联网后再问。',true); return;}
     syncCalendarDay();
@@ -4593,13 +4596,16 @@ const values = points.length<=7 ? points.map((item,i) => {
     const box = $('#chat-training-draft');
     if (!box) return;
     if (!draft) { box.hidden = true; box.innerHTML = ''; return; }
-    const missing = draft.missing.length
-      ? '<p class="fine-print">还缺：' + esc(draft.missing.join('、')) + '。可以先写入，稍后在训练日志里补；也可以点「补充信息」再改这句描述。</p>'
-      : '<p class="fine-print">信息齐全，确认后会写入当天的训练记录。</p>';
+    const isMeal = draft.kind === 'meal';
+    const missing = isMeal
+      ? '<p class="fine-print">会带入现有餐食表单；生成估算预览并确认后才会写入，不会直接落库。</p>'
+      : draft.missing.length
+        ? '<p class="fine-print">还缺：' + esc(draft.missing.join('、')) + '。可以先写入，稍后在训练日志里补；也可以点「补充信息」再改这句描述。</p>'
+        : '<p class="fine-print">信息齐全，确认后会写入当天的训练记录。</p>';
     box.hidden = false;
-    box.innerHTML = `<div class="card training-draft"><div class="card-heading"><h2>识别到训练草稿</h2><span class="tag">待确认</span></div>`
+    box.innerHTML = `<div class="card training-draft"><div class="card-heading"><h2>${isMeal ? '识别到餐食草稿' : '识别到训练草稿'}</h2><span class="tag">待确认</span></div>`
       + `<p><strong>${esc(draft.date)}</strong> · ${esc(draftSummary(draft))}</p>` + missing
-      + `<div class="button-row"><button type="button" class="button primary" data-draft-confirm="1">写入记录</button>`
+      + `<div class="button-row"><button type="button" class="button primary" data-draft-confirm="1">${isMeal ? '去确认餐食' : '写入记录'}</button>`
       + `<button type="button" class="button subtle" data-draft-cancel="1">取消</button></div></div>`;
   }
 
@@ -4611,7 +4617,7 @@ const values = points.length<=7 ? points.map((item,i) => {
   const ACWR_LOW = 0.8;
   const PLATEAU_SPAN_KG = 0.2;
 
-  const DRAFT_KINDS = {training: '训练', weight: '体重', sleep: '睡眠', steps: '步数', water: '饮水', plan: '计划'};
+  const DRAFT_KINDS = {training: '训练', weight: '体重', sleep: '睡眠', steps: '步数', water: '饮水', plan: '计划', meal: '餐食'};
 
   /**
    * One sentence -> one draft. Recognises training, weight, sleep, steps and water.
@@ -4706,6 +4712,40 @@ const values = points.length<=7 ? points.map((item,i) => {
   function parseTrainingDraft(text, baseDate) {
     const draft = parseDraft(text, baseDate);
     return draft && draft.kind === 'training' ? draft : null;
+  }
+
+  /**
+   * A finished meal sentence becomes a handoff draft, never a stored meal. The existing estimate
+   * form is the only writer, so the user still sees calories, grams and a confirmation step.
+   */
+  function parseMealDraft(text, baseDate) {
+    const raw = String(text || '').trim();
+    if (!raw) return null;
+    if (/[?？]|吗|什么|怎么|该不该|要不要|建议|打算|计划|准备/.test(raw)) return null;
+    if (!/(吃了|喝了|吃过|喝过|早餐|早饭|午餐|午饭|晚餐|晚饭|加餐|夜宵|零食)/.test(raw)) return null;
+    if (/(训练|卧推|深蹲|硬拉|跑步|体重|称重|睡眠|步数|饮水|kg|公斤)/.test(raw)) return null;
+    const pad2 = n => String(n).padStart(2, '0');
+    const shift = (day, delta) => {
+      const [y, m, d] = String(day).split('-').map(Number);
+      const date = new Date(y, m - 1, d + delta);
+      return date.getFullYear() + '-' + pad2(date.getMonth() + 1) + '-' + pad2(date.getDate());
+    };
+    const safeBase = /^\d{4}-\d{2}-\d{2}$/.test(String(baseDate || '')) ? baseDate : new Date().toISOString().slice(0, 10);
+    let date = safeBase;
+    const explicit = raw.match(/(\d{4})[\-\/](\d{1,2})[\-\/](\d{1,2})/) || raw.match(/(\d{1,2})月(\d{1,2})[日号]?/);
+    if (explicit) {
+      const year = explicit[3] ? Number(explicit[1]) : Number(safeBase.slice(0, 4));
+      const month = explicit[3] ? Number(explicit[2]) : Number(explicit[1]);
+      const day = explicit[3] ? Number(explicit[3]) : Number(explicit[2]);
+      if (month >= 1 && month <= 12 && day >= 1 && day <= 31) date = year + '-' + pad2(month) + '-' + pad2(day);
+    } else if (/大前天/.test(raw)) date = shift(safeBase, -3);
+    else if (/前天/.test(raw)) date = shift(safeBase, -2);
+    else if (/昨天|昨晚|昨日/.test(raw)) date = shift(safeBase, -1);
+    const mealType = /早餐|早饭/.test(raw) ? 'breakfast'
+      : /午餐|午饭/.test(raw) ? 'lunch'
+        : /晚餐|晚饭/.test(raw) ? 'dinner'
+          : /加餐|夜宵|零食/.test(raw) ? 'snack' : '';
+    return {kind: 'meal', date, rows: [{label: '餐食', value: raw}], missing: [], payload: {text: raw, mealType}};
   }
 
   function draftSummary(draft) {
@@ -7112,7 +7152,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.77';
+  const APP_VERSION = '1.4.78';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -9727,11 +9767,30 @@ feedback(message,'数据已导入。'+report);
     pendingDraft = draft;
     renderTrainingDraft(draft);
   }
+  /** Meal drafts only hand the sentence to the existing estimate form; no record is written. */
+  function openMealDraft(draft) {
+    const payload = draft && draft.payload || {};
+    const text = String(payload.text || '').trim();
+    if (!text) {notice('这条餐食草稿没有可带入的描述。', true); return;}
+    if (validDate(draft.date)) setActiveDate(draft.date);
+    switchTab('records', true);
+    if (typeof switchRecordPanel === 'function') switchRecordPanel('food');
+    const form = $('#estimate-form'), field = $('#meal-text');
+    if (!form || !field) {notice('餐食表单没有加载，请回到记录页重试。', true); return;}
+    if (validDate(draft.date)) form.elements.date.value = draft.date;
+    const slot = ['breakfast', 'lunch', 'dinner', 'snack'].includes(payload.mealType) ? payload.mealType : '';
+    if (slot) form.elements.mealType.value = slot;
+    field.value = text;
+    field.dispatchEvent(new Event('input', {bubbles: true}));
+    notice('已带入餐食描述；生成估算预览并确认后才会保存。');
+    revealField('meal-text', {focus: false, block: 'start'});
+  }
   /**
    * Applies one confirmed draft. Training merges into the day's exercise list; the simple metrics
    * merge into the same habit row; weight goes to measurements. Returns what undo has to restore.
    */
   async function applyDraft(draft) {
+    if (draft.kind === 'meal') throw new Error('餐食草稿需要在餐食表单生成预览并确认，不能直接写入。');
     const habit = habitRowFor(draft.date) || {date: draft.date};
     const existing = Array.isArray(habit.exercises) ? habit.exercises : [];
     if (draft.kind === 'weight') {
@@ -9770,6 +9829,12 @@ feedback(message,'数据已导入。'+report);
     const confirm = event.target.closest('[data-draft-confirm]');
     if (!confirm || !pendingDraft) return;
     const draft = pendingDraft;
+    if (draft.kind === 'meal') {
+      openMealDraft(draft);
+      pendingDraft = null;
+      renderTrainingDraft(null);
+      return;
+    }
     try {
       confirm.disabled = true;
       draftUndo = await applyDraft(draft);

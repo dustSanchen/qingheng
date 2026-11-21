@@ -161,7 +161,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.77';
+  const APP_VERSION = '1.4.78';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -2776,11 +2776,30 @@ feedback(message,'数据已导入。'+report);
     pendingDraft = draft;
     renderTrainingDraft(draft);
   }
+  /** Meal drafts only hand the sentence to the existing estimate form; no record is written. */
+  function openMealDraft(draft) {
+    const payload = draft && draft.payload || {};
+    const text = String(payload.text || '').trim();
+    if (!text) {notice('这条餐食草稿没有可带入的描述。', true); return;}
+    if (validDate(draft.date)) setActiveDate(draft.date);
+    switchTab('records', true);
+    if (typeof switchRecordPanel === 'function') switchRecordPanel('food');
+    const form = $('#estimate-form'), field = $('#meal-text');
+    if (!form || !field) {notice('餐食表单没有加载，请回到记录页重试。', true); return;}
+    if (validDate(draft.date)) form.elements.date.value = draft.date;
+    const slot = ['breakfast', 'lunch', 'dinner', 'snack'].includes(payload.mealType) ? payload.mealType : '';
+    if (slot) form.elements.mealType.value = slot;
+    field.value = text;
+    field.dispatchEvent(new Event('input', {bubbles: true}));
+    notice('已带入餐食描述；生成估算预览并确认后才会保存。');
+    revealField('meal-text', {focus: false, block: 'start'});
+  }
   /**
    * Applies one confirmed draft. Training merges into the day's exercise list; the simple metrics
    * merge into the same habit row; weight goes to measurements. Returns what undo has to restore.
    */
   async function applyDraft(draft) {
+    if (draft.kind === 'meal') throw new Error('餐食草稿需要在餐食表单生成预览并确认，不能直接写入。');
     const habit = habitRowFor(draft.date) || {date: draft.date};
     const existing = Array.isArray(habit.exercises) ? habit.exercises : [];
     if (draft.kind === 'weight') {
@@ -2819,6 +2838,12 @@ feedback(message,'数据已导入。'+report);
     const confirm = event.target.closest('[data-draft-confirm]');
     if (!confirm || !pendingDraft) return;
     const draft = pendingDraft;
+    if (draft.kind === 'meal') {
+      openMealDraft(draft);
+      pendingDraft = null;
+      renderTrainingDraft(null);
+      return;
+    }
     try {
       confirm.disabled = true;
       draftUndo = await applyDraft(draft);
