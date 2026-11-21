@@ -1649,3 +1649,7 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 滑动手势新增 `#chat-chips,.chat-composer` 排除，横向 chip 不再误触整页切换。
 - 修复：Tab 切换聚焦 #main 时不再给整页画 2px 绿框（改为 `#main:focus-visible{outline:none}`）。
 - 全量 103/103；真机 1.4.97 问答截图核对；APK 655 KB，sha256 `7DD808D9FAF5DF21…`；未推送、未发 Release。
+## r212 · 2026-11-22 · 1.4.98（训练层级）
+- 训练建议：`本周计划今天 · 推` 提到 20px 结论层；「改用 AI 排今天」从同权按钮降为文字行动，只留「采纳到今日清单」一个实心主行动。
+- 训练页：周条标题降为 meta，当天详情 `#week-detail` 提到 18px；周历仍是上下文，不再抢当天执行。
+- 新增 training-hierarchy 测试；全量 104/104。真机 1.4.98 训练建议截图核对；APK 655 KB，sha256 `BE1FFCB8627FFE5A…`；未推送、未发 Release。

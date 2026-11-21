@@ -2100,3 +2100,10 @@ details:not(.advanced):not(.day-more)>summary::after{width:auto;height:auto;bord
 
 /* Main is a focus target for tab navigation, not a control; do not paint a page-sized ring. */
 #main:focus-visible{outline:none}
+
+/* 13. Training hierarchy: one decision line, one primary, week details below. */
+#training-advice-order .plan-sub{font-size:20px;line-height:1.35;font-weight:var(--fw-semibold);margin:var(--space-2) 0 var(--space-2);color:var(--ink)}
+#training-advice-order .button-row{align-items:center;gap:var(--space-3)}
+#training-advice-order .button-row .text-button{padding-left:0;padding-right:0}
+#week-plan .plan-sub{font-size:var(--text-xs);letter-spacing:var(--tracking-caps);color:var(--muted);font-weight:var(--fw-semibold)}
+#week-detail{font-size:18px;line-height:1.5;font-weight:var(--fw-semibold);color:var(--ink);margin:var(--space-2) 0}

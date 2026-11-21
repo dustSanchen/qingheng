@@ -1,9 +1,9 @@
 # 轻衡优化执行清单 · DeepSeek 交接版
 
-> 原始基线：`1.4.70 / versionCode 470`；当前实施状态：`1.4.97 / 497`（见文末）。
+> 原始基线：`1.4.70 / versionCode 470`；当前实施状态：`1.4.98 / 498`（见文末）。
 > 性质：1.4.70 起的历史任务书 + 当前状态；0–7 工作包已完成，8–9 只保留真实验证缺口。
 > 使用方式：不要再从第 0 轮重做；先看文末状态与未勾选项，只执行剩余验证。
-> 状态说明：0–7 工作包已按 1.4.97/103 核验；8–9 仅剩 5 项真实验证缺口，不再把历史任务书当成全新待办。
+> 状态说明：0–7 工作包已按 1.4.98/104 核验；8–9 仅剩 5 项真实验证缺口，不再把历史任务书当成全新待办。
 > 文件关系：本文件是逐项任务源；`31-keep-phased-plan.md` 记录阶段与版本；`32-keep-current-vs-target.md` 记录 Keep 对照与缺口。
 
 ## 0. 给执行者的总指令
@@ -414,6 +414,7 @@ node D:\AI\design-corpus\design-audit.mjs app\src\main\assets\index.html
 - 已随 `1.4.95` 继续落地：记录→趋势、趋势→记录、问答上下文→记录餐食字段；全部走既有页与既有写入路径。
 - 已随 `1.4.96` 继续落地：估算预览拒绝超长名称/超大数值/超量条目/异常 draftId；notes 过滤截断；恶意字段不进入预览或写入。
 - 已随 `1.4.97` 继续落地：问答改为 Gemini 式圆角输入面，图片/相册/发送都在输入框内；聊天横向 chip 不再触发整页滑动。
-- 对应测试：`training-state`、`today-agenda`、`advice-actions`、`preference-compat`、`weekly-review-local`、`onboarding-p2`、`meal-edit`、`accessibility-focus`、`meal-draft`、`local-food-estimate`、`target-band`、`ui-state-matrix`、`offline-local`、`symbol-usage`、`oil-level`、`main-action`、`records-density`、`chat-compose`、`data-flow`、`malformed-estimate`；全量 103/103。
+- 已随 `1.4.98` 继续落地：训练计划结论 20px、当天详情 18px；AI 改排降为文字行动；周条标题降为 meta。
+- 对应测试：`training-state`、`today-agenda`、`advice-actions`、`preference-compat`、`weekly-review-local`、`onboarding-p2`、`meal-edit`、`accessibility-focus`、`meal-draft`、`local-food-estimate`、`target-band`、`ui-state-matrix`、`offline-local`、`symbol-usage`、`oil-level`、`main-action`、`records-density`、`chat-compose`、`data-flow`、`malformed-estimate`、`training-hierarchy`；全量 104/104。
 - 仍未闭环（仅验证）：全状态长文本/离线、屏幕阅读器实机、重复监听/定时器、全部取消/撤销/失败重试、后台建议恢复；人工视觉终审仍需用户确认。
 - 餐食估算为本地优先增强，不是一次性替换全部算法；社交/课程/会员始终不做。

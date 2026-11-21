@@ -1236,7 +1236,7 @@
         box.innerHTML = "<h3 class=\"plan-sub\">本周计划今天 · " + esc(TRAINING_TEMPLATES[weekDay.template] || weekDay.template) + "</h3>"
           + "<p class=\"fine-print\">" + esc(names) + (weekDay.exercises.length > 4 ? " 等 " + weekDay.exercises.length + " 个动作" : "") + "</p>"
           + "<div class=\"button-row\"><button type=\"button\" class=\"button primary\" data-today-adopt>采纳到今日清单</button>"
-          + "<button type=\"button\" class=\"button subtle\" data-today-plan=\"ai\">改用 AI 排今天</button></div>";
+          + "<button type=\"button\" class=\"text-button\" data-today-plan=\"ai\">改用 AI 排今天</button></div>";
         return;
       }
       box.hidden = false;
