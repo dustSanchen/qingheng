@@ -3492,6 +3492,12 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
   $('#ob-next').addEventListener('click', obNext);
   $('#ob-back').addEventListener('click', () => {feedback($('#ob-feedback'), ''); onboardingStep(onboarding.step - 1);});
   $('#ob-finish').addEventListener('click', obFinish);
+  $('#ob-skip-ai')?.addEventListener('click', () => {
+    feedback($('#ob-feedback'), '');
+    onboardingStep(4);
+    setTimeout(() => refreshPermissionChecklist().catch(() => {}), 30);
+  });
+  $('#ob-skip-checks')?.addEventListener('click', () => {obFinish().catch(error => feedback($('#ob-feedback'), error.message, true));});
   $('#ob-skip').addEventListener('click', async () => {
     showOnboarding(false);
     try {await api('/api/profile', {onboardingDone: true}); await loadState({quiet: true});}
@@ -3551,7 +3557,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
         + `${source ? `<span class="row-tag subtle-tag">${esc(source)}</span>` : ''}`
         + `${items ? `<span class="row-tag subtle-tag">${esc(items)}</span>` : ''}`
         + `${showDate ? `<span class="row-date">${esc(meal.date)}</span>` : ''}`
-        + `${meal.id !== undefined ? `<button type="button" class="icon-button danger row-delete" data-delete-meal="${esc(meal.id)}" aria-label="删除${esc(meal.name || '餐食')}" title="删除这条餐食"><span class="inline-icon" aria-hidden="true">${SVG_ICONS['icon-trash.svg']}</span></button>` : ''}</div>`
+        + `${meal.id !== undefined ? `<span class="row-actions"><button type="button" class="icon-button row-edit" data-edit-meal="${esc(meal.id)}" aria-label="编辑${esc(meal.name || '餐食')}">改</button><button type="button" class="icon-button danger row-delete" data-delete-meal="${esc(meal.id)}" aria-label="删除${esc(meal.name || '餐食')}" title="删除这条餐食"><span class="inline-icon" aria-hidden="true">${SVG_ICONS['icon-trash.svg']}</span></button></span>` : ''}</div>`
         + `${Array.isArray(meal.items) && meal.items.length ? `<div class="meal-items-wrap"><button type="button" class="meal-items-toggle" data-meal-items="${esc(meal.id ?? '')}" aria-expanded="false">共 ${meal.items.length} 项 · 查看每项热量</button><div class="meal-items" hidden>${[...meal.items].sort((a, b) => (number(b.calories) ?? 0) - (number(a.calories) ?? 0)).map(item => `<div class="meal-item"><span>${esc(item.name || '未命名')}</span><b>${number(item.grams) !== null ? `${fmt(item.grams, 0)} g · ` : ''}${fmt(number(item.calories) ?? 0, 0)} kcal</b></div>`).join('')}</div></div>` : ''}`
         + `<div class="meal-numbers" aria-label="营养数值">`
         + `<span><small>蛋白</small><b>${fmt(meal.protein)} g</b></span><span><small>脂肪</small><b>${fmt(meal.fat)} g</b></span><span><small>碳水</small><b>${fmt(meal.carbs)} g</b></span></div>`
@@ -6440,6 +6446,38 @@ const values = points.length<=7 ? points.map((item,i) => {
     renderPreview(view, false);
     saveToDraftBox(view);
   }
+  /** Build the preview view from a saved meal without touching its id or nutrition values. */
+  function mealEditView(record) {
+    if (!record || record.id === undefined || record.id === null) return null;
+    const items = Array.isArray(record.items) ? record.items.map(item => ({...item})) : [];
+    if (!items.length) return null;
+    const oil = Number(record.oilGrams);
+    const uncertainty = Number(record.uncertaintyPercent);
+    return {
+      id: record.id,
+      editingId: record.id,
+      date: record.date,
+      mealType: record.mealType || 'lunch',
+      source: record.source || 'manual',
+      mealTime: record.mealTime,
+      mealTimeSource: record.mealTimeSource || 'manual',
+      items,
+      name: record.name || '',
+      oilGrams: Number.isFinite(oil) ? oil : 0,
+      uncertaintyPercent: Number.isFinite(uncertainty) ? uncertainty : 15,
+      photoTakenAt: record.photoTakenAt || null,
+      photoTimeSource: record.photoTimeSource || 'unknown'
+    };
+  }
+  function beginMealEdit(record) {
+    const view = mealEditView(record);
+    if (!view) {notice('这条餐食没有可编辑的明细，请先重新估算。', true); return;}
+    switchTab('records', true);
+    if (typeof switchRecordPanel === 'function') switchRecordPanel('food');
+    setTimeout(() => {
+      try {renderPreview(view, true);} catch (error) {notice(error.message, true);}
+    }, 60);
+  }
   /** Renders a stored or fresh estimate preview; a restored draft is labelled as such. */
   function renderPreview(view, restored) {
     estimateView = view;
@@ -6447,7 +6485,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     if (!view?.id || !Array.isArray(view.items) || !view.items.length) throw new Error('这份草稿不完整，请重新估算。');
     const mealTime = clockPattern.test(String(view.mealTime||'')) ? view.mealTime : nowClock();
     const source = ['photo','text','now','manual','typical'].includes(view.mealTimeSource) ? view.mealTimeSource : 'now';
-    draft={id:view.id,date:view.date,mealType:view.mealType,source:view.source,mealTime,mealTimeSource:source,...photoMeta(view)};
+    draft={id:view.id,editingId:view.editingId || '',date:view.date,mealType:view.mealType,source:view.source,mealTime,mealTimeSource:source,...photoMeta(view)};
     $('#estimate-date').value=draft.date; $('#estimate-meal-type').value=draft.mealType;
     $('#estimate-meal-time').value=mealTime;
     $('#estimate-meal-time-note').textContent=mealTimeNote(draft);
@@ -6462,9 +6500,10 @@ const values = points.length<=7 ? points.map((item,i) => {
       return `<p class="fine-print">本地参考：${fmt(per100.calories,0)} kcal/100g · ${esc(basis)}${range}。${esc(model.note || '')}</p>`;
     };
     // Each row keeps its original estimate as a ratio baseline, so repeated gram edits never accumulate rounding drift.
-    const oiledItems = applyOilToItems(estimateRawItems, estimateOilLevel);
+    // Editing a saved meal keeps its stored nutrition: applying oil again would double-count it.
+    const oiledItems = view.editingId ? estimateRawItems : applyOilToItems(estimateRawItems, estimateOilLevel);
     $('#estimate-items').innerHTML=oiledItems.map(item => `<div class="estimate-item" data-base-grams="${Number(item.grams)}" data-oil="${Number(item.oilGrams)||0}"><div class="estimate-item-head"><label>食物名称<input data-item-field="name" value="${esc(item.name)}" maxlength="120" required></label><div class="estimate-item-actions"><button type="button" class="recalc-item" title="按克重和每 100g 数据重算" aria-label="按克重重算${esc(item.name)}"><span class="inline-icon" aria-hidden="true"><img src="./icon-refresh.svg" alt="" width="17" height="17"></span></button><button type="button" class="remove-item" title="移除这项" aria-label="移除${esc(item.name)}">×</button></div></div>${modelNote(item)}${number(item.oilGrams)>0?`<p class="fine-print estimate-item-oil">${esc(item.oilMethod||item.method||'按克重')} · 用油 ${fmt(item.oilGrams,0)} g，已含在热量与脂肪里。</p>`:''}<div class="form-grid">${fields.map(([key,label]) => `<label>${label}<input data-item-field="${key}" type="number" value="${Number(item[key])}" ${key === 'grams' ? '' : `data-base-value="${Number(item[key])}"`} min="0" max="20000" step="0.01" required></label>`).join('')}</div></div>`).join('');
-    $('#estimate-source').textContent=`${view.source==='api'?'外部模型':'本地估算'} · ${view.confidence==='medium'?'中等':'低'}置信度${restored?' · 已恢复未确认草稿':''}`;
+    $('#estimate-source').textContent=view.editingId?'编辑已保存餐食':`${view.source==='api'?'外部模型':'本地估算'} · ${view.confidence==='medium'?'中等':'低'}置信度${restored?' · 已恢复未确认草稿':''}`;
     const uncertainty=number(view.uncertaintyPercent) ?? 15;
     draft.uncertaintyPercent=uncertainty; draft.oilGrams=number(view.oilGrams) ?? 0;
     // 用油按菜归属：模型的每道菜自己带 oilGrams，且已算进那道菜的热量；顶层数只用于展示。
@@ -6480,7 +6519,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     $('#estimate-notes').innerHTML=[interval,oilNote,lowNote].concat(Array.isArray(view.notes)?view.notes:[]).map(note=>`<li>${esc(note)}</li>`).join('');
     $('#estimate-name').value=view.name || view.items.map(item=>item.name).join('、').slice(0,120);
     $('#estimate-preview').hidden=false;
-    feedback($('#preview-feedback'), restored?'已恢复未确认的估算，请核对日期与克重后确认保存。':'请检查数据后确认保存。');
+    feedback($('#preview-feedback'), view.editingId ? '正在编辑已保存餐食；保存后会更新原记录，不会新增一条。' : restored?'已恢复未确认的估算，请核对日期与克重后确认保存。':'请检查数据后确认保存。');
     renderOilLevel();
     updatePreviewTotals();
     $('#estimate-preview').scrollIntoView({block:'nearest',behavior:'auto'});
@@ -6929,7 +6968,7 @@ function metricIcon(label) {
     return totals;
   }
   function updatePreviewTotals() {const totals=estimateTotals(readItems());$('#estimate-totals').textContent=`合计：${fmt(totals.calories)} kcal · 蛋白质 ${fmt(totals.protein)}g · 脂肪 ${fmt(totals.fat)}g · 碳水 ${fmt(totals.carbs)}g`;}
-  function discardDraft() {if(savingDraft) return;const id=draft?.id;draft=null;$('#estimate-preview').hidden=true;$('#estimate-items').replaceChildren();dropDraft(id);}
+  function discardDraft() {if(savingDraft) return;const id=draft?.id, editing=!!draft?.editingId;draft=null;$('#estimate-preview').hidden=true;$('#estimate-items').replaceChildren();if(!editing)dropDraft(id);}
   async function confirmDraft() {
     if(!draft || savingDraft) return;
     const button=$('#confirm-estimate'),message=$('#preview-feedback');
@@ -6942,14 +6981,19 @@ function metricIcon(label) {
       draft.date=date; draft.mealType=mealType;
       // The user just confirmed it, so it is no longer a guess.
       draft.mealTime=mealTime; draft.mealTimeSource='manual';
-      savingDraft=true;button.disabled=true;$('#cancel-estimate').disabled=true;feedback(message,'正在保存确认后的餐食…');
-      await api('/api/meals',{estimateId:draft.id,date:draft.date,mealType:draft.mealType,mealTime:draft.mealTime,name,source:draft.source,...photoMeta(draft),items,...totals,totals,
+      const editing = draft.editingId ? (state.meals || []).find(row => row && String(row.id) === String(draft.editingId)) : null;
+      if (draft.editingId && !editing) throw new Error('原餐食记录已不存在，请重新打开这条记录。');
+      const wasEditing = !!editing;
+      const values = {date:draft.date,mealType:draft.mealType,mealTime:draft.mealTime,name,source:draft.source,...photoMeta(draft),items,...totals,totals,
         // The oil amount the estimate already counted stays on the record, so the numbers remain explainable.
         ...(number(draft.oilGrams)>0?{oilGrams:number(draft.oilGrams),oilIncluded:true}:{}),
-        ...(number(draft.uncertaintyPercent)!==null?{uncertaintyPercent:number(draft.uncertaintyPercent)}:{})});
+        ...(number(draft.uncertaintyPercent)!==null?{uncertaintyPercent:number(draft.uncertaintyPercent)}:{})};
+      savingDraft=true;button.disabled=true;$('#cancel-estimate').disabled=true;feedback(message,wasEditing?'正在更新已保存餐食…':'正在保存确认后的餐食…');
+      if (editing) await api('/api/meals',{...editing,id:editing.id,...values});
+      else await api('/api/meals',{estimateId:draft.id,...values});
       // Keep draftId on failures so native idempotency prevents duplicate confirmations.
       const savedDate=draft.date; activeDate=savedDate; $('#active-date').value=savedDate; syncActiveDateLabel();
-       draft=null;$('#estimate-preview').hidden=true;$('#estimate-form').reset();setDefaultDates();clearImage();feedback($('#estimate-feedback'),`餐食已确认保存到 ${savedDate}，已切换到该日汇总。`);
+       draft=null;$('#estimate-preview').hidden=true;$('#estimate-form').reset();setDefaultDates();clearImage();feedback($('#estimate-feedback'),wasEditing?`餐食已更新到 ${savedDate}。`:`餐食已确认保存到 ${savedDate}，已切换到该日汇总。`);
       try {await loadState({quiet:true});} catch {feedback($('#estimate-feedback'),'已保存，但刷新失败。请重新加载检查记录，不要再次估算保存。',true);}
       loadDrafts().catch(() => {});
     } catch(error) {feedback(message,error.message,true);} finally {savingDraft=false;button.disabled=false;$('#cancel-estimate').disabled=false;}
@@ -7006,7 +7050,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.73';
+  const APP_VERSION = '1.4.74';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -9335,6 +9379,12 @@ function metricIcon(label) {
   });
   $('#confirm-estimate').addEventListener('click',confirmDraft);$('#cancel-estimate').addEventListener('click',discardDraft);
   document.addEventListener('click',async event=>{const button=event.target.closest('[data-delete-meal]');if(!button || button.disabled)return;if(!await askConfirm('确定删除这条餐食记录吗？此操作无法撤销。',{title:'删除餐食',ok:'删除',danger:true}))return;button.disabled=true;try{await api(`/api/meals/${encodeURIComponent(button.dataset.deleteMeal)}`,undefined,'DELETE');try{await loadState({quiet:true});notice('餐食已删除。');}catch{notice('删除成功，但刷新失败。请重新加载检查记录。',true);}}catch(error){notice(error.message,true);button.disabled=false;}});
+  document.addEventListener('click', event => {
+    const button = event.target.closest('[data-edit-meal]');
+    if (!button) return;
+    const record = (state.meals || []).find(row => row && String(row.id) === String(button.dataset.editMeal));
+    if (record) beginMealEdit(record);
+  });
   // ---- 迁移到新手机：导出附带计数与校验和，导入时自动核对 ---------------------------------------
   /** Key-sorted JSON，校验和不受 org.json 与 JS 之间键序差异影响。 */
   function stableStringify(value) {

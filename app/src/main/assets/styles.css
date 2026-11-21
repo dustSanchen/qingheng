@@ -290,6 +290,8 @@ label.sheet-option{flex-direction:row;margin:0;cursor:pointer}
 .preference-row .hub-text{min-width:0;flex:1}
 .preference-row-actions{display:flex;align-items:center;gap:4px;flex:0 0 auto}
 .preference-row-actions .icon-button{min-width:44px;min-height:44px}
+.row-edit{color:var(--ink-soft);font-size:var(--text-sm);font-weight:var(--fw-semibold);min-width:44px;min-height:44px}
+.row-actions{display:inline-flex;align-items:center;gap:2px;margin-left:auto;flex:0 0 auto}
 .card.is-editing-preference{padding-bottom:48vh}
 .hub-icon{display:grid;place-items:center;width:40px;height:40px;min-width:40px;border-radius:12px;background:var(--accent-soft);color:var(--accent);flex:0 0 auto}
 .hub-icon img{width:21px;height:21px}

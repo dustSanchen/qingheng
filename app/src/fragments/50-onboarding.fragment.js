@@ -202,6 +202,12 @@
   $('#ob-next').addEventListener('click', obNext);
   $('#ob-back').addEventListener('click', () => {feedback($('#ob-feedback'), ''); onboardingStep(onboarding.step - 1);});
   $('#ob-finish').addEventListener('click', obFinish);
+  $('#ob-skip-ai')?.addEventListener('click', () => {
+    feedback($('#ob-feedback'), '');
+    onboardingStep(4);
+    setTimeout(() => refreshPermissionChecklist().catch(() => {}), 30);
+  });
+  $('#ob-skip-checks')?.addEventListener('click', () => {obFinish().catch(error => feedback($('#ob-feedback'), error.message, true));});
   $('#ob-skip').addEventListener('click', async () => {
     showOnboarding(false);
     try {await api('/api/profile', {onboardingDone: true}); await loadState({quiet: true});}
@@ -261,7 +267,7 @@
         + `${source ? `<span class="row-tag subtle-tag">${esc(source)}</span>` : ''}`
         + `${items ? `<span class="row-tag subtle-tag">${esc(items)}</span>` : ''}`
         + `${showDate ? `<span class="row-date">${esc(meal.date)}</span>` : ''}`
-        + `${meal.id !== undefined ? `<button type="button" class="icon-button danger row-delete" data-delete-meal="${esc(meal.id)}" aria-label="删除${esc(meal.name || '餐食')}" title="删除这条餐食"><span class="inline-icon" aria-hidden="true">${SVG_ICONS['icon-trash.svg']}</span></button>` : ''}</div>`
+        + `${meal.id !== undefined ? `<span class="row-actions"><button type="button" class="icon-button row-edit" data-edit-meal="${esc(meal.id)}" aria-label="编辑${esc(meal.name || '餐食')}">改</button><button type="button" class="icon-button danger row-delete" data-delete-meal="${esc(meal.id)}" aria-label="删除${esc(meal.name || '餐食')}" title="删除这条餐食"><span class="inline-icon" aria-hidden="true">${SVG_ICONS['icon-trash.svg']}</span></button></span>` : ''}</div>`
         + `${Array.isArray(meal.items) && meal.items.length ? `<div class="meal-items-wrap"><button type="button" class="meal-items-toggle" data-meal-items="${esc(meal.id ?? '')}" aria-expanded="false">共 ${meal.items.length} 项 · 查看每项热量</button><div class="meal-items" hidden>${[...meal.items].sort((a, b) => (number(b.calories) ?? 0) - (number(a.calories) ?? 0)).map(item => `<div class="meal-item"><span>${esc(item.name || '未命名')}</span><b>${number(item.grams) !== null ? `${fmt(item.grams, 0)} g · ` : ''}${fmt(number(item.calories) ?? 0, 0)} kcal</b></div>`).join('')}</div></div>` : ''}`
         + `<div class="meal-numbers" aria-label="营养数值">`
         + `<span><small>蛋白</small><b>${fmt(meal.protein)} g</b></span><span><small>脂肪</small><b>${fmt(meal.fat)} g</b></span><span><small>碳水</small><b>${fmt(meal.carbs)} g</b></span></div>`

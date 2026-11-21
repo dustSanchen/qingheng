@@ -1515,3 +1515,10 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 测试：新增 `training-state`、`today-agenda`、`advice-actions`、`preference-compat`、`weekly-review-local`，更新受新语义影响的旧断言；全量 88/88 绿。审计：aesthetic-audit 仅 3 个既有 WARN、无阻塞；entry-budget 9/9 PASS。
 - 构建：首次 dev-loop 被 README 仍写 1.4.70 的 ci 断言拦住，更新 README 后重跑。最终 `dist/qingheng-1.4.73.apk`（662,749 B / 647 KB，sha256 `5076FAC11CF2817C…`），设备 3cba2bdc 安装 1.4.73，js errors none。
 - 真机检查：今日页、训练日志「记为休息」确认、偏好内联编辑与取消、趋势页周回看、paper/ledger 切换；已恢复 paper。未调用真实外部模型验证 `actionItems` 文案，动作解析以本地单元测试为准；夜间模式未逐页截图。用户数据未写入（休息确认按返回取消，偏好编辑按取消，日期选择仅切换查看日）。
+## r187 · 2026-11-21 · 1.4.74（按清单补齐 P2：可跳过首用 + 已保存餐食编辑）
+- 用户要求核对版本与优化清单、修正偏差并继续分阶段优化。核对结果：1.4.73 源码/装机/APK 一致；P0 与主要 P1 已落地，P2 的首次使用、餐食编辑和视觉收口仍有缺口；偏好采用「字符串主表 + preferenceMeta」是保留旧备份兼容性的有意偏差。
+- 首次使用：AI 步骤明确可跳过，新增「先不接 AI，继续」；权限检查新增「先不检查，直接完成」；两步都不要求 API Key，之后可在「我的 → AI 与提醒」再设置。
+- 已保存餐食：餐食行新增「改」入口，复用现有估算预览；编辑模式保留原 id、原营养与用油，确认时按原记录 id 更新而不是新增副本，放弃预览不删除原记录。编辑/删除合成同一行尾动作组，避免按钮换行。
+- 测试：新增 `onboarding-p2`、`meal-edit`；全量 90/90。审计：aesthetic-audit 3 个既有 WARN、无阻塞；entry-budget 9/9 PASS。
+- 构建：`dist/qingheng-1.4.74.apk`（662,751 B / 647 KB，sha256 `FE9DA29D9BFD9ED6…`），设备 3cba2bdc 安装 1.4.74，js errors none。真机检查了已保存餐食编辑预览和行尾动作组；未真正保存编辑（避免改动真实记录）。
+- 仍保留：P2 全站视觉重做、夜间/320px 全页截图核验和餐食估算算法改版未做；未推送远端、未发 Release。

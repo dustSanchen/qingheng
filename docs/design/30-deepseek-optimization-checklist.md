@@ -394,5 +394,6 @@ node D:\AI\design-corpus\design-audit.mjs app\src\main\assets\index.html
 ## 14. 实施状态（2026-11-21）
 
 - 已随 `1.4.73` 落地：训练三态与显式休息、今天页单一行动、建议 `actionItems`、偏好来源/时间/编辑与备份同步、趋势页本地周回看。
-- 对应测试：`training-state`、`today-agenda`、`advice-actions`、`preference-compat`、`weekly-review-local`；全量 88/88。
-- 本轮未做：首用流程重做、餐食估算算法改版、全站视觉重做、社交/课程/会员能力。清单中的 P2 仍作为后续独立任务，不代表已实现。
+- 已随 `1.4.74` 继续落地：AI /权限步骤明确可跳过；已保存餐食可在原有餐食行点「改」进入同一预览，按原记录 id 更新，不新增副本，编辑时不重复加油。
+- 对应测试：`training-state`、`today-agenda`、`advice-actions`、`preference-compat`、`weekly-review-local`、`onboarding-p2`、`meal-edit`；全量 90/90。
+- 仍保留的偏差/未做：偏好按兼容性采用「字符串主表 + preferenceMeta」，而不是清单建议的对象数组；P2 的全站视觉重做、夜间/320px 全页截图核验、餐食估算算法改版未做；社交/课程/会员始终不做。

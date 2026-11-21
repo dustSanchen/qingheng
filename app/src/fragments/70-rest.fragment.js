@@ -79,7 +79,7 @@
     return totals;
   }
   function updatePreviewTotals() {const totals=estimateTotals(readItems());$('#estimate-totals').textContent=`合计：${fmt(totals.calories)} kcal · 蛋白质 ${fmt(totals.protein)}g · 脂肪 ${fmt(totals.fat)}g · 碳水 ${fmt(totals.carbs)}g`;}
-  function discardDraft() {if(savingDraft) return;const id=draft?.id;draft=null;$('#estimate-preview').hidden=true;$('#estimate-items').replaceChildren();dropDraft(id);}
+  function discardDraft() {if(savingDraft) return;const id=draft?.id, editing=!!draft?.editingId;draft=null;$('#estimate-preview').hidden=true;$('#estimate-items').replaceChildren();if(!editing)dropDraft(id);}
   async function confirmDraft() {
     if(!draft || savingDraft) return;
     const button=$('#confirm-estimate'),message=$('#preview-feedback');
@@ -92,14 +92,19 @@
       draft.date=date; draft.mealType=mealType;
       // The user just confirmed it, so it is no longer a guess.
       draft.mealTime=mealTime; draft.mealTimeSource='manual';
-      savingDraft=true;button.disabled=true;$('#cancel-estimate').disabled=true;feedback(message,'正在保存确认后的餐食…');
-      await api('/api/meals',{estimateId:draft.id,date:draft.date,mealType:draft.mealType,mealTime:draft.mealTime,name,source:draft.source,...photoMeta(draft),items,...totals,totals,
+      const editing = draft.editingId ? (state.meals || []).find(row => row && String(row.id) === String(draft.editingId)) : null;
+      if (draft.editingId && !editing) throw new Error('原餐食记录已不存在，请重新打开这条记录。');
+      const wasEditing = !!editing;
+      const values = {date:draft.date,mealType:draft.mealType,mealTime:draft.mealTime,name,source:draft.source,...photoMeta(draft),items,...totals,totals,
         // The oil amount the estimate already counted stays on the record, so the numbers remain explainable.
         ...(number(draft.oilGrams)>0?{oilGrams:number(draft.oilGrams),oilIncluded:true}:{}),
-        ...(number(draft.uncertaintyPercent)!==null?{uncertaintyPercent:number(draft.uncertaintyPercent)}:{})});
+        ...(number(draft.uncertaintyPercent)!==null?{uncertaintyPercent:number(draft.uncertaintyPercent)}:{})};
+      savingDraft=true;button.disabled=true;$('#cancel-estimate').disabled=true;feedback(message,wasEditing?'正在更新已保存餐食…':'正在保存确认后的餐食…');
+      if (editing) await api('/api/meals',{...editing,id:editing.id,...values});
+      else await api('/api/meals',{estimateId:draft.id,...values});
       // Keep draftId on failures so native idempotency prevents duplicate confirmations.
       const savedDate=draft.date; activeDate=savedDate; $('#active-date').value=savedDate; syncActiveDateLabel();
-       draft=null;$('#estimate-preview').hidden=true;$('#estimate-form').reset();setDefaultDates();clearImage();feedback($('#estimate-feedback'),`餐食已确认保存到 ${savedDate}，已切换到该日汇总。`);
+       draft=null;$('#estimate-preview').hidden=true;$('#estimate-form').reset();setDefaultDates();clearImage();feedback($('#estimate-feedback'),wasEditing?`餐食已更新到 ${savedDate}。`:`餐食已确认保存到 ${savedDate}，已切换到该日汇总。`);
       try {await loadState({quiet:true});} catch {feedback($('#estimate-feedback'),'已保存，但刷新失败。请重新加载检查记录，不要再次估算保存。',true);}
       loadDrafts().catch(() => {});
     } catch(error) {feedback(message,error.message,true);} finally {savingDraft=false;button.disabled=false;$('#cancel-estimate').disabled=false;}
@@ -156,7 +161,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.73';
+  const APP_VERSION = '1.4.74';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -2485,6 +2490,12 @@
   });
   $('#confirm-estimate').addEventListener('click',confirmDraft);$('#cancel-estimate').addEventListener('click',discardDraft);
   document.addEventListener('click',async event=>{const button=event.target.closest('[data-delete-meal]');if(!button || button.disabled)return;if(!await askConfirm('确定删除这条餐食记录吗？此操作无法撤销。',{title:'删除餐食',ok:'删除',danger:true}))return;button.disabled=true;try{await api(`/api/meals/${encodeURIComponent(button.dataset.deleteMeal)}`,undefined,'DELETE');try{await loadState({quiet:true});notice('餐食已删除。');}catch{notice('删除成功，但刷新失败。请重新加载检查记录。',true);}}catch(error){notice(error.message,true);button.disabled=false;}});
+  document.addEventListener('click', event => {
+    const button = event.target.closest('[data-edit-meal]');
+    if (!button) return;
+    const record = (state.meals || []).find(row => row && String(row.id) === String(button.dataset.editMeal));
+    if (record) beginMealEdit(record);
+  });
   // ---- 迁移到新手机：导出附带计数与校验和，导入时自动核对 ---------------------------------------
   /** Key-sorted JSON，校验和不受 org.json 与 JS 之间键序差异影响。 */
   function stableStringify(value) {

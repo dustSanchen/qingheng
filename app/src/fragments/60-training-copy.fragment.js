@@ -1921,6 +1921,38 @@
     renderPreview(view, false);
     saveToDraftBox(view);
   }
+  /** Build the preview view from a saved meal without touching its id or nutrition values. */
+  function mealEditView(record) {
+    if (!record || record.id === undefined || record.id === null) return null;
+    const items = Array.isArray(record.items) ? record.items.map(item => ({...item})) : [];
+    if (!items.length) return null;
+    const oil = Number(record.oilGrams);
+    const uncertainty = Number(record.uncertaintyPercent);
+    return {
+      id: record.id,
+      editingId: record.id,
+      date: record.date,
+      mealType: record.mealType || 'lunch',
+      source: record.source || 'manual',
+      mealTime: record.mealTime,
+      mealTimeSource: record.mealTimeSource || 'manual',
+      items,
+      name: record.name || '',
+      oilGrams: Number.isFinite(oil) ? oil : 0,
+      uncertaintyPercent: Number.isFinite(uncertainty) ? uncertainty : 15,
+      photoTakenAt: record.photoTakenAt || null,
+      photoTimeSource: record.photoTimeSource || 'unknown'
+    };
+  }
+  function beginMealEdit(record) {
+    const view = mealEditView(record);
+    if (!view) {notice('这条餐食没有可编辑的明细，请先重新估算。', true); return;}
+    switchTab('records', true);
+    if (typeof switchRecordPanel === 'function') switchRecordPanel('food');
+    setTimeout(() => {
+      try {renderPreview(view, true);} catch (error) {notice(error.message, true);}
+    }, 60);
+  }
   /** Renders a stored or fresh estimate preview; a restored draft is labelled as such. */
   function renderPreview(view, restored) {
     estimateView = view;
@@ -1928,7 +1960,7 @@
     if (!view?.id || !Array.isArray(view.items) || !view.items.length) throw new Error('这份草稿不完整，请重新估算。');
     const mealTime = clockPattern.test(String(view.mealTime||'')) ? view.mealTime : nowClock();
     const source = ['photo','text','now','manual','typical'].includes(view.mealTimeSource) ? view.mealTimeSource : 'now';
-    draft={id:view.id,date:view.date,mealType:view.mealType,source:view.source,mealTime,mealTimeSource:source,...photoMeta(view)};
+    draft={id:view.id,editingId:view.editingId || '',date:view.date,mealType:view.mealType,source:view.source,mealTime,mealTimeSource:source,...photoMeta(view)};
     $('#estimate-date').value=draft.date; $('#estimate-meal-type').value=draft.mealType;
     $('#estimate-meal-time').value=mealTime;
     $('#estimate-meal-time-note').textContent=mealTimeNote(draft);
@@ -1943,9 +1975,10 @@
       return `<p class="fine-print">本地参考：${fmt(per100.calories,0)} kcal/100g · ${esc(basis)}${range}。${esc(model.note || '')}</p>`;
     };
     // Each row keeps its original estimate as a ratio baseline, so repeated gram edits never accumulate rounding drift.
-    const oiledItems = applyOilToItems(estimateRawItems, estimateOilLevel);
+    // Editing a saved meal keeps its stored nutrition: applying oil again would double-count it.
+    const oiledItems = view.editingId ? estimateRawItems : applyOilToItems(estimateRawItems, estimateOilLevel);
     $('#estimate-items').innerHTML=oiledItems.map(item => `<div class="estimate-item" data-base-grams="${Number(item.grams)}" data-oil="${Number(item.oilGrams)||0}"><div class="estimate-item-head"><label>食物名称<input data-item-field="name" value="${esc(item.name)}" maxlength="120" required></label><div class="estimate-item-actions"><button type="button" class="recalc-item" title="按克重和每 100g 数据重算" aria-label="按克重重算${esc(item.name)}"><span class="inline-icon" aria-hidden="true"><img src="./icon-refresh.svg" alt="" width="17" height="17"></span></button><button type="button" class="remove-item" title="移除这项" aria-label="移除${esc(item.name)}">×</button></div></div>${modelNote(item)}${number(item.oilGrams)>0?`<p class="fine-print estimate-item-oil">${esc(item.oilMethod||item.method||'按克重')} · 用油 ${fmt(item.oilGrams,0)} g，已含在热量与脂肪里。</p>`:''}<div class="form-grid">${fields.map(([key,label]) => `<label>${label}<input data-item-field="${key}" type="number" value="${Number(item[key])}" ${key === 'grams' ? '' : `data-base-value="${Number(item[key])}"`} min="0" max="20000" step="0.01" required></label>`).join('')}</div></div>`).join('');
-    $('#estimate-source').textContent=`${view.source==='api'?'外部模型':'本地估算'} · ${view.confidence==='medium'?'中等':'低'}置信度${restored?' · 已恢复未确认草稿':''}`;
+    $('#estimate-source').textContent=view.editingId?'编辑已保存餐食':`${view.source==='api'?'外部模型':'本地估算'} · ${view.confidence==='medium'?'中等':'低'}置信度${restored?' · 已恢复未确认草稿':''}`;
     const uncertainty=number(view.uncertaintyPercent) ?? 15;
     draft.uncertaintyPercent=uncertainty; draft.oilGrams=number(view.oilGrams) ?? 0;
     // 用油按菜归属：模型的每道菜自己带 oilGrams，且已算进那道菜的热量；顶层数只用于展示。
@@ -1961,7 +1994,7 @@
     $('#estimate-notes').innerHTML=[interval,oilNote,lowNote].concat(Array.isArray(view.notes)?view.notes:[]).map(note=>`<li>${esc(note)}</li>`).join('');
     $('#estimate-name').value=view.name || view.items.map(item=>item.name).join('、').slice(0,120);
     $('#estimate-preview').hidden=false;
-    feedback($('#preview-feedback'), restored?'已恢复未确认的估算，请核对日期与克重后确认保存。':'请检查数据后确认保存。');
+    feedback($('#preview-feedback'), view.editingId ? '正在编辑已保存餐食；保存后会更新原记录，不会新增一条。' : restored?'已恢复未确认的估算，请核对日期与克重后确认保存。':'请检查数据后确认保存。');
     renderOilLevel();
     updatePreviewTotals();
     $('#estimate-preview').scrollIntoView({block:'nearest',behavior:'auto'});

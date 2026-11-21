@@ -89,7 +89,7 @@
 
     <section class="onboarding-step" data-step="3" hidden>
       <h2>可选：接入 AI</h2>
-      <p class="fine-print">本地功能无需网络；填入自己的 API Key 后，才能用图片识别、AI 问答与推送分析。Key 只保存在本机，不会回传。</p>
+      <p class="fine-print">这一步可以跳过。图片识别、AI 问答和推送分析需要你自己的 API Key；暂时不接也不影响记录、目标和本地计划。之后可在「我的 → AI 与提醒」再设置。Key 只保存在本机，不会回传。</p>
       <div class="form-grid">
         <label>服务商<select name="provider" id="ob-provider"><option value="deepseek">DeepSeek</option><option value="bai">B.AI</option><option value="siliconflow">硅基流动</option></select></label>
         <label>API 地址<input name="baseUrl" id="ob-baseurl" type="url" placeholder="https://api.deepseek.com"></label>
@@ -97,14 +97,15 @@
         <label>API Key<input name="apiKey" id="ob-apikey" type="password" autocomplete="off" placeholder="sk-... （可留空）"></label>
       </div>
       <div class="check-label" data-consent-once="ob-allow"><input type="checkbox" id="ob-allow"><span>我同意在需要时把餐食描述、照片或问题发送给上述服务商（按 token 计费）。</span></div>
+      <div class="button-row"><button class="text-button" type="button" id="ob-skip-ai">先不接 AI，继续</button></div>
     </section>
 
 
     <section class="onboarding-step" data-step="4" hidden>
       <h2>最后三件事</h2>
-      <p class="muted">提醒与通知需要授权，开了体验更完整。</p>
+      <p class="muted">提醒与通知可以稍后再开；现在跳过不影响记录，之后能在「我的 → AI 与提醒」修改。</p>
       <div class="check-list" id="ob-checks" role="list"></div>
-      <div class="button-row"><button type="button" class="button subtle" id="ob-check-refresh">重新检查</button></div>
+      <div class="button-row"><button type="button" class="button subtle" id="ob-check-refresh">重新检查</button><button type="button" class="text-button" id="ob-skip-checks">先不检查，直接完成</button></div>
       <p class="fine-print" id="ob-check-note">状态会在你回到应用时自动刷新。</p>
     </section>
     <div class="onboarding-actions">
