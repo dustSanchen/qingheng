@@ -2054,11 +2054,10 @@ details.energy-more p{margin:var(--space-1) 0 var(--space-1);font-size:var(--tex
 @media(max-width:360px){.macro-target{display:block;text-wrap:balance}}
 @media(max-width:340px){.skin-pick{flex-direction:column}.skin-pick button{width:100%;text-align:left}}
 
-/* 11. Chat primary action: reuse the existing send bar; one button, fixed above the tab bar. */
-@media(max-width:699px){
-  #view-chat .chat-send-bar{position:fixed;left:0;right:0;bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom,0px));z-index:calc(var(--z-tabbar) + 1);background:var(--paper);border-top:1px solid var(--line);padding:10px 20px;margin:0;max-width:none}
-  #view-chat{padding-bottom:calc(84px + 92px + env(safe-area-inset-bottom,0px))}
-}
+/* 11. 问答主行动留在输入卡内；键盘弹起由 installChatFocusReveal 滚动到发送栏。 */
+#view-chat .chat-send-bar{margin-top:var(--space-2);padding-top:var(--space-2);border-top:1px solid var(--line);background:transparent}
+#view-chat .capture-card{min-height:36px;padding:4px 0;border:0;background:transparent;color:var(--accent);justify-content:flex-start;font-size:var(--text-xs)}
+#view-chat .capture-card img{width:18px;height:18px}
 
 /* 8. 折叠区默认是一行发丝线，只有「控件组」.advanced 保留虚线框；
       来源、说明、更多数据不再各自套一个盒子。 */

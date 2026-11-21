@@ -1620,3 +1620,8 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 加载：`.busy-ring` 改为 20px、2px accent-soft 底、accent 弧、border-box、中心旋转；1.2s linear。
 - 视觉：聊天固定发送栏保留；记录页保持正常流式提交；真机 1.4.91 记录页截图确认无浮层遮挡。
 - 测试：`main-action`/`symbol-usage` 更新；全量 99/99。APK `dist/qingheng-1.4.91.apk` 655 KB，sha256 `1C8C04C1B8F3A62C…`；未推送、未发 Release。
+## r206 · 2026-11-22 · 1.4.92（问答页去遮挡）
+- 修复：问答固定发送栏会压住“问答记录”；撤掉固定定位，发送栏回到输入卡内，聚焦后 320ms scrollIntoView 保证键盘弹起时可达。
+- 视觉：拍照/相册入口从两个盒子降为轻量图标+文字行；发送栏加顶部发丝线，主按钮唯一。
+- 真机 1.4.92 问答页截图确认：发送栏在流内，下方不再被浮层遮挡。
+- 测试：`main-action` 改为断言“in-flow + focus reveal”；全量 99/99。APK `dist/qingheng-1.4.92.apk` 655 KB，sha256 `3382359FC1965E87…`；未推送、未发 Release。
