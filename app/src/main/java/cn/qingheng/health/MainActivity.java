@@ -2795,6 +2795,7 @@ import java.util.concurrent.Executors;
                 {"restDayMin", "restDayMax", "休息日摄入区间"},
                 {"proteinMin", "proteinMax", "蛋白质克数"},
                 {"fatMin", "fatMax", "脂肪克数"},
+                {"weightTargetMin", "weightTargetMax", "目标体重区间"},
         };
         for (String[] pair : pairs) {
             Double low = finite(profile, pair[0]), high = finite(profile, pair[1]);

@@ -501,6 +501,15 @@
       + training
       + `</div><p class="fine-print">${targetText}；未记录不代表没做。</p><p class="weekly-review-action">${esc(data.action)}</p>`;
   }
+  /** Optional target-weight band; no fields means no band, not an inferred target. */
+  function trendTargetBand(profile, y, left, right, topLimit, bottomLimit) {
+    const min = number(profile && profile.weightTargetMin), max = number(profile && profile.weightTargetMax);
+    if (!(min > 0) || !(max > min)) return '';
+    const clamp = value => Math.max(topLimit, Math.min(bottomLimit, value));
+    const top = clamp(y(max)), bottom = clamp(y(min));
+    if (!(bottom > top)) return '';
+    return `<rect class="chart-target-band" data-target-band="1" x="${left}" y="${top.toFixed(2)}" width="${right - left}" height="${(bottom - top).toFixed(2)}"><title>目标体重 ${fmt(min)}–${fmt(max)} kg</title></rect>`;
+  }
   function renderTrends() {
     if (trendTooltipTimer) {clearTimeout(trendTooltipTimer); trendTooltipTimer = null;}
     const range = $('#trend-range').value;
@@ -559,6 +568,7 @@
     const path=coords.map(([px,py],index) => `${index?'L':'M'}${px.toFixed(2)},${py.toFixed(2)}`).join(' ');
     const grid=Array.from({length:5},(_,i) => {const value=low+(high-low)*i/4,py=y(value);return `<line class="chart-grid" x1="${L}" x2="${W-R}" y1="${py}" y2="${py}"/><text class="chart-text" x="${L-8}" y="${py+4.5}" text-anchor="end">${fmt(value)}</text>`;}).join('');
     const labels = end===start ? `<text class="chart-text" x="${x(first.date)}" y="${H-10}" text-anchor="middle">${esc(first.date)}</text>` : `<text class="chart-text" x="${L}" y="${H-10}" text-anchor="start">${esc(first.date)}</text><text class="chart-text" x="${W-R}" y="${H-10}" text-anchor="end">${esc(last.date)}</text>`;
+    const targetBand = trendTargetBand(state.profile, y, L, W - R, T, H - B);
     // Few points are readable individually; many would collide, so only label short ranges.
     // 相邻同值只标一次（内联判定，不引入外部函数）：连续几天体重相同会把标签叠成一团。
 const values = points.length<=7 ? points.map((item,i) => {
@@ -576,7 +586,7 @@ const values = points.length<=7 ? points.map((item,i) => {
       const difference = previous === null ? '首笔记录' : `${Number(item.weight) - previous > 0 ? '+' : ''}${fmt(Number(item.weight) - previous)} kg`;
       return `<circle class="chart-hit-area" cx="${coords[index][0]}" cy="${coords[index][1]}" r="22" fill="currentColor" fill-opacity="0.001" data-trend-point="${index}" data-date="${esc(item.date)}" data-weight="${fmt(item.weight)}" data-delta="${esc(difference)}" tabindex="0" role="button" aria-label="查看 ${esc(item.date)} 体重 ${fmt(item.weight)} kg"/>`;
     }).join('');
-    $('#weight-chart').innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="group" aria-labelledby="chart-title chart-desc"><title id="chart-title">按真实日期绘制的体重趋势</title><desc id="chart-desc">${esc(points.map(item => `${item.date}：${fmt(item.weight)}公斤`).join('；'))}${weeklyNote ? `；${esc(weeklyNote)}` : ''}</desc><defs><linearGradient id="weight-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#a7c2a3" stop-opacity=".3"/><stop offset="100%" stop-color="#a7c2a3" stop-opacity=".015"/></linearGradient></defs>${grid}${points.length>1 ? `<path class="chart-area" d="${path} L${coords[coords.length-1][0]},${H-B} L${coords[0][0]},${H-B} Z"/><path class="chart-line" d="${path}"/>` : ''}${meanPath}${points.map((item,i) => `<circle class="chart-point" cx="${coords[i][0]}" cy="${coords[i][1]}" r="5"><title>${esc(item.date)} · ${fmt(item.weight)} kg</title></circle>`).join('')}${hitAreas}${values}${labels}</svg><p class="trend-point-tip" id="trend-point-tip" role="status" aria-live="polite" hidden></p>`;
+    $('#weight-chart').innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="group" aria-labelledby="chart-title chart-desc"><title id="chart-title">按真实日期绘制的体重趋势</title><desc id="chart-desc">${esc(points.map(item => `${item.date}：${fmt(item.weight)}公斤`).join('；'))}${weeklyNote ? `；${esc(weeklyNote)}` : ''}</desc><defs><linearGradient id="weight-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#a7c2a3" stop-opacity=".3"/><stop offset="100%" stop-color="#a7c2a3" stop-opacity=".015"/></linearGradient></defs>${grid}${targetBand}${points.length>1 ? `<path class="chart-area" d="${path} L${coords[coords.length-1][0]},${H-B} L${coords[0][0]},${H-B} Z"/><path class="chart-line" d="${path}"/>` : ''}${meanPath}${points.map((item,i) => `<circle class="chart-point" cx="${coords[i][0]}" cy="${coords[i][1]}" r="5"><title>${esc(item.date)} · ${fmt(item.weight)} kg</title></circle>`).join('')}${hitAreas}${values}${labels}</svg><p class="trend-point-tip" id="trend-point-tip" role="status" aria-live="polite" hidden></p>`;
     $('#weight-chart').querySelectorAll('.chart-hit-area').forEach(hit => {
       hit.addEventListener('pointerup', () => showTrendPoint(hit));
       hit.addEventListener('keydown', event => {

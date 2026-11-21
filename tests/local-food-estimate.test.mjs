@@ -62,6 +62,8 @@ const leading = local('200克米饭');
 check('a leading amount is normalized', leading && leading.items[0].grams === 200, leading && leading.items[0].grams);
 const leadingHalf = local('半碗米饭');
 check('a leading half portion is normalized', leadingHalf && leadingHalf.items[0].grams === foods.find('米饭').portionGrams / 2, leadingHalf && leadingHalf.items[0].grams);
+const mixed = local('番茄炒蛋 1份');
+check('a mixed dish uses its own portion and keeps oil included', mixed && mixed.items[0].grams === foods.find('番茄炒蛋').portionGrams && mixed.items[0].oilIncluded === true, mixed && mixed.items[0]);
 const stir = local('炒鸡胸肉 150g');
 check('an explicit cooking method is preserved', stir && stir.items[0].method === '炒', stir && stir.items[0].method);
 check('an unknown food falls through', local('火星食物 100g') === null);

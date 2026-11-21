@@ -2032,6 +2032,7 @@ details.energy-more p{margin:var(--space-1) 0 var(--space-1);font-size:var(--tex
 .chart-point{stroke-width:3}
 .chart-mean{stroke-width:1.5;stroke-dasharray:5 4;opacity:.55}
 .chart-grid{stroke-width:1;stroke-dasharray:2 6}
+.chart-target-band{fill:var(--accent);fill-opacity:.12;stroke:none}
 .chart-value{font-size:var(--text-xs)}
 .trend-stats strong{font-variant-numeric:tabular-nums}
 
