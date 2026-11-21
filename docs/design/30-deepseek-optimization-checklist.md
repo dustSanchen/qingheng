@@ -1,9 +1,9 @@
 # 轻衡优化执行清单 · DeepSeek 交接版
 
-> 原始基线：`1.4.70 / versionCode 470`；当前实施状态：`1.5.06 / 506`（见文末）。
+> 原始基线：`1.4.70 / versionCode 470`；当前实施状态：`1.5.07 / 507`（见文末）。
 > 性质：1.4.70 起的历史任务书 + 当前状态；0–7 工作包已完成，8–9 只保留真实验证缺口。
 > 使用方式：不要再从第 0 轮重做；先看文末状态与未勾选项，只执行剩余验证。
-> 状态说明：0–7 工作包已按 1.5.06/109 核验；8–9 仅剩 5 项真实验证缺口，不再把历史任务书当成全新待办。
+> 状态说明：0–7 工作包已按 1.5.07/109 核验；8–9 仅剩 5 项真实验证缺口，不再把历史任务书当成全新待办。
 > 文件关系：本文件是逐项任务源；`31-keep-phased-plan.md` 记录阶段与版本；`32-keep-current-vs-target.md` 记录 Keep 对照与缺口。
 
 ## 0. 给执行者的总指令
@@ -423,6 +423,7 @@ node D:\AI\design-corpus\design-audit.mjs app\src\main\assets\index.html
 - 已随 `1.5.04` 继续落地：记录/趋势/我的共享纸纹与页眉分隔；记录/趋势首卡变 paper hero；今日快捷芯片跟随 agenda primary。
 - 已随 `1.5.05` 继续落地：下一步移到快捷按钮上方；纸面批注（上下发丝线 + 原因 + 箭头）；去掉整页页边线；快捷芯片退回次要。
 - 已随 `1.5.06` 继续落地：训练建议也使用圆角 composer，发送在输入框内；移除整宽“问训练建议”按钮。
+- 已随 `1.5.07` 继续落地：体检恢复单一「补睡眠」直达 habit-sleep；时段提示独立成行，不抢下一步。
 - 对应测试：`training-state`、`today-agenda`、`advice-actions`、`preference-compat`、`weekly-review-local`、`onboarding-p2`、`meal-edit`、`accessibility-focus`、`meal-draft`、`local-food-estimate`、`target-band`、`ui-state-matrix`、`offline-local`、`symbol-usage`、`oil-level`、`main-action`、`records-density`、`chat-compose`、`data-flow`、`malformed-estimate`、`training-hierarchy`、`interaction-finish`、`training-actions`、`today-paper`、`paper-pages`、`training-advice-compose`；全量 109/109。
 - 仍未闭环（仅验证）：全状态长文本/离线、屏幕阅读器实机、重复监听/定时器、全部取消/撤销/失败重试、后台建议恢复；人工视觉终审仍需用户确认。
 - 餐食估算为本地优先增强，不是一次性替换全部算法；社交/课程/会员始终不做。

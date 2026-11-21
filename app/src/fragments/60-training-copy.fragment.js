@@ -861,8 +861,12 @@
         + `<small>${esc(item.label)}</small></div>`;
     }).join('') + '</div>'
       + `<p class="check-verdict">${esc(check.verdict)}</p>`;
-    // A single next step lives in slot-hint; the check itself only reports state.
-    // (The old secondary chips made the check a second action surface.)
+    // A single next step lives in slot-hint; the check itself only reports state,
+    // except for a missing sleep value, which keeps its direct jump.
+    const sleepMissing = number(habit.sleep) === null;
+    if (sleepMissing) {
+      box.innerHTML += '<div class="check-fix-row"><span>还差</span><a class="check-fix" href="#records" data-focus="habit-sleep">' + iconMarkup('icon-habit-sleep.svg') + '补睡眠</a></div>';
+    }
     box.querySelectorAll('.check-fix').forEach(button => {
       button.dataset.goBound = '1';
       button.addEventListener('click', () => {

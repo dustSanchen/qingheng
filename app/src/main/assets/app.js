@@ -485,6 +485,7 @@
     'icon-glyph-leaf.svg': svgIcon('<path d="M5 19c0-8 5-13 14-14 0 9-5 14-13 14H5z"/><path d="M5 19c4-4 7-6 11-8"/>'),
     'icon-glyph-ring.svg': svgIcon('<circle cx="12" cy="12" r="8"/><path d="M12 4v3"/><path d="M12 20v-3"/>'),
     'icon-habit-sleep.svg': svgIcon('<path d="M19.5 14.3A8 8 0 0 1 9.7 4.5a8.2 8.2 0 1 0 9.8 9.8z"/>'),
+    'icon-habit-sleep.svg': svgIcon('<path d="M19.5 14.3A8 8 0 0 1 9.7 4.5a8.2 8.2 0 1 0 9.8 9.8z"/>'),
     'icon-water.svg': svgIcon('<path d="M6 3.5h12l-1.5 15a1.5 1.5 0 0 1-1.5 1.5h-6a1.5 1.5 0 0 1-1.5-1.5Z"/><path d="M6.8 12.5h10.4"/>'),
     'icon-warn.svg': svgIcon('<path d="M10.2 4.1a2.1 2.1 0 0 1 3.6 0l6.3 11a2.1 2.1 0 0 1-1.8 3.1H5.7a2.1 2.1 0 0 1-1.8-3.1Z"/><path d="M12 9v4"/><path d="M12 16.4h.01"/>'),
     'icon-tip.svg': svgIcon('<circle cx="12" cy="10" r="5.5"/><path d="M9.5 18h5M10.5 21h3"/><path d="M12 3v2"/>'),
@@ -1197,6 +1198,11 @@
     if (reasonNode) {
       reasonNode.textContent = primary && primary.reason ? primary.reason : "";
       reasonNode.hidden = !(primary && primary.reason);
+    }
+    const noteNode = $("#slot-note");
+    if (noteNode) {
+      noteNode.textContent = primary ? slot.label + " · " + slot.hint : "";
+      noteNode.hidden = !primary;
     }
     node.classList.toggle("is-next", !!primary);
     document.querySelectorAll("#today-quick-actions .quick-chip").forEach(button => {
@@ -5478,8 +5484,12 @@ const values = points.length<=7 ? points.map((item,i) => {
         + `<small>${esc(item.label)}</small></div>`;
     }).join('') + '</div>'
       + `<p class="check-verdict">${esc(check.verdict)}</p>`;
-    // A single next step lives in slot-hint; the check itself only reports state.
-    // (The old secondary chips made the check a second action surface.)
+    // A single next step lives in slot-hint; the check itself only reports state,
+    // except for a missing sleep value, which keeps its direct jump.
+    const sleepMissing = number(habit.sleep) === null;
+    if (sleepMissing) {
+      box.innerHTML += '<div class="check-fix-row"><span>还差</span><a class="check-fix" href="#records" data-focus="habit-sleep">' + iconMarkup('icon-habit-sleep.svg') + '补睡眠</a></div>';
+    }
     box.querySelectorAll('.check-fix').forEach(button => {
       button.dataset.goBound = '1';
       button.addEventListener('click', () => {
@@ -7236,7 +7246,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.06';
+  const APP_VERSION = '1.5.07';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -8522,6 +8532,8 @@ function metricIcon(label) {
       energyCard.after(slotHint);
       slotHint.after(row);
     }
+    const slotNote = $('#slot-note');
+    if (slotNote) row.after(slotNote);
     row.addEventListener('click', event => {
       const chip = event.target.closest('[data-quick-focus]');
       if (!chip) return;

@@ -18,6 +18,8 @@ check('the today header has a paper divider', css.includes('.page-heading--today
 check('today energy is one paper hero card', css.includes('#view-today .energy-card{background:var(--surface);border:1px solid var(--line);border-radius:20px'));
 check('ledger keeps its square ledger frame', css.includes('[data-skin="ledger"] #view-today .energy-card{border-radius:0'));
 check('the next step is a two-row grid', css.includes('#view-today .slot-hint.is-next{display:grid;grid-template-columns:auto 1fr'));
+check('the time note is context, not a second action', html.includes('id="slot-note"') && app.includes('noteNode.textContent = primary ? slot.label'));
+check('the sleep jump is a single direct link to the existing body field', app.includes('data-focus="habit-sleep"') && app.includes('revealField(button.dataset.focus)'));
 check('the next step carries a reason line', html.includes('id="slot-reason"') && app.includes('reasonNode.textContent = primary && primary.reason'));
 check('the reason is hidden when there is no primary', app.includes('reasonNode.hidden = !(primary && primary.reason)'));
 

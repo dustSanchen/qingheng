@@ -161,7 +161,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.06';
+  const APP_VERSION = '1.5.07';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1447,6 +1447,8 @@
       energyCard.after(slotHint);
       slotHint.after(row);
     }
+    const slotNote = $('#slot-note');
+    if (slotNote) row.after(slotNote);
     row.addEventListener('click', event => {
       const chip = event.target.closest('[data-quick-focus]');
       if (!chip) return;
