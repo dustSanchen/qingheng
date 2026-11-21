@@ -2123,3 +2123,11 @@ details:not(.advanced):not(.day-more)>summary::after{width:auto;height:auto;bord
   .chip-toggle:hover{border-color:var(--accent-line);color:var(--ink)}
   .hub-row:hover{background:var(--surface-soft)}
 }
+
+/* Optional second scope: today's list first, whole-week write second. */
+.plan-schedule-more{margin:var(--space-3) 0 0;border-top:1px solid var(--line);padding-top:var(--space-2)}
+.plan-schedule-more>summary{display:flex;align-items:center;min-height:44px;cursor:pointer;color:var(--accent);font-size:var(--text-sm);font-weight:var(--fw-semibold)}
+.plan-schedule-more>summary::-webkit-details-marker{display:none}
+.plan-schedule-more>summary::after{content:"可选";margin-left:auto;font-size:var(--text-xs);color:var(--muted);font-weight:var(--fw-regular)}
+.plan-schedule-more[open]>summary{margin-bottom:var(--space-1)}
+.plan-schedule-more .button{margin-top:var(--space-1)}

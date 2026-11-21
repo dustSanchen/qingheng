@@ -1657,3 +1657,8 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 按钮统一 hover/press/focus：primary/subtle/text/icon 各自有反馈；segment/chip 有状态过渡；保留全局 reduced-motion。
 - 记录/今天页摘要从灰注释升为 13.5px 数据行；训练建议已有 20px 结论层、训练当天 18px 详情。
 - 新增 interaction-finish 测试；全量 105/105。APK 655 KB，sha256 `380308B88379DF0E…`；真机 1.4.99；未推送、未发 Release。
+## r214 · 2026-11-22 · 1.5.00（训练动作简化）
+- 训练建议去掉「改用 AI 排今天」，只留「把今天加入清单」；AI 排今天只保留训练页「今日顺序」入口。
+- 「采纳到今日清单」改名为「把今天加入清单」并升为唯一实心主行动。
+- 「排进本周」不改成“生成本周计划”（计划已生成，语义会错），改名为「应用本周计划（可选）」，收进折叠，写明它写入未来几天记录；按钮「应用本周计划 · 写入 X 起 N 次训练」。
+- 新增 training-actions；更新 plan-shared-template / plan-from-today 文案断言；全量 106/106。APK 655 KB，sha256 `7B4EDDA2F2F74697…`；真机 1.5.00；未推送、未发 Release。

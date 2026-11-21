@@ -1235,8 +1235,7 @@
         box.hidden = false;
         box.innerHTML = "<h3 class=\"plan-sub\">本周计划今天 · " + esc(TRAINING_TEMPLATES[weekDay.template] || weekDay.template) + "</h3>"
           + "<p class=\"fine-print\">" + esc(names) + (weekDay.exercises.length > 4 ? " 等 " + weekDay.exercises.length + " 个动作" : "") + "</p>"
-          + "<div class=\"button-row\"><button type=\"button\" class=\"button primary\" data-today-adopt>采纳到今日清单</button>"
-          + "<button type=\"button\" class=\"text-button\" data-today-plan=\"ai\">改用 AI 排今天</button></div>";
+          + "<div class=\"button-row\"><button type=\"button\" class=\"button primary\" data-today-adopt>把今天加入清单</button></div>";
         return;
       }
       box.hidden = false;
@@ -1669,12 +1668,12 @@
     // 数据层里的安排重录一遍。已有 AI 清单时不出现：AI 排的优先级高于周计划。
     const hasTodayList = (() => { try { const raw = localStorage.getItem(AI_PLAN_KEY(activeDate)); const list = raw ? JSON.parse(raw) : null; return Array.isArray(list) && list.length > 0; } catch { return false; } })();
     const adoptHtml = (!hasTodayList && todayPlan && todayPlan.exercises.length)
-      ? '<button type="button" class="button subtle full-width" data-adopt-today>把 ' + esc(dayLabel(activeDate)) + ' 这节采纳到' + (activeDate === localDate() ? '今日清单' : '当日清单') + '</button>'
+      ? '<button type="button" class="button primary full-width" data-adopt-today>把 ' + esc(dayLabel(activeDate)) + ' 这节加入' + (activeDate === localDate() ? '今日清单' : '当日清单') + '</button>'
       : '';
     // 一键排课：1.3.44 把 7 行表格换成周条时，这个按钮留在了一段死表达式里，handler 一直在、按钮再也
     // 没渲染出来。2026-11-18 顺手接回来：写入的是「今天起 7 天」，确认框里写清日期。
     const scheduleHtml = plan.days.length
-      ? '<div class="button-row"><button type="button" class="button subtle full-width" data-plan-schedule="1">排进本周 · 写入' + esc(dayLabel(activeDate)) + '起 ' + plan.days.length + ' 次训练</button></div>'
+      ? '<details class="plan-schedule-more" id="plan-schedule-more"><summary>应用本周计划（可选）</summary><p class="fine-print">上面的按钮只影响今天；这里会把已生成的本周安排写入未来几天的训练记录。</p><button type="button" class="button subtle full-width" data-plan-schedule="1">应用本周计划 · 写入' + esc(dayLabel(activeDate)) + '起 ' + plan.days.length + ' 次训练</button></details>'
       : '';
     // 两套清单同屏容易混：先说清谁是谁、冲突时听谁的，再让用户读数据。
     const relationHtml = plan.days.length

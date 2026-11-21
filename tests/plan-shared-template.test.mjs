@@ -41,8 +41,8 @@ check('原生提示词也按休息折算，不再数动作个数',
   main.includes('组数按时长算，且必须把组间休息算进去') && !main.includes('动作数量按时长定：30 分钟排 4 个'));
 
 // --- P2 日期文案与两套清单的关系 -----------------------------------------------------------------
-check('采纳按钮按所看日期取名', training.includes("把 ' + esc(dayLabel(activeDate)) + ' 这节采纳到"));
-check('排进本周按所看日期取名', training.includes("排进本周 · 写入' + esc(dayLabel(activeDate)) + '起 "));
+check('今天加入按钮按所看日期取名', training.includes("这节加入"));
+check('应用本周计划按所看日期取名', training.includes("应用本周计划 · 写入' + esc(dayLabel(activeDate)) + '起 "));
 check('能量卡按所看日期取名', rest.includes('const noteDay = typeof dayLabel === "function" ? dayLabel(activeDate) : "今天";'));
 check('两套清单有了关系说明', training.includes('两者不一致时以今日顺序为准'));
 
