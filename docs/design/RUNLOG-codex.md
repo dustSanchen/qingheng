@@ -1535,3 +1535,9 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 390 CSS px（1170×2535）真机截图核验记录页，无横向溢出；随后恢复 1156×2510。
 - 构建：`dist/qingheng-1.4.76.apk`（662,749 B / 647 KB，sha256 `B59F0D8E184FD5E3…`），设备 3cba2bdc 安装 1.4.76，js errors none。未推送远端、未发 Release。
 - 仍保留：全站视觉重做与餐食估算算法改版不在计划范围；关键页 320/360/390/夜间已核验，不等于所有页面逐页审计。
+## r190 · 2026-11-21 · 1.4.77（偏好改为对象数组）
+- goal：采用对象数组优化并继续执行目标。偏好权威存储改为 `qingheng.preferences` 的对象数组：`{id,text,source,scope,createdAt,updatedAt}`；`preferenceMeta` 降为只读迁移源，写入后删除。
+- 迁移：旧字符串、旧 preferenceMeta、旧备份在读取或启动时归一化为对象；`readPreferences()` 继续只把 text 交给提示词/接口，`readPreferenceRows()` 供界面；Java `preferenceSuffix` 同时接受字符串与对象 text。
+- 验证：拒绝畸形/超 20 条/重复/原型污染；`preference-compat` 28 项通过；全量 91/91。真机升级到 1.4.77 后偏好页仍显示原记录与来源。
+- 构建：`dist/qingheng-1.4.77.apk`（662,749 B / 647 KB，sha256 `93C8CCF507EFA0A3…`），设备 3cba2bdc 安装 1.4.77，js errors none。未推送远端、未发 Release。
+- 注意：对象数组是向前迁移；旧版本 1.4.76 不会读取新对象（会看不到偏好），回滚时需使用迁移前的 localStorage 备份/旧版本数据。旧备份导入仍兼容。

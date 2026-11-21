@@ -3706,7 +3706,8 @@ import java.util.concurrent.Executors;
         if (prefs == null || prefs.length() == 0) return "";
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < prefs.length() && sb.length() < 700; i++) {
-            String item = prefs.optString(i, "").trim();
+            Object raw = prefs.opt(i);
+            String item = raw instanceof JSONObject ? ((JSONObject) raw).optString("text", "").trim() : prefs.optString(i, "").trim();
             if (item.isEmpty()) continue;
             sb.append("\n- ").append(item.length() > 60 ? item.substring(0, 60) : item);
         }

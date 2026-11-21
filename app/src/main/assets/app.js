@@ -82,16 +82,9 @@
   const MEAL_WINDOW_KEY = 'qingheng.mealWindow';
   /** 长期偏好：一句话一条，最多 20 条，注入估算/建议/训练的提示词。 */
   const PREFERENCES_KEY = 'qingheng.preferences';
+  /** Only read during migration; new storage is a self-contained object array. */
   const PREFERENCE_META_KEY = 'qingheng.preferenceMeta';
-  function readPreferences() {
-    try {const raw = localStorage.getItem(PREFERENCES_KEY); const list = raw ? JSON.parse(raw) : []; return Array.isArray(list) ? list.filter(item => typeof item === 'string' && item.trim()).slice(0, 20) : [];} catch {return [];}
-  }
-  function writePreferences(list) {
-    const clean = (Array.isArray(list) ? list : []).map(item => String(item || '').trim()).filter(Boolean).slice(0, 20);
-    try {localStorage.setItem(PREFERENCES_KEY, JSON.stringify(clean));} catch {}
-    return clean;
-  }
-  /** A stable id for a legacy preference that had no metadata yet. */
+  /** A stable id for a preference that had no metadata yet. */
   function preferenceIdFor(text) {
     let hash = 5381;
     for (const ch of String(text || '')) hash = ((hash << 5) + hash + ch.charCodeAt(0)) | 0;
@@ -101,8 +94,8 @@
   function preferenceTimestamp(value) {
     return typeof value === 'string' && /^\d{4}-\d\d-\d\dT/.test(value) ? value.slice(0, 32) : null;
   }
-  /** Metadata is keyed by text, so the legacy string list stays the source of truth and old backups keep working. */
-  function readPreferenceMeta() {
+  /** Legacy metadata map from 1.4.73–76; merged into objects once, then removed. */
+  function readLegacyPreferenceMeta() {
     let raw = {};
     try {raw = JSON.parse(localStorage.getItem(PREFERENCE_META_KEY) || '{}') || {};} catch {raw = {};}
     const out = Object.create(null);
@@ -119,41 +112,75 @@
     }
     return out;
   }
-  /** UI rows join the unchanged string list with optional source/timestamp metadata. */
-  function readPreferenceRows() {
-    const meta = readPreferenceMeta();
-    return readPreferences().map(text => {
-      const item = meta[text];
-      return {
-        id: item && item.id ? item.id : preferenceIdFor(text),
+  function readPreferenceMeta() {return readLegacyPreferenceMeta();}
+  /**
+   * Canonical preference shape: {id,text,source,scope,createdAt,updatedAt}.
+   * Strings and the old metadata map are accepted only as migration inputs.
+   */
+  function normalizePreferenceEntries(list, legacyMeta = null, fillNow = false) {
+    const meta = legacyMeta && typeof legacyMeta === 'object' ? legacyMeta : Object.create(null);
+    const now = fillNow ? new Date().toISOString() : null;
+    const out = [];
+    for (const item of (Array.isArray(list) ? list : [])) {
+      const raw = item && typeof item === 'object' && !Array.isArray(item) ? item : {};
+      const text = String(raw.text !== undefined ? raw.text : item || '').trim().slice(0, 80);
+      if (!text || out.some(row => row.text === text)) continue;
+      const old = meta[text] || {};
+      const source = PREFERENCE_SOURCES.includes(raw.source) ? raw.source : PREFERENCE_SOURCES.includes(old.source) ? old.source : 'legacy';
+      const createdAt = preferenceTimestamp(raw.createdAt) || preferenceTimestamp(old.createdAt) || (fillNow && source !== 'legacy' ? now : null);
+      const updatedAt = preferenceTimestamp(raw.updatedAt) || preferenceTimestamp(old.updatedAt) || (fillNow && source !== 'legacy' ? now : null);
+      out.push({
+        id: typeof raw.id === 'string' && raw.id ? raw.id.slice(0, 80) : preferenceIdFor(text),
         text,
-        source: item && PREFERENCE_SOURCES.includes(item.source) ? item.source : 'legacy',
-        createdAt: item ? item.createdAt : null,
-        updatedAt: item ? item.updatedAt : null
-      };
-    });
-  }
-  function writePreferenceRows(rows) {
-    const now = new Date().toISOString();
-    const clean = [];
-    const meta = Object.create(null);
-    for (const row of (Array.isArray(rows) ? rows : [])) {
-      const text = String(row && row.text !== undefined ? row.text : row || '').trim().slice(0, 80);
-      if (!text || clean.some(item => item.text === text)) continue;
-      const source = row && PREFERENCE_SOURCES.includes(row.source) ? row.source : 'manual';
-      const createdAt = row && preferenceTimestamp(row.createdAt) || (source === 'legacy' ? null : now);
-      const updatedAt = row && preferenceTimestamp(row.updatedAt) || (source === 'legacy' ? null : now);
-      const item = {id: row && typeof row.id === 'string' && row.id ? row.id.slice(0, 80) : preferenceIdFor(text), text, source, createdAt, updatedAt};
-      clean.push(item);
-      meta[text] = {id: item.id, source, createdAt, updatedAt};
-      if (clean.length >= 20) break;
+        source,
+        scope: typeof raw.scope === 'string' && raw.scope ? raw.scope.slice(0, 20) : 'all',
+        createdAt,
+        updatedAt
+      });
+      if (out.length >= 20) break;
     }
-    writePreferences(clean.map(item => item.text));
-    try {localStorage.setItem(PREFERENCE_META_KEY, JSON.stringify(meta));} catch {}
+    return out;
+  }
+  function readPreferenceEntries() {
+    let list = [];
+    try {const raw = localStorage.getItem(PREFERENCES_KEY); list = raw ? JSON.parse(raw) : [];} catch {list = [];}
+    return normalizePreferenceEntries(list, readLegacyPreferenceMeta());
+  }
+  /** Prompt payload stays string-only; the UI/state storage is the object array. */
+  function readPreferences() {return readPreferenceEntries().map(row => row.text);}
+  function readPreferenceRows() {return readPreferenceEntries();}
+  function writePreferenceRows(rows) {
+    const clean = normalizePreferenceEntries(rows, readLegacyPreferenceMeta(), true);
+    try {localStorage.setItem(PREFERENCES_KEY, JSON.stringify(clean));} catch {}
+    try {localStorage.removeItem(PREFERENCE_META_KEY);} catch {}
     if (typeof schedulePrefsSync === 'function') {
-      try {schedulePrefsSync({preferences: clean.map(item => item.text), preferenceMeta: meta});} catch {}
+      try {schedulePrefsSync({preferences: clean, preferenceMeta: null});} catch {}
     }
     return clean;
+  }
+  /** Legacy string API; preserves matching object metadata and writes the object array. */
+  function writePreferences(list) {
+    const existing = readPreferenceEntries();
+    const rows = (Array.isArray(list) ? list : []).map(item => {
+      const text = String(item && item.text !== undefined ? item.text : item || '').trim().slice(0, 80);
+      if (!text) return null;
+      const match = existing.find(row => row.text === text);
+      return match || {text, source: 'manual', scope: 'all'};
+    }).filter(Boolean);
+    return writePreferenceRows(rows).map(row => row.text);
+  }
+  /** Convert old string/meta storage once; no-op when already an object array. */
+  function ensurePreferenceStorage() {
+    try {
+      const hasMeta = localStorage.getItem(PREFERENCE_META_KEY) !== null;
+      const raw = localStorage.getItem(PREFERENCES_KEY);
+      if (!raw && !hasMeta) return false;
+      let list = [];
+      try {list = raw ? JSON.parse(raw) : [];} catch {list = [];}
+      if (!hasMeta && Array.isArray(list) && list.every(item => item && typeof item === 'object' && !Array.isArray(item) && typeof item.text === 'string')) return false;
+      writePreferenceRows(readPreferenceRows());
+      return true;
+    } catch {return false;}
   }
   const DEFAULT_MEAL_WINDOW = {lunchFrom:'11:20', dinnerFrom:'16:30', snackFrom:'22:00'};
   const MEAL_TYPE_LABEL = {breakfast:'早餐', lunch:'午餐', dinner:'晚餐', snack:'加餐'};
@@ -851,8 +878,28 @@
       if (Array.isArray(prefs.unhelpfulChats)) localStorage.setItem(CHAT_UNHELPFUL_KEY, JSON.stringify(prefs.unhelpfulChats));
       if (typeof prefs.chatWeb === 'boolean') localStorage.setItem(CHAT_WEB_KEY, prefs.chatWeb ? '1' : '0');
       if (prefs.trainingConsent === true) localStorage.setItem(TRAINING_CONSENT_KEY, '1');
-      if (Array.isArray(prefs.preferences)) localStorage.setItem(PREFERENCES_KEY, JSON.stringify(prefs.preferences));
-      if (prefs.preferenceMeta && typeof prefs.preferenceMeta === 'object' && !Array.isArray(prefs.preferenceMeta)) localStorage.setItem(PREFERENCE_META_KEY, JSON.stringify(prefs.preferenceMeta));
+      if (Array.isArray(prefs.preferences)) {
+        const entries = normalizePreferenceEntries(prefs.preferences, prefs.preferenceMeta);
+        const local = readPreferenceRows();
+        const localByText = new Map(local.map(row => [row.text, row]));
+        const merged = entries.map(row => {
+          const old = localByText.get(row.text);
+          if (!old) return row;
+          return {
+            ...row,
+            source: row.source === 'legacy' && old.source !== 'legacy' ? old.source : row.source,
+            createdAt: row.createdAt || old.createdAt,
+            updatedAt: row.updatedAt || old.updatedAt
+          };
+        });
+        localStorage.setItem(PREFERENCES_KEY, JSON.stringify(merged));
+        localStorage.removeItem(PREFERENCE_META_KEY);
+        const alreadyObjects = prefs.preferences.every(item => item && typeof item === 'object' && !Array.isArray(item) && typeof item.text === 'string');
+        // Lift an old string/meta backup to the object array in state as well, not just in the cache.
+        if ((!alreadyObjects || prefs.preferenceMeta || JSON.stringify(merged) !== JSON.stringify(entries)) && typeof schedulePrefsSync === 'function') {
+          try {schedulePrefsSync({preferences: merged, preferenceMeta: null});} catch {}
+        }
+      }
     } catch { }
     if (typeof renderPreferences === 'function') renderPreferences();
   }
@@ -863,8 +910,7 @@
   const CONFIG_REGISTRY = [
     {id: 'planPrefs', read: () => { try { return JSON.parse(localStorage.getItem(PLAN_PREFS_KEY) || 'null'); } catch { return null; } }, fromState: prefs => prefs.planPrefs ?? null},
     {id: 'aiPlans', read: () => collectedAiPlans(), fromState: prefs => prefs.aiPlans || {}},
-    {id: 'preferences', read: () => readPreferences(), fromState: prefs => Array.isArray(prefs.preferences) ? prefs.preferences : []},
-    {id: 'preferenceMeta', read: () => readPreferenceMeta(), fromState: prefs => prefs.preferenceMeta && typeof prefs.preferenceMeta === 'object' && !Array.isArray(prefs.preferenceMeta) ? prefs.preferenceMeta : {}},
+    {id: 'preferences', read: () => readPreferenceRows(), fromState: prefs => normalizePreferenceEntries(Array.isArray(prefs.preferences) ? prefs.preferences : [], prefs.preferenceMeta)},
   ];
   /** 启动时对齐一次：本地缓存是当前事实，state.prefs 是随备份走的那份；漂移时以本地为准回写。 */
   function verifyConfigSync() {
@@ -908,6 +954,7 @@
       state = {...data, settings: (data.settings && typeof data.settings === 'object') ? data.settings : keptSettings}; loaded = true; loadFailed = false;
       settingsKnown = typeof state.settings.apiConfigured === 'boolean';
       hydratePrefsFromState(state);
+      ensurePreferenceStorage();
       if (options.populate !== false) {populate($('#profile-form'), state.profile); applySettings(state.settings);
         const weightField = $('#profile-form').elements.weight;
         if (weightField && !weightField.value) weightField.value = latestWeight() || '';
@@ -7065,7 +7112,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.76';
+  const APP_VERSION = '1.4.77';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}

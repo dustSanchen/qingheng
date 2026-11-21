@@ -397,5 +397,6 @@ node D:\AI\design-corpus\design-audit.mjs app\src\main\assets\index.html
 - 已随 `1.4.74` 继续落地：AI /权限步骤明确可跳过；已保存餐食可在原有餐食行点「改」进入同一预览，按原记录 id 更新，不新增副本，编辑时不重复加油。
 - 已随 `1.4.75` 继续落地：完成必要信息后可直接「先开始记录」，AI 与提醒不必经过；320 / 360px 与夜间关键页已做真机截图核验。
 - 已随 `1.4.76` 继续落地：确认框、长按菜单和餐食重算弹层关闭后把键盘/读屏焦点还给触发点；320 / 360 / 390px 与夜间关键页已截图核验。
+- 已随 `1.4.77` 继续落地：偏好存储改为单一对象数组（id/text/source/scope/createdAt/updatedAt）；旧字符串、旧 preferenceMeta 与旧备份在读取时迁移，提示词仍只取 text。
 - 对应测试：`training-state`、`today-agenda`、`advice-actions`、`preference-compat`、`weekly-review-local`、`onboarding-p2`、`meal-edit`、`accessibility-focus`；全量 91/91。
-- 仍保留的偏差/未做：偏好按兼容性采用「字符串主表 + preferenceMeta」，而不是清单建议的对象数组；P2 的全站视觉重做、餐食估算算法改版未做；320/360/390px 与夜间已完成关键页核验，但不等于全页；社交/课程/会员始终不做。
+- 仍保留的偏差/未做：P2 的全站视觉重做、餐食估算算法改版未做；320/360/390px 与夜间已完成关键页核验，但不等于全页；偏好对象数组已完成，旧数据迁移由 `preference-compat` 覆盖；社交/课程/会员始终不做。
