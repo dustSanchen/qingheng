@@ -4,7 +4,7 @@
 > `30-deepseek-optimization-checklist.md` 为准，现状对照见
 > `32-keep-current-vs-target.md`。
 >
-> 当前基线：`1.4.87 / versionCode 487`，94 项测试，设备 `3cba2bdc`。
+> 当前基线：`1.4.87 / versionCode 487`，96 项测试，设备 `3cba2bdc`。
 
 ## 1. 目标
 
@@ -49,7 +49,7 @@
 
 ## 4. 不包含
 
-- 全站视觉重设计、餐食估算算法改版、医疗诊断/处方。
+- 餐食估算的全量算法替换（当前是本地食品库优先 + 模型兜底）、医疗诊断/处方。
 - 账号、云同步、会员、课程、社区、排行榜、打卡压力。
 - 未经用户确认的推送、Release 或展示页更新。
 
@@ -59,4 +59,4 @@
 - `docs/design/32-keep-current-vs-target.md`：Keep / 现状 / 缺口对照。
 - `docs/design/RUNLOG-codex.md`：每版真实构建、测试与未验证项。
 - `README.md`：版本、测试数、APK 体积与签名事实。
-- 当前测试：`node tools/test-all.mjs` → 93/93。
+- 当前测试：`node tools/test-all.mjs` → 96/96。

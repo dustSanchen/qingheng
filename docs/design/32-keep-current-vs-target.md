@@ -4,7 +4,7 @@
 > `30-deepseek-optimization-checklist.md` 是逐项任务源；
 > `31-keep-phased-plan.md` 是阶段执行与版本记录。
 >
-> 当前基线：`1.4.86 / 486`，94 项测试。
+> 当前基线：`1.4.87 / 487`，96 项测试。
 
 ## 结论先行
 

@@ -1597,3 +1597,8 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 修复：`renderDailyCheck` 改为消费 `todayAgendaState().secondary`；历史日期也补 secondary；slot-hint 与日检卡共用同一份 agenda，不再各造一套。
 - 测试：`today-agenda` 增加“日检卡消费同一份 secondary、不再硬编码”断言；`records-panels` 改为断言 agenda 的 sleep target，不再锁死 chip 写法；全量 94/94。
 - 构建：`dist/qingheng-1.4.87.apk`（670,944 B / 655 KB，sha256 `4A5A2340BA6BBE10…`），设备 3cba2bdc 安装 1.4.87，smoke js errors none。未推送、未发 Release。
+## r201 · 2026-11-22 · 30 号清单核对与剩余验证
+- 30 号：0–7 工作包按 1.4.87/96 勾选；8–9 只保留 6 个真实验证缺口（全状态长文本/离线、屏幕阅读器实机、监听器/定时器、全部取消撤销失败重试、后台建议恢复、恶意畸形模型字段）。
+- 修正：`preference` 现状改为对象数组；`31` 删除“全站视觉/算法不包含”旧口径、测试数改 96；`30` 顶部改为历史任务书 + 当前状态，历史轮次标为不再重做。
+- 新增：`ui-state-matrix`（空/错误/长文本/焦点/降级/定时器）、`offline-local`（无 Key/离线/本地预览仍需确认）；全量 96/96。
+- 本轮无产品代码/APK 变更，APK 仍为 1.4.87；未推送、未发 Release。
