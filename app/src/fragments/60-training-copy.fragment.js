@@ -1978,13 +1978,37 @@
     renderOilLevel();
     updatePreviewTotals();
   }
+  const ESTIMATE_LIMITS = Object.freeze({items: 24, name: 120, grams: 20000, calories: 100000, macros: 1000, notes: 6, note: 160, draftId: 120});
+  /** Reject malformed model rows before they can reach the preview or a write. */
+  function validEstimateItem(item) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
+    const name = typeof item.name === 'string' ? item.name.trim() : '';
+    if (!name || name.length > ESTIMATE_LIMITS.name) return false;
+    if (item.method != null && (typeof item.method !== 'string' || item.method.length > 20)) return false;
+    const numeric = [
+      ['grams', ESTIMATE_LIMITS.grams],
+      ['calories', ESTIMATE_LIMITS.calories],
+      ['protein', ESTIMATE_LIMITS.macros],
+      ['fat', ESTIMATE_LIMITS.macros],
+      ['carbs', ESTIMATE_LIMITS.macros]
+    ];
+    return numeric.every(([key, max]) => {
+      const value = number(item[key]);
+      return value !== null && value >= 0 && value <= max;
+    });
+  }
   function previewDraft(data, form) {
-    if (!data?.draftId || !Array.isArray(data.items) || !data.items.length || !['api','local'].includes(data.source)) throw new Error('未返回有效估算预览，请重试。');
-    if (data.items.some(item => ['grams','calories','protein','fat','carbs'].some(key => number(item[key])===null || Number(item[key])<0))) throw new Error('估算中有无效营养数值，请重新生成。');
+    if (!data || typeof data.draftId !== 'string' || !data.draftId || data.draftId.length > ESTIMATE_LIMITS.draftId
+      || !Array.isArray(data.items) || !data.items.length || data.items.length > ESTIMATE_LIMITS.items
+      || !['api','local'].includes(data.source)) throw new Error('未返回有效估算预览，请重试。');
+    if (!data.items.every(validEstimateItem)) throw new Error('估算明细格式不对，请重新生成。');
     const suggested = defaultMealTime(form.photo, form.text, form.elements.mealType.value);
+    const notes = Array.isArray(data.notes)
+      ? data.notes.filter(note => typeof note === 'string' && note.length > 0 && note.length <= ESTIMATE_LIMITS.note).slice(0, ESTIMATE_LIMITS.notes)
+      : [];
     const view = {id:data.draftId,date:form.elements.date.value,mealType:form.elements.mealType.value,source:data.source,
       localFoodModel:data.localFoodModel === true,
-      confidence:data.confidence,notes:Array.isArray(data.notes)?data.notes:[],items:data.items,name:'',
+      confidence:data.confidence,notes:notes,items:data.items,name:'',
       oilGrams:number(data.oilGrams) ?? 0,uncertaintyPercent:number(data.uncertaintyPercent) ?? 15,
       ...photoMeta(form.photo), mealTime:suggested.mealTime, mealTimeSource:suggested.mealTimeSource};
     renderPreview(view, false);
