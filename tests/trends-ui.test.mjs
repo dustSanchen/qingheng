@@ -47,4 +47,6 @@ assert(/points\.length<=7 \? points\.map/.test(app), 'point values are limited t
 assert(/\$\{values\}\$\{labels\}/.test(app), 'value labels are rendered above the date axis');
 
 assert(!/\.page-author/.test(css), 'the author-line styling went with the element');
-console.log('PASS trends UI: 7-day range, single default, no personal credit in the footer, phone-sized axes, short-range value labels');
+assert(/const weekly = \$\('#trend-weekly'\)[\s\S]{0,140}weekly\.hidden = true/.test(app), 'the empty trend chart clears stale weekly text');
+assert(app.includes("action: {label: '去记录体重'"), 'the empty trend chart offers a record-weight action');
+console.log('PASS trends UI: 7-day range, single default, no personal credit in the footer, phone-sized axes, short-range value labels, empty-state action');

@@ -161,7 +161,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.80';
+  const APP_VERSION = '1.4.81';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -2375,6 +2375,7 @@
     return {
       draftId: 'local-food-' + Date.now(),
       source: 'local',
+      localFoodModel: true,
       confidence: 'medium',
       uncertaintyPercent: 8,
       items,

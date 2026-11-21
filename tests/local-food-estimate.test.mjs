@@ -36,7 +36,8 @@ function extractFunction(source, name) {
 const local = new Function('window', extractFunction(app, 'localFoodEstimate') + '\nreturn localFoodEstimate;')({QinghengFoods: foods});
 const draft = local('米饭 100g、鸡胸肉 150g');
 check('two exact USDA foods become a local draft', draft && draft.items.length === 2, draft && draft.items.length);
-check('the local source is explicit', draft.source === 'local' && draft.confidence === 'medium', draft.source);
+check('the local source is explicit', draft.source === 'local' && draft.confidence === 'medium' && draft.localFoodModel === true, draft.source);
+check('the preview labels the local food library, not generic local fallback', app.includes("view.localFoodModel?'本地食品库':'本地估算'"));
 check('grams are preserved', draft.items[0].grams === 100 && draft.items[1].grams === 150, draft.items.map(item => item.grams).join(','));
 check('macros come from FoodModels.estimate', draft.items[0].calories === foods.estimate('米饭', 100).calories);
 check('no implicit cooking oil is added to a plain ingredient', draft.items[0].oilGrams === undefined && draft.items[0].method === '蒸');
