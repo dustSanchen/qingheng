@@ -202,6 +202,7 @@
   $('#ob-next').addEventListener('click', obNext);
   $('#ob-back').addEventListener('click', () => {feedback($('#ob-feedback'), ''); onboardingStep(onboarding.step - 1);});
   $('#ob-finish').addEventListener('click', obFinish);
+  $('#ob-finish-early')?.addEventListener('click', () => {obFinish().catch(error => feedback($('#ob-feedback'), error.message, true));});
   $('#ob-skip-ai')?.addEventListener('click', () => {
     feedback($('#ob-feedback'), '');
     onboardingStep(4);

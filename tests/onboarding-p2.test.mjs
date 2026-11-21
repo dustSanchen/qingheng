@@ -13,6 +13,8 @@ const app = fs.readFileSync('app/src/main/assets/app.js', 'utf8');
 const html = fs.readFileSync('app/src/main/assets/index.html', 'utf8');
 
 check('the AI step says it can be skipped', html.includes('这一步可以跳过') && html.includes('暂时不接也不影响记录、目标和本地计划'));
+check('necessary setup can finish before optional steps', html.includes('id="ob-finish-early"') && html.includes('先开始记录，AI 与提醒稍后再设'));
+check('the early finish uses the same save path', app.includes("$('#ob-finish-early')") && app.includes('obFinish()'));
 check('AI can be deferred with one action', html.includes('id="ob-skip-ai"') && html.includes('先不接 AI，继续'));
 check('permission checks can be deferred too', html.includes('id="ob-skip-checks"') && html.includes('先不检查，直接完成'));
 check('skipping AI still reaches the permission step', app.includes("$('#ob-skip-ai')") && app.includes('onboardingStep(4)'));

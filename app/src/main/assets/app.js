@@ -3492,6 +3492,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
   $('#ob-next').addEventListener('click', obNext);
   $('#ob-back').addEventListener('click', () => {feedback($('#ob-feedback'), ''); onboardingStep(onboarding.step - 1);});
   $('#ob-finish').addEventListener('click', obFinish);
+  $('#ob-finish-early')?.addEventListener('click', () => {obFinish().catch(error => feedback($('#ob-feedback'), error.message, true));});
   $('#ob-skip-ai')?.addEventListener('click', () => {
     feedback($('#ob-feedback'), '');
     onboardingStep(4);
@@ -7050,7 +7051,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.74';
+  const APP_VERSION = '1.4.75';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
