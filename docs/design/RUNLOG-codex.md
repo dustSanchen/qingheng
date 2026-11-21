@@ -1592,3 +1592,8 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 目标体重带：档案增加可选 `weightTargetMin/Max`；仅两端都存在时，趋势图画 12% 透明目标带并裁到图区；Java 校验下限不大于上限，未填不推断目标。
 - 混合菜：`localFoodEstimate` 已能匹配 `mixed_dish` 的 `portionGrams` 与 `includesOil`，不重复加油；新增测试覆盖“番茄炒蛋 1份”。
 - 测试：新增 `target-band`；全量 94/94。构建 `dist/qingheng-1.4.86.apk`（670,944 B / 655 KB，sha256 `CE88F32DBE40F389…`），设备 3cba2bdc 安装 1.4.86，smoke js errors none。未推送、未发 Release。
+## r200 · 2026-11-22 · 1.4.87（今日跨域行动编排补齐）
+- 实际核对发现：`buildTodayAgenda` 已有 primary/secondary，但日检卡仍硬编码“补睡眠/补体重”，secondary 未被消费。
+- 修复：`renderDailyCheck` 改为消费 `todayAgendaState().secondary`；历史日期也补 secondary；slot-hint 与日检卡共用同一份 agenda，不再各造一套。
+- 测试：`today-agenda` 增加“日检卡消费同一份 secondary、不再硬编码”断言；`records-panels` 改为断言 agenda 的 sleep target，不再锁死 chip 写法；全量 94/94。
+- 构建：`dist/qingheng-1.4.87.apk`（670,944 B / 655 KB，sha256 `4A5A2340BA6BBE10…`），设备 3cba2bdc 安装 1.4.87，smoke js errors none。未推送、未发 Release。

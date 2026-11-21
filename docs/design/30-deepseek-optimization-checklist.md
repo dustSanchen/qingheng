@@ -1,6 +1,6 @@
 # 轻衡优化执行清单 · DeepSeek 交接版
 
-> 原始基线：`1.4.70 / versionCode 470`；当前实施状态：`1.4.86 / 486`（见文末）。
+> 原始基线：`1.4.70 / versionCode 470`；当前实施状态：`1.4.87 / 487`（见文末）。
 > 性质：产品优化任务书，不代表下列功能已经实现。
 > 使用方式：交给 DeepSeek 后，从「第 0 轮」开始，按 P0 → P1 → P2 顺序执行；每轮单独验证、单独交付，不要一次性重写整个应用。
 > 文件关系：本文件是逐项任务源；`31-keep-phased-plan.md` 记录阶段与版本；`32-keep-current-vs-target.md` 记录 Keep 对照与缺口。
@@ -408,5 +408,6 @@ node D:\AI\design-corpus\design-audit.mjs app\src\main\assets\index.html
 - 已随 `1.4.84` 继续落地：本地估算支持“半碗 / 一碗半 / 两片”等中文份量，仍只对有 `portionGrams` 的食品库条目生效。
 - 已随 `1.4.85` 继续落地：本地估算支持“200克米饭 / 半碗米饭”这类数量前置写法，仍整体回退未知项；夜间原生日期/时间图标与固定绿色 SVG 提亮，320 宏量单位与皮肤选择收口。
 - 已随 `1.4.86` 继续落地：混合菜按食品库标准份量匹配；我的档案增加可选目标体重上下限，趋势图只在两端都有值时画 12% 透明目标带。
+- 已随 `1.4.87` 继续落地：日检卡的“补睡眠/补体重”改为消费同一份 `buildTodayAgenda.secondary`，不再单独硬编码；slot-hint 与日检卡说同一套话。
 - 对应测试：`training-state`、`today-agenda`、`advice-actions`、`preference-compat`、`weekly-review-local`、`onboarding-p2`、`meal-edit`、`accessibility-focus`、`meal-draft`、`local-food-estimate`、`target-band`；全量 94/94。
 - 仍保留的偏差/未做：全站视觉终审仍需人工逐页确认（已完成 320/360/390 与三套皮肤关键页取证）；餐食估算为本地优先增强，不是一次性替换全部算法；社交/课程/会员始终不做。

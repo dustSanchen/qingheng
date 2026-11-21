@@ -102,6 +102,8 @@ check('a past day with records has no live urgency', agenda.primary === null && 
 
 check('the old false "补训练" copy is gone from the bundle', !app.includes('补训练'));
 check('the slot hint consumes the agenda', app.includes('todayAgendaState') && app.includes('dataset.todayAction'));
+check('the daily check consumes the same agenda secondary', app.includes("const agenda = typeof todayAgendaState === 'function' ? todayAgendaState() : null") && app.includes('agenda.secondary'));
+check('the daily check no longer hardcodes its own sleep/weight fixes', !app.includes("if (sleepValue === null) fixes.push(chip('补睡眠'") && !app.includes("if (!weightLogged) fixes.push(chip('补体重'"));
 check('the rest control is bound to the existing habit row', app.includes("#training-rest") && app.includes('next.training = false'));
 check('the training log exposes a state tag', html.includes('id="training-tag"') && app.includes("restMarked ? '休息日'"));
 

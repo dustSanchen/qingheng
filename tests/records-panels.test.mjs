@@ -25,7 +25,7 @@ check('the choice is remembered', app.includes("localStorage.setItem(RECORD_PANE
 check('training segment hides for a no-training profile', app.includes('panel.trainingOnly && !trainingEnabled()'));
 check('jumps pick the owning segment', app.includes('function recordPanelForField(id)') && app.includes("return 'body';"));
 check('reveal switches before focusing', /switchRecordPanel\(recordPanelForField\(id\)\);/.test(app));
-check('the sleep chip lands in the body segment', /chip\('补睡眠'[^)]*'habit-sleep'\)/.test(app) && app.includes("['habit-sleep', 'habit-steps', 'habit-form', 'measurement-weight', 'measurement-form']"));
+check('the sleep chip lands in the body segment', app.includes("addSecondary({id: 'sleep', kind: 'sleep', label: '补睡眠', target: 'habit-sleep'})") && app.includes("['habit-sleep', 'habit-steps', 'habit-form', 'measurement-weight', 'measurement-form']"));
 check('a no-training profile never opens an empty records page', app.includes("if (target === 'training' && !trainingEnabled()) target = 'food';"));
 check('the training quick chip is hidden without a plan', app.includes(".filter(([, , focus]) => focus !== 'training-form' || trainingEnabled())"));
 check('body composition is not hidden with training', read('app/src/main/assets/index.html').includes('id="body-comp-card"') && app.includes("headings: ['体重变化', '上周回看', '身体成分对照', '身体记录明细']"));

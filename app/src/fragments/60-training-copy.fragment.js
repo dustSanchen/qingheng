@@ -864,14 +864,15 @@
     // 2026-11-18：今日三样并入体检——缺哪项直接给入口，不再单独占一张卡。
     // 训练不再在这里补：明确休息/未记录/不训练都不该被说成少练了一次；
     // 今天要练什么由 slot-hint 的单一主行动负责。
-    const sleepValue = number(habit.sleep);
-    const weightLogged = (state.measurements || []).some(row => row && row.date === activeDate && number(row.weight) !== null);
     // 用 hash 链接跳转：不依赖运行时绑定，WebView 的合成 click 丢了也能走路由。
     const chip = (label, icon, focus) => `<a class="check-fix" href="#records"${focus ? ` data-focus="${focus}"` : ''}>`
       + `<img src="./${icon}" alt="" width="16" height="16">${label}</a>`;
-    const fixes = [];
-    if (sleepValue === null) fixes.push(chip('补睡眠', 'icon-habit-sleep.svg', 'habit-sleep'));
-    if (!weightLogged) fixes.push(chip('补体重', 'icon-glyph-balance.svg', 'measurement-weight'));
+    // 与 slot-hint 共用同一份 agenda；这里只渲染 secondary（补睡眠/补体重），不再另造一套。
+    const agenda = typeof todayAgendaState === 'function' ? todayAgendaState() : null;
+    const fixes = (agenda && Array.isArray(agenda.secondary) ? agenda.secondary : []).map(item => {
+      const icon = item.kind === 'sleep' ? 'icon-habit-sleep.svg' : 'icon-glyph-balance.svg';
+      return chip(item.label, icon, item.target);
+    });
     if (fixes.length) box.innerHTML += '<div class="check-fix-row"><span>还差</span>' + fixes.join('') + '</div>';
     // 运行时渲染的节点直接绑定，避免委托在某些 WebView 里拿不到合成 click（2026-11-18）。
     box.querySelectorAll('.check-fix').forEach(button => {
@@ -1046,6 +1047,8 @@
           mealSlot: src.mealSlot || 'lunch', reason: '这一天还没有餐食记录'
         };
       }
+      if (src.sleepMissing) addSecondary({id: 'sleep', kind: 'sleep', label: '补睡眠', target: 'habit-sleep'});
+      if (src.weightMissing) addSecondary({id: 'weight', kind: 'weight', label: '补体重', target: 'measurement-weight'});
       return {primary, secondary, state: trainingState};
     }
 
