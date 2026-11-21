@@ -1,9 +1,9 @@
 # 轻衡优化执行清单 · DeepSeek 交接版
 
-> 原始基线：`1.4.70 / versionCode 470`；当前实施状态：`1.5.03 / 503`（见文末）。
+> 原始基线：`1.4.70 / versionCode 470`；当前实施状态：`1.5.04 / 504`（见文末）。
 > 性质：1.4.70 起的历史任务书 + 当前状态；0–7 工作包已完成，8–9 只保留真实验证缺口。
 > 使用方式：不要再从第 0 轮重做；先看文末状态与未勾选项，只执行剩余验证。
-> 状态说明：0–7 工作包已按 1.5.03/107 核验；8–9 仅剩 5 项真实验证缺口，不再把历史任务书当成全新待办。
+> 状态说明：0–7 工作包已按 1.5.04/108 核验；8–9 仅剩 5 项真实验证缺口，不再把历史任务书当成全新待办。
 > 文件关系：本文件是逐项任务源；`31-keep-phased-plan.md` 记录阶段与版本；`32-keep-current-vs-target.md` 记录 Keep 对照与缺口。
 
 ## 0. 给执行者的总指令
@@ -420,6 +420,7 @@ node D:\AI\design-corpus\design-audit.mjs app\src\main\assets\index.html
 - 已随 `1.5.01` 继续落地：可点控件统一 press 反馈；发送/附件加强；notice 轻滑入。
 - 已随 `1.5.02` 继续落地：蛋白缺口进入 agenda primary；slot-hint 成为唯一「下一步」；今日体检只报状态，不再追加操作胶囊。
 - 已随 `1.5.03` 继续落地：纸纹 + 页边线 + 页眉分隔；今日能量一张纸卡；下一步增加原因行。
-- 对应测试：`training-state`、`today-agenda`、`advice-actions`、`preference-compat`、`weekly-review-local`、`onboarding-p2`、`meal-edit`、`accessibility-focus`、`meal-draft`、`local-food-estimate`、`target-band`、`ui-state-matrix`、`offline-local`、`symbol-usage`、`oil-level`、`main-action`、`records-density`、`chat-compose`、`data-flow`、`malformed-estimate`、`training-hierarchy`、`interaction-finish`、`training-actions`、`today-paper`；全量 107/107。
+- 已随 `1.5.04` 继续落地：记录/趋势/我的共享纸纹与页眉分隔；记录/趋势首卡变 paper hero；今日快捷芯片跟随 agenda primary。
+- 对应测试：`training-state`、`today-agenda`、`advice-actions`、`preference-compat`、`weekly-review-local`、`onboarding-p2`、`meal-edit`、`accessibility-focus`、`meal-draft`、`local-food-estimate`、`target-band`、`ui-state-matrix`、`offline-local`、`symbol-usage`、`oil-level`、`main-action`、`records-density`、`chat-compose`、`data-flow`、`malformed-estimate`、`training-hierarchy`、`interaction-finish`、`training-actions`、`today-paper`、`paper-pages`；全量 108/108。
 - 仍未闭环（仅验证）：全状态长文本/离线、屏幕阅读器实机、重复监听/定时器、全部取消/撤销/失败重试、后台建议恢复；人工视觉终审仍需用户确认。
 - 餐食估算为本地优先增强，不是一次性替换全部算法；社交/课程/会员始终不做。

@@ -26,7 +26,7 @@ check('energy summary keeps a responsive two-column layout', css.includes('.ener
 // 2026-11-18：首页「拍照」胶囊删除——「记一餐」那张卡里本来就有添加照片，重复一步。
 for (const label of ['记一餐', '训练', '身体']) check(`chip: ${label}`, app.includes(label));
 check('no camera chip on today', !app.includes("['icon-glyph-camera.svg', '拍照', 'photo']"));
-check('only the meal action is visually primary', app.includes("'quick-chip-primary'") && css.includes('.quick-chip.quick-chip-primary{background:var(--accent)'));
+check('the quick-chip primary follows the agenda, not a fixed meal chip', app.includes('quick-chip-primary') && app.includes('button.dataset.quickFocus === quickPrimaryFocus') && css.includes('.quick-chip.quick-chip-primary{background:var(--accent)'));
 check('chips route through the shared record target', app.includes('function openRecordTarget(target, options = {})') && app.includes('openRecordTarget(chip.dataset.quickFocus)'));
 check('the photo entry stays on the meal card', html.includes('id="photo-add"') && html.includes('id="photo-sheet"'));
 check('the training chip scrolls without focusing', app.includes("flashTarget(form.closest('.card'))") && app.includes("revealField(focus, {focus: false, block: 'start'});"));

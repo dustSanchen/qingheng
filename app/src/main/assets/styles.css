@@ -2147,8 +2147,8 @@ details:not(.advanced):not(.day-more)>summary::after{width:auto;height:auto;bord
 #view-today .slot-hint.is-next .slot-text::after{content:" →";color:var(--accent);font-weight:var(--fw-regular)}
 
 /* 16. Paper sheet for Today: ruled grain, margin line, one hero card. */
-[data-skin="paper"] #view-today{position:relative;background-image:repeating-linear-gradient(180deg,transparent 0 31px,rgba(92,73,43,.018) 31px 32px);background-size:100% 32px}
-[data-skin="paper"] #view-today::before{content:"";position:absolute;left:5px;top:0;bottom:0;width:1px;background:rgba(138,82,55,.14);pointer-events:none}
+[data-skin="paper"] #view-today{position:relative;background-image:repeating-linear-gradient(180deg,transparent 0 31px,color-mix(in srgb,var(--ink) 2%,transparent) 31px 32px);background-size:100% 32px}
+[data-skin="paper"] #view-today::before{content:"";position:absolute;left:5px;top:0;bottom:0;width:1px;background:var(--line);pointer-events:none}
 .page-heading--today{border-bottom:1px solid var(--line);padding-bottom:var(--space-3)}
 #view-today .energy-card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:18px;box-shadow:none}
 #view-today .energy-card .card-heading{margin-bottom:12px}
@@ -2162,3 +2162,13 @@ details:not(.advanced):not(.day-more)>summary::after{width:auto;height:auto;bord
 #view-today .slot-hint.is-next{display:grid;grid-template-columns:auto 1fr;column-gap:10px;row-gap:3px;align-items:center}
 #view-today .slot-hint.is-next .slot-text{min-width:0}
 #view-today .slot-hint.is-next .slot-reason{grid-column:1/-1;display:block;width:100%}
+
+/* 17. Paper language across the app: one sheet, one margin rule, one hero card per page. */
+[data-skin="paper"] #view-records,[data-skin="paper"] #view-trends,[data-skin="paper"] #view-profile{position:relative;background-image:repeating-linear-gradient(180deg,transparent 0 31px,color-mix(in srgb,var(--ink) 1.8%,transparent) 31px 32px);background-size:100% 32px}
+[data-skin="paper"] #view-records::before,[data-skin="paper"] #view-trends::before,[data-skin="paper"] #view-profile::before{content:"";position:absolute;left:5px;top:0;bottom:0;width:1px;background:var(--line);pointer-events:none}
+[data-skin="paper"] .page-heading{border-bottom:1px solid var(--line);padding-bottom:var(--space-3)}
+[data-skin="paper"] #view-records .record-panel:not([hidden]) .card:first-of-type,[data-skin="paper"] #view-trends .card:first-of-type{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:18px;box-shadow:none}
+[data-skin="paper"] #view-records .record-panel:not([hidden]) .card:first-of-type .card-heading h2,[data-skin="paper"] #view-trends .card:first-of-type .card-heading h2{font-family:var(--font-display);font-size:18px;letter-spacing:var(--tracking-label)}
+[data-skin="ledger"] .page-heading{border-bottom:1px solid var(--line);padding-bottom:var(--space-3)}
+
+[data-skin="paper"] #view-today::before,[data-skin="paper"] #view-records::before,[data-skin="paper"] #view-trends::before,[data-skin="paper"] #view-profile::before{opacity:.55}

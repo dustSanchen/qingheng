@@ -1199,6 +1199,10 @@
       reasonNode.hidden = !(primary && primary.reason);
     }
     node.classList.toggle("is-next", !!primary);
+    const quickPrimaryFocus = primary ? primary.target : "meal-text";
+    document.querySelectorAll("#today-quick-actions .quick-chip").forEach(button => {
+      button.classList.toggle("quick-chip-primary", button.dataset.quickFocus === quickPrimaryFocus);
+    });
     const action = primary ? primary.target : "";
     const clickable = !!action || !!missing.length;
     node.style.cursor = clickable ? "pointer" : "";
@@ -7233,7 +7237,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.03';
+  const APP_VERSION = '1.5.04';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
