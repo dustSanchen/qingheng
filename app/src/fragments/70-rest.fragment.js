@@ -161,7 +161,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.4.82';
+  const APP_VERSION = '1.4.83';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -2350,12 +2350,17 @@
     const parts = String(value || '').split(/[，,、；;\n+]+/).map(part => part.trim()).filter(Boolean);
     if (!parts.length) return null;
     const items = [];
+    let rangeNote = '';
     for (const part of parts) {
-      const match = part.match(/^(.*?)\s*(\d+(?:\.\d+)?)\s*(千克|公斤|kg|克|g|毫升|ml|个|碗|份|片|根|块|勺|杯)\s*$/i);
+      const match = part.match(/^(.*?)\s*(\d+(?:\.\d+)?)\s*(?:[-~至]\s*(\d+(?:\.\d+)?))?\s*(千克|公斤|kg|克|g|毫升|ml|个|碗|份|片|根|块|勺|杯)\s*$/i);
       if (!match) return null;
       const namePart = match[1].replace(/[（(].*?[)）]/g, '').trim();
-      const amount = Number(match[2]);
-      const unit = match[3].toLowerCase();
+      const start = Number(match[2]);
+      const end = match[3] === undefined ? start : Number(match[3]);
+      if (!(start > 0) || !(end >= start)) return null;
+      const amount = (start + end) / 2;
+      if (match[3] !== undefined) rangeNote = '部分是区间，按区间中值估算；';
+      const unit = match[4].toLowerCase();
       const methodHit = namePart.match(/^(爆炒|红烧|干锅|油淋|清蒸|白灼|凉拌|煎|炸|炒|烤|蒸|煮|炖)/);
       const method = methodHit ? methodHit[1] : '蒸';
       const foodName = methodHit ? namePart.slice(methodHit[1].length).trim() : namePart;
@@ -2379,7 +2384,7 @@
       confidence: 'medium',
       uncertaintyPercent: 8,
       items,
-      notes: ['按本地食品库精确匹配，未调用外部模型；份量与烹饪油仍需在预览里确认。']
+      notes: [rangeNote + '按本地食品库精确匹配，未调用外部模型；份量与烹饪油仍需在预览里确认。']
     };
   }
   function estimateStreamNames(value) {

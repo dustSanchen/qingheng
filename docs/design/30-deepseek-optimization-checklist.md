@@ -1,6 +1,6 @@
 # 轻衡优化执行清单 · DeepSeek 交接版
 
-> 原始基线：`1.4.70 / versionCode 470`；当前实施状态：`1.4.82 / 482`（见文末）。
+> 原始基线：`1.4.70 / versionCode 470`；当前实施状态：`1.4.83 / 483`（见文末）。
 > 性质：产品优化任务书，不代表下列功能已经实现。
 > 使用方式：交给 DeepSeek 后，从「第 0 轮」开始，按 P0 → P1 → P2 顺序执行；每轮单独验证、单独交付，不要一次性重写整个应用。
 > 文件关系：本文件是逐项任务源；`31-keep-phased-plan.md` 记录阶段与版本；`32-keep-current-vs-target.md` 记录 Keep 对照与缺口。
@@ -404,5 +404,6 @@ node D:\AI\design-corpus\design-audit.mjs app\src\main\assets\index.html
 - 已随 `1.4.80` 继续落地：本地匹配支持“碗/份/片/个”等标准份量，使用食品库 `portionGrams`；没有标准份量的条目仍回退现有估算路径。
 - 已随 `1.4.81` 继续落地：本地食品库结果在预览里明确标注来源；趋势空态补“去记录体重”动作并清空残留周均值。
 - 已随 `1.4.82` 继续落地：修正 CSS 级联把趋势轴字覆盖到 11px、点覆盖到 2px 的问题；副页标题增加 `.is-subpage` 兼容，不再只依赖 `:has()`。
+- 已随 `1.4.83` 继续落地：本地估算支持“100–150g”这类区间，按中值并在预览注明，避免把区间当精确值。
 - 对应测试：`training-state`、`today-agenda`、`advice-actions`、`preference-compat`、`weekly-review-local`、`onboarding-p2`、`meal-edit`、`accessibility-focus`、`meal-draft`、`local-food-estimate`；全量 93/93。
 - 仍保留的偏差/未做：全站逐页美术审计、餐食估算算法的大规模替换未做；320/360/390px 与夜间已完成关键页核验，但不等于全页；偏好对象数组已完成，旧数据迁移由 `preference-compat` 覆盖；社交/课程/会员始终不做。

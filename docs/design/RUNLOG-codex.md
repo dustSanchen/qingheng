@@ -1570,3 +1570,7 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 兼容：`#view-profile` 进入副页时同时加 `.is-subpage`，CSS 不再只依赖 `:has()` 隐藏重复页头；旧 WebView 也有回退。
 - 验证：93/93；设备 3cba2bdc 安装 1.4.82；smoke js errors none。未推送、未发 Release。
 - 构建：dist/qingheng-1.4.82.apk（666,845 B / 651 KB，sha256 FD224A9A5A6756E9…）。\n- 并行判断：视觉 CSS 与本地估算法可并行（写域分离）；体重目标区间带仍依赖先定字段，不能直接并做。
+## r196 · 2026-11-21 · 1.4.83（本地估算区间中值）
+- 算法：`localFoodEstimate` 支持“100–150g”这类区间，按中值计算并在 notes 明确写“按区间中值估算”；起止非法、未知食物、无标准份量仍整体回退。
+- 测试：`local-food-estimate` 增加区间中值与披露断言；全量 93/93。
+- 构建：`dist/qingheng-1.4.83.apk`（666,845 B / 651 KB，sha256 `3484AF7F9216A301…`），设备 3cba2bdc 安装 1.4.83，smoke js errors none。未推送、未发 Release。
