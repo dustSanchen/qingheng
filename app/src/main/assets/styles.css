@@ -2223,11 +2223,11 @@ details:not(.advanced):not(.day-more)>summary::after{width:auto;height:auto;bord
 .habit-meter-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
 .habit-meter-name{font-size:var(--text-xs);color:var(--ink);font-weight:var(--fw-semibold)}
 .habit-meter-unit{font-size:var(--text-xs);color:var(--muted)}
-.habit-meter-main{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.habit-meter-read{font-size:22px;font-weight:var(--fw-semibold);font-variant-numeric:tabular-nums;line-height:1.1}
+.habit-meter-main{display:flex;align-items:center;justify-content:space-between;gap:6px;min-width:0}
+.habit-meter-read{min-width:0;overflow:hidden;font-size:20px;font-weight:var(--fw-semibold);font-variant-numeric:tabular-nums;line-height:1.1;white-space:nowrap}
 .habit-meter.is-empty .habit-meter-read{color:var(--muted)}
-.habit-meter-actions{display:flex;gap:6px}
-.habit-meter-step{display:grid;place-items:center;width:30px;height:30px;border:1px solid var(--line);border-radius:50%;background:var(--paper);color:var(--ink);font-size:15px;line-height:1}
+.habit-meter-actions{display:flex;gap:4px;flex:0 0 auto}
+.habit-meter-step{display:grid;place-items:center;width:28px;height:28px;border:1px solid var(--line);border-radius:50%;background:var(--paper);color:var(--ink);font-size:15px;line-height:1}
 .habit-meter-step:active{transform:scale(.96)}
 .habit-meter-step:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .habit-meter-track{position:relative;height:28px;display:flex;align-items:center;cursor:pointer;touch-action:none}

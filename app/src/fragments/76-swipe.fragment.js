@@ -5,12 +5,16 @@
   // 不跟手：跟手要常驻 transform 与滚动锁，和内置滚动、下拉刷新、输入焦点抢手势；判定放在松手时，
   // 复用 switchTab 已有的 from-left/from-right 滑入，手感一致且不新增一套位移。
   (function installTabSwipe(){
+    // 2026-11-22 暂时关闭：横向调节（步数/饮水轨道）与整屏左右滑动抢手势，先停掉整屏切换。
+    // 恢复时把下面这行改成 true 即可——判断逻辑一行没删，测试也仍在盯着它。
+    const SWIPE_NAV_ENABLED = false;
+    if (!SWIPE_NAV_ENABLED) return;
     const SWIPE_X = 56;        // 小于这个位移算点击，不算滑动
     const SWIPE_MS = 600;      // 慢慢拖过去不算一次切换
     const SWIPE_RATIO = 1.6;   // 斜着划以纵向滚动为准
     let start = null;
     const blocked = (target) => !!(target && target.closest && target.closest(
-      'input,textarea,select,[contenteditable="true"],.app-dialog,.sheet-panel,.pref-chips,.chips,.segmented,.table-wrap,#chat-chips,.chat-composer,[data-swipe-ignore]'));
+      'input,textarea,select,[contenteditable="true"],.app-dialog,.sheet-panel,.pref-chips,.chips,.segmented,.table-wrap,#chat-chips,.chat-composer,.habit-meter-track,.dial-face,[data-swipe-ignore]'));
     const currentTab = () => document.querySelector('[data-tab][aria-current="page"]')?.dataset.tab || 'today';
     document.addEventListener('touchstart', (event) => {
       if (event.touches.length !== 1) { start = null; return; }

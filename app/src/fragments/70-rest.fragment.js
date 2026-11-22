@@ -161,7 +161,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.11';
+  const APP_VERSION = '1.5.12';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -2983,6 +2983,8 @@ feedback(message,'数据已导入。'+report);
         fill.style.width = `${(ratio * 100).toFixed(1)}%`;
         thumb.style.left = `${(ratio * 100).toFixed(1)}%`;
         read.textContent = clamped > 0 ? fmt(clamped, 0) : '—';
+        // 五位数会被 − ＋ 挤掉：到万位就把字号降一档，宁可小一点也不能把位数截掉。
+        read.style.fontSize = clamped >= 10000 ? '17px' : '20px';
         track.setAttribute('aria-valuenow', String(clamped));
         track.setAttribute('aria-valuetext', clamped > 0 ? `${fmt(clamped, 0)} ${spec.unit}` : '未填写');
         meter.classList.toggle('is-empty', clamped <= 0);
