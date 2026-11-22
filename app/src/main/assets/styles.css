@@ -2212,3 +2212,7 @@ details:not(.advanced):not(.day-more)>summary::after{width:auto;height:auto;bord
 .meal-slot-meta{font-size:var(--text-xs);color:var(--muted);font-variant-numeric:tabular-nums;margin-left:auto;white-space:nowrap}
 #today-meals .meal-slot .meal-row:last-child{border-bottom:0}
 @media (prefers-reduced-motion:reduce){.meal-slot-caret{transition:none}}
+/* 组间休息：勾完的那一组下面挂一根走完的线（线=归属，药丸=控制）。 */
+.rest-line{height:2px;margin:6px 0 4px;background:var(--accent-soft);overflow:hidden;border-radius:1px}
+.rest-line>span{display:block;height:100%;background:var(--accent);transform-origin:left center;transition:transform 1s linear}
+@media (prefers-reduced-motion:reduce){.rest-line>span{transition:none}}

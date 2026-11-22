@@ -9219,6 +9219,24 @@ function metricIcon(label) {
   // 组间休息从卡片底部的工具行挪到「训练动作视野内」：固定小药丸，上下滚动都看得见，
   // 键盘弹起时也随布局视口上移；只有训练日志在视野里或计时进行中才出现（2026-11-17）。
   let restTick = 0, restEnd = 0, restExercisesInView = false, restActionsInView = false, restDockWired = false;
+  // 「哪一组在等」比「还剩几秒」更难看清：药丸在屏幕边上，用户不知道是第几组。
+  // 所以在勾完的那一组下面挂一根 2px 的线，随休息走完而收干；线负责归属，药丸负责控制（2026-11-22）。
+  let restLine = null;
+  function clearRestLine() {
+    if (restLine) { restLine.remove(); restLine = null; }
+  }
+  function attachRestLine(setRow) {
+    clearRestLine();
+    if (!setRow || !setRow.parentElement) return;
+    const line = document.createElement('div');
+    line.className = 'rest-line';
+    line.setAttribute('aria-hidden', 'true');
+    line.innerHTML = '<span></span>';
+    setRow.after(line);
+    restLine = line;
+    const fill = line.firstElementChild;
+    if (fill) fill.style.transform = 'scaleX(1)';
+  }
   /** 默认休息秒数（没选具体动作、直接点药丸时用）；具体动作按 restSecondsFor 决定。 */
   const REST_SECONDS = 90;
   let restLength = REST_SECONDS;
@@ -9306,6 +9324,13 @@ function metricIcon(label) {
       : `开始 ${restLength} 秒组间休息`);
     const ring = $('#rest-timer .rest-ring-fill');
     if (ring) ring.style.strokeDashoffset = String(REST_RING_C * Math.max(0, Math.min(1, 1 - left / Math.max(1, restLength))));
+    // 同一只真源同时画那根线：计时结束把线收掉，行回到常态。
+    if (restLine && !restLine.isConnected) restLine = null;
+    if (restLine) {
+      const fill = restLine.firstElementChild;
+      if (fill) fill.style.transform = `scaleX(${Math.max(0, Math.min(1, left / Math.max(1, restLength))).toFixed(4)})`;
+      if (!left) clearRestLine();
+    }
     button.dataset.left = String(left);
     syncRestDock();
   }
@@ -9362,7 +9387,8 @@ function metricIcon(label) {
     }
   }
   installRestDock();
-  $('#rest-timer')?.addEventListener('click', () => startRestTimer(false, restLength));
+  // 药丸是「控制」：点它要么取消、要么重开一轮，原先那根线不再代表新的计时。
+  $('#rest-timer')?.addEventListener('click', () => {clearRestLine(); startRestTimer(false, restLength);});
   // 容量必须跟着输入走：以前只在增删组时重算，填完 10 次 × 60 kg 还挂着「—」，像没记上。
   // 有氧行跟着距离/时长算配速；动作名改成「跑步」时整行切到有氧表单（2026-11-17）。
   $('#training-exercises')?.addEventListener('input', event => {
@@ -9390,6 +9416,10 @@ function metricIcon(label) {
         const row = done.closest('[data-exercise-row]');
         const name = row ? String($('[data-exercise="name"]', row)?.value || '') : '';
         startRestTimer(true, restSecondsFor(name));
+        // restLength 由 startRestTimer 按动作定下；0 秒（有氧）不挂线。
+        if (restLength > 0) attachRestLine(set);
+      } else {
+        clearRestLine();
       }
       return;
     }
