@@ -932,7 +932,11 @@ const values = points.length<=7 ? points.map((item,i) => {
     const foot = cardio
       ? '<span class="row-meta">有氧记录</span>'
       : '<button type="button" class="text-button" data-set-add>＋ 加一组</button><span class="row-meta">容量 <b data-set-volume>—</b></span>';
-    return `<div class="training-row" data-exercise-row="${index}" data-exercise-id="${esc(item.id || '')}" data-cardio="${cardio ? 1 : 0}">`
+    // 行的身份要写回 DOM：planIndex 决定勾组后回写哪一条今日清单，fromPlan 决定取消勾选时能不能回收。
+    // 缺了这两个属性，表单一旦重建（切日期 / 切页）就再也认不出这行，清单完成度永远停在原地。
+    const planAttr = item.planIndex === null || item.planIndex === undefined ? '' : ` data-plan-index="${Number(item.planIndex)}"`;
+    const fromAttr = item.fromPlan ? ' data-from-plan="1"' : '';
+    return `<div class="training-row" data-exercise-row="${index}" data-exercise-id="${esc(item.id || '')}" data-cardio="${cardio ? 1 : 0}"${planAttr}${fromAttr}>`
       + `<div class="exercise-row-head"><span class="exercise-no" aria-hidden="true">${n}</span>`
       + `<div class="exercise-name-row${item.name ? ' is-locked' : ''}">${item.weightApprox ? '<span class="exercise-approx" title="重量是按体重推算的起步值，练完一次按实际校准">约</span>' : ''}<input data-exercise="name" value="${esc(item.name || '')}" maxlength="60" placeholder="动作名，例如卧推" aria-label="第 ${n} 个动作名称"${item.name ? ' readonly' : ''}><button type="button" class="exercise-name-open" data-exercise-open aria-haspopup="dialog" aria-label="查看动作说明：${esc(item.name || '')}">${esc(item.name || '')}</button><button type="button" class="exercise-name-edit" data-exercise-edit aria-label="修改动作名称">改</button><button type="button" class="exercise-bodyweight" data-exercise-bodyweight aria-pressed="${isBodyweightMove(item.name) ? 'true' : 'false'}" title="标为自重动作：不填负重也算完整">${isBodyweightMove(item.name) ? '自重 ✓' : '自重'}</button></div>`
       + `<button type="button" class="text-button exercise-remove" data-exercise-remove="${index}" aria-label="移除这个动作">移除</button></div>`
@@ -1023,9 +1027,11 @@ const values = points.length<=7 ? points.map((item,i) => {
     if (typeof aiPlanStore === 'function') {
       try { plan = aiPlanStore(date) || []; } catch { plan = []; }
     }
-    const pending = plan.filter(item => item && item.name && item.done !== true);
+    const pending = plan.map((item, index) => ({item, index}))
+      .filter(row => row.item && row.item.name && row.item.done !== true);
     if (pending.length) {
-      return pending.map(item => ({name: item.name, sets: item.sets || 1, reps: item.reps || null, weight: item.weight ?? null,
+      // planIndex 指向 aiPlanStore 里的原始下标：清单里已有做完的动作时，播种行的序号不等于清单下标。
+      return pending.map(({item, index}) => ({name: item.name, planIndex: index, sets: item.sets || 1, reps: item.reps || null, weight: item.weight ?? null,
         ...(item.weightApprox ? {weightApprox: true} : {})}));
     }
     const week = typeof cachedWeekPlan === 'function' ? cachedWeekPlan() : null;
@@ -1047,15 +1053,23 @@ const values = points.length<=7 ? points.map((item,i) => {
     const rows = [...box.querySelectorAll('[data-exercise-row]')].map(row => {
       const name = ($('[data-exercise="name"]', row)?.value || '').trim();
       if (!name) return null;
+      // 草稿必须带住行的身份：id 用于对位、planIndex 用于回写今日清单、weightApprox 决定要不要显示「约」、
+      // fromPlan 决定取消勾选时能不能回收。以前只存 name + setDetails，重渲染后这四样全丢。
+      const meta = {
+        id: row.dataset.exerciseId || '',
+        ...(row.dataset.planIndex === undefined || row.dataset.planIndex === '' ? {} : {planIndex: Number(row.dataset.planIndex)}),
+        ...(row.dataset.fromPlan === '1' ? {fromPlan: true} : {}),
+        ...($('.exercise-approx', row) ? {weightApprox: true} : {})
+      };
       if (row.dataset.cardio === '1') {
-        return {name, distanceKm: number($('[data-cardio="distance"]', row)?.value), durationMin: number($('[data-cardio="minutes"]', row)?.value)};
+        return {...meta, name, distanceKm: number($('[data-cardio="distance"]', row)?.value), durationMin: number($('[data-cardio="minutes"]', row)?.value)};
       }
       const setDetails = [...row.querySelectorAll('[data-set-row]')].map(set => ({
         reps: number($('[data-set="reps"]', set)?.value),
         weight: number($('[data-set="weight"]', set)?.value),
         done: $('[data-set-done]', set)?.getAttribute('aria-pressed') === 'true'
       }));
-      return {name, setDetails};
+      return {...meta, name, setDetails};
     }).filter(Boolean);
     return rows.length ? rows : null;
   }
@@ -1082,9 +1096,8 @@ const values = points.length<=7 ? points.map((item,i) => {
     const rows = Array.isArray(rowsOverride) ? rowsOverride
       : (draft && draft.length ? draft : (exercises.length ? exercises : (seeds.length ? seeds : [{name: '', sets: 1, reps: null, weight: null}])));
     box.innerHTML = rows.map(exerciseRowHtml).join('');
-    if (seeds.length && !Array.isArray(rowsOverride)) {
-      $$('[data-exercise-row]', box).forEach((node, index) => { if (seeds[index]) node.dataset.planIndex = String(index); });
-    }
+    // planIndex 由 exerciseRowHtml 直接写在行上（来自种子或草稿），不再按渲染序号补写：
+    // 草稿里用户可能加过行、删过行，按序号补写会把勾组回写到错误的清单项。
     if (!box.dataset.draftWired) {
       box.dataset.draftWired = '1';
       const remember = () => rememberTrainingDraft();
@@ -1131,7 +1144,8 @@ const values = points.length<=7 ? points.map((item,i) => {
       // 表单按 DOM 重建时要把「这条是勾选计划加进来的」带过去，否则取消勾选就再也认不出它。
       const carried = (typeof exercisesFor === 'function' ? exercisesFor(activeDate) : [])
         .find(item => item && (item.id === id || String(item.name || '').trim() === name));
-      const fromPlan = carried && carried.fromPlan === true ? {fromPlan: true} : {};
+      // 行上的 data-from-plan 是草稿恢复后的唯一线索；能查回记录时以记录为准。
+      const fromPlan = (row.dataset.fromPlan === '1' || (carried && carried.fromPlan === true)) ? {fromPlan: true} : {};
       if (row.dataset.cardio === '1') {
         return {...fromPlan, id, name, cardio: true, distanceKm: number($('[data-cardio="distance"]', row)?.value), durationMin: number($('[data-cardio="minutes"]', row)?.value), sets: 0, reps: null, weight: null, setDetails: []};
       }

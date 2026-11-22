@@ -1809,5 +1809,61 @@ check('没有留下 explainHtml/cueLabel/cueBody/cueDay/cueIsViewed 残骸',
 check('app.js 与片段同步', !app.includes('function weekCueHtml') && !app.includes('id="week-cues-host"'));
 ;return typeof fail === 'number' ? fail : 0;
 });
+await __run("training-phase1", async () => {
+/**
+ * Phase 1（2026-11-23 训练模块解耦，第一批）：五个已确认缺陷的回归护栏。
+ * 这些断言只锁「用户能感知的契约」和两处必须一致的口径，不锁实现细节。
+ */
+
+let fail = 0;
+const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + label + (detail === undefined ? '' : '  -> ' + detail)); if (!ok) fail++; };
+const read = path => fs.readFileSync(path, 'utf8');
+
+const appJs = read('app/src/main/assets/app.js');
+const onboarding = read('app/src/fragments/50-onboarding.fragment.js');
+const training = read('app/src/fragments/60-training-copy.fragment.js');
+const rest = read('app/src/fragments/70-rest.fragment.js');
+const main = read('app/src/main/java/cn/qingheng/health/MainActivity.java');
+
+// ① 杠铃总重回填：负重框是 [data-set="weight"]，没有 name 属性 --------------------------------------
+const fillStart = rest.indexOf('$("#weight-fill")');
+const fillBlock = rest.slice(fillStart, fillStart + 900);
+check('回填按 data-set 选负重框', fillBlock.includes(`[data-set="weight"]`));
+check('不再用选不到的 input[name=weight]', !fillBlock.includes('input[name=\\"weight\\"]'));
+
+// ② 周计划重排必须带上「训练要求」 ----------------------------------------------------------------
+// 锚点要落在 renderWeekPlan 里：文件更早处 weekPlanToday 也有一处 generateWeekPlan 调用（它本来就传 request）。
+const planCallStart = training.indexOf('plan = generateWeekPlan({', training.indexOf('function renderWeekPlan'));
+const planCall = training.slice(planCallStart, planCallStart + 700);
+check('renderWeekPlan 传了 request', planCallStart > 0 && planCall.includes('request: planPref.request'));
+check('weekPlanToday 仍传 request', training.includes('request: pref.request'));
+
+// ③ 逐组容量口径：金字塔组不能被外层汇总放大 ------------------------------------------------------
+check('dailyLoads 优先逐组口径', training.includes('trainingVolumeOf([item])'));
+const volStart = appJs.indexOf('function trainingVolumeOf');
+const volEnd = appJs.indexOf('function renderTrainingSummary', volStart);
+const number = value => (value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value))) ? Number(value) : null;
+const sandbox = {number};
+vm.runInNewContext(appJs.slice(volStart, volEnd) + '\n;globalThis.__vol = trainingVolumeOf;', sandbox);
+const pyramidal = {sets: 3, reps: 10, weight: 80, setDetails: [{reps: 10, weight: 40}, {reps: 8, weight: 60}, {reps: 5, weight: 80}]};
+check('金字塔组容量按各组相加', sandbox.__vol([pyramidal]) === 1280, String(sandbox.__vol([pyramidal])));
+check('旧记录仍回退 sets×reps×weight', sandbox.__vol([{sets: 3, reps: 10, weight: 80}]) === 2400);
+check('Java 与前端同口径（抽出共用 helper）', main.includes('private static double exerciseVolumeKg') && (main.match(/exerciseVolumeKg\(/g) || []).length >= 4);
+
+// ④ 草稿保住行的身份，动作名不再被截到 24 字 -------------------------------------------------------
+check('行上写回 planIndex 与 fromPlan', onboarding.includes('data-plan-index="${Number(item.planIndex)}"') && onboarding.includes('data-from-plan="1"'));
+check('草稿读回 id / planIndex / fromPlan', onboarding.includes('planIndex: Number(row.dataset.planIndex)') && onboarding.includes("row.dataset.fromPlan === '1'") && onboarding.includes('id: row.dataset.exerciseId'));
+check('播种行的 planIndex 指向清单原下标', onboarding.includes('return pending.map(({item, index}) => ({name: item.name, planIndex: index'));
+check('采纳周计划不再截到 24 字', training.includes('name: String(item.name || "").slice(0, 60)'));
+
+// ⑤ 顺延到明天要刷新执行区 ------------------------------------------------------------------------
+// 锚点取监听器本身：`const postpone` 在 renderAiPlan 里也出现过一次（那是显隐，不是点击）。
+const postponeStart = rest.indexOf('postpone.addEventListener');
+const postponeBlock = rest.slice(postponeStart, postponeStart + 1200);
+check('顺延后重绘训练表单', postponeStart > 0 && postponeBlock.includes('renderTrainingLog()'));
+check('顺延后重绘今日清单', postponeBlock.includes('renderAdviceOrder()'));
+
+;return typeof fail === 'number' ? fail : 0;
+});
 console.log('\nFAIL total: ' + __fail);
 process.exitCode = __fail ? 1 : 0;

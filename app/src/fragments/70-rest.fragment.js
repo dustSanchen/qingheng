@@ -644,7 +644,7 @@
       if (!item) return;
       const field = name => row.querySelector(`[data-ai-field="${name}"]`);
       const name = (field("name")?.value || "").trim();
-      item.name = name ? name.slice(0, 24) : "";
+      item.name = name ? name.slice(0, 60) : "";
       const sets = Number(field("sets")?.value), reps = Number(field("reps")?.value), weight = Number(field("weight")?.value);
       item.sets = sets > 0 ? sets : 0;
       item.reps = reps > 0 ? reps : 0;
@@ -672,7 +672,7 @@
     // 编辑态留一行原建议：改名字/组数时还看得见「为什么排它」，不用退出编辑再回忆。
     return "<div class=\"ai-plan-row is-editing\" role=\"listitem\" data-ai-row=\"" + index + "\">"
       + "<span class=\"ai-plan-no\">" + (index + 1) + "</span>"
-      + "<input class=\"ai-plan-input is-name\" data-ai-field=\"name\" maxlength=\"24\" enterkeyhint=\"done\" value=\"" + esc(item.name) + "\" aria-label=\"动作名\">"
+      + "<input class=\"ai-plan-input is-name\" data-ai-field=\"name\" maxlength=\"60\" enterkeyhint=\"done\" value=\"" + esc(item.name) + "\" aria-label=\"动作名\">"
       + "<button type=\"button\" class=\"ai-plan-remove\" data-ai-remove=\"" + index + "\" aria-label=\"删除这个动作\">×</button>"
       + (item.reason ? "<p class=\"ai-plan-edit-reason\">" + esc(item.reason) + "</p>" : "")
       + "<div class=\"ai-plan-nums\"><label class=\"ai-plan-num\"><span>组</span>" + num("sets", item.sets, 'min=\"0\" max=\"30\" step=\"1\"', "组数") + "</label>"
@@ -796,7 +796,7 @@
   function planItemFromRow(row) {
     const guess = planWeightFor(row);
     return {
-      name: String(row.name).trim().slice(0, 24),
+      name: String(row.name).trim().slice(0, 60),
       sets: Number(row.sets) > 0 ? Math.round(Number(row.sets)) : 0,
       reps: Number(row.reps) > 0 ? Math.round(Number(row.reps)) : 0,
       weight: guess.weight,
@@ -1102,6 +1102,9 @@
         aiPlanStore(tomorrow, plan.map(item => ({...item, done: false})));
         aiPlanStore(activeDate, []);
         renderAiPlan();
+        // 顺延后执行区还挂着已经顺延走的动作：表单与今日清单都要立刻重绘，否则今天仍能照着练。
+        if (typeof renderTrainingLog === "function") renderTrainingLog();
+        if (typeof renderAdviceOrder === "function") renderAdviceOrder();
         notice("已把这份清单顺延到 " + tomorrow.slice(5) + "，今天不再安排。");
       });
     }
@@ -1272,7 +1275,9 @@
     if (fill && !fill.dataset.wired) {
       fill.dataset.wired = "1";
       fill.addEventListener("click", () => {
-        const inputs = $$("#training-exercises input[name=\"weight\"]");
+        // 负重输入由 setRowHtml 渲染成 [data-set="weight"]，没有 name 属性；
+        // 旧选择器 input[name="weight"] 一个都选不到，回填永远是「先添加一个动作」。
+        const inputs = $$('#training-exercises [data-set="weight"]');
         const target = inputs.find(input => !input.value) || inputs[inputs.length - 1];
         if (!target) { notice("先添加一个动作，再回填负重。"); return; }
         target.value = String(total());

@@ -967,7 +967,9 @@
       const day = shiftDay(activeDate, -offset);
       let load = 0;
       for (const item of exercisesFor(day)) {
-        const volume = exerciseVolume(item);
+        // 逐组口径：金字塔组（10×40 / 8×60 / 5×80）真实 1280 kg，用外层汇总（sets=3、reps=10、weight=80）
+        // 会被算成 2400 kg，把 ACWR 负荷比和减载判定一起带偏。
+        const volume = typeof trainingVolumeOf === 'function' ? trainingVolumeOf([item]) : exerciseVolume(item);
         if (volume !== null) load += volume;
         const minutes = number(item.durationMin);
         if (minutes !== null) load += minutes * 6;
@@ -1367,7 +1369,7 @@
       if (!go) return;
     }
     const plan = day.exercises.map(item => ({
-      name: String(item.name || "").slice(0, 24),
+      name: String(item.name || "").slice(0, 60),
       sets: number(item.sets) > 0 ? number(item.sets) : 0,
       reps: number(item.reps) > 0 ? number(item.reps) : 0,
       weight: number(item.weight) > 0 ? number(item.weight) : null,
@@ -1808,6 +1810,8 @@
     } else {
       plan = generateWeekPlan({startDate, sessions, lastByExercise, acwrFlag: stats ? stats.flag : 'ok',
         goal: (state.profile || {}).goal, split: planPref.split, gear: planPref.gear, minutes: planPref.minutes,
+        // 训练要求（排除动作 / 改时长）必须一起传：漏传会让「保存并重排」生成的计划完全不执行 excludedMove。
+        request: planPref.request,
         startTemplate: nextStartTemplate(planPref.split)});
       drifted = !!(cached && cached.plan);
       if (plan) writeWeekPlanCache(startDate, {plan, fingerprint, savedAt: Date.now()});

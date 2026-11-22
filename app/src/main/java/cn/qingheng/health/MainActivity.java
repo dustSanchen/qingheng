@@ -2974,6 +2974,28 @@ import java.util.concurrent.Executors;
         return out;
     }
 
+    /** 训练容量（kg）：有 setDetails 就逐组 reps × weight，旧记录退回 sets × reps × weight。
+     *  与前端 trainingVolumeOf / trainingStatsOf 同口径——金字塔组（10×40 / 8×60 / 5×80）用外层汇总
+     *  （sets=3、reps=10、weight=max 80）会被算成 2400 kg，真实只有 1280 kg。 */
+    private static double exerciseVolumeKg(JSONObject item) {
+        if (item == null) return 0;
+        JSONArray details = item.optJSONArray("setDetails");
+        if (details != null && details.length() > 0) {
+            double volume = 0;
+            for (int i = 0; i < details.length(); i++) {
+                JSONObject set = details.optJSONObject(i);
+                if (set == null) continue;
+                Double reps = finite(set, "reps"), weight = finite(set, "weight");
+                if (reps == null || weight == null || weight <= 0) continue;
+                volume += reps * weight;
+            }
+            return volume;
+        }
+        Double sets = finite(item, "sets"), reps = finite(item, "reps"), weight = finite(item, "weight");
+        if (sets == null || reps == null || weight == null || weight <= 0) return 0;
+        return sets * reps * weight;
+    }
+
     /** Training sessions inside the window: template, exercise names and total volume per session. */
     private JSONArray trainingLog(String day, int days) throws Exception {
         JSONArray out = new JSONArray();
@@ -2997,8 +3019,8 @@ import java.util.concurrent.Executors;
                 String name = item.optString("name", "").trim();
                 if (name.isEmpty()) continue;
                 names.put(name);
-                Double sets = finite(item, "sets"), reps = finite(item, "reps"), weight = finite(item, "weight");
-                if (sets != null && reps != null && weight != null) { volume += sets * reps * weight; anyVolume = true; }
+                double kg = exerciseVolumeKg(item);
+                if (kg > 0) { volume += kg; anyVolume = true; }
             }
             entry.put("exercises", names);
             if (anyVolume) entry.put("volume", Math.round(volume));
@@ -3026,10 +3048,10 @@ import java.util.concurrent.Executors;
                 if (item == null) continue;
                 String name = item.optString("name", "").trim();
                 if (name.isEmpty()) continue;
-                Double sets = finite(item, "sets"), reps = finite(item, "reps"), weight = finite(item, "weight");
-                if (sets == null || reps == null || weight == null) continue;
+                double kg = exerciseVolumeKg(item);
+                if (kg <= 0) continue;
                 byExercise.computeIfAbsent(name, key -> new java.util.TreeMap<>())
-                        .merge(week, sets * reps * weight, Double::sum);
+                        .merge(week, kg, Double::sum);
             }
         }
         JSONObject out = new JSONObject();
@@ -4234,17 +4256,7 @@ import java.util.concurrent.Executors;
                     if (item == null) continue;
                     String name = item.optString("name", "").trim();
                     if (!name.isEmpty() && names.size() < 4) names.add(name);
-                    double sets = item.optDouble("sets", 0), reps = item.optDouble("reps", 0), weight = item.optDouble("weight", 0);
-                    JSONArray details = item.optJSONArray("setDetails");
-                    if (details != null && details.length() > 0) {
-                        for (int k = 0; k < details.length(); k++) {
-                            JSONObject set = details.optJSONObject(k);
-                            if (set == null) continue;
-                            volume += set.optDouble("reps", 0) * set.optDouble("weight", 0);
-                        }
-                    } else {
-                        volume += sets * reps * weight;
-                    }
+                    volume += exerciseVolumeKg(item);
                     if (item.has("distanceKm")) training.put("distanceKm", training.optDouble("distanceKm", 0) + item.optDouble("distanceKm", 0));
                     if (item.has("durationMin")) training.put("durationMin", training.optDouble("durationMin", 0) + item.optDouble("durationMin", 0));
                 }
