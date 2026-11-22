@@ -1721,7 +1721,9 @@
     const tag = $('#body-quick-tag');
     if (tag) tag.textContent = filled === 0 ? '待记录' : filled === 2 ? '已记录两样' : `已记录 ${filled}/2`;
     const note = $('#body-quick-note');
-    if (note) note.textContent = `记到 ${activeDate.slice(5).replace('-', '/')} · 只填一项也行；同一天再填会更新。`;
+    if (note) note.textContent = `记到 ${activeDate.slice(5).replace('-', '/')} · 体重按空腹、同一状态记；只填一项也行，同一天再填会更新。`;
+    // 折叠态标题的常用指标也要跟着数据走，别等用户展开才补。
+    if (typeof paintBodyDataHints === 'function') paintBodyDataHints();
   }
   /** One-tap copies: yesterday's meals first, then the most recent ones. */
   function copyCandidates() {

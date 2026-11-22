@@ -161,7 +161,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.10';
+  const APP_VERSION = '1.5.11';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -2808,6 +2808,43 @@ feedback(message,'数据已导入。'+report);
       card.dataset.collapsed = '1';
     }
   }
+  const BODY_METRICS = [
+    {key: 'waist', label: '腰围', unit: 'cm', digits: 1},
+    {key: 'bodyFat', label: '体脂率', unit: '%', digits: 1},
+    {key: 'muscle', label: '肌肉量', unit: 'kg', digits: 1},
+    {key: 'visceralFat', label: '内脏脂肪', unit: '级', digits: 1},
+    {key: 'bmr', label: '基础代谢', unit: 'kcal', digits: 0}
+  ];
+  /**
+   * 身体数据的参照值：每项取「最近一条真填过这一项」的记录。
+   * 收起态的标题也用它——折叠只报常用指标，不能只剩一个「选填」。
+   */
+  function paintBodyDataHints() {
+    const form = $('#measurement-form');
+    if (!form || !state) return;
+    const base = validDate(form.elements.date.value) ? form.elements.date.value : activeDate;
+    const rows = (state.measurements || [])
+      .filter(row => row && validDate(row.date) && row.date < base)
+      .sort((a, b) => b.date.localeCompare(a.date));
+    const lastWith = key => rows.find(row => number(row[key]) !== null) || null;
+    for (const metric of BODY_METRICS) {
+      const node = $(`[data-metric-hint="${metric.key}"]`, form);
+      if (!node) continue;
+      const row = lastWith(metric.key);
+      const value = row ? number(row[metric.key]) : null;
+      // 百分号贴着数字，其他单位留一个空格（「上次 18.4%」而不是「18.4 %」）。
+      const suffix = metric.unit === '%' ? '%' : ` ${metric.unit}`;
+      node.textContent = value === null ? '' : `上次 ${fmt(value, metric.digits)}${suffix}`;
+    }
+    const tag = $('#body-data-fold .tag');
+    if (tag) {
+      const parts = [];
+      const fat = lastWith('bodyFat'), muscle = lastWith('muscle');
+      if (fat && number(fat.bodyFat) !== null) parts.push(`体脂 ${fmt(fat.bodyFat, 1)}%`);
+      if (muscle && number(muscle.muscle) !== null) parts.push(`肌肉 ${fmt(muscle.muscle, 1)} kg`);
+      tag.textContent = parts.length ? parts.join(' · ') : '选填';
+    }
+  }
   /**
    * 身体数据（1.5.09）：指标卡片化、按围度/成分分组，加一条「拍秤面识别」。
    * 卡片只放读数，动作在卡外；识别结果先回填表单，用户核对后才入库——错一个数字不该直接写进记录。
@@ -2816,32 +2853,11 @@ feedback(message,'数据已导入。'+report);
     const form = $('#measurement-form');
     if (!form || form.dataset.bodyWired === '1') return;
     form.dataset.bodyWired = '1';
-    const METRICS = [
-      {key: 'waist', label: '腰围', unit: 'cm', digits: 1},
-      {key: 'bodyFat', label: '体脂率', unit: '%', digits: 1},
-      {key: 'muscle', label: '肌肉量', unit: 'kg', digits: 1},
-      {key: 'visceralFat', label: '内脏脂肪', unit: '级', digits: 1},
-      {key: 'bmr', label: '基础代谢', unit: 'kcal', digits: 0}
-    ];
-    // 上次值当参照写在格子下面：不预填，免得把旧数当今天的记录。
-    const paintHints = () => {
-      const base = validDate(form.elements.date.value) ? form.elements.date.value : activeDate;
-      const rows = (state.measurements || [])
-        .filter(row => row && validDate(row.date) && row.date < base)
-        .sort((a, b) => b.date.localeCompare(a.date));
-      const last = rows[0] || null;
-      for (const metric of METRICS) {
-        const node = $(`[data-metric-hint="${metric.key}"]`, form);
-        if (!node) continue;
-        const value = last ? number(last[metric.key]) : null;
-        node.textContent = value === null ? '' : `上次 ${fmt(value, metric.digits)} ${metric.unit}`;
-      }
-    };
-    paintHints();
-    form.elements.date.addEventListener('change', paintHints);
-    // 启动时 state 还没到，门一开再补一次：否则「上次 74」永远不出现。
+    paintBodyDataHints();
+    form.elements.date.addEventListener('change', paintBodyDataHints);
+    // 启动时 state 还没到，门一开再补一次：否则「上次 74」与折叠态摘要都不会出现。
     const fold = $('#body-data-fold');
-    if (fold) fold.addEventListener('toggle', () => { if (fold.open) setTimeout(paintHints, 0); });
+    if (fold) fold.addEventListener('toggle', () => { if (fold.open) setTimeout(paintBodyDataHints, 0); });
     const input = $('#scale-photo-input'), note = $('#scale-sync-note'), button = $('#scale-photo');
     // 先在 canvas 缩到 1400px：一张 4000px 原图的 base64 会把整条链路拖慢一倍以上。
     const shrink = file => new Promise((resolve, reject) => {
@@ -2900,8 +2916,8 @@ feedback(message,'数据已导入。'+report);
   const HABIT_QUICK_KEY = 'qingheng.habitQuick';
   const HABIT_QUICK_FALLBACK = {steps: [6000, 8000, 10000], water: [1500, 2000, 2500]};
   const HABIT_DIAL = {
-    steps: {min: 0, max: 20000, step: 250, unit: '步', label: '步数'},
-    water: {min: 0, max: 5000, step: 100, unit: '毫升', label: '饮水'}
+    steps: {min: 0, max: 20000, step: 250, unit: '步', label: '步数', color: 'var(--accent)'},
+    water: {min: 0, max: 5000, step: 100, unit: '毫升', label: '饮水', color: 'var(--macro-carb,var(--accent-soft))'}
   };
   function readHabitQuick() {
     let raw = {};
@@ -2945,76 +2961,52 @@ feedback(message,'数据已导入。'+report);
       const field = form.elements[key];
       if (!field) continue;
       field.type = 'hidden';
-      const gradId = `dial-grad-${key}`;
-      const ticks = [];
-      for (let i = 0; i < 24; i++) {
-        const angle = (i / 24) * Math.PI * 2 - Math.PI / 2;
-        const r1 = 46, r2 = i % 6 === 0 ? 39.5 : 42.5;
-        ticks.push(`<line x1="${(60 + Math.cos(angle) * r1).toFixed(1)}" y1="${(60 + Math.sin(angle) * r1).toFixed(1)}" x2="${(60 + Math.cos(angle) * r2).toFixed(1)}" y2="${(60 + Math.sin(angle) * r2).toFixed(1)}"/>`);
-      }
-      const dial = document.createElement('div');
-      dial.className = 'dial is-empty';
-      dial.dataset.dial = key;
-      dial.setAttribute('role', 'slider');
-      dial.setAttribute('tabindex', '0');
-      dial.setAttribute('aria-label', spec.label);
-      dial.setAttribute('aria-valuemin', String(spec.min));
-      dial.setAttribute('aria-valuemax', String(spec.max));
-      dial.setAttribute('aria-valuenow', '0');
-      dial.innerHTML = `<p class="dial-label">${spec.label} · ${spec.unit}</p>`
-        + `<div class="dial-face"><svg viewBox="0 0 120 120" aria-hidden="true">`
-        + `<defs><linearGradient id="${gradId}" x1="0" y1="0" x2="1" y2="1"><stop class="dial-stop-a" offset="0"/><stop class="dial-stop-b" offset="1"/></linearGradient></defs>`
-        + `<g class="dial-ticks">${ticks.join('')}</g>`
-        + `<circle class="dial-track" cx="60" cy="60" r="52"/>`
-        + `<circle class="dial-arc" cx="60" cy="60" r="52" stroke="url(#${gradId})"/>`
-        + `</svg><div class="dial-read"><strong>—</strong><span>${spec.unit}</span></div></div>`
-        + `<div class="dial-actions"><button type="button" class="dial-step" data-dial-dec="${key}" aria-label="减少${spec.label}">−</button>`
-        + `<button type="button" class="dial-step" data-dial-inc="${key}" aria-label="增加${spec.label}">＋</button></div>`
-        + `<p class="dial-hint">拖动圆环</p>`;
-      host.append(dial);
-      const arc = $('.dial-arc', dial);
-      const read = $('.dial-read strong', dial);
-      const face = $('.dial-face', dial);
-      const CIRC = 2 * Math.PI * 52;
-      arc.setAttribute('stroke-dasharray', `${CIRC.toFixed(1)} ${CIRC.toFixed(1)}`);
+      // 横向卡片：两枚并排，比圆环省一半以上的纵向高度，靠色块区分指标（2026-11-22 用户要求）。
+      const meter = document.createElement('div');
+      meter.className = 'habit-meter is-empty';
+      meter.dataset.dial = key;
+      meter.style.setProperty('--meter-color', spec.color);
+      meter.innerHTML = `<div class="habit-meter-head"><span class="habit-meter-name">${spec.label}</span><span class="habit-meter-unit">${spec.unit}</span></div>`
+        + `<div class="habit-meter-main"><strong class="habit-meter-read">—</strong>`
+        + `<div class="habit-meter-actions"><button type="button" class="habit-meter-step" data-dial-dec="${key}" aria-label="减少${spec.label}">−</button>`
+        + `<button type="button" class="habit-meter-step" data-dial-inc="${key}" aria-label="增加${spec.label}">＋</button></div></div>`
+        + `<div class="habit-meter-track" role="slider" tabindex="0" aria-label="${spec.label}" aria-valuemin="${spec.min}" aria-valuemax="${spec.max}" aria-valuenow="0"><span class="habit-meter-fill"></span><span class="habit-meter-thumb"></span></div>`;
+      host.append(meter);
+      const read = $('.habit-meter-read', meter);
+      const fill = $('.habit-meter-fill', meter);
+      const thumb = $('.habit-meter-thumb', meter);
+      const track = $('.habit-meter-track', meter);
       const setValue = value => {
         const clamped = Math.max(spec.min, Math.min(spec.max, Math.round(value / spec.step) * spec.step));
         field.value = clamped > 0 ? String(clamped) : '';
-        arc.style.strokeDashoffset = String((CIRC * (1 - clamped / spec.max)).toFixed(2));
+        const ratio = clamped / spec.max;
+        fill.style.width = `${(ratio * 100).toFixed(1)}%`;
+        thumb.style.left = `${(ratio * 100).toFixed(1)}%`;
         read.textContent = clamped > 0 ? fmt(clamped, 0) : '—';
-        dial.setAttribute('aria-valuenow', String(clamped));
-        dial.setAttribute('aria-valuetext', clamped > 0 ? `${fmt(clamped, 0)} ${spec.unit}` : '未填写');
-        dial.classList.toggle('is-empty', clamped <= 0);
+        track.setAttribute('aria-valuenow', String(clamped));
+        track.setAttribute('aria-valuetext', clamped > 0 ? `${fmt(clamped, 0)} ${spec.unit}` : '未填写');
+        meter.classList.toggle('is-empty', clamped <= 0);
         return clamped;
       };
-      dials[key] = {dial, field, spec, setValue};
+      dials[key] = {meter, field, spec, setValue};
       setValue(number(field.value) ?? 0);
-      // 角度取值：正上方 = 0，顺时针；拖动与点击轨道都走这一条。
+      // 横向取值：点/拖轨道任意一点即按横向比例改数，起手点就是数值，不用先找环带。
       const fromPointer = event => {
-        const box = face.getBoundingClientRect();
-        const cx = box.left + box.width / 2, cy = box.top + box.height / 2;
-        let deg = Math.atan2(event.clientY - cy, event.clientX - cx) * 180 / Math.PI + 90;
-        if (deg < 0) deg += 360;
-        return spec.min + (deg / 360) * (spec.max - spec.min);
+        const box = track.getBoundingClientRect();
+        const ratio = Math.max(0, Math.min(1, (event.clientX - box.left) / Math.max(1, box.width)));
+        return spec.min + ratio * (spec.max - spec.min);
       };
       let dragging = false;
-      dial.addEventListener('pointerdown', event => {
-        if (event.target.closest('.dial-step')) return;
-        // 只在环带上开始拖动：中心读数与四角留给页面滚动，手指扫过不该改数。
-        const box = face.getBoundingClientRect();
-        const cx = box.left + box.width / 2, cy = box.top + box.height / 2;
-        const scale = box.width / 120;
-        const radius = Math.hypot(event.clientX - cx, event.clientY - cy);
-        if (radius < 30 * scale || radius > 62 * scale) return;
+      track.addEventListener('pointerdown', event => {
         dragging = true;
-        try { dial.setPointerCapture(event.pointerId); } catch {}
+        try { track.setPointerCapture(event.pointerId); } catch {}
         setValue(fromPointer(event));
       });
-      dial.addEventListener('pointermove', event => { if (dragging) setValue(fromPointer(event)); });
+      track.addEventListener('pointermove', event => { if (dragging) setValue(fromPointer(event)); });
       const stopDrag = () => { dragging = false; };
-      dial.addEventListener('pointerup', stopDrag);
-      dial.addEventListener('pointercancel', stopDrag);
-      dial.addEventListener('keydown', event => {
+      track.addEventListener('pointerup', stopDrag);
+      track.addEventListener('pointercancel', stopDrag);
+      track.addEventListener('keydown', event => {
         const nowValue = number(field.value) ?? 0;
         const jump = event.shiftKey ? spec.step * 4 : spec.step;
         if (event.key === 'ArrowRight' || event.key === 'ArrowUp') { event.preventDefault(); setValue(nowValue + jump); }
@@ -3024,7 +3016,7 @@ feedback(message,'数据已导入。'+report);
       });
     }
     host.addEventListener('click', event => {
-      const button = event.target.closest('.dial-step');
+      const button = event.target.closest('.habit-meter-step');
       if (!button) return;
       const key = button.dataset.dialDec || button.dataset.dialInc;
       const entry = dials[key];
