@@ -233,7 +233,6 @@ check('oil is 25 to 30 grams', lib.rules.find(r => r.id === 'cdg-salt-oil-sugar'
 check('weekly activity is 150 minutes', lib.rules.find(r => r.id === 'cdg-activity-week').plan.moderateMinutes === 150);
 check('the sleep report figure is recorded', lib.rules.find(r => r.id === 'csr-average-seven-four').plan.meanHours === 7.4);
 check('the oil rule reconciles the fat floor', lib.rules.find(r => r.id === 'cdg-oil-fits-fat-floor').plan.fatFloorG === 55);
-check('priority starts with the chinese guide', lib.priority[0] === 'cdg-2022');
 check('obesity guidance rules', ['cswz-energy-deficit','cswz-macro-split','cswz-loss-rate','cswz-activity-dose','cswz-sleep-seven-23','cswz-food-portions','cswz-meal-order','cswz-oil-salt-tight','cswz-alcohol-cost','cswz-scope-vs-app-floor'].every(id => earlyIds.has(id)));
 check('the guide keeps the app floor separate', lib.rules.find(r => r.id === 'cswz-scope-vs-app-floor').plan.appFloor === 2000);
 check('the loss rate is 0.5 to 1 kg a week', lib.rules.find(r => r.id === 'cswz-loss-rate').plan.weeklyKg[1] === 1);

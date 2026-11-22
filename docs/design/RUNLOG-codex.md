@@ -1865,3 +1865,9 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - **AI 排今天可保存（根因三条）**：①计划只写 `aiPlanStore`、从没重新播种执行区——用户看到空表单，点保存只会「还没有动作可保存」；修成完成后 `renderTrainingLog()`。②流式 done 事件不带 `reply` 时用空串解析 → 清空刚画出的清单；修成 `streamedText` 兜底，且流式中已画出的动作在退回一次性接口时不再被清空。③AI 路径的 `planWeightFor` 推断不出重量时留空，保存校验要求配重动作必须有 kg；修成按器械给保守起步值（杠铃 40 / 哑铃 8 / 器械 20 / 其它 10）并标「约」，与 38 号周计划同一套。
 - 验收：assemble + `node --check` 通过；`test-all` 114/114（training-prescription 增 3 条沙箱行为断言：30 分钟→每天 ≤3 个动作、说了别深蹲整周不排、排除项不排空；training-actions 增 6 条；effort-feedback / training-save-dialog 断言随之更新）；aesthetic-audit 无阻塞项；entry-budget 9/9。真机 1.5.30/530：`build/v30-c-logbottom.png`（操作行＝杠铃总重/记为休息/清空今天的训练，其他已消失）、`build/v30-d-prefs.png`（改偏好底部出现「训练要求（可选）」）、`build/v30-g-log.png`（11-28 的 AI 清单已播成带重量的可勾选行）。
 - **未完成（如实记）**：AI 排今天 → 点保存进入核对弹窗这一条端到端，在准备点保存时 adb 掉线（`adb devices` 空、kill-server 无效，与 r208 同类），没在真机上复验；逻辑由沙箱断言与播种路径覆盖。另：11-28 留了一份测试用的 AI 清单（不是今天，不影响 11-23）。
+### r216 · 2026-11-23 01:50 · 减负：断言去脆、工作区去垃圾、记忆去无关
+- 用户原话：「减少不必要的测试与断言，检查历史记忆，去除对优化轻衡app不必要的记忆内容，去除阅读对优化轻衡不必要的文件，检查ai工作区，删除不必要的截图跟验证时产生的无效垃圾」
+- 断言：删掉本轮新加的 7 条实现细节断言（`let streamedText`、`if (!planShownRows)`、`request: readRequest()`、`paintRequest()`、`first.focus({preventScroll})`、request 的两条内部串检查），并把 3 条跨文件完全重复的 check 各删一份；`2191` 条（原 2201），114/114 仍全绿。以后只锁行为/契约/可见结构。
+- 工作区：`build/` 412.6 MB → 71.0 MB——删未在 docs 引用的根级截图 1401 张（保留 docs 引用的 155 张）、headless 残留 profile `cdp`/`cdp2`（168 MB）、logcat-*.txt（27 MB）、hc-controller.apk、brand-review.zip、asr/apk112/brand-review；`logs/` 679 个 8.3 MB → 9 个 0.1 MB；`.tmp/` 121 个 5.5 MB → 8 个 1.0 MB（清掉 ui*.xml dump、验证脚本、临时 md/txt）。
+- 记忆：归档 9 条与 app 优化无关的视频/封面/配音/蹭热点条目（B 站封面规格、缩略图定律、镜头节奏、edge-tts 与声线、借热点边界、1.5.19 封面 topic 等）；新增一条「轻衡维护纪律」rules（断言只锁行为、先 grep 再读、验证产物随轮清、改完跑 test-all）。
+- 未做：把 114 个测试文件按功能合并成更少的套件——这是动安全网的单独一轮，先给清单再动。

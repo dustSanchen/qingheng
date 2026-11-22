@@ -32,8 +32,8 @@ check('the plan runs through the effort signal', app.includes('applyEffortSignal
 check('the prompt carries the effort feedback', app.includes('最近强度反馈（用户自己点的）：') && app.includes('按降载排：每个配重动作少一组'));
 
 // --- 今天的要求 -------------------------------------------------------------------------------------------
-check('the plan card can take a request', html.includes('id="plan-request"') && html.includes('maxlength="200"'));
-check('the request lives with the plan preferences', html.indexOf('id="plan-prefs"') < html.indexOf('id="plan-request"') && html.indexOf('id="plan-request"') < html.indexOf('id="pref-save"'));
+check('the plan card can take a request, stored with the preferences', html.includes('id="plan-request"') && html.includes('maxlength="200"') &&
+  html.indexOf('id="plan-prefs"') < html.indexOf('id="plan-request"') && html.indexOf('id="plan-request"') < html.indexOf('id="pref-save"'));
 check('the request is read when planning', app.includes('const requestText = String((requestBox && requestBox.value) || "").trim().slice(0, 200)'));
 check('the model is told to judge, not to obey', app.includes('用户今天的要求（可能不专业，需要你判断）：') && app.includes('判断原则：先保目标口径'));
 check('a rejected request leaves a one-line coach note', app.includes('把一句不超过 40 字的原因写进第一个动作的 note 字段'));

@@ -61,7 +61,6 @@ check('the relax day still explains itself in one line', /放松日/.test(relaxe
 // --- 4. 记录·身体：今天体重（2026-11-22 由「今天两样」收窄）-----------------------------------------
 check('the body panel opens with today\'s weight', html.includes('id="body-quick"') && html.includes('id="body-weight-jump"') && !html.includes('id="body-quick-form"'));
 check('the weight card is a read-only jump, not a second form', html.includes('data-focus="measurement-weight"') && !/<form id="body-quick-form"/.test(html));
-check('weight is editable in exactly one place', ((html.slice(html.indexOf('id="view-records"'), html.indexOf('id="habit-card"')).match(/name="weight"/g)) || []).length === 1);
 check('sleep lives in the habit form only', html.slice(html.indexOf('id="habit-form"')).includes('name="sleep"') && !html.slice(html.indexOf('id="body-quick"'), html.indexOf('id="body-data-card"')).includes('name="sleep"'));
 check('the weight card follows the viewed day', app.includes('function renderBodyWeight()') && app.includes("$('#body-weight-jump')") && app.includes("tag.textContent = weight === null ? '待记录' : '已记录'"));
 check('the jump lands on the measurement field', app.includes("revealField('measurement-weight', {focus: false, block: 'start'})"));
