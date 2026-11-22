@@ -4797,15 +4797,19 @@ const values = points.length<=7 ? points.map((item,i) => {
       const name = $('[data-exercise="name"]', row).value.trim().slice(0, 60);
       // 没有 id 说明是新加的一行，给它一个，后续对位就靠它。
       const id = row.dataset.exerciseId || ((typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'ex-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8));
+      // 表单按 DOM 重建时要把「这条是勾选计划加进来的」带过去，否则取消勾选就再也认不出它。
+      const carried = (typeof exercisesFor === 'function' ? exercisesFor(activeDate) : [])
+        .find(item => item && (item.id === id || String(item.name || '').trim() === name));
+      const fromPlan = carried && carried.fromPlan === true ? {fromPlan: true} : {};
       if (row.dataset.cardio === '1') {
-        return {id, name, cardio: true, distanceKm: number($('[data-cardio="distance"]', row)?.value), durationMin: number($('[data-cardio="minutes"]', row)?.value), sets: 0, reps: null, weight: null, setDetails: []};
+        return {...fromPlan, id, name, cardio: true, distanceKm: number($('[data-cardio="distance"]', row)?.value), durationMin: number($('[data-cardio="minutes"]', row)?.value), sets: 0, reps: null, weight: null, setDetails: []};
       }
       const setDetails = $$('[data-set-row]', row).map(set => ({
         reps: number($('[data-set="reps"]', set).value),
         weight: number($('[data-set="weight"]', set).value)
       }));
       const weights = setDetails.map(set => set.weight).filter(value => value !== null);
-      return {id, name, setDetails, sets: setDetails.length, reps: setDetails[0] ? setDetails[0].reps : null, weight: weights.length ? Math.max(...weights) : null};
+      return {...fromPlan, id, name, setDetails, sets: setDetails.length, reps: setDetails[0] ? setDetails[0].reps : null, weight: weights.length ? Math.max(...weights) : null};
     }).filter(item => item.name || item.distanceKm !== null || item.durationMin !== null || item.setDetails.some(set => set.reps !== null || set.weight !== null));
   }
   function trainingVolumeOf(items) {
@@ -7783,7 +7787,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.22';
+  const APP_VERSION = '1.5.23';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -8083,7 +8087,11 @@ function metricIcon(label) {
     item.done = false;
     aiPlanStore(activeDate, plan);
     const current = exercisesFor(activeDate).find(row => String(row && row.name || "").trim() === name);
-    const untouched = current && current.fromPlan === true && (!Array.isArray(current.setDetails) || current.setDetails.length === 0);
+    // 「没动过」= 没填过次数/负重；空 setDetails 不代表没动过（表单重建时每组都是空对象）。
+    const recorded = Array.isArray(current?.setDetails)
+      ? current.setDetails.some(set => set && (number(set.reps) !== null || number(set.weight) !== null))
+      : false;
+    const untouched = current && current.fromPlan === true && !recorded;
     if (untouched) {
       await removeExerciseFromToday(current);
       if (typeof renderTrainingLog === "function") renderTrainingLog();

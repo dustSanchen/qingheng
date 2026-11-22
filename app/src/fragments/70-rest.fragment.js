@@ -161,7 +161,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.22';
+  const APP_VERSION = '1.5.23';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -461,7 +461,11 @@
     item.done = false;
     aiPlanStore(activeDate, plan);
     const current = exercisesFor(activeDate).find(row => String(row && row.name || "").trim() === name);
-    const untouched = current && current.fromPlan === true && (!Array.isArray(current.setDetails) || current.setDetails.length === 0);
+    // 「没动过」= 没填过次数/负重；空 setDetails 不代表没动过（表单重建时每组都是空对象）。
+    const recorded = Array.isArray(current?.setDetails)
+      ? current.setDetails.some(set => set && (number(set.reps) !== null || number(set.weight) !== null))
+      : false;
+    const untouched = current && current.fromPlan === true && !recorded;
     if (untouched) {
       await removeExerciseFromToday(current);
       if (typeof renderTrainingLog === "function") renderTrainingLog();

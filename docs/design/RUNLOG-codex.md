@@ -1767,3 +1767,10 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 推送：1.5.16→1.5.22 共 8 个提交（含 659e546）已推 localmirror / source / public，三远端 master 均指向 659e546。
 - 展示页：`publish-pages.ps1` 刷新 gh-pages → a12ebbe（强制更新）。
 - 未做：GitHub Release 未发（需要 API 凭据）；取消勾选回收与截图识读仍未真机点验。
+
+## r228 · 2026-11-23 · 1.5.23（修 fromPlan 标记存活 + 「没动过」判据）
+
+- 真机发现：取消勾选「卧推」时走的是保护分支（toast「已保留这条记录（里面已经有改动）」），回收分支不可达。
+- 根因两条：①`readTrainingExercises()` 按 DOM 重建行时只带 id/name/setDetails/sets/reps/weight，`fromPlan` 被丢掉；②判据用「setDetails 为空数组」当「没动过」，而重建后每组都是空对象，数组永远非空。
+- 修：重建时按 id 或名字从现有行继承 `fromPlan`（cardio 与普通行都带）；`untouched` 改为「没有任何一组的 reps/weight 有值」。
+- 测试：`training-plan-loop` 增加 2 条断言；全量 112/112；装机 1.5.23/523。取消勾选的真机复验留到下一轮。
