@@ -2314,6 +2314,8 @@ details:not(.advanced):not(.day-more)>summary::after{width:auto;height:auto;bord
 .habit-cell-value small{margin-left:2px;font-size:var(--text-xs);font-weight:var(--fw-regular);color:var(--muted)}
 #view-today .slot-hint{padding:12px 14px;border:1px solid var(--line);border-radius:16px;background:color-mix(in srgb,var(--surface) 62%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
 #view-today .slot-hint.is-quiet{display:none}
+/* 半透明卡必须写在 .is-next 之后：2177 行那条 (1,2,0) 会把 background/border 重置掉。 */
+#view-today .slot-hint.is-next{padding:12px 14px;border:1px solid var(--accent-soft);border-top:1px solid var(--accent-soft);border-radius:16px;background:color-mix(in srgb,var(--accent) 8%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
 #view-today .energy-body{padding-bottom:14px}
 #view-today .macro-grid{padding-top:12px;gap:10px}
 #view-today .macro-value{margin:2px 0}
