@@ -21,7 +21,7 @@ const read = path => fs.readFileSync(path, 'utf8');
 
 const meals = read('app/src/fragments/50-onboarding.fragment.js');
 const targets = read('app/src/fragments/40-targets.fragment.js');
-const rest = read('app/src/fragments/70-rest.fragment.js');
+const rest = read('app/src/fragments/68-training-log.fragment.js') + read('app/src/fragments/70-rest.fragment.js');
 const app = read('app/src/main/assets/app.js');
 const css = read('app/src/main/assets/styles.css');
 
@@ -236,9 +236,9 @@ const read = path => fs.readFileSync(path, 'utf8');
 const head = read('app/src/fragments/00-head.fragment.js');
 const training = read('app/src/fragments/60-training-copy.fragment.js');
 const domain = read('app/src/fragments/55-training-domain.fragment.js');
-const onboarding = read('app/src/fragments/50-onboarding.fragment.js');
+const onboarding = read('app/src/fragments/68-training-log.fragment.js') + read('app/src/fragments/50-onboarding.fragment.js');
 const rich = read('app/src/fragments/10-rich-answer.fragment.js');
-const rest = read('app/src/fragments/70-rest.fragment.js');
+const rest = read('app/src/fragments/68-training-log.fragment.js') + read('app/src/fragments/70-rest.fragment.js');
 const html = read('app/src/main/assets/index.html');
 const adapter = read('app/src/main/assets/native-adapter.js');
 const main = read('app/src/main/java/cn/qingheng/health/MainActivity.java');

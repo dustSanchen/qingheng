@@ -1878,3 +1878,18 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 需要跟着改的依赖：①`tools/sync-version.mjs` 的第 3 个目标从 `tests/meal-date-java.test.mjs` 改成 `tests/suite-food.test.mjs`（版本字面量在合并后落在这里）；②`sync-version` 自测的文件清单同步改；③drift guard 的「测试存在」断言改成在 `tests/*.test.mjs` 里搜「app.js is in sync with the fragments」；④`assemble-app.ps1` / `verify-all.ps1` 注释、`AGENTS.md` 基线、README 徽章（tests-114 → tests-10 suites / 2191）一起同步。
 - 索引：`tests/README.md` 记录每个套件收哪些原文件；新增回归优先加进对应套件，别再新建单文件。
 - 验收：`test-all` 10/10 套件全绿（2,191 条断言），assemble + `node --check` 不受影响；旧 114 个文件已删（git 可回溯）。
+### r218 · 2026-11-23 01:40 · 训练 Phase 1：修六个缺陷 + 统一逐组容量口径（f202628）
+- 用户原话：「请完整了解该份文档，分步骤逐步实现重构」（附件《轻衡训练模块架构审视与重构方案.md》）。
+- 逐条核实后修：①杠铃总重回填选择器（`input[name=weight]` 永远选不到，改 `[data-set="weight"]`）；②`renderWeekPlan` 漏传 `request`；③`dailyLoads` 改用 `trainingVolumeOf`，Java 抽 `exerciseVolumeKg` 给 `trainingLog` / `weeklyVolumeByExercise` / `adviceBody` 共用（金字塔组 1280 kg 不再被算成 2400）；④草稿保住 `id/planIndex/fromPlan/weightApprox`、播种行 `planIndex` 指向清单原下标、动作名上限 24→60（四处）；⑤顺延到明天后重绘表单与今日清单。
+- 测试：`suite-training` 新增 `training-phase1` 组（14 条，含沙箱跑真函数的金字塔组断言）；`test-all` 10/10。
+- 未做：清空训练的 `seedMuted` 仍只写 DOM（归 Phase 2）；保存时外层汇总仍是 `reps=第一组 / weight=最大`，基线读取仍受影响。
+### r219 · 2026-11-23 01:55 · 训练 Phase 2：抽 55-training-domain + 清僵尸清单代码（d8d18ef）
+- 新增 `55-training-domain.fragment.js`（零 DOM）：动作规则/自重/有氧、容量与负荷、重量记忆与渐进、周计划生成、训练库文案，67 段从 50/60 迁入；部位分类收成 `exerciseBodyPart + BODY_PART_RULES`（`generateWeekPlan` 的 `familyOf`、`compilePlanContext` 的部位正则都改用它）；`loadableWeightKg` 复用 `isBodyweightMove`；删掉只剩外层汇总口径的 `exerciseVolume`。
+- 70 清僵尸：`renderAiPlan` 收敛为 `syncAiPlanControls`（只同步重排文案 / 顺延显隐 / 教练说明 / 耗时），`installAiPlan` 只留「重排今天」「顺延到明天」；删除 `aiPlanRowHtml`/`collectAiPlanEdits`/`aiPlanDose`/`planMinutesStep` 与 `#ai-plan-list|fold|edit|all|clear|summary` 的全部死分支（约 160 行）。
+- 顺手修两处真实断链：①今日清单的勾选框改走 `togglePlanDone`（之前只改 `aiPlanStore`，勾了却没记上），失败回滚勾选；②清空训练的抑制播种改成按日的「清单快照」（`qingheng.seedMuted.<date>`），刷新不复活、换新清单仍会播。
+- 测试：新增 `tests/lib/extract.mjs`（按函数名 + 编译校验取源码），各套件的相邻函数切片改用它；随 UI 收缩重写的 `check()` 一并更新。
+### r220 · 2026-11-23 02:05 · 训练 Phase 3：抽 68-training-log + 事件收口
+- 新增 `68-training-log.fragment.js`：动作行 / 组次 / 有氧 / 草稿 / 保存弹窗 / 课后总结 / 训练概览 / 容量表从 50、70 迁入（35 个函数）；`#training-date|effort|add|presets|template|repeat|exercises|form|clear|rest|today-training-line` 的事件统一收进幂等的 `installTrainingLog()`。
+- `#week-plan` 不再有两个监听器：排课写入收进 `renderWeekPlan` 的同一委托（`scheduleWeekPlan`），70 里那段独立 `addEventListener` 删除。
+- 教练说明与排课耗时不再搬进「计划说明」抽屉（`installTrainingSheets` 的 appendChild 删除），留在训练日志工具栏下方。
+- 结果：50 只剩新手引导 / 餐食 / 趋势；70 只剩导航、AI 排课、休息计时、训练建议；`test-all` 10/10 全绿（`check()` 站点 2,187）。

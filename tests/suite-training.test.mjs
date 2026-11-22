@@ -27,7 +27,7 @@ const read = path => fs.readFileSync(path, 'utf8');
 
 const html = read('app/src/main/assets/index.html');
 const app = read('app/src/main/assets/app.js');
-const rest = read('app/src/fragments/70-rest.fragment.js');
+const rest = read('app/src/fragments/68-training-log.fragment.js') + read('app/src/fragments/70-rest.fragment.js');
 const head = read('app/src/fragments/00-head.fragment.js');
 const main = read('app/src/main/java/cn/qingheng/health/MainActivity.java');
 const prompts = read('app/src/main/java/cn/qingheng/health/ai/Prompts.java');
@@ -227,9 +227,9 @@ let fail = 0;
 const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + label + (detail === undefined ? '' : '  -> ' + detail)); if (!ok) fail++; };
 
 const readSrc = path => fs.readFileSync(path, 'utf8').replace(/\r\n/g, '\n');
-const rest = readSrc('app/src/fragments/70-rest.fragment.js');
+const rest = readSrc('app/src/fragments/68-training-log.fragment.js') + readSrc('app/src/fragments/70-rest.fragment.js');
 const training = readSrc('app/src/fragments/60-training-copy.fragment.js');
-const onboarding = readSrc('app/src/fragments/50-onboarding.fragment.js');
+const onboarding = readSrc('app/src/fragments/68-training-log.fragment.js') + readSrc('app/src/fragments/50-onboarding.fragment.js');
 // 2026-11-23 Phase 2：自重判定 / 可装重量 / 重量记忆 / 渐进全部收进 55-training-domain，
 // 直接整份喂进沙箱（这一层是零 DOM 的纯函数），不再按相邻函数切标记。
 const domain = readSrc(DOMAIN_FILE);
@@ -396,7 +396,7 @@ const read = path => fs.readFileSync(path, 'utf8');
 
 const app = read('app/src/main/assets/app.js');
 const training = read(DOMAIN_FILE) + read('app/src/fragments/60-training-copy.fragment.js');
-const rest = read('app/src/fragments/70-rest.fragment.js');
+const rest = read('app/src/fragments/68-training-log.fragment.js') + read('app/src/fragments/70-rest.fragment.js');
 const main = read('app/src/main/java/cn/qingheng/health/MainActivity.java');
 
 // --- P0 部位单一来源 -----------------------------------------------------------------------------
@@ -966,7 +966,7 @@ const read = path => fs.readFileSync(path, 'utf8');
 const app = read('app/src/main/assets/app.js');
 const html = read('app/src/main/assets/index.html');
 const main = read('app/src/main/java/cn/qingheng/health/MainActivity.java');
-const onboarding = read('app/src/fragments/50-onboarding.fragment.js');
+const onboarding = read('app/src/fragments/68-training-log.fragment.js') + read('app/src/fragments/50-onboarding.fragment.js');
 const training = read(DOMAIN_FILE) + read('app/src/fragments/60-training-copy.fragment.js');
 
 // ① 自重能存
@@ -981,13 +981,16 @@ check('the draft is captured on input and on set toggles', onboarding.includes("
   onboarding.includes("event.target.closest('[data-set-done], [data-set-add], [data-exercise-remove]')"));
 check('a rebuild prefers the draft over saved rows', onboarding.includes('draft && draft.length ? draft :'));
 check('the draft is dropped after saving and after clearing', onboarding.includes('forgetTrainingDraft();') &&
-  read('app/src/fragments/70-rest.fragment.js').includes('forgetTrainingDraft()'));
+  read('app/src/fragments/68-training-log.fragment.js').includes('forgetTrainingDraft()'));
 check('set rows restore their done state', onboarding.includes('set && set.done ? \' is-done\'') && onboarding.includes('done: set.done === true'));
 
 // ③ 计划说明
 check('the sheet move no longer picks the nested lead paragraph', app.includes('.plan-requirement, .plan-relation, .plan-why, .plan-label, .plan-load, .plan-load-note, .drift-line') &&
   !app.includes('.plan-why, .plan-why-lead'));
-check('the two note lines live in the sheet now', html.includes('id="plan-explain-notes"') && app.includes("for (const id of ['ai-plan-note', 'ai-plan-timing'])"));
+// 2026-11-23 Phase 3：教练说明与耗时不再搬进计划说明抽屉——它们留在训练日志工具栏下方，
+// 点「重排今天」之后抬头就能看到。
+check('the two note lines stay in the training log', html.includes('id="ai-plan-note"') && html.includes('id="ai-plan-timing"')
+  && !app.includes("for (const id of ['ai-plan-note', 'ai-plan-timing'])"));
 
 // ④ 计划按需要
 check('the generator receives split, gear, minutes and a start template', app.includes('split: planPref.split, gear: planPref.gear, minutes: planPref.minutes') &&
@@ -1590,8 +1593,8 @@ const read = path => fs.readFileSync(path, 'utf8');
 
 const app = read('app/src/main/assets/app.js');
 const html = read('app/src/main/assets/index.html');
-const onboarding = read('app/src/fragments/50-onboarding.fragment.js');
-const rest = read('app/src/fragments/70-rest.fragment.js');
+const onboarding = read('app/src/fragments/68-training-log.fragment.js') + read('app/src/fragments/50-onboarding.fragment.js');
+const rest = read('app/src/fragments/68-training-log.fragment.js') + read('app/src/fragments/70-rest.fragment.js');
 
 // --- presets per body part ---------------------------------------------------------------------------
 check('presets are declared once', (app.match(/const EXERCISE_PRESETS/g) || []).length === 1);
@@ -1757,7 +1760,9 @@ await __run("week-schedule-merge", async () => {
 let fail = 0;
 const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + label + (detail === undefined ? '' : '  -> ' + detail)); if (!ok) fail++; };
 
-const rest = fs.readFileSync('app/src/fragments/70-rest.fragment.js', 'utf8');
+// 2026-11-23 Phase 3：排课写入收进 60 的 renderWeekPlan 委托（scheduleWeekPlan），先读 60 再读 70。
+const rest = fs.readFileSync('app/src/fragments/60-training-copy.fragment.js', 'utf8')
+  + fs.readFileSync('app/src/fragments/70-rest.fragment.js', 'utf8');
 const app = fs.readFileSync('app/src/main/assets/app.js', 'utf8');
 
 // --- 唯一的排课入口：只追加 --------------------------------------------------------------------------------
@@ -1793,7 +1798,7 @@ const read = path => fs.readFileSync(path, 'utf8');
 
 const app = read('app/src/main/assets/app.js');
 const training = read(DOMAIN_FILE) + read('app/src/fragments/60-training-copy.fragment.js');
-const rest = read('app/src/fragments/70-rest.fragment.js');
+const rest = read('app/src/fragments/68-training-log.fragment.js') + read('app/src/fragments/70-rest.fragment.js');
 
 // ① 点日期不跳页 -------------------------------------------------------------------------------
 // 固定长度的窗口：用「到 const prefs」切片会撞上文件里更早出现的同名片段，切出空串。
@@ -1846,9 +1851,9 @@ const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + 
 const read = path => fs.readFileSync(path, 'utf8');
 
 const appJs = read('app/src/main/assets/app.js');
-const onboarding = read('app/src/fragments/50-onboarding.fragment.js');
+const onboarding = read('app/src/fragments/68-training-log.fragment.js') + read('app/src/fragments/50-onboarding.fragment.js');
 const training = read(DOMAIN_FILE) + read('app/src/fragments/60-training-copy.fragment.js');
-const rest = read('app/src/fragments/70-rest.fragment.js');
+const rest = read('app/src/fragments/68-training-log.fragment.js') + read('app/src/fragments/70-rest.fragment.js');
 const main = read('app/src/main/java/cn/qingheng/health/MainActivity.java');
 
 // ① 杠铃总重回填：负重框是 [data-set="weight"]，没有 name 属性 --------------------------------------

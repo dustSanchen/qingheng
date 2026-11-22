@@ -971,6 +971,43 @@
     forceWeekPlan = true;
     renderWeekPlan();
   }
+  /**
+   * 「把这周写进训练记录」：只追加、不覆盖——每天原有记录整条保留，同名动作跳过；
+   * 一天都没新增就不写，也不改 training 标记。2026-11-23 Phase 3 从 70 的独立监听器收进来。
+   */
+  async function scheduleWeekPlan(button) {
+    const plan = lastWeekPlan;
+    if (!plan) return;
+    const ok = await askConfirm('将把 ' + plan.days.length + ' 次训练写入 ' + plan.startDate + ' 起的一周（每天一条训练记录）。已记录的动作会保留，只补充缺的动作。', {title: '排进本周'});
+    if (!ok) return;
+    button.disabled = true;
+    try {
+      let written = 0, kept = 0, addedTotal = 0;
+      for (const day of plan.days) {
+        const habit = habitRowFor(day.date) || {date: day.date};
+        const existing = Array.isArray(habit.exercises) ? habit.exercises : [];
+        const have = new Set(existing.map(row => String(row && row.name || '').trim()));
+        const additions = [];
+        for (const item of day.exercises) {
+          const name = String(item && item.name || '').trim();
+          if (!name || have.has(name)) continue;
+          have.add(name);
+          additions.push({name, sets: item.sets, reps: item.reps, weight: item.weight});
+        }
+        if (!additions.length) { kept++; continue; }
+        await api('/api/habits', {...habit, date: day.date, training: true, exercises: [...existing, ...additions]});
+        written++;
+        addedTotal += additions.length;
+      }
+      await loadState({quiet: true});
+      const tail = kept ? '；' + kept + ' 天已排过，未改动' : '';
+      notice('已排好 ' + written + ' 次训练（新增 ' + addedTotal + ' 个动作）' + tail + '，可在「记录 · 训练」逐日调整。');
+    } catch (error) {
+      notice(error.message, true);
+    } finally {
+      button.disabled = false;
+    }
+  }
   function renderWeekPlan() {
     const box = $('#week-plan'), tag = $('#week-plan-tag');
     if (!box) return;
@@ -1048,9 +1085,11 @@
           // 单个动作的要点走动作名旁的 ?（showExerciseGuide），不再占卡面。
           return;
         }
-        const button = event.target.closest("[data-adopt-today]");
-        if (!button) return;
-        adoptWeekDay();
+        const adopt = event.target.closest("[data-adopt-today]");
+        if (adopt) { adoptWeekDay(); return; }
+        // 2026-11-23 Phase 3：把这周的写入也收进同一个委托，#week-plan 上不再有第二个监听器。
+        const schedule = event.target.closest("[data-plan-schedule]");
+        if (schedule) scheduleWeekPlan(schedule);
       });
     }
     const prefs = planPrefs();

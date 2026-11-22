@@ -1566,132 +1566,6 @@
    */
   /** 训练概览：本周练了几次、总容量、今天蛋白放在同一屏，训练与饮食不再是两页。 */
   let lastOverviewSig = '';
-  /**
-   * 训练周统计的唯一口径（概览卡复用）：容量按 kg 逐日取整后求和；有 setDetails 用逐组 reps×weight，
-   * 没有 setDetails 的旧记录用 sets×reps×weight；有氧（只有距离/时长）不计容量。次数 = 当周有动作的天数。
-   */
-  function weekTrainingStats(weekStart) {
-    const days = [];
-    for (let offset = 0; offset < 7; offset++) {
-      const date = shiftDay(weekStart, offset);
-      const rows = exercisesFor(date);
-      const raw = habitRowFor(date);
-      const stats = trainingStatsOf(Array.isArray(raw?.exercises) ? raw.exercises : []);
-      const volume = stats.volume;
-      const km = rows.reduce((sum, item) => sum + (Number(item.distanceKm) || 0), 0);
-      const min = rows.reduce((sum, item) => sum + (Number(item.durationMin) || 0), 0);
-      days.push({date, count: rows.length, volume, bwReps: stats.bodyweightReps, km, min});
-    }
-    return {
-      days,
-      sessions: days.filter(day => day.count > 0).length,
-      totalVolume: Math.round(days.reduce((sum, day) => sum + day.volume, 0)),
-      totalBwReps: Math.round(days.reduce((sum, day) => sum + day.bwReps, 0)),
-      totalKm: days.reduce((sum, day) => sum + day.km, 0),
-      totalMin: days.reduce((sum, day) => sum + day.min, 0)
-    };
-  }
-  function renderTrainingOverview() {
-    const grid = $('#training-overview-grid');
-    if (!grid) return;
-    const weekStart = shiftDay(activeDate, -((new Date(activeDate + 'T00:00:00').getDay() + 6) % 7));
-    const {days, sessions, totalVolume, totalBwReps, totalKm, totalMin} = weekTrainingStats(weekStart);
-    // 上周同口径的容量：说明文字给「比上周」一个真参照，而不是只列数字。
-    const prevWeek = weekTrainingStats(shiftDay(weekStart, -7));
-    const prevVolume = prevWeek.totalVolume, prevBwReps = prevWeek.totalBwReps;
-    const meals = (state.meals || []).filter(row => row && row.date === activeDate);
-    const totals = totalsFor(meals), p = effectiveProfileForDate(activeDate);
-    const kcal = number(totals.calories), protein = number(totals.protein);
-    const target = number(p.intakeRange ? p.intakeRange.max : p.calorieTarget);
-    const proteinMin = number(p.proteinMin);
-    // 三个数不再同字号：容量是这张卡的主数字，次数是注脚，蛋白是跨域的副指标。
-    // 节点只建一次，之后只改数字：这样 data-count 能把旧值缓到新值（首帧仍是直接落值）。
-    if (!grid.dataset.wired) {
-      grid.dataset.wired = '1';
-      grid.innerHTML = '<div class="overview-stat is-lead"><small>本周容量</small><strong><b class="ov-num" data-count>—</b><span data-unit></span></strong></div>'
-        + '<div class="overview-stat"><small>本周训练</small><strong><b class="ov-num" data-count>—</b><span data-unit></span></strong></div>'
-        + '<div class="overview-stat is-cross"><small>今日蛋白</small><strong><b class="ov-num" data-count>—</b><span data-unit></span></strong></div>';
-      if (typeof installCountRoll === 'function') installCountRoll(grid);
-    }
-    const setStat = (index, value, unit) => {
-      const stat = grid.children[index];
-      if (!stat) return;
-      const number = stat.querySelector('b.ov-num'), label = stat.querySelector('[data-unit]');
-      if (label) label.textContent = unit || '';
-      if (number) number.textContent = value === null ? '—' : fmt(value, 0);
-    };
-    // 只有自重动作的一周没有 kg 容量：主数字换成「自重 N 次」，不留一个像没练的破折号。
-    const leadLabel = grid.children[0]?.querySelector('small');
-    if (leadLabel) leadLabel.textContent = totalVolume > 0 ? '本周容量' : totalBwReps > 0 ? '本周自重' : '本周容量';
-    setStat(0, totalVolume > 0 ? totalVolume : totalBwReps > 0 ? totalBwReps : null,
-      totalVolume > 0 ? ' kg' : totalBwReps > 0 ? ' 次' : '');
-    setStat(1, sessions, ' 次');
-    setStat(2, protein, protein === null
-      ? (proteinMin ? '目标 ' + fmt(proteinMin, 0) + ' g' : '')
-      : (proteinMin ? ' / ' + fmt(proteinMin, 0) + ' g' : ''));
-    // 一根柱子只能有一种单位：整周有 kg 容量就画容量，全是自重就画次数，不混着画。
-    const barMetric = totalVolume > 0 ? 'volume' : totalBwReps > 0 ? 'bw' : 'volume';
-    const barValue = day => barMetric === 'bw' ? day.bwReps : day.volume;
-    const peak = Math.max(1, ...days.map(barValue));
-    const bars = $('#training-overview-bars');
-    // 只有这一周的训练数据真的变了才重播：切 tab、存一餐都重播一遍会显得吵。
-    const motionReduced = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-    const barsSig = days.map(day => Math.round(barValue(day))).join(',') + '|' + sessions + '|' + barMetric;
-    const animateBars = barsSig !== lastOverviewSig && !motionReduced;
-    lastOverviewSig = barsSig;
-    if (bars) {
-      // 柱子只画「练了的天」，空天留一条基线；有数值的柱子头顶标数，图才读得出信息而不只是装饰。
-      // 起手 0 高度、逐根 40ms 归位，让「这一周的形状」是长出来的，不是刷出来的。
-      const pctOf = day => barValue(day) ? Math.max(8, Math.round(barValue(day) / peak * 100)) : 2;
-      bars.innerHTML = days.map(day => '<div class="ov-bar' + (day.date === activeDate ? ' is-today' : '') + (day.count ? ' has-data' : '') + '">'
-        + '<b class="ov-bar-value">' + (barValue(day) > 0 ? fmt(barValue(day), 0) : '') + '</b>'
-        + '<span data-h="' + pctOf(day) + '" style="height:' + (animateBars ? 0 : pctOf(day)) + '%"></span>'
-        + '<small>' + '日一二三四五六'[new Date(day.date + 'T00:00:00').getDay()] + '</small></div>').join('');
-      if (animateBars) {
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-          Array.prototype.forEach.call(bars.querySelectorAll('.ov-bar span'), (bar, index) => {
-            bar.style.transitionDelay = (index * 40) + 'ms';
-            bar.style.height = bar.dataset.h + '%';
-          });
-        }));
-      }
-    }
-    // 说明分两行：第一行讲训练与对照，第二行讲饮食——不再把两件事挤成一句。
-    const note = $('#training-overview-note');
-    if (note) {
-      const lines = [];
-      if (sessions > 0) {
-        let line = '本周 ' + sessions + ' 练';
-        if (totalVolume > 0) line += ' · 容量 ' + fmt(totalVolume, 0) + ' kg';
-        if (totalBwReps > 0) line += ' · 自重 ' + fmt(totalBwReps, 0) + ' 次';
-        if (totalKm > 0 || totalMin > 0) {
-          line += ' · 有氧 ' + [totalKm > 0 ? fmt(totalKm, 1) + ' km' : '', totalMin > 0 ? fmt(totalMin, 0) + ' 分钟' : ''].filter(Boolean).join(' · ');
-        }
-        if (prevVolume > 0 && totalVolume > 0) {
-          const delta = totalVolume - prevVolume;
-          const pct = Math.round(Math.abs(delta) / prevVolume * 100);
-          line += '，比上周 ' + (delta >= 0 ? '+' : '−') + pct + '%';
-        }
-        lines.push(line);
-      } else {
-        const prevText = prevVolume > 0 ? '（上周 ' + fmt(prevVolume, 0) + ' kg）' : prevBwReps > 0 ? '（上周自重 ' + fmt(prevBwReps, 0) + ' 次）' : '';
-        lines.push('本周还没训练' + prevText);
-      }
-      // 看的是哪一天就写哪一天：切到 11-21 还写「今天」读起来就是在说错日期。
-      const noteDay = typeof dayLabel === "function" ? dayLabel(activeDate) : "今天";
-      lines.push(kcal === null
-        ? noteDay + '还没记饮食'
-        : noteDay + '摄入 ' + fmt(kcal, 0) + (target ? ' / ' + fmt(target, 0) : '') + ' kcal · 蛋白 ' + fmt(protein || 0, 0) + (proteinMin ? ' / ' + fmt(proteinMin, 0) + ' g' : ' g'));
-      note.innerHTML = lines.map((line, index) => '<span class="overview-note-line' + (index ? ' is-muted' : '') + '">' + line + '</span>').join('');
-      if (!note.dataset.wired) {
-        note.dataset.wired = '1';
-        note.addEventListener('click', event => {
-          const go = event.target.closest?.('[data-panel-go]');
-          if (go && typeof switchRecordPanel === 'function') switchRecordPanel(go.dataset.panelGo);
-        });
-      }
-    }
-  }
 
   const RECORD_PANELS = [
     {key: 'food', label: '饮食', headings: ['轻松记一餐', '最近的餐食记录']},
@@ -1893,25 +1767,6 @@
   });
   // 2026-11-22：睡眠从「今天两样」迁回这一行——步数/饮水/睡眠同属日常习惯，一次保存。
   $('#habit-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/habits',form=>{const filled=Object.fromEntries(Object.entries(numericForm(form,['steps','water','sleep'])).filter(([,value])=>value!==null));if(!Object.keys(filled).length) throw new Error('请至少填写一项日常习惯。');return {...(habitRowFor(form.elements.date.value)||{}), date:form.elements.date.value, ...filled};});});
-  // 记录页三种表单统一成「日期在最前、保存在最后」；训练日志原来没有日期输入，只能靠页面顶部的全局日期。
-  $('#training-date')?.addEventListener('change', event => {
-    const value = event.target.value;
-    if (validDate(value)) setActiveDate(value);
-    else event.target.value = activeDate;
-  });
-  $('#training-effort')?.addEventListener('click', event => {
-    const chip = event.target.closest('[data-effort]');
-    if (!chip) return;
-    saveTrainingEffort(chip.dataset.effort).catch(error => notice(error && error.message ? error.message : '记录训练强度失败'));
-  });
-  $('#training-add')?.addEventListener('click', () => {
-    // 以前这里手写了一套「组数 / 每组次数 / 负重」旧字段，与逐组模型不兼容——
-    // 点「添加动作」加出来的行没有 [data-set-row]，保存时会被判为「每组都要填次数与负重」。
-    // 现在与预设 chip 走同一个构造函数，加出来的行立刻就有第 1 组。
-    const row = appendExerciseRow('');
-    if (!row) return;
-    $('[data-exercise="name"]', row)?.focus();
-  });
   document.addEventListener('click', event => {
     const toggle = event.target.closest('[data-meal-items]');
     if (!toggle) return;
@@ -1921,20 +1776,6 @@
     panel.hidden = !open;
     toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
   });
-  $('#training-presets')?.addEventListener('click', event => {
-    const chip = event.target.closest('[data-training-preset]');
-    if (!chip) return;
-    const name = chip.dataset.trainingPreset;
-    const previous = latestExerciseValues(name);
-    const row = appendExerciseRow(name, previous);
-    if (!row) return;
-    notice(previous
-      ? `已添加 ${name}：沿用 ${previous.date} 的 ${previous.sets}×${previous.reps}×${previous.weight} kg，可修改。`
-      : `已添加 ${name}，填好组次与负重后保存。`);
-    $('[data-set="reps"]', row)?.focus();
-  });
-  $('#training-template')?.addEventListener('change', () => renderTrainingPresets());
-  $('#training-repeat')?.addEventListener('click', () => repeatLastTraining());
   // 组间休息从卡片底部的工具行挪到「训练动作视野内」：固定小药丸，上下滚动都看得见，
   // 键盘弹起时也随布局视口上移；只有训练日志在视野里或计时进行中才出现（2026-11-17）。
   let restTick = 0, restEnd = 0, restExercisesInView = false, restActionsInView = false, restDockWired = false;
@@ -2133,160 +1974,6 @@
   installRestDock();
   // 药丸是「控制」：点它要么取消、要么重开一轮，原先那根线不再代表新的计时。
   $('#rest-timer')?.addEventListener('click', () => {clearRestLine(); startRestTimer(false, restLength);});
-  // 容量必须跟着输入走：以前只在增删组时重算，填完 10 次 × 60 kg 还挂着「—」，像没记上。
-  // 有氧行跟着距离/时长算配速；动作名改成「跑步」时整行切到有氧表单（2026-11-17）。
-  $('#training-exercises')?.addEventListener('input', event => {
-    const field = event.target;
-    if (field.matches?.('[data-exercise="name"]')) {
-      if (typeof syncExerciseMode === 'function') syncExerciseMode(field.closest?.('[data-exercise-row]'));
-      return;
-    }
-    if (field.matches?.('[data-cardio="distance"],[data-cardio="minutes"]')) {
-      if (typeof refreshCardioPace === 'function') refreshCardioPace(field.closest?.('[data-cardio-row]'));
-      return;
-    }
-    if (!field.matches?.('[data-set="reps"],[data-set="weight"]')) return;
-    const row = field.closest?.('[data-exercise-row]');
-    if (row) refreshSetRow(row);
-  });
-  // 名称改完失焦就锁回「可点看要点」的展示态；空名保持可编辑。
-  // 2026-11-23 修：锁定会把「自重」按钮改成 display:none，而 focusout 早于 click——
-  // 手指落在本行控件上时若在这里锁回去，按钮先消失、click 落到行容器上，表现成「点了没反应」。
-  // 所以行内失焦一律让位，改由行外的 pointerdown 收口。
-  const lockExerciseName = wrap => {
-    const input = wrap ? $('[data-exercise="name"]', wrap) : null;
-    if (!input) return;
-    const name = String(input.value || '').trim();
-    if (!name) return;
-    wrap.classList.add('is-locked');
-    input.readOnly = true;
-    const open = $('[data-exercise-open]', wrap);
-    if (open) { open.textContent = name; open.setAttribute('aria-label', '查看动作说明：' + name); }
-  };
-  $('#training-exercises')?.addEventListener('focusout', event => {
-    const input = event.target.closest?.('[data-exercise="name"]');
-    if (!input) return;
-    const wrap = input.closest('.exercise-name-row');
-    if (!wrap) return;
-    // relatedTarget 指向本行按钮（桌面 Edge/Chrome）或为空（部分触屏）都不锁：交给下面的行外 pointerdown。
-    const next = event.relatedTarget;
-    if (!next || wrap.contains(next)) return;
-    lockExerciseName(wrap);
-  });
-  // 只有按在行外才锁回展示态；行内（自重 / 改 / 名称输入）不锁，否则按钮会先被 display:none 掉、click 落空。
-  document.addEventListener('pointerdown', event => {
-    if (event.target.closest?.('.exercise-name-row')) return;
-    $$('.exercise-name-row:not(.is-locked)').forEach(wrap => lockExerciseName(wrap));
-  }, true);
-  $('#training-exercises')?.addEventListener('click', event => {
-    // 名称即入口（2026-11-22 第七轮）：点名字先看要点，点「改」才进编辑。
-    const openName = event.target.closest?.('[data-exercise-open]');
-    if (openName) {
-      const row = openName.closest('[data-exercise-row]');
-      const name = String($('[data-exercise="name"]', row)?.value || '').trim();
-      if (name && typeof showExerciseGuide === 'function') showExerciseGuide(name);
-      return;
-    }
-    const editName = event.target.closest?.('[data-exercise-edit]');
-    if (editName) {
-      const row = editName.closest('[data-exercise-row]');
-      const wrap = $('.exercise-name-row', row), input = $('[data-exercise="name"]', row);
-      wrap?.classList.remove('is-locked');
-      if (input) { input.readOnly = false; input.focus(); if (input.select) input.select(); }
-      return;
-    }
-    // 「自重」标记：点一下就把这个动作名记进用户的自重表，保存时不校验负重。
-    const bw = event.target.closest?.('[data-exercise-bodyweight]');
-    if (bw) {
-      const row = bw.closest('[data-exercise-row]');
-      const name = String($('[data-exercise="name"]', row)?.value || '').trim();
-      if (!name) { notice('先填动作名称，再标自重。', true); return; }
-      const on = bw.getAttribute('aria-pressed') !== 'true';
-      if (typeof setUserBodyweight === 'function') setUserBodyweight(name, on);
-      bw.setAttribute('aria-pressed', String(on));
-      bw.textContent = on ? '自重 ✓' : '自重';
-      // 该行的重量格随之变化：自重→占位「自重」，取消→占位「—」。
-      if (typeof refreshSetRow === 'function') refreshSetRow(row);
-      notice(on ? '已记为自重动作：' + name + '，以后同名动作都按自重处理。' : '已取消自重标记：' + name + '。');
-      return;
-    }
-    const done = event.target.closest?.('[data-set-done]');
-    if (done) {
-      const set = done.closest('[data-set-row]');
-      const on = set.classList.toggle('is-done');
-      done.setAttribute('aria-pressed', String(on));
-      syncPlanDoneFromRow(done.closest('[data-exercise-row]'));
-      if (on) {
-        // 第一次勾组就是这一节的起点：结束训练时按它算「实际耗时」。
-        if (typeof markSessionStart === 'function') markSessionStart();
-        // 按这一行的动作决定休息多久（复合/孤立/自重不同）；有氧行不计时。
-        const row = done.closest('[data-exercise-row]');
-        const name = row ? String($('[data-exercise="name"]', row)?.value || '') : '';
-        startRestTimer(true, restSecondsFor(name));
-        // restLength 由 startRestTimer 按动作定下；0 秒（有氧）不挂线。
-        if (restLength > 0) attachRestLine(row || set);
-      } else {
-        clearRestLine();
-      }
-      return;
-    }
-    const addSet = event.target.closest?.('[data-set-add]');
-    if (addSet) {
-      const row = addSet.closest('[data-exercise-row]');
-      const list = $('[data-set-list]', row);
-      const last = list ? list.lastElementChild : null;
-      list?.insertAdjacentHTML('beforeend', setRowHtml({
-        reps: last ? number($('[data-set="reps"]', last).value) : null,
-        weight: last ? number($('[data-set="weight"]', last).value) : null
-      }, list.children.length));
-      refreshSetRow(row);
-      return;
-    }
-    const removeSet = event.target.closest?.('[data-set-remove]');
-    if (removeSet) {
-      const row = removeSet.closest('[data-exercise-row]');
-      if ($$('[data-set-row]', row).length <= 1) return;
-      removeSet.closest('[data-set-row]')?.remove();
-      refreshSetRow(row);
-      return;
-    }
-    const button = event.target.closest?.('[data-exercise-remove]');
-    if (!button) return;
-    button.closest('[data-exercise-row]')?.remove();
-    if (typeof renumberExerciseRows === 'function') renumberExerciseRows();
-  });
-  $('#training-form')?.addEventListener('submit', event => {event.preventDefault(); saveTrainingLog().catch(error => notice(error.message, true));});
-  $('#training-clear')?.addEventListener('click', async () => {
-    if (!await askConfirm('清空今天的训练记录？习惯行的其他数据（步数、睡眠、饮水、用油）会保留。', {title: '清空训练', ok: '清空', danger: true})) return;
-    // 清空即「今天不按计划走了」：把当时那份清单记下来抑制自动播种，刷新后也不会播回来。
-    if (typeof markSeedMuted === 'function') markSeedMuted(aiPlanStore(activeDate) || []);
-    if (typeof forgetTrainingDraft === 'function') forgetTrainingDraft();
-    const existing = habitRowFor(activeDate);
-    if (!existing) {renderTrainingLog(); return;}
-    const next = {...existing};
-    delete next.exercises;
-    delete next.template;
-    delete next.training;
-    try {await api('/api/habits', next); await loadState({quiet: true}); renderTrainingLog(); notice('已清空今天的训练记录。');}
-    catch (error) {notice(error.message, true);}
-  });
-  $('#training-rest')?.addEventListener('click', async () => {
-    const existing = habitRowFor(activeDate);
-    const restMarked = !!existing && (existing.training === false || String(existing.training) === 'false') && !exercisesFor(activeDate).length;
-    if (!restMarked && !await askConfirm('把今天记为休息日？已有的步数、睡眠和饮水会保留，之后仍可记录训练。', {title: '记为休息', ok: '记为休息'})) return;
-    const next = {...(existing || {}), date: activeDate};
-    if (restMarked) delete next.training; else next.training = false;
-    try {
-      await api('/api/habits', next);
-      await loadState({quiet: true});
-      renderTrainingLog();
-      notice(restMarked ? '已取消休息标记。' : '已记为休息日。');
-    } catch (error) {notice(error.message, true);}
-  });
-  $('#today-training-line')?.addEventListener('click', () => {
-    switchTab('records', true);
-    if (typeof switchRecordPanel === 'function') switchRecordPanel('training');
-  });
   $('#copy-meal-buttons')?.addEventListener('click', event => {
     const button = event.target.closest?.('[data-copy-meal]');
     if (button) copyMeal(button.dataset.copyMeal).catch(error => notice(error.message, true));
@@ -2960,14 +2647,8 @@ feedback(message,'数据已导入。'+report);
       $(closer)?.addEventListener('click', () => close(sheet));
       $(sheet)?.addEventListener('click', event => { if (event.target === sheetOf(sheet)) close(sheet); });
     }
-    // 训练卡上那两行归属说明（昨日轮换提示、排课耗时）也是「计划说明」，搬进抽屉，卡面只留操作。
-    const notesHost = $('#plan-explain-notes');
-    if (notesHost) {
-      for (const id of ['ai-plan-note', 'ai-plan-timing']) {
-        const node = document.getElementById(id);
-        if (node) notesHost.appendChild(node);
-      }
-    }
+    // 2026-11-23 Phase 3：教练说明与排课耗时不再搬进计划说明抽屉——它们留在训练日志工具栏下方，
+    // 点「重排今天」之后抬头就能看到（搬走会让反馈藏在另一张卡里）。
     document.addEventListener('keydown', event => {
       if (event.key !== 'Escape') return;
       if (sheetOf('#plan-sheet') && !sheetOf('#plan-sheet').hidden) close('#plan-sheet');
@@ -3273,43 +2954,6 @@ feedback(message,'数据已导入。'+report);
     } catch (error) {
       confirm.disabled = false;
       notice(error.message, true);
-    }
-  });
-  // ---- One-tap scheduling of the generated week ------------------------------------------------
-  // 只追加、不覆盖：每天原有记录整条保留，同名动作跳过；一天都没新增就不写，也不改 training 标记。
-  $('#week-plan')?.addEventListener('click', async event => {
-    const button = event.target.closest('[data-plan-schedule]');
-    if (!button) return;
-    const plan = lastWeekPlan;
-    if (!plan) return;
-    const ok = await askConfirm('将把 ' + plan.days.length + ' 次训练写入 ' + plan.startDate + ' 起的一周（每天一条训练记录）。已记录的动作会保留，只补充缺的动作。', {title: '排进本周'});
-    if (!ok) return;
-    button.disabled = true;
-    try {
-      let written = 0, kept = 0, addedTotal = 0;
-      for (const day of plan.days) {
-        const habit = habitRowFor(day.date) || {date: day.date};
-        const existing = Array.isArray(habit.exercises) ? habit.exercises : [];
-        const have = new Set(existing.map(row => String(row && row.name || '').trim()));
-        const additions = [];
-        for (const item of day.exercises) {
-          const name = String(item && item.name || '').trim();
-          if (!name || have.has(name)) continue;
-          have.add(name);
-          additions.push({name, sets: item.sets, reps: item.reps, weight: item.weight});
-        }
-        if (!additions.length) { kept++; continue; }
-        await api('/api/habits', {...habit, date: day.date, training: true, exercises: [...existing, ...additions]});
-        written++;
-        addedTotal += additions.length;
-      }
-      await loadState({quiet: true});
-      const tail = kept ? '；' + kept + ' 天已排过，未改动' : '';
-      notice('已排好 ' + written + ' 次训练（新增 ' + addedTotal + ' 个动作）' + tail + '，可在「记录 · 训练」逐日调整。');
-    } catch (error) {
-      notice(error.message, true);
-    } finally {
-      button.disabled = false;
     }
   });
   $('#global-notice-close')?.addEventListener('click', () => hideNotice());
