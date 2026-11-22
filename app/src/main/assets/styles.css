@@ -2417,3 +2417,19 @@ html[data-tab="today"] .energy-card .quick-chip:active{background-image:linear-g
 /* 训练要求：跟着偏好一起填，textarea 压矮一点，别把偏好面板撑出一条长河。 */
 .plan-prefs textarea{min-height:72px;margin:0}
 .plan-prefs .fine-print{margin:6px 0 0;color:var(--muted)}
+
+/* 2026-11-23 训练日志：练完收起 / 撤销条 / 暂存状态 */
+/* 练完的动作收成一行：只藏 DOM，不删节点，保存与草稿照常读得到。 */
+.exercise-done-line{display:none;align-items:baseline;gap:6px;padding:4px 0 2px;font-size:var(--text-sm);color:var(--muted)}
+.exercise-done-line .exercise-done-mark{color:var(--accent);font-weight:var(--fw-semibold)}
+.exercise-done-line [data-done-expand]{margin-left:auto;min-height:0;padding:0;font-size:var(--text-sm)}
+.training-row.is-complete .exercise-row-head,.training-row.is-complete .set-list,.training-row.is-complete .set-foot{display:none}
+.training-row.is-complete .exercise-done-line{display:flex}
+.training-row.is-complete{padding-bottom:var(--space-2)}
+.draft-state{font-size:var(--text-xs);color:color-mix(in srgb,var(--accent) 45%,var(--muted));white-space:nowrap}
+.draft-state:empty{display:none}
+/* 清空后的 4 秒撤销条：底部轻提示，不挡底栏与休息药丸。 */
+.training-undo{position:fixed;left:50%;bottom:calc(var(--tabbar-safe) + 16px);transform:translateX(-50%);display:flex;align-items:center;gap:14px;padding:10px 14px;border-radius:var(--radius-sm);background:var(--surface);border:1px solid color-mix(in srgb,var(--ink) 10%,transparent);box-shadow:var(--shadow-soft);z-index:60}
+.training-undo[hidden]{display:none}
+.training-undo #training-undo-go{color:var(--accent);font-weight:var(--fw-semibold)}
+#training-log .log-date{padding-top:2px}

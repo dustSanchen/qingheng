@@ -4841,6 +4841,29 @@ const values = points.length<=7 ? points.map((item,i) => {
     return 'other';
   }
 
+  /**
+   * 从动作列表推断顶部模板（push/pull/legs/other）。
+   * 播种、照上次练、周计划带进来的动作决定模板，别再让顶部一直停在默认的「推」。
+   * 混练（第二部位占比 ≥1/3，如全身日/上肢日）归 other，不硬塞成单分化。
+   */
+  function dominantTemplateFor(names) {
+    const counts = {push: 0, pull: 0, legs: 0};
+    let total = 0;
+    for (const raw of Array.isArray(names) ? names : []) {
+      const text = String(raw || '').trim();
+      if (!text) continue;
+      total += 1;
+      const part = exerciseBodyPart(text);
+      if (counts[part] !== undefined) counts[part] += 1;
+    }
+    if (!total) return null;
+    const order = ['push', 'pull', 'legs'].sort((a, b) => counts[b] - counts[a]);
+    const [top, second] = order;
+    if (!counts[top]) return 'other';
+    if (counts[second] > 0 && counts[second] * 3 >= total) return 'other';
+    return top;
+  }
+
   function readWeightMemory() {
     if (weightMemoryCache) return weightMemoryCache;
     try {
@@ -7711,6 +7734,48 @@ function metricIcon(label) {
       localStorage.setItem(seedMutedKey(), JSON.stringify(names));
     } catch {}
   }
+  /** 撤销清空时把「今天不按计划走」也撤回，让计划动作重新播种。 */
+  function clearSeedMuted(date = activeDate) {
+    try { localStorage.removeItem(seedMutedKey(date)); } catch {}
+  }
+
+  /** 卡面右上角的极轻状态：草稿暂存 / 已记录（2026-11-23）。 */
+  function setDraftState(text) {
+    const node = $('#training-draft-state');
+    if (node) node.textContent = text || '';
+  }
+
+  // 清空的 4 秒撤销：只暂存当天 habit 行（清空不动 aiPlan），撤销时整条写回。
+  let undoClearTimer = 0, undoClearRow = null, undoClearDate = '';
+  function hideTrainingUndo() {
+    const node = $('#training-undo');
+    if (node) node.hidden = true;
+    if (undoClearTimer) { clearTimeout(undoClearTimer); undoClearTimer = 0; }
+    undoClearRow = null;
+    undoClearDate = '';
+  }
+  function showTrainingUndo(row) {
+    const node = $('#training-undo');
+    if (!node) return;
+    undoClearRow = row || null;
+    undoClearDate = activeDate;
+    node.hidden = false;
+    if (undoClearTimer) clearTimeout(undoClearTimer);
+    // 4 秒后自动收起；期间不做别的事情的渲染不会打断它。
+    undoClearTimer = setTimeout(hideTrainingUndo, 4000);
+  }
+  async function undoClearTraining() {
+    const row = undoClearRow;
+    hideTrainingUndo();
+    if (!row) { notice('没有可恢复的训练记录。'); return; }
+    try {
+      await api('/api/habits', {...row, date: activeDate});
+      await loadState({quiet: true});
+      clearSeedMuted();
+      renderTrainingLog();
+      notice('已恢复清空前的训练记录。');
+    } catch (error) { notice(error.message, true); }
+  }
 
   /** 一组一条：旧记录没有 setDetails 时，用 sets/次/负重复制出同样多组。 */
   function trainingSetDetails(item) {
@@ -7802,7 +7867,10 @@ function metricIcon(label) {
       + `<div class="exercise-name-row${item.name ? ' is-locked' : ''}">${item.weightApprox ? '<span class="exercise-approx" title="重量是按体重推算的起步值，练完一次按实际校准">约</span>' : ''}<input data-exercise="name" value="${esc(item.name || '')}" maxlength="60" placeholder="动作名，例如卧推" aria-label="第 ${n} 个动作名称"${item.name ? ' readonly' : ''}><button type="button" class="exercise-name-open" data-exercise-open aria-haspopup="dialog" aria-label="查看动作说明：${esc(item.name || '')}">${esc(item.name || '')}</button><button type="button" class="exercise-name-edit" data-exercise-edit aria-label="修改动作名称">改</button><button type="button" class="exercise-bodyweight" data-exercise-bodyweight aria-pressed="${isBodyweightMove(item.name) ? 'true' : 'false'}" title="标为自重动作：不填负重也算完整">${isBodyweightMove(item.name) ? '自重 ✓' : '自重'}</button></div>`
       + `<button type="button" class="text-button exercise-remove" data-exercise-remove="${index}" aria-label="移除这个动作">移除</button></div>`
       + `<div class="set-list" data-set-list>${body}</div>`
-      + `<div class="set-foot">${foot}</div></div>`;
+      + `<div class="set-foot">${foot}</div>`
+      // 练完的动作收成一行成就摘要（2026-11-23）：只在全部组勾完且不止一个动作时显示。
+      + `<div class="exercise-done-line" data-done-line><span class="exercise-done-mark" aria-hidden="true">✓</span><span data-done-text></span>`
+      + `<button type="button" class="text-button" data-done-expand aria-label="展开这个动作的组次">展开</button></div></div>`;
   }
 
   /** 一组增删后重排序号、重算该动作容量；只改 UI，保存时才落库。 */
@@ -7834,6 +7902,33 @@ function metricIcon(label) {
     }, 0);
     const out = $('[data-set-volume]', row);
     if (out) out.textContent = volume > 0 ? fmt(volume, 0) + ' kg' : bodyweight && repsTotal > 0 ? fmt(repsTotal, 0) + ' 次' : '—';
+    refreshCompletionState();
+  }
+
+  /**
+   * 全部组勾完后把动作收成一行「✓ 名称 · N 组 · 容量 X kg」；点「展开」或改动任一组就展开。
+   * 收起只是 CSS 收起——组次输入仍在 DOM 里，保存与草稿照常读得到。
+   */
+  function refreshCompletionState() {
+    const box = $('#training-exercises');
+    if (!box) return;
+    const rows = $$('[data-exercise-row]', box);
+    rows.forEach(row => {
+      if (row.dataset.cardio === '1') { row.classList.remove('is-complete'); return; }
+      const sets = $$('[data-set-row]', row);
+      const name = String($('[data-exercise="name"]', row)?.value || '').trim();
+      const allDone = sets.length > 0
+        && sets.every(set => $('[data-set-done]', set)?.getAttribute('aria-pressed') === 'true');
+      // 只有一个动作时不收：刚练完就消失会让人以为记录丢了。
+      const collapse = allDone && rows.length >= 2 && !!name && row.dataset.expanded !== '1';
+      const line = $('[data-done-line]', row);
+      if (line) {
+        const volume = $('[data-set-volume]', row)?.textContent || '—';
+        const text = $('[data-done-text]', line);
+        if (text) text.textContent = `${name} · ${sets.length} 组 · 容量 ${volume}`;
+      }
+      row.classList.toggle('is-complete', collapse);
+    });
   }
 
   /** 增删动作后统一重排序号：行前的数字、移除按钮与输入框的 aria-label 都跟着行序走。 */
@@ -7940,6 +8035,7 @@ function metricIcon(label) {
     const rows = draftRowsFromForm();
     if (rows) trainingDrafts.set(activeDate, rows);
     else trainingDrafts.delete(activeDate);
+    setDraftState(rows ? '已暂存' : '');
   }
 
   function forgetTrainingDraft() { trainingDrafts.delete(activeDate); }
@@ -7951,8 +8047,6 @@ function metricIcon(label) {
     if (typeof renderTrainingEffort === 'function') renderTrainingEffort();
     const row = habitRowFor(activeDate);
     const exercises = exercisesFor(activeDate);
-    const template = TRAINING_TEMPLATES[row?.template] ? row.template : 'push';
-    if (document.activeElement !== form.elements.template) form.elements.template.value = template;
     const box = $('#training-exercises');
     // 2026-11-22：今天还没记动作时，把计划播成可打卡的行（每组带 ○）。清空或保存后不再自动播。
     // 2026-11-23 Phase 2：抑制标记按「清单快照」持久化，刷新后不会把清掉的动作又播回来。
@@ -7962,6 +8056,18 @@ function metricIcon(label) {
     const draft = trainingDrafts.get(activeDate);
     const rows = Array.isArray(rowsOverride) ? rowsOverride
       : (draft && draft.length ? draft : (exercises.length ? exercises : (seeds.length ? seeds : [{name: '', sets: 1, reps: null, weight: null}])));
+    // 换一天就收起上一天残留的「撤销」条。
+    if (undoClearRow && undoClearDate !== activeDate) hideTrainingUndo();
+    // 模板跟着动作走（2026-11-23）：播种 / 照上次练 / 周计划带进来的动作决定顶部模板；
+    // 用户在当天手选过模板就不再覆盖（form.dataset.templateTouched = 当天日期）。
+    const touched = form.dataset.templateTouched === activeDate;
+    const storedTemplate = TRAINING_TEMPLATES[row?.template] ? row.template : null;
+    const autoTemplate = typeof dominantTemplateFor === 'function'
+      ? dominantTemplateFor(rows.map(item => String(item && item.name || '').trim())) : null;
+    const template = touched
+      ? (TRAINING_TEMPLATES[form.elements.template.value] ? form.elements.template.value : 'push')
+      : (storedTemplate || autoTemplate || 'push');
+    if (!touched && document.activeElement !== form.elements.template) form.elements.template.value = template;
     box.innerHTML = rows.map(exerciseRowHtml).join('');
     // planIndex 由 exerciseRowHtml 直接写在行上（来自种子或草稿），不再按渲染序号补写：
     // 草稿里用户可能加过行、删过行，按序号补写会把勾组回写到错误的清单项。
@@ -7988,6 +8094,8 @@ function metricIcon(label) {
       restButton.hidden = !trainingEnabled() || exercises.length > 0;
       restButton.textContent = restMarked ? '取消休息' : '记为休息';
     }
+    // 换一天时，草稿状态跟着那天走（有草稿=已暂存）；保存后会再覆盖成「✓ 已记录」。
+    setDraftState(trainingDrafts.get(activeDate) ? '已暂存' : '');
   }
 
   /** 照上一次训练预填表单（只改草稿，不落库）；主流健身 App 都靠这一下省掉重复输入。 */
@@ -8235,6 +8343,8 @@ function metricIcon(label) {
       forgetTrainingDraft();
       renderTrainingLog();
       renderTrainingSummary(exercises);
+      // 卡片右上角的微反馈：草稿变「已记录」，让人知道这次真的落库了。
+      setDraftState('✓ 已记录');
     } catch (error) {feedback(message, error.message, true);}
     finally {button.disabled = false;}
   }
@@ -8419,7 +8529,12 @@ function metricIcon(label) {
         : `已添加 ${name}，填好组次与负重后保存。`);
       $('[data-set="reps"]', row)?.focus();
     });
-    $('#training-template')?.addEventListener('change', () => renderTrainingPresets());
+    $('#training-template')?.addEventListener('change', () => {
+      // 手选过的模板当天不再被动作列表覆盖（按日期记，换一天重新自动匹配）。
+      const form = $('#training-form');
+      if (form) form.dataset.templateTouched = activeDate;
+      renderTrainingPresets();
+    });
     $('#training-repeat')?.addEventListener('click', () => repeatLastTraining());
     // 容量必须跟着输入走：以前只在增删组时重算，填完 10 次 × 60 kg 还挂着「—」，像没记上。
     // 有氧行跟着距离/时长算配速；动作名改成「跑步」时整行切到有氧表单（2026-11-17）。
@@ -8467,6 +8582,16 @@ function metricIcon(label) {
       $$('.exercise-name-row:not(.is-locked)').forEach(wrap => lockExerciseName(wrap));
     }, true);
     $('#training-exercises')?.addEventListener('click', event => {
+      // 「练完自动收起」的行，点「展开」随时回到组次（修改后不会再自动收起，直到改动组次）。
+      const expandDone = event.target.closest?.('[data-done-expand]');
+      if (expandDone) {
+        const row = expandDone.closest('[data-exercise-row]');
+        if (row) {
+          row.dataset.expanded = '1';
+          row.classList.remove('is-complete');
+        }
+        return;
+      }
       // 名称即入口（2026-11-22 第七轮）：点名字先看要点，点「改」才进编辑。
       const openName = event.target.closest?.('[data-exercise-open]');
       if (openName) {
@@ -8504,6 +8629,10 @@ function metricIcon(label) {
         const on = set.classList.toggle('is-done');
         done.setAttribute('aria-pressed', String(on));
         syncPlanDoneFromRow(done.closest('[data-exercise-row]'));
+        // 勾/取消都算「动过这一行」：之前手动展开的状态作废，全勾完可以再收成一行。
+        const rowNode = done.closest('[data-exercise-row]');
+        if (rowNode) delete rowNode.dataset.expanded;
+        refreshCompletionState();
         if (on) {
           // 第一次勾组就是这一节的起点：结束训练时按它算「实际耗时」。
           if (typeof markSessionStart === 'function') markSessionStart();
@@ -8528,6 +8657,13 @@ function metricIcon(label) {
           weight: last ? number($('[data-set="weight"]', last).value) : null
         }, list.children.length));
         refreshSetRow(row);
+        // 展开态加组：把刚落下的那一组的「次数」聚焦起来，接着填。
+        if (row) {
+          delete row.dataset.expanded;
+          row.classList.remove('is-complete');
+          const added = list ? list.lastElementChild : null;
+          added?.querySelector('[data-set="reps"]')?.focus({preventScroll: false});
+        }
         return;
       }
       const removeSet = event.target.closest?.('[data-set-remove]');
@@ -8536,28 +8672,39 @@ function metricIcon(label) {
         if ($$('[data-set-row]', row).length <= 1) return;
         removeSet.closest('[data-set-row]')?.remove();
         refreshSetRow(row);
+        if (row) delete row.dataset.expanded;
         return;
       }
       const button = event.target.closest?.('[data-exercise-remove]');
       if (!button) return;
       button.closest('[data-exercise-row]')?.remove();
       if (typeof renumberExerciseRows === 'function') renumberExerciseRows();
+      refreshCompletionState();
     });
     $('#training-form')?.addEventListener('submit', event => {event.preventDefault(); saveTrainingLog().catch(error => notice(error.message, true));});
     $('#training-clear')?.addEventListener('click', async () => {
       if (!await askConfirm('清空今天的训练记录？习惯行的其他数据（步数、睡眠、饮水、用油）会保留。', {title: '清空训练', ok: '清空', danger: true})) return;
+      // 清空前留一份当天整行快照：4 秒内点「撤销」原样写回（2026-11-23）。
+      const snapshot = habitRowFor(activeDate);
       // 清空即「今天不按计划走了」：把当时那份清单记下来抑制自动播种，刷新后也不会播回来。
       if (typeof markSeedMuted === 'function') markSeedMuted(aiPlanStore(activeDate) || []);
       if (typeof forgetTrainingDraft === 'function') forgetTrainingDraft();
+      setDraftState('');
       const existing = habitRowFor(activeDate);
       if (!existing) {renderTrainingLog(); return;}
       const next = {...existing};
       delete next.exercises;
       delete next.template;
       delete next.training;
-      try {await api('/api/habits', next); await loadState({quiet: true}); renderTrainingLog(); notice('已清空今天的训练记录。');}
-      catch (error) {notice(error.message, true);}
+      try {
+        await api('/api/habits', next);
+        await loadState({quiet: true});
+        renderTrainingLog();
+        // 底部轻提示 + 4 秒撤销；只有真的删掉了东西才给撤销入口。
+        showTrainingUndo(snapshot);
+      } catch (error) {notice(error.message, true);}
     });
+    $('#training-undo-go')?.addEventListener('click', () => { undoClearTraining().catch(error => notice(error.message, true)); });
     $('#training-rest')?.addEventListener('click', async () => {
       const existing = habitRowFor(activeDate);
       const restMarked = !!existing && (existing.training === false || String(existing.training) === 'false') && !exercisesFor(activeDate).length;

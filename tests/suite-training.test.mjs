@@ -1638,7 +1638,7 @@ check('pull includes pull-ups', app.includes("'引体向上'"));
 check('a chips container exists', html.includes('id="training-presets"'));
 check('chips are rendered from the template', app.includes('function renderTrainingPresets()') && app.includes('box.dataset.template = template;'));
 check('they render with the log', /renderTrainingPresets\(\);\s*const tag = \$\('#training-tag'\)/.test(app));
-check('switching template re-renders them', rest.includes("$('#training-template')?.addEventListener('change', () => renderTrainingPresets());"));
+check('switching template re-renders them', /\$\('#training-template'\)\?\.addEventListener\('change', \(\) => \{[\s\S]{0,220}renderTrainingPresets\(\);/.test(rest));
 
 // --- one tap adds a row, reusing the last values --------------------------------------------------------
 check('a chip click adds a row', rest.includes("$('#training-presets')?.addEventListener('click', event => {"));
@@ -1921,6 +1921,58 @@ const postponeBlock = rest.slice(postponeStart, postponeStart + 1200);
 check('顺延后重绘训练表单', postponeStart > 0 && postponeBlock.includes('renderTrainingLog()'));
 check('顺延后重绘今日清单', postponeBlock.includes('renderAdviceOrder()'));
 
+;return typeof fail === 'number' ? fail : 0;
+});
+await __run("training-intuition", async () => {
+/**
+ * 训练日志的操作直觉打磨（2026-11-23，外部指令四项）：
+ * ① 模板跟着动作走；② +加一组继承上一组；③ 练完收成一行；④ 清空 4 秒撤销 + 暂存/已记录微反馈。
+ * 前置保留项：行内绿色休息进度条与所有 data-set 属性不动。
+ */
+
+let fail = 0;
+const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + label + (detail === undefined ? '' : '  -> ' + detail)); if (!ok) fail++; };
+const read = path => fs.readFileSync(path, 'utf8');
+const app = read('app/src/main/assets/app.js');
+const html = read('app/src/main/assets/index.html');
+const css = read('app/src/main/assets/styles.css');
+const log = read('app/src/fragments/68-training-log.fragment.js');
+const domain = readDomain();
+
+// ① 模板自动匹配 ----------------------------------------------------------------------------
+const tplApi = new Function([
+  constSource(domain, 'BODY_PART_RULES'),
+  functionSource(domain, 'exerciseBodyPart'),
+  functionSource(domain, 'dominantTemplateFor'),
+].join('\n') + '\nreturn dominantTemplateFor;')();
+check('纯腿日匹配腿模板', tplApi(['杠铃深蹲', '腿举', '罗马尼亚硬拉']) === 'legs', tplApi(['杠铃深蹲', '腿举', '罗马尼亚硬拉']));
+check('纯推日匹配推模板', tplApi(['卧推', '哑铃肩推', '绳索下压']) === 'push', tplApi(['卧推', '哑铃肩推', '绳索下压']));
+check('纯拉日匹配拉模板', tplApi(['引体向上', '杠铃划船', '面拉']) === 'pull', tplApi(['引体向上', '杠铃划船', '面拉']));
+check('全身混练归其他，不硬塞单分化', tplApi(['深蹲', '卧推', '划船']) === 'other', tplApi(['深蹲', '卧推', '划船']));
+check('没有动作时不猜模板', tplApi([]) === null);
+check('渲染时用动作推断并尊重手选', app.includes('dominantTemplateFor(rows.map') && app.includes('form.dataset.templateTouched = activeDate'));
+
+// ② + 加一组继承上一组并聚焦 ----------------------------------------------------------------
+check('新组沿用上一组的次数与负重', log.includes("number($('[data-set=\"reps\"]', last).value)") && log.includes("number($('[data-set=\"weight\"]', last).value)"));
+check('新组落下后聚焦次数输入', log.includes("[data-set=\"reps\"]')?.focus({preventScroll: false})"));
+
+// ③ 练完收成一行 ----------------------------------------------------------------------------
+check('全部组勾完则收起，且不止一个动作才收', log.includes('rows.length >= 2') && log.includes("classList.toggle('is-complete', collapse)"));
+check('收起行显示组数与容量，并留展开按钮', log.includes('`${name} · ${sets.length} 组 · 容量 ${volume}`') && log.includes('class="exercise-done-line"') && log.includes('data-done-expand'));
+check('展开会退出收起态', log.includes("row.dataset.expanded = '1'"));
+check('收起只藏 DOM，组次输入仍在（保存照读）', css.includes('.training-row.is-complete .set-list,.training-row.is-complete .set-foot{display:none}') && log.includes('data-set-row'));
+
+// ④ 清空 4 秒撤销与微反馈 --------------------------------------------------------------------
+check('清空前留当天整行快照', log.includes('const snapshot = habitRowFor(activeDate)') && log.includes('showTrainingUndo(snapshot)'));
+check('4 秒后自动收起', log.includes('setTimeout(hideTrainingUndo, 4000)'));
+check('撤销把整行写回并解除播种抑制', log.includes("api('/api/habits', {...row, date: activeDate})") && log.includes('clearSeedMuted()'));
+check('底部撤销条与按钮存在', html.includes('id="training-undo"') && html.includes('id="training-undo-go"'));
+check('草稿与保存各有微反馈', app.includes("setDraftState(rows ? '已暂存' : '')") && app.includes("setDraftState('✓ 已记录')"));
+check('顶部日期栏补了上内边距', css.includes('#training-log .log-date{padding-top:2px}'));
+
+// 保留项：行内休息线不动、没有另加顶栏计时器 -------------------------------------------------
+check('行内休息线与 rest-dock 仍在', app.includes('function attachRestLine') && html.includes('id="rest-timer"') && css.includes('.rest-line'));
+check('没有新增顶栏计时器', !html.includes('id="rest-top"') && !html.includes('id="training-timer"'));
 ;return typeof fail === 'number' ? fail : 0;
 });
 console.log('\nFAIL total: ' + __fail);

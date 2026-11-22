@@ -1900,3 +1900,12 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 装机：`dev-loop -Version 1.5.30 -SkipBackup` 全链通过（version sync / assemble / tests / build / install+smoke 34.3s），设备 versionName=1.5.30、versionCode=530；smoke 报 `js errors: none`，今天页与问答的训练建议（今日清单 0/6、每行剂量与"记录"）正常渲染。
 - 未完成：两条行为验证仍缺人手——「清空今天的训练 → 重启」应保持空、「今日清单勾一项」应多一条训练记录；WebView 里的复选框没有可点 label，uiautomator 只能拿到行文本，按约定不盲点坐标。
 - 测试：`check()` 站点 2,189（suite-training 675）；`test-all` 10/10 全绿。
+### r222 · 2026-11-23 02:35 · 训练日志操作直觉打磨（四项交互 + 视觉微调）
+- 用户附件原话（摘要）：保留行内休息进度条与 `休息 1:56` 倒计时，"不要改动或额外新增顶栏计时器"；四项——模板自动同步、加一组继承上一组、练完收起为单行、清空 4 秒撤销 + 顶部日期内边距 + 暂存/已记录微反馈。
+- ① 模板跟着动作走：领域层新增 `dominantTemplateFor(names)`（`exerciseBodyPart` 计数，第二部位 ≥1/3 归 other）；`renderTrainingLog` 用「已存模板 → 动作推断 → 推」顺序，用户手选后按日期记 `form.dataset.templateTouched` 不再覆盖。
+- ② 「＋加一组」：沿用最后一组的 `reps/weight` 并在插入后聚焦新组的次数格（原来已继承数值，缺的是聚焦）。
+- ③ 练完收起：`refreshCompletionState()` 在全部组勾完且动作 ≥2 时加 `.is-complete`，行收起为「✓ 名称 · N 组 · 容量 X kg + 展开」；只藏 DOM，组次输入仍在，保存与草稿照读；点展开置 `data-expanded`，改动任一组后重置。
+- ④ 清空撤销：清空前存当天整行快照，清空后底部弹出 `#training-undo`，4 秒内点撤销整行写回并 `clearSeedMuted()` 解除播种抑制；卡片右上角新增 `#training-draft-state`（草稿「已暂存」→ 保存后「✓ 已记录」）；`#training-log .log-date` 补 2px 上内边距。
+- 保留项：`attachRestLine` / `.rest-line` / `#rest-timer` 未动，没有新增顶栏计时器。
+- 测试：新增 `training-intuition` 组 16 条（模板推断用沙箱跑真函数）；`check()` 站点 2,209，`test-all` 10/10；aesthetic-audit 无阻塞。
+- 未做：设备在构建成功后掉线（`no devices/emulators found`），本轮未装机、未做真机截图；已发布的 v1.5.30 资产（02:16）早于本轮改动，若要含本次打磨需发 1.5.31。

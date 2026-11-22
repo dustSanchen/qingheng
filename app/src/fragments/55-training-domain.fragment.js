@@ -358,6 +358,29 @@
     return 'other';
   }
 
+  /**
+   * 从动作列表推断顶部模板（push/pull/legs/other）。
+   * 播种、照上次练、周计划带进来的动作决定模板，别再让顶部一直停在默认的「推」。
+   * 混练（第二部位占比 ≥1/3，如全身日/上肢日）归 other，不硬塞成单分化。
+   */
+  function dominantTemplateFor(names) {
+    const counts = {push: 0, pull: 0, legs: 0};
+    let total = 0;
+    for (const raw of Array.isArray(names) ? names : []) {
+      const text = String(raw || '').trim();
+      if (!text) continue;
+      total += 1;
+      const part = exerciseBodyPart(text);
+      if (counts[part] !== undefined) counts[part] += 1;
+    }
+    if (!total) return null;
+    const order = ['push', 'pull', 'legs'].sort((a, b) => counts[b] - counts[a]);
+    const [top, second] = order;
+    if (!counts[top]) return 'other';
+    if (counts[second] > 0 && counts[second] * 3 >= total) return 'other';
+    return top;
+  }
+
   function readWeightMemory() {
     if (weightMemoryCache) return weightMemoryCache;
     try {
