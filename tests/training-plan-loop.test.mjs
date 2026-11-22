@@ -37,7 +37,7 @@ check('the three capsules carry the same-family gradient', /\.quick-chip\{[^}]*l
 check('the status bar floats above the card surface', /#view-today \.energy-card \.slot-hint[\s\S]{0,240}box-shadow:var\(--shadow-soft\)/.test(css));
 
 check('the fromPlan marker survives a form rebuild', app.includes('const carried = (typeof exercisesFor === \'function\' ? exercisesFor(activeDate) : [])') && /\.\.\.fromPlan, id, name/.test(app));
-check('untouched means no reps or weight recorded, not an empty array', app.includes('const recorded = Array.isArray(current?.setDetails)'));
+check('untouched compares set numbers against the plan prescription', app.includes('const sameAsPlan = !Array.isArray(current?.setDetails)') && app.includes('=== (number(item.reps) ?? null)'));
 
 console.log('\nFAIL total: ' + fail);
 process.exitCode = fail ? 1 : 0;
