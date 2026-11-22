@@ -1761,3 +1761,9 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 弹窗磨砂：`askConfirm` 有 `bodyHtml` 时给 panel 加 `is-glass`，`color-mix(paper 86%)` + `blur(12px)`（v2 只允许浮层用 blur）。
 - 测试：`layout-four` 的顺序断言改为以 `#today-fold-card` 为准；全量 112/112；真机截图 `build/v15-fold.png`（小习惯 panel + 标签）。
 - 仍未验：取消勾选回收、截图识读；1.5.16→1.5.22 未推远端。
+
+## r227 · 2026-11-22 · 发布收尾（1.5.22）
+
+- 推送：1.5.16→1.5.22 共 8 个提交（含 659e546）已推 localmirror / source / public，三远端 master 均指向 659e546。
+- 展示页：`publish-pages.ps1` 刷新 gh-pages → a12ebbe（强制更新）。
+- 未做：GitHub Release 未发（需要 API 凭据）；取消勾选回收与截图识读仍未真机点验。
