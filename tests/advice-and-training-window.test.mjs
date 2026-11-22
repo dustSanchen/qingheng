@@ -40,7 +40,7 @@ check('habit presets exist', html.includes('id="habit-chips"'));
 // 2026-11-18：睡眠与体重挪到「记录·身体 → 今天两样」，习惯卡片只留步数与饮水。
 // 2026-11-22：固定六档改为「滑块 + 你存过的常用值」，兜底三档仍只覆盖步数与饮水。
 check('presets cover steps and water', rest.includes('HABIT_QUICK_FALLBACK = {steps: [6000, 8000, 10000], water: [1500, 2000, 2500]}') && !rest.includes('sleep: ['));
-check('a slider exists for each metric', rest.includes('HABIT_SLIDER') && rest.includes("input[type=\"range\"]") && html.includes('id="habit-chips"'));
+check('a dial exists for each metric', rest.includes('HABIT_DIAL') && rest.includes("role', 'slider") && html.includes('id="habit-chips"'));
 check('a copy-yesterday shortcut exists', rest.includes('data-habit-copy') && rest.includes("shiftDay(localDate(), -1)"));
 check('copying fills only recorded values', rest.includes("if (number(rowData[key]) !== null) fillFrom(key, number(rowData[key]));"));
 

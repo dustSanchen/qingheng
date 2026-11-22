@@ -9996,9 +9996,9 @@ feedback(message,'数据已导入。'+report);
    */
   const HABIT_QUICK_KEY = 'qingheng.habitQuick';
   const HABIT_QUICK_FALLBACK = {steps: [6000, 8000, 10000], water: [1500, 2000, 2500]};
-  const HABIT_SLIDER = {
-    steps: {min: 0, max: 20000, step: 250, label: '步数滑块'},
-    water: {min: 0, max: 5000, step: 100, label: '饮水滑块'}
+  const HABIT_DIAL = {
+    steps: {min: 0, max: 20000, step: 250, unit: '步', label: '步数'},
+    water: {min: 0, max: 5000, step: 100, unit: '毫升', label: '饮水'}
   };
   function readHabitQuick() {
     let raw = {};
@@ -10031,36 +10031,105 @@ feedback(message,'数据已导入。'+report);
     const row = $('#habit-chips'), form = $('#habit-form');
     if (!row || !form) return;
     const copyRow = $('#habit-copy-row');
-    const meters = {};
-    for (const [key, spec] of Object.entries(HABIT_SLIDER)) {
+    const dials = {};
+    // 表单控件退场：数字框只留 hidden 值，界面由环形控件承担（2026-11-22 用户要求）。
+    const host = document.createElement('div');
+    host.className = 'habit-dials';
+    const grid = form.querySelector('.form-grid');
+    if (grid) grid.hidden = true;
+    (grid || row).before(host);
+    for (const [key, spec] of Object.entries(HABIT_DIAL)) {
       const field = form.elements[key];
-      if (!field || !field.parentElement || $(`[data-slider="${key}"]`, form)) continue;
-      const wrap = document.createElement('div');
-      wrap.className = 'measure-slider';
-      wrap.dataset.slider = key;
-      // list 指向 datalist 时 Chromium 会在轨道上画刻度：0 / 5k / 10k … 长距离拖动才有参考物。
+      if (!field) continue;
+      field.type = 'hidden';
+      const gradId = `dial-grad-${key}`;
       const ticks = [];
-      for (let value = spec.min; value <= spec.max; value += spec.max / 4) ticks.push(Math.round(value));
-      wrap.innerHTML = `<input type="range" min="${spec.min}" max="${spec.max}" step="${spec.step}" value="0" data-range="${key}" aria-label="${spec.label}" list="habit-ticks-${key}">`
-        + `<datalist id="habit-ticks-${key}">${ticks.map(value => `<option value="${value}"></option>`).join('')}</datalist>`;
-      field.after(wrap);
-      const range = $('input[type="range"]', wrap);
-      meters[key] = {field, range, spec};
-      // 滑块 → 数字：滑块本身是可聚焦控件，点它 label 不会把焦点转给数字框（不弹键盘），
-      // 所以这里不能 preventDefault——挡掉 click 会连同「点轨道直接跳值」一起挡掉。
-      range.addEventListener('input', () => { field.value = range.value; });
-      // 数字 → 滑块：手填 12345 步时滑块要跟上，而不是停在旧位置。
-      field.addEventListener('input', () => {
-        const value = number(field.value);
-        range.value = String(Math.max(spec.min, Math.min(spec.max, value === null ? 0 : value)));
+      for (let i = 0; i < 24; i++) {
+        const angle = (i / 24) * Math.PI * 2 - Math.PI / 2;
+        const r1 = 46, r2 = i % 6 === 0 ? 39.5 : 42.5;
+        ticks.push(`<line x1="${(60 + Math.cos(angle) * r1).toFixed(1)}" y1="${(60 + Math.sin(angle) * r1).toFixed(1)}" x2="${(60 + Math.cos(angle) * r2).toFixed(1)}" y2="${(60 + Math.sin(angle) * r2).toFixed(1)}"/>`);
+      }
+      const dial = document.createElement('div');
+      dial.className = 'dial is-empty';
+      dial.dataset.dial = key;
+      dial.setAttribute('role', 'slider');
+      dial.setAttribute('tabindex', '0');
+      dial.setAttribute('aria-label', spec.label);
+      dial.setAttribute('aria-valuemin', String(spec.min));
+      dial.setAttribute('aria-valuemax', String(spec.max));
+      dial.setAttribute('aria-valuenow', '0');
+      dial.innerHTML = `<p class="dial-label">${spec.label} · ${spec.unit}</p>`
+        + `<div class="dial-face"><svg viewBox="0 0 120 120" aria-hidden="true">`
+        + `<defs><linearGradient id="${gradId}" x1="0" y1="0" x2="1" y2="1"><stop class="dial-stop-a" offset="0"/><stop class="dial-stop-b" offset="1"/></linearGradient></defs>`
+        + `<g class="dial-ticks">${ticks.join('')}</g>`
+        + `<circle class="dial-track" cx="60" cy="60" r="52"/>`
+        + `<circle class="dial-arc" cx="60" cy="60" r="52" stroke="url(#${gradId})"/>`
+        + `</svg><div class="dial-read"><strong>—</strong><span>${spec.unit}</span></div></div>`
+        + `<div class="dial-actions"><button type="button" class="dial-step" data-dial-dec="${key}" aria-label="减少${spec.label}">−</button>`
+        + `<button type="button" class="dial-step" data-dial-inc="${key}" aria-label="增加${spec.label}">＋</button></div>`
+        + `<p class="dial-hint">拖动圆环</p>`;
+      host.append(dial);
+      const arc = $('.dial-arc', dial);
+      const read = $('.dial-read strong', dial);
+      const face = $('.dial-face', dial);
+      const CIRC = 2 * Math.PI * 52;
+      arc.setAttribute('stroke-dasharray', `${CIRC.toFixed(1)} ${CIRC.toFixed(1)}`);
+      const setValue = value => {
+        const clamped = Math.max(spec.min, Math.min(spec.max, Math.round(value / spec.step) * spec.step));
+        field.value = clamped > 0 ? String(clamped) : '';
+        arc.style.strokeDashoffset = String((CIRC * (1 - clamped / spec.max)).toFixed(2));
+        read.textContent = clamped > 0 ? fmt(clamped, 0) : '—';
+        dial.setAttribute('aria-valuenow', String(clamped));
+        dial.setAttribute('aria-valuetext', clamped > 0 ? `${fmt(clamped, 0)} ${spec.unit}` : '未填写');
+        dial.classList.toggle('is-empty', clamped <= 0);
+        return clamped;
+      };
+      dials[key] = {dial, field, spec, setValue};
+      setValue(number(field.value) ?? 0);
+      // 角度取值：正上方 = 0，顺时针；拖动与点击轨道都走这一条。
+      const fromPointer = event => {
+        const box = face.getBoundingClientRect();
+        const cx = box.left + box.width / 2, cy = box.top + box.height / 2;
+        let deg = Math.atan2(event.clientY - cy, event.clientX - cx) * 180 / Math.PI + 90;
+        if (deg < 0) deg += 360;
+        return spec.min + (deg / 360) * (spec.max - spec.min);
+      };
+      let dragging = false;
+      dial.addEventListener('pointerdown', event => {
+        if (event.target.closest('.dial-step')) return;
+        // 只在环带上开始拖动：中心读数与四角留给页面滚动，手指扫过不该改数。
+        const box = face.getBoundingClientRect();
+        const cx = box.left + box.width / 2, cy = box.top + box.height / 2;
+        const scale = box.width / 120;
+        const radius = Math.hypot(event.clientX - cx, event.clientY - cy);
+        if (radius < 30 * scale || radius > 62 * scale) return;
+        dragging = true;
+        try { dial.setPointerCapture(event.pointerId); } catch {}
+        setValue(fromPointer(event));
+      });
+      dial.addEventListener('pointermove', event => { if (dragging) setValue(fromPointer(event)); });
+      const stopDrag = () => { dragging = false; };
+      dial.addEventListener('pointerup', stopDrag);
+      dial.addEventListener('pointercancel', stopDrag);
+      dial.addEventListener('keydown', event => {
+        const nowValue = number(field.value) ?? 0;
+        const jump = event.shiftKey ? spec.step * 4 : spec.step;
+        if (event.key === 'ArrowRight' || event.key === 'ArrowUp') { event.preventDefault(); setValue(nowValue + jump); }
+        else if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') { event.preventDefault(); setValue(nowValue - jump); }
+        else if (event.key === 'Home') { event.preventDefault(); setValue(spec.min); }
+        else if (event.key === 'End') { event.preventDefault(); setValue(spec.max); }
       });
     }
-    const fillFrom = (key, value) => {
-      const meter = meters[key];
-      const field = form.elements[key];
-      if (field) field.value = value;
-      if (meter) meter.range.value = String(Math.max(meter.spec.min, Math.min(meter.spec.max, value)));
-    };
+    host.addEventListener('click', event => {
+      const button = event.target.closest('.dial-step');
+      if (!button) return;
+      const key = button.dataset.dialDec || button.dataset.dialInc;
+      const entry = dials[key];
+      if (!entry) return;
+      const current = number(entry.field.value) ?? 0;
+      entry.setValue(current + (button.dataset.dialInc ? entry.spec.step : -entry.spec.step));
+    });
+    const fillFrom = (key, value) => { dials[key]?.setValue(value); };
     const chipLabel = (key, value) => key === 'steps'
       ? `${fmt(value / 1000, value % 1000 ? 1 : 0)}k`
       : `${fmt(value / 1000, value % 500 ? 2 : 1)}L`;
