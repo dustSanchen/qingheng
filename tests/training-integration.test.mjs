@@ -52,6 +52,10 @@ check('每套模板都有固定槽位（主复合 + 次复合 + 孤立/核心）
 check('无历史的配重动作带推算重量', app.includes('plannedWeightFor === \'function\' ? plannedWeightFor(name) : null') && app.includes('weightApprox: true'));
 check('处方次数与 RIR 取 GOAL_PRESETS', app.includes('const repsRange = goalPreset && Array.isArray(goalPreset.reps)') && app.includes('const rirRange = goalPreset && Array.isArray(goalPreset.rir)'));
 check('生成结果带处方', app.includes('prescription: {reps: repsRange, rir: rirRange}'));
+check('推算重量一路带到表单项（周计划播种）', app.includes('...(item.weightApprox ? {weightApprox: true} : {})') &&
+  app.includes('day.exercises.map(item => ({name: item.name, sets: item.sets || 1, reps: item.reps || null, weight: item.weight ?? null,'));
+check('采纳今日清单时也保留 weightApprox', app.includes('...(item.weightApprox ? {weightApprox: true} : {}),\n      reason'));
+check('动作行会显示「约」标记', app.includes('class="exercise-approx"') && app.includes("item.weightApprox ? '<span class=\"exercise-approx\""));
 check('the start template continues after the last session', app.includes('function nextStartTemplate(split)') &&
   app.includes("return at >= 0 ? order[(at + 1) % 3] : 'push';"));
 

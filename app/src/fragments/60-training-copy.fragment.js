@@ -571,13 +571,16 @@
         taken.add(picked.name);
         usedAngles.add(picked.angle);
         const {weight, bodyweight, approx} = weightFor(picked.name);
+        // 推算不出来时按器械给一个保守起步值（空杆 40 / 哑铃 8 / 器械 20），同样是「约」。
+        const GEAR_START = {barbell: 40, dumbbell: 8, machine: 20};
+        const gearStart = bodyweight || Number(weight) > 0 ? null : (GEAR_START[picked.gear] || 10);
         exercises.push({
           name: picked.name,
           sets: setsFor(picked.role),
           reps: repsFor(picked.role, bodyweight),
           rir: rirFor(picked.role),
-          weight,
-          ...(approx ? {weightApprox: true} : {}),
+          weight: gearStart !== null ? gearStart : weight,
+          ...((approx || gearStart !== null) ? {weightApprox: true} : {}),
           ...(bodyweight ? {bodyweight: true} : {}),
           role: picked.role,
           gear: picked.gear,
@@ -604,6 +607,37 @@
         template, deload, exercises: picked.exercises, suggested: picked.suggested,
         prescription: {reps: repsRange, rir: rirRange}});
     });
+    // 38 号 §2 的周组数自检：按「部位」统计一周总组数（不是按训练日），超上限就削。
+    // 先删整块孤立（动作数 > 3 时），剩下用减组数消化，主复合不取消。
+    const weeklyCap = goalPreset && Array.isArray(goalPreset.muscleSetsPerWeek) ? goalPreset.muscleSetsPerWeek[1] : 20;
+    const familyOf = name => {
+      const text = String(name || '');
+      if (/(深蹲|硬拉|腿举|提踵|臀|保加利亚|分腿蹲)/.test(text)) return 'legs';
+      if (/(引体|划船|下拉|弯举|面拉|直臂)/.test(text)) return 'pull';
+      if (/(卧推|肩推|侧平举|下压|臂屈伸|飞鸟)/.test(text)) return 'push';
+      return 'other';
+    };
+    const weeklyFor = family => days.reduce((sum, day) => sum + day.exercises
+      .filter(item => familyOf(item.name) === family)
+      .reduce((inner, item) => inner + item.sets, 0), 0);
+    for (const family of ['push', 'pull', 'legs']) {
+      let guard = 0;
+      while (weeklyFor(family) > weeklyCap && guard++ < 80) {
+        const flat = [];
+        for (const day of days) day.exercises.forEach((item, idx) => {
+          if (familyOf(item.name) === family) flat.push({day, idx, item});
+        });
+        if (!flat.length) break;
+        const drop = flat.find(row => ['isolate', 'core'].includes(row.item.role) && row.day.exercises.length > 3);
+        if (drop) { drop.day.exercises.splice(drop.idx, 1); continue; }
+        const shrink = flat.filter(row => row.item.sets > 2).sort((a, b) => b.item.sets - a.item.sets)[0];
+        if (!shrink) break;
+        shrink.item.sets -= 1;
+      }
+    }
+    for (const day of days) {
+      day.weeklySets = {cap: weeklyCap, total: day.exercises.reduce((sum, item) => sum + item.sets, 0)};
+    }
     // The analysis layer is optional: the generator still works without the library loaded.
     const reasons = typeof planWhy === 'function' ? planWhy({deload, suggested: days.some(day => day.suggested),
       templateId: 'push-day-template'}) : [];
@@ -1270,6 +1304,7 @@
       sets: number(item.sets) > 0 ? number(item.sets) : 0,
       reps: number(item.reps) > 0 ? number(item.reps) : 0,
       weight: number(item.weight) > 0 ? number(item.weight) : null,
+      ...(item.weightApprox ? {weightApprox: true} : {}),
       reason: "",
       source: "week",
       done: false

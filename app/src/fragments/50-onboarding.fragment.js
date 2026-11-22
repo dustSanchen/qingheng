@@ -901,7 +901,7 @@ const values = points.length<=7 ? points.map((item,i) => {
       : '<button type="button" class="text-button" data-set-add>＋ 加一组</button><span class="row-meta">容量 <b data-set-volume>—</b></span>';
     return `<div class="training-row" data-exercise-row="${index}" data-exercise-id="${esc(item.id || '')}" data-cardio="${cardio ? 1 : 0}">`
       + `<div class="exercise-row-head"><span class="exercise-no" aria-hidden="true">${n}</span>`
-      + `<div class="exercise-name-row${item.name ? ' is-locked' : ''}"><input data-exercise="name" value="${esc(item.name || '')}" maxlength="60" placeholder="动作名，例如卧推" aria-label="第 ${n} 个动作名称"${item.name ? ' readonly' : ''}><button type="button" class="exercise-name-open" data-exercise-open aria-haspopup="dialog" aria-label="查看动作说明：${esc(item.name || '')}">${esc(item.name || '')}</button><button type="button" class="exercise-name-edit" data-exercise-edit aria-label="修改动作名称">改</button></div>`
+      + `<div class="exercise-name-row${item.name ? ' is-locked' : ''}">${item.weightApprox ? '<span class="exercise-approx" title="重量是按体重推算的起步值，练完一次按实际校准">约</span>' : ''}<input data-exercise="name" value="${esc(item.name || '')}" maxlength="60" placeholder="动作名，例如卧推" aria-label="第 ${n} 个动作名称"${item.name ? ' readonly' : ''}><button type="button" class="exercise-name-open" data-exercise-open aria-haspopup="dialog" aria-label="查看动作说明：${esc(item.name || '')}">${esc(item.name || '')}</button><button type="button" class="exercise-name-edit" data-exercise-edit aria-label="修改动作名称">改</button></div>`
       + `<button type="button" class="text-button exercise-remove" data-exercise-remove="${index}" aria-label="移除这个动作">移除</button></div>`
       + `<div class="set-list" data-set-list>${body}</div>`
       + `<div class="set-foot">${foot}</div></div>`;
@@ -992,12 +992,14 @@ const values = points.length<=7 ? points.map((item,i) => {
     }
     const pending = plan.filter(item => item && item.name && item.done !== true);
     if (pending.length) {
-      return pending.map(item => ({name: item.name, sets: item.sets || 1, reps: item.reps || null, weight: item.weight ?? null}));
+      return pending.map(item => ({name: item.name, sets: item.sets || 1, reps: item.reps || null, weight: item.weight ?? null,
+        ...(item.weightApprox ? {weightApprox: true} : {})}));
     }
     const week = typeof cachedWeekPlan === 'function' ? cachedWeekPlan() : null;
     const day = week && Array.isArray(week.days) ? week.days.find(row => row && row.date === date) : null;
     if (day && Array.isArray(day.exercises) && day.exercises.length) {
-      return day.exercises.map(item => ({name: item.name, sets: item.sets || 1, reps: item.reps || null, weight: item.weight ?? null}));
+      return day.exercises.map(item => ({name: item.name, sets: item.sets || 1, reps: item.reps || null, weight: item.weight ?? null,
+        ...(item.weightApprox ? {weightApprox: true} : {})}));
     }
     return [];
   }

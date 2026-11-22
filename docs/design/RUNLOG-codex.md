@@ -1831,3 +1831,10 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - ul=推 2+拉 2、lower=腿、full=推拉腿各 1+核心；起始部位接上次训练的下一个；days 以偏好为准。
 - 测试：更新 5 处旧断言到新实现（行为不变），training-integration 增 4 条（槽位/推算重量/处方/生成结果带 prescription）；全量 113/113。
 - 真机：训练计划卡显示「今天 · full · 深蹲、卧推、杠铃划船」；待办：行内显示「约」标记、把 38 号 §7 六条验收全部变成行为断言。
+  
+### r211 · 2026-11-23 00:20 · 38 号闭环：行内「约」+ 6 条行为断言 + 周组数按部位自检
+- 行内「约」：weightApprox 从 generateWeekPlan → adoptWeekDay → aiPlanStore → seedExercisesFromPlan → exerciseRowHtml 一路带到动作名旁（.exercise-approx），只在「该动作没有历史、重量是推算值」时出现。
+- 周组数自检改成**按部位**统计（以前按训练日 × 次数，全身日会被压到 5 组）：超上限先删整块孤立（动作数 > 3 时），再减组数，主复合不取消；每块至少留 3 个动作。
+- 重量兜底：plannedWeightFor 也给不出数时按器械给保守起步值（杠铃 40 / 哑铃 8 / 器械 20 / 其它 10），同样标「约」——非自重动作不再出现空负重。
+- 新增 	ests/training-prescription.test.mjs：把 generateWeekPlan / nextStartTemplate / GOAL_PRESETS / isBodyweightMove / loadableWeightKg / 训练库 一起塞进 vm 沙箱，对输出断言 §7 六条（结构、重量、时长预算、周组数上限、起始部位、次数与 RIR 区间）。
+- 全量 114/114；aesthetic-audit 无阻塞项；entry-budget 9/9。真机（1.5.27/527）：本周安排 11-23 起、今天 full 日＝深蹲/卧推/杠铃划船，采纳后行内带处方重量。
