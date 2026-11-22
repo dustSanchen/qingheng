@@ -38,8 +38,9 @@ check('press feedback stays at scale .98 on the chips', css.includes('#view-toda
   css.includes('#today-quick-actions .quick-chip:active{transform:scale(.98)}'));
 
 // --- 胶囊与 sheet -------------------------------------------------------------------------
-check('the three entries are one row of 48px capsules', css.includes('#today-quick-actions .quick-chip{flex-direction:row;gap:6px;min-height:48px') &&
-  css.includes('background-image:linear-gradient(180deg,color-mix(in srgb,var(--accent) 8%'));
+check('the three entries are one continuous capsule group', css.includes('#view-today #today-quick-actions{grid-template-columns:repeat(3,minmax(0,1fr));gap:0') &&
+  css.includes('background-image:linear-gradient(180deg,color-mix(in srgb,var(--accent) 9%') &&
+  css.includes('#view-today #today-quick-actions .quick-chip+.quick-chip{border-left:1px solid'));
 check('the brief sheet exists as a half sheet', html.includes('id="day-brief-sheet"') && html.includes('id="brief-strip"') && html.includes('id="brief-list"'));
 
 console.log('\nFAIL total: ' + fail);
