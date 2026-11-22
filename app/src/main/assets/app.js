@@ -1688,14 +1688,24 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
       recordsMeta.textContent=`${count?`${count} 餐`:'还没有餐食'}${Math.round(Number(totals.calories)||0)?` · ${Math.round(Number(totals.calories))} kcal`:''}${exerciseRows.length?` · 训练 ${exerciseRows.length} 个动作`:''}`;
     }
     // 饮食页也要看得到训练：一行「今天练了什么 / 多少容量」，点进去就是训练面板。
+    // 没练的那天以前整行消失，打卡闭环就断在这里；现在写着「今天还没练」仍然可点（2026-11-22）。
     const trainingLine = $('#today-training-line');
     if (trainingLine) {
       const habit = (state.habits || []).find(row => row && row.date === activeDate);
       const rows = habit && Array.isArray(habit.exercises) ? habit.exercises : [];
       const volume = typeof trainingVolumeOf === 'function' ? trainingVolumeOf(rows) : 0;
-      trainingLine.hidden = !rows.length;
-      trainingLine.textContent = rows.length ? `训练 ${rows.length} 个动作 · 容量 ${fmt(volume, 0)} kg` : '';
-
+      const restDay = !!habit && (habit.training === false || String(habit.training) === 'false');
+      if (rows.length) {
+        trainingLine.hidden = false;
+        trainingLine.textContent = `训练 ${rows.length} 个动作 · 容量 ${fmt(volume, 0)} kg`;
+      } else if (activeDate === localDate() && trainingEnabled() && !restDay) {
+        // 只写状态，不再加「去记录」：行动由「下一步」那一行统一承担，同一屏不留两个训练入口。
+        trainingLine.hidden = false;
+        trainingLine.textContent = '今天还没练';
+      } else {
+        trainingLine.hidden = true;
+        trainingLine.textContent = '';
+      }
     }
     $('#calorie-value').textContent = fmt(totals.calories,0);
     // 没记饮食时把空环与宏量格收起来：一屏只留「还没记」和记一餐的入口，别用空数字占版面。
@@ -1726,7 +1736,25 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     // 差值必须跟屏幕上显示的上下限同一口径：以前用 calorieTarget 算「超出区间上限」会多算。
     const floor = number(range ? range.min : p.calorieTarget);
     const cap = number(range ? range.max : p.calorieTarget);
-    $('#calorie-caption').textContent = rangeUnset ? '还没有可用的目标区间：到「我的 → 身体档案与目标」补齐性别、身高、体重与年龄。' : !meals.length ? '还没有餐食记录，摄入量未知。' : totals.calories === null ? '部分餐食缺少热量，无法计算完整汇总。' : number(p.calorieTarget) === null ? '尚未设置每日热量目标。' : `${totals.calories < floor ? `距区间下限还差 ${fmt(floor-totals.calories,0)} kcal` : totals.calories <= cap ? `在区间内，距上限 ${fmt(cap-totals.calories,0)} kcal` : `超出区间上限 ${fmt(totals.calories-cap,0)} kcal`}。`;
+    // 「还能吃多少」是这一屏最该一眼看到的数：环心补一行读数，口径与下方差额句完全一致
+    // （低于下限说还差多少到下限、在区间内说到上限的余量、超了说超多少），两处永远是同一个数。
+    const leftNode = $('#calorie-left');
+    if (leftNode) {
+      const eaten = number(totals.calories);
+      const short = eaten === null ? null
+        : floor !== null && eaten < floor ? {word: '还差', value: floor - eaten, over: false}
+        : cap !== null && eaten <= cap ? {word: '剩', value: cap - eaten, over: false}
+        : cap !== null ? {word: '超', value: eaten - cap, over: true} : null;
+      leftNode.hidden = !short;
+      if (short) {
+        leftNode.textContent = `${short.word} ${fmt(short.value,0)}`;
+        leftNode.classList.toggle('is-over', short.over);
+      }
+    }
+    const captionStatic = rangeUnset ? '还没有可用的目标区间：到「我的 → 身体档案与目标」补齐性别、身高、体重与年龄。' : !meals.length ? '还没有餐食记录，摄入量未知。' : totals.calories === null ? '部分餐食缺少热量，无法计算完整汇总。' : number(p.calorieTarget) === null ? '尚未设置每日热量目标。' : '';
+    const captionGap = totals.calories < floor ? floor - totals.calories : totals.calories <= cap ? cap - totals.calories : totals.calories - cap;
+    const captionLead = totals.calories < floor ? '距区间下限还差' : totals.calories <= cap ? '在区间内，距上限' : '超出区间上限';
+    $('#calorie-caption').innerHTML = captionStatic || `${captionLead} <b>${fmt(captionGap,0)}</b> kcal。`;
     // What to do next, not just how far off the target is: a number without an action is useless.
     const actionBox = $('#calorie-action');
     if (actionBox) {
@@ -1800,7 +1828,13 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
       return (map[date] && map[date].level) || 'high';
     } catch { return 'high'; }
   }
-    $('#macro-summary').innerHTML = [['protein','蛋白质',p.proteinMin,p.proteinMax],['fat','脂肪',p.fatMin,p.fatMax],['carbs','碳水',null,carbCap(p, range)]].map(([key,label,min,max]) => {const value = totals[key], progress = value !== null && number(max)>0 ? Math.min(100,value/max*100) : 0; return `<div><span class="macro-label">${label}</span><div class="macro-value">${fmt(value)} <small>g</small></div><div class="progress-track"><span data-progress="${progress}"></span></div><span class="macro-target">${min !== null && number(min)!==null && number(max)!==null ? `目标 ${fmt(min)}–${fmt(max)} g` : key === 'carbs' ? (number(max)>0 ? `参考上限约 ${fmt(max,0)} g` : '设置热量目标后显示进度') : '目标未设置'}</span></div>`;}).join('');
+    // 三列本身带槽就是「进度」，不再另开一张营养素卡；超出上限的（脂肪、碳水）槽转警示色。
+    $('#macro-summary').innerHTML = [['protein','蛋白质',p.proteinMin,p.proteinMax],['fat','脂肪',p.fatMin,p.fatMax],['carbs','碳水',null,carbCap(p, range)]].map(([key,label,min,max]) => {
+      const value = totals[key], capValue = number(max);
+      const progress = value !== null && capValue > 0 ? Math.min(100, value / capValue * 100) : 0;
+      const over = key !== 'protein' && value !== null && capValue > 0 && value > capValue;
+      return `<div><span class="macro-label">${label}</span><div class="macro-value">${fmt(value)} <small>g</small></div><div class="progress-track"><span data-progress="${progress}"${over ? ' class="is-over"' : ''}></span></div><span class="macro-target">${min !== null && number(min)!==null && number(max)!==null ? `目标 ${fmt(min)}–${fmt(max)} g` : key === 'carbs' ? (number(max)>0 ? `参考上限约 ${fmt(max,0)} g` : '设置热量目标后显示进度') : '目标未设置'}</span></div>`;
+    }).join('');
     $$('#macro-summary [data-progress]').forEach(node => {node.style.width=`${Number(node.dataset.progress)}%`;});
     recordIntakeConfidence();
     const measurements = state.measurements.filter(item => validDate(item.date) && item.date <= activeDate).sort((a,b) => b.date.localeCompare(a.date));
@@ -3653,20 +3687,81 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
         + `<div class="row-side"><span class="row-kcal">${fmt(meal.calories,0)} <small>kcal</small></span></div></div>`;
     }).join('');
   }
+  const MEAL_SLOT_ORDER = ['breakfast', 'lunch', 'dinner', 'snack'];
+  /** 用户手动开合过哪一格就记下来：重画不该把他刚展开的那一段收回去。 */
+  const mealSlotOpen = new Map();
+  /**
+   * 今日记录从「一长串行」改成「按餐次折叠」：每格只占一行摘要（餐次 · 餐数 · kcal），
+   * 展开才出逐餐明细。默认只展开当下这一餐——刚记完的那顿不用再点一下才看得到。
+   * 只有一餐时不折（折了也没有收益）。
+   */
   function renderTodayTimeline(container, meals) {
     if (!container) return;
     // 只列餐食。睡眠/体重/训练曾经被当成「事件」塞在末尾，看起来像误记进今日记录；
     // 它们在「今日三样」的摘要和「身体近况」里各自有位置，这里不再重复。
-    const entries = meals.map((meal, index) => {
-      const time = String(meal.mealTime || '');
-      const timed = clockPattern.test(time);
-      return {priority: timed ? 0 : 1, time: timed ? time : '', order: index, html: mealRowsHtml([meal], false)};
-    });
-    entries.sort((a, b) => a.priority - b.priority || a.time.localeCompare(b.time) || a.order - b.order);
     $('#today-record-count').textContent = meals.length ? `${meals.length} 餐` : '暂无';
-    container.innerHTML = entries.length
-      ? entries.map(entry => entry.html).join('')
-      : stateBlock({kind: 'empty', title: '今天还没有记录', body: '记一餐，时间轴就会出现在这里；上方「记一餐」直接开始。'});
+    if (!meals.length) {
+      container.innerHTML = stateBlock({kind: 'empty', title: '今天还没有记录', body: '记一餐，时间轴就会出现在这里；上方「记一餐」直接开始。'});
+      return;
+    }
+    const slotTypeOf = meal => {
+      if (MEAL_SLOT_ORDER.includes(meal.mealType)) return meal.mealType;
+      const time = String(meal.mealTime || '');
+      return clockPattern.test(time) ? defaultMealTypeFor(time) : 'untimed';
+    };
+    const groups = new Map();
+    meals.forEach((meal, index) => {
+      const key = slotTypeOf(meal);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push({meal, index});
+    });
+    const order = [...MEAL_SLOT_ORDER, 'untimed'].filter(key => groups.has(key));
+    // 默认展开「最近记的那一格」：今天页打开就该看见刚记下的东西，而不是一排折叠条。
+    const latest = meals.reduce((best, meal, index) => {
+      const time = clockPattern.test(String(meal.mealTime || '')) ? String(meal.mealTime) : '';
+      if (!best) return {key: slotTypeOf(meal), time, index};
+      if (time && (!best.time || time > best.time)) return {key: slotTypeOf(meal), time, index};
+      if (!time && !best.time && index > best.index) return {key: slotTypeOf(meal), time, index};
+      return best;
+    }, null);
+    const latestKey = latest ? latest.key : '';
+    container.innerHTML = order.map(key => {
+      const list = groups.get(key);
+      const kcal = Math.round(totalsFor(list.map(entry => entry.meal)).calories ?? 0);
+      const label = MEAL_TYPE_LABEL[key] || '未标餐次';
+      const open = mealSlotOpen.has(key) ? mealSlotOpen.get(key) : (order.length === 1 || key === latestKey);
+      const rows = list
+        .sort((a, b) => {
+          const ta = clockPattern.test(String(a.meal.mealTime || '')) ? String(a.meal.mealTime) : '';
+          const tb = clockPattern.test(String(b.meal.mealTime || '')) ? String(b.meal.mealTime) : '';
+          return (ta && tb ? ta.localeCompare(tb) : 0) || a.index - b.index;
+        })
+        .map(entry => entry.meal)
+        .map(meal => mealRowsHtml([meal], false))
+        .join('');
+      return `<div class="meal-slot${open ? ' is-open' : ''}" data-meal-slot="${key}">`
+        + `<button type="button" class="meal-slot-head" aria-expanded="${open}" aria-controls="today-slot-${key}">`
+        + `<span class="meal-slot-name">${label}</span>`
+        + `<span class="meal-slot-meta">${list.length} 餐 · ${fmt(kcal, 0)} kcal</span>`
+        + `<span class="meal-slot-caret" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.4 6.2 15.2 12l-5.8 5.8"/></svg></span>`
+        + `</button>`
+        + `<div class="meal-slot-body" id="today-slot-${key}" role="list"${open ? '' : ' hidden'}>${rows}</div></div>`;
+    }).join('');
+    if (!container.dataset.slotWired) {
+      container.dataset.slotWired = '1';
+      container.addEventListener('click', event => {
+        const head = event.target.closest?.('.meal-slot-head');
+        if (!head) return;
+        const slot = head.closest('.meal-slot');
+        const body = slot?.querySelector('.meal-slot-body');
+        if (!slot || !body) return;
+        const open = head.getAttribute('aria-expanded') !== 'true';
+        head.setAttribute('aria-expanded', String(open));
+        slot.classList.toggle('is-open', open);
+        body.hidden = !open;
+        mealSlotOpen.set(slot.dataset.mealSlot, open);
+      });
+    }
   }
   /**
    * The record list is grouped by day (the way 薄荷健康 shows 按天卡片) and capped at five meals until
@@ -7246,7 +7341,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.07';
+  const APP_VERSION = '1.5.08';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}

@@ -2196,3 +2196,19 @@ details:not(.advanced):not(.day-more)>summary::after{width:auto;height:auto;bord
 #view-today .check-fix-row{margin-top:var(--space-2)}
 
 #view-today .check-fix svg{width:16px;height:16px;display:block;flex:0 0 16px}
+
+/* 2026-11-22 今天页收口：环内「还剩多少」、宏量超出态、今日记录按餐次折叠。 */
+.energy-ring .energy-left{font-size:var(--text-xs);color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.energy-ring .energy-left.is-over{color:var(--warn-ink)}
+#calorie-caption b{font-weight:var(--fw-semibold);font-variant-numeric:tabular-nums;color:var(--body-text)}
+.progress-track span.is-over{background:var(--warn)}
+.meal-slot+.meal-slot{border-top:1px solid var(--line)}
+.meal-slot-head{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:44px;padding:8px 0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.meal-slot-caret{display:grid;place-items:center;width:16px;height:16px;color:var(--muted);transition:transform var(--dur-fast);flex:0 0 auto}
+.meal-slot-caret svg{width:16px;height:16px;display:block}
+.meal-slot.is-open>.meal-slot-head .meal-slot-caret{transform:rotate(90deg)}
+.meal-slot.is-open>.meal-slot-head{border-bottom:1px solid var(--line)}
+.meal-slot-name{font-size:var(--text-sm);font-weight:var(--fw-semibold);color:var(--ink)}
+.meal-slot-meta{font-size:var(--text-xs);color:var(--muted);font-variant-numeric:tabular-nums;margin-left:auto;white-space:nowrap}
+#today-meals .meal-slot .meal-row:last-child{border-bottom:0}
+@media (prefers-reduced-motion:reduce){.meal-slot-caret{transition:none}}

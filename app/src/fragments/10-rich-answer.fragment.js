@@ -249,14 +249,24 @@
       recordsMeta.textContent=`${count?`${count} 餐`:'还没有餐食'}${Math.round(Number(totals.calories)||0)?` · ${Math.round(Number(totals.calories))} kcal`:''}${exerciseRows.length?` · 训练 ${exerciseRows.length} 个动作`:''}`;
     }
     // 饮食页也要看得到训练：一行「今天练了什么 / 多少容量」，点进去就是训练面板。
+    // 没练的那天以前整行消失，打卡闭环就断在这里；现在写着「今天还没练」仍然可点（2026-11-22）。
     const trainingLine = $('#today-training-line');
     if (trainingLine) {
       const habit = (state.habits || []).find(row => row && row.date === activeDate);
       const rows = habit && Array.isArray(habit.exercises) ? habit.exercises : [];
       const volume = typeof trainingVolumeOf === 'function' ? trainingVolumeOf(rows) : 0;
-      trainingLine.hidden = !rows.length;
-      trainingLine.textContent = rows.length ? `训练 ${rows.length} 个动作 · 容量 ${fmt(volume, 0)} kg` : '';
-
+      const restDay = !!habit && (habit.training === false || String(habit.training) === 'false');
+      if (rows.length) {
+        trainingLine.hidden = false;
+        trainingLine.textContent = `训练 ${rows.length} 个动作 · 容量 ${fmt(volume, 0)} kg`;
+      } else if (activeDate === localDate() && trainingEnabled() && !restDay) {
+        // 只写状态，不再加「去记录」：行动由「下一步」那一行统一承担，同一屏不留两个训练入口。
+        trainingLine.hidden = false;
+        trainingLine.textContent = '今天还没练';
+      } else {
+        trainingLine.hidden = true;
+        trainingLine.textContent = '';
+      }
     }
     $('#calorie-value').textContent = fmt(totals.calories,0);
     // 没记饮食时把空环与宏量格收起来：一屏只留「还没记」和记一餐的入口，别用空数字占版面。
@@ -287,7 +297,25 @@
     // 差值必须跟屏幕上显示的上下限同一口径：以前用 calorieTarget 算「超出区间上限」会多算。
     const floor = number(range ? range.min : p.calorieTarget);
     const cap = number(range ? range.max : p.calorieTarget);
-    $('#calorie-caption').textContent = rangeUnset ? '还没有可用的目标区间：到「我的 → 身体档案与目标」补齐性别、身高、体重与年龄。' : !meals.length ? '还没有餐食记录，摄入量未知。' : totals.calories === null ? '部分餐食缺少热量，无法计算完整汇总。' : number(p.calorieTarget) === null ? '尚未设置每日热量目标。' : `${totals.calories < floor ? `距区间下限还差 ${fmt(floor-totals.calories,0)} kcal` : totals.calories <= cap ? `在区间内，距上限 ${fmt(cap-totals.calories,0)} kcal` : `超出区间上限 ${fmt(totals.calories-cap,0)} kcal`}。`;
+    // 「还能吃多少」是这一屏最该一眼看到的数：环心补一行读数，口径与下方差额句完全一致
+    // （低于下限说还差多少到下限、在区间内说到上限的余量、超了说超多少），两处永远是同一个数。
+    const leftNode = $('#calorie-left');
+    if (leftNode) {
+      const eaten = number(totals.calories);
+      const short = eaten === null ? null
+        : floor !== null && eaten < floor ? {word: '还差', value: floor - eaten, over: false}
+        : cap !== null && eaten <= cap ? {word: '剩', value: cap - eaten, over: false}
+        : cap !== null ? {word: '超', value: eaten - cap, over: true} : null;
+      leftNode.hidden = !short;
+      if (short) {
+        leftNode.textContent = `${short.word} ${fmt(short.value,0)}`;
+        leftNode.classList.toggle('is-over', short.over);
+      }
+    }
+    const captionStatic = rangeUnset ? '还没有可用的目标区间：到「我的 → 身体档案与目标」补齐性别、身高、体重与年龄。' : !meals.length ? '还没有餐食记录，摄入量未知。' : totals.calories === null ? '部分餐食缺少热量，无法计算完整汇总。' : number(p.calorieTarget) === null ? '尚未设置每日热量目标。' : '';
+    const captionGap = totals.calories < floor ? floor - totals.calories : totals.calories <= cap ? cap - totals.calories : totals.calories - cap;
+    const captionLead = totals.calories < floor ? '距区间下限还差' : totals.calories <= cap ? '在区间内，距上限' : '超出区间上限';
+    $('#calorie-caption').innerHTML = captionStatic || `${captionLead} <b>${fmt(captionGap,0)}</b> kcal。`;
     // What to do next, not just how far off the target is: a number without an action is useless.
     const actionBox = $('#calorie-action');
     if (actionBox) {
@@ -361,7 +389,13 @@
       return (map[date] && map[date].level) || 'high';
     } catch { return 'high'; }
   }
-    $('#macro-summary').innerHTML = [['protein','蛋白质',p.proteinMin,p.proteinMax],['fat','脂肪',p.fatMin,p.fatMax],['carbs','碳水',null,carbCap(p, range)]].map(([key,label,min,max]) => {const value = totals[key], progress = value !== null && number(max)>0 ? Math.min(100,value/max*100) : 0; return `<div><span class="macro-label">${label}</span><div class="macro-value">${fmt(value)} <small>g</small></div><div class="progress-track"><span data-progress="${progress}"></span></div><span class="macro-target">${min !== null && number(min)!==null && number(max)!==null ? `目标 ${fmt(min)}–${fmt(max)} g` : key === 'carbs' ? (number(max)>0 ? `参考上限约 ${fmt(max,0)} g` : '设置热量目标后显示进度') : '目标未设置'}</span></div>`;}).join('');
+    // 三列本身带槽就是「进度」，不再另开一张营养素卡；超出上限的（脂肪、碳水）槽转警示色。
+    $('#macro-summary').innerHTML = [['protein','蛋白质',p.proteinMin,p.proteinMax],['fat','脂肪',p.fatMin,p.fatMax],['carbs','碳水',null,carbCap(p, range)]].map(([key,label,min,max]) => {
+      const value = totals[key], capValue = number(max);
+      const progress = value !== null && capValue > 0 ? Math.min(100, value / capValue * 100) : 0;
+      const over = key !== 'protein' && value !== null && capValue > 0 && value > capValue;
+      return `<div><span class="macro-label">${label}</span><div class="macro-value">${fmt(value)} <small>g</small></div><div class="progress-track"><span data-progress="${progress}"${over ? ' class="is-over"' : ''}></span></div><span class="macro-target">${min !== null && number(min)!==null && number(max)!==null ? `目标 ${fmt(min)}–${fmt(max)} g` : key === 'carbs' ? (number(max)>0 ? `参考上限约 ${fmt(max,0)} g` : '设置热量目标后显示进度') : '目标未设置'}</span></div>`;
+    }).join('');
     $$('#macro-summary [data-progress]').forEach(node => {node.style.width=`${Number(node.dataset.progress)}%`;});
     recordIntakeConfidence();
     const measurements = state.measurements.filter(item => validDate(item.date) && item.date <= activeDate).sort((a,b) => b.date.localeCompare(a.date));

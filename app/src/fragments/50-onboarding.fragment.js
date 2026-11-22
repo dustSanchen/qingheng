@@ -278,20 +278,81 @@
         + `<div class="row-side"><span class="row-kcal">${fmt(meal.calories,0)} <small>kcal</small></span></div></div>`;
     }).join('');
   }
+  const MEAL_SLOT_ORDER = ['breakfast', 'lunch', 'dinner', 'snack'];
+  /** 用户手动开合过哪一格就记下来：重画不该把他刚展开的那一段收回去。 */
+  const mealSlotOpen = new Map();
+  /**
+   * 今日记录从「一长串行」改成「按餐次折叠」：每格只占一行摘要（餐次 · 餐数 · kcal），
+   * 展开才出逐餐明细。默认只展开当下这一餐——刚记完的那顿不用再点一下才看得到。
+   * 只有一餐时不折（折了也没有收益）。
+   */
   function renderTodayTimeline(container, meals) {
     if (!container) return;
     // 只列餐食。睡眠/体重/训练曾经被当成「事件」塞在末尾，看起来像误记进今日记录；
     // 它们在「今日三样」的摘要和「身体近况」里各自有位置，这里不再重复。
-    const entries = meals.map((meal, index) => {
-      const time = String(meal.mealTime || '');
-      const timed = clockPattern.test(time);
-      return {priority: timed ? 0 : 1, time: timed ? time : '', order: index, html: mealRowsHtml([meal], false)};
-    });
-    entries.sort((a, b) => a.priority - b.priority || a.time.localeCompare(b.time) || a.order - b.order);
     $('#today-record-count').textContent = meals.length ? `${meals.length} 餐` : '暂无';
-    container.innerHTML = entries.length
-      ? entries.map(entry => entry.html).join('')
-      : stateBlock({kind: 'empty', title: '今天还没有记录', body: '记一餐，时间轴就会出现在这里；上方「记一餐」直接开始。'});
+    if (!meals.length) {
+      container.innerHTML = stateBlock({kind: 'empty', title: '今天还没有记录', body: '记一餐，时间轴就会出现在这里；上方「记一餐」直接开始。'});
+      return;
+    }
+    const slotTypeOf = meal => {
+      if (MEAL_SLOT_ORDER.includes(meal.mealType)) return meal.mealType;
+      const time = String(meal.mealTime || '');
+      return clockPattern.test(time) ? defaultMealTypeFor(time) : 'untimed';
+    };
+    const groups = new Map();
+    meals.forEach((meal, index) => {
+      const key = slotTypeOf(meal);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push({meal, index});
+    });
+    const order = [...MEAL_SLOT_ORDER, 'untimed'].filter(key => groups.has(key));
+    // 默认展开「最近记的那一格」：今天页打开就该看见刚记下的东西，而不是一排折叠条。
+    const latest = meals.reduce((best, meal, index) => {
+      const time = clockPattern.test(String(meal.mealTime || '')) ? String(meal.mealTime) : '';
+      if (!best) return {key: slotTypeOf(meal), time, index};
+      if (time && (!best.time || time > best.time)) return {key: slotTypeOf(meal), time, index};
+      if (!time && !best.time && index > best.index) return {key: slotTypeOf(meal), time, index};
+      return best;
+    }, null);
+    const latestKey = latest ? latest.key : '';
+    container.innerHTML = order.map(key => {
+      const list = groups.get(key);
+      const kcal = Math.round(totalsFor(list.map(entry => entry.meal)).calories ?? 0);
+      const label = MEAL_TYPE_LABEL[key] || '未标餐次';
+      const open = mealSlotOpen.has(key) ? mealSlotOpen.get(key) : (order.length === 1 || key === latestKey);
+      const rows = list
+        .sort((a, b) => {
+          const ta = clockPattern.test(String(a.meal.mealTime || '')) ? String(a.meal.mealTime) : '';
+          const tb = clockPattern.test(String(b.meal.mealTime || '')) ? String(b.meal.mealTime) : '';
+          return (ta && tb ? ta.localeCompare(tb) : 0) || a.index - b.index;
+        })
+        .map(entry => entry.meal)
+        .map(meal => mealRowsHtml([meal], false))
+        .join('');
+      return `<div class="meal-slot${open ? ' is-open' : ''}" data-meal-slot="${key}">`
+        + `<button type="button" class="meal-slot-head" aria-expanded="${open}" aria-controls="today-slot-${key}">`
+        + `<span class="meal-slot-name">${label}</span>`
+        + `<span class="meal-slot-meta">${list.length} 餐 · ${fmt(kcal, 0)} kcal</span>`
+        + `<span class="meal-slot-caret" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.4 6.2 15.2 12l-5.8 5.8"/></svg></span>`
+        + `</button>`
+        + `<div class="meal-slot-body" id="today-slot-${key}" role="list"${open ? '' : ' hidden'}>${rows}</div></div>`;
+    }).join('');
+    if (!container.dataset.slotWired) {
+      container.dataset.slotWired = '1';
+      container.addEventListener('click', event => {
+        const head = event.target.closest?.('.meal-slot-head');
+        if (!head) return;
+        const slot = head.closest('.meal-slot');
+        const body = slot?.querySelector('.meal-slot-body');
+        if (!slot || !body) return;
+        const open = head.getAttribute('aria-expanded') !== 'true';
+        head.setAttribute('aria-expanded', String(open));
+        slot.classList.toggle('is-open', open);
+        body.hidden = !open;
+        mealSlotOpen.set(slot.dataset.mealSlot, open);
+      });
+    }
   }
   /**
    * The record list is grouped by day (the way 薄荷健康 shows 按天卡片) and capped at five meals until
