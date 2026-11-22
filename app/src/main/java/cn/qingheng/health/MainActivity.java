@@ -1707,7 +1707,7 @@ import java.util.concurrent.Executors;
             commit(next); drafts.clear(); confirmedDrafts.clear(); return snapshot();
         }
         if (post && path.equals("/api/estimate")) return estimate(b);
-        if (post && path.equals("/api/estimate/stream")) return startEstimateStream(b);
+        if (post && path.equals("/api/scale-read")) return scaleRead(b);        if (post && path.equals("/api/estimate/stream")) return startEstimateStream(b);
         if (post && path.equals("/api/advice")) return advice(b);
         if (path.equals("/api/drafts")) {
             if (get) return new JSONObject().put("drafts", storedDrafts());
@@ -3466,6 +3466,50 @@ import java.util.concurrent.Executors;
                     .put("granted", info == null ? "" : info.optString("granted_balance", ""))
                     .put("topped", info == null ? "" : info.optString("topped_up_balance", ""));
         } finally { conn.disconnect(); }
+    }
+
+    /**
+     * 体脂秤截图 → 身体指标（1.5.09）。只做识别与范围校验，不入库：前端拿到值后回填表单，
+     * 用户核对再保存——识别错一个数字不该直接写进健康记录。
+     */
+    private JSONObject scaleRead(JSONObject b) throws Exception {
+        JSONObject c = consent(b);
+        String image = b.optString("image", b.optString("imageData", ""));
+        if (image.isEmpty()) throw fail("请先拍照或选择体脂秤截图");
+        if (!c.optBoolean("visionEnabled", false) || c.optString("visionModel").trim().isEmpty())
+            throw fail("此提供方尚未启用视觉模型，无法识别秤面截图");
+        validateImage(image);
+        String model = c.getString("visionModel");
+        JSONArray messages = new JSONArray()
+                .put(new JSONObject().put("role", "system")
+                        .put("content", cn.qingheng.health.ai.Prompts.scaleReading()))
+                .put(new JSONObject().put("role", "user").put("content", new JSONArray()
+                        .put(new JSONObject().put("type", "text").put("text", "读取这张图里的身体指标。"))
+                        .put(new JSONObject().put("type", "image_url")
+                                .put("image_url", new JSONObject().put("url", image)))));
+        String raw = chat(c, model, messages, 400, false).trim();
+        JSONObject parsed;
+        try { parsed = new JSONObject(raw); }
+        catch (Exception e) { throw fail("模型没有返回严格的 JSON，未回填任何数值"); }
+        JSONObject out = new JSONObject();
+        putMetric(out, parsed, "weight", 20, 300);
+        putMetric(out, parsed, "bodyFat", 1, 70);
+        putMetric(out, parsed, "muscle", 5, 120);
+        putMetric(out, parsed, "visceralFat", 1, 60);
+        putMetric(out, parsed, "bmr", 500, 6000);
+        putMetric(out, parsed, "waist", 20, 250);
+        Object measured = parsed.opt("measuredAt");
+        if (measured instanceof String && ((String) measured).matches("\\d{4}-\\d{2}-\\d{2}"))
+            out.put("measuredAt", measured);
+        if (out.length() == 0) throw fail("没有从这张图里读到可用的身体指标；可换个角度重拍，或手动填写");
+        return out;
+    }
+
+    /** 只收回落在合理区间的数：识别错位（单位混淆、把百分比当公斤）在这里被挡掉。 */
+    private static void putMetric(JSONObject out, JSONObject src, String key, double min, double max) throws Exception {
+        double value = src.optDouble(key, Double.NaN);
+        if (!Double.isFinite(value) || value < min || value > max) return;
+        out.put(key, Math.round(value * 10.0) / 10.0);
     }
 
     private JSONObject estimate(JSONObject b) throws Exception {

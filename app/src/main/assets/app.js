@@ -7481,7 +7481,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.09';
+  const APP_VERSION = '1.5.10';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -10129,6 +10129,88 @@ feedback(message,'数据已导入。'+report);
     }
   }
   /**
+   * 身体数据（1.5.09）：指标卡片化、按围度/成分分组，加一条「拍秤面识别」。
+   * 卡片只放读数，动作在卡外；识别结果先回填表单，用户核对后才入库——错一个数字不该直接写进记录。
+   */
+  function installBodyDataControls() {
+    const form = $('#measurement-form');
+    if (!form || form.dataset.bodyWired === '1') return;
+    form.dataset.bodyWired = '1';
+    const METRICS = [
+      {key: 'waist', label: '腰围', unit: 'cm', digits: 1},
+      {key: 'bodyFat', label: '体脂率', unit: '%', digits: 1},
+      {key: 'muscle', label: '肌肉量', unit: 'kg', digits: 1},
+      {key: 'visceralFat', label: '内脏脂肪', unit: '级', digits: 1},
+      {key: 'bmr', label: '基础代谢', unit: 'kcal', digits: 0}
+    ];
+    // 上次值当参照写在格子下面：不预填，免得把旧数当今天的记录。
+    const paintHints = () => {
+      const base = validDate(form.elements.date.value) ? form.elements.date.value : activeDate;
+      const rows = (state.measurements || [])
+        .filter(row => row && validDate(row.date) && row.date < base)
+        .sort((a, b) => b.date.localeCompare(a.date));
+      const last = rows[0] || null;
+      for (const metric of METRICS) {
+        const node = $(`[data-metric-hint="${metric.key}"]`, form);
+        if (!node) continue;
+        const value = last ? number(last[metric.key]) : null;
+        node.textContent = value === null ? '' : `上次 ${fmt(value, metric.digits)} ${metric.unit}`;
+      }
+    };
+    paintHints();
+    form.elements.date.addEventListener('change', paintHints);
+    const input = $('#scale-photo-input'), note = $('#scale-sync-note'), button = $('#scale-photo');
+    // 先在 canvas 缩到 1400px：一张 4000px 原图的 base64 会把整条链路拖慢一倍以上。
+    const shrink = file => new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const image = new Image();
+      image.onload = () => {
+        const scale = Math.min(1, 1400 / Math.max(image.width, image.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(image.width * scale);
+        canvas.height = Math.round(image.height * scale);
+        canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        resolve(canvas.toDataURL('image/jpeg', 0.82));
+      };
+      image.onerror = () => { URL.revokeObjectURL(url); reject(new Error('这张图片读不出来，换一张试试')); };
+      image.src = url;
+    });
+    button.addEventListener('click', () => {
+      if (!externalConsent()) { note.textContent = '识别秤面需要外部模型：先到「我的 → 数据与关于」开启授权。'; return; }
+      if (!navigator.onLine) { note.textContent = '当前离线，秤面识别需要联网；也可以手动填写。'; return; }
+      input.click();
+    });
+    input.addEventListener('change', async () => {
+      const file = input.files && input.files[0];
+      input.value = '';
+      if (!file) return;
+      button.disabled = true;
+      note.textContent = '正在读图…';
+      try {
+        const image = await shrink(file);
+        const data = await api('/api/scale-read', {image, allowExternal: true});
+        const filled = [];
+        for (const metric of METRICS) {
+          const value = number(data?.[metric.key]);
+          if (value === null) continue;
+          form.elements[metric.key].value = value;
+          filled.push(`${metric.label} ${fmt(value, metric.digits)} ${metric.unit}`);
+          const card = form.elements[metric.key].closest('.metric-card');
+          if (card) {
+            card.classList.add('is-filled');
+            setTimeout(() => card.classList.remove('is-filled'), 1600);
+          }
+        }
+        if (data?.measuredAt && validDate(data.measuredAt)) form.elements.date.value = data.measuredAt;
+        note.textContent = filled.length
+          ? `读到 ${filled.length} 项：${filled.join('、')}。核对后点保存。`
+          : '没读到可用数值，换个角度重拍，或直接手填。';
+      } catch (error) { note.textContent = error.message; }
+      finally { button.disabled = false; }
+    });
+  }
+  /**
    * 常用值 + 滑块的记忆：固定三档只能选它给的那三个数，滑块能把数调到任意档位。
    * 常用值不再写死——保存过一次就记下来，最近三个、同值不重复；清空过才会回落到默认三档。
    */
@@ -10656,7 +10738,7 @@ feedback(message,'数据已导入。'+report);
   installProfileAutoRecalc();
   applyTrainingVisibility();
   installCardCollapse(); installTrainingAdvice(); installHabitChips(); installChatChips();
-  setupCollapsibleSections(); installQuickRecordControls(); installHealthConnectControls(); restoreConsent(); installExternalConsent(); installExactAlarmControl();
+  setupCollapsibleSections(); installQuickRecordControls(); installHealthConnectControls(); installBodyDataControls(); restoreConsent(); installExternalConsent(); installExactAlarmControl();
 /* 问答页分段：问答 / 训练建议（2026-11-17：今日训练建议从今天页迁到问答页）。
    面板显隐沿用记录页的 .record-panel[hidden] 约定，选择记在 localStorage。 */
 (function () {
