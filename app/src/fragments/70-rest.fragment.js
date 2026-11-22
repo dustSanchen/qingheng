@@ -161,7 +161,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.21';
+  const APP_VERSION = '1.5.22';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -3591,4 +3591,27 @@ feedback(message,'数据已导入。'+report);
   installProfileAutoRecalc();
   applyTrainingVisibility();
   installCardCollapse(); installTrainingAdvice(); installHabitChips(); installChatChips();
-  setupCollapsibleSections(); installQuickRecordControls(); installHealthConnectControls(); installBodyDataControls(); installTodayStatusStrip(); installTodayMoreMenu(); restoreConsent(); installExternalConsent(); installExactAlarmControl();
+  /**
+   * 今天页「小习惯 / 今日记录」并成一张带标签的卡（2026-11-22 第八轮）：
+   * 默认露习惯，切到记录才展开餐食列表；选择记在本机，换天不重置。
+   */
+  const TODAY_FOLD_KEY = 'qingheng.todayFold';
+  function installTodayFold() {
+    const card = $('#today-fold-card');
+    if (!card || card.dataset.wired === '1') return;
+    card.dataset.wired = '1';
+    const panels = $$('[data-fold-panel]', card);
+    const tabs = $$('[data-fold-tab]', card);
+    const paint = key => {
+      panels.forEach(panel => { panel.hidden = panel.dataset.foldPanel !== key; });
+      tabs.forEach(tab => tab.setAttribute('aria-selected', String(tab.dataset.foldTab === key)));
+    };
+    let saved = 'habits';
+    try { saved = localStorage.getItem(TODAY_FOLD_KEY) === 'records' ? 'records' : 'habits'; } catch {}
+    paint(saved);
+    tabs.forEach(tab => tab.addEventListener('click', () => {
+      paint(tab.dataset.foldTab);
+      try { localStorage.setItem(TODAY_FOLD_KEY, tab.dataset.foldTab); } catch {}
+    }));
+  }
+  setupCollapsibleSections(); installQuickRecordControls(); installHealthConnectControls(); installBodyDataControls(); installTodayStatusStrip(); installTodayMoreMenu(); installTodayFold(); restoreConsent(); installExternalConsent(); installExactAlarmControl();

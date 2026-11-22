@@ -2503,3 +2503,13 @@ html[data-tab="today"] .energy-card .quick-chip:active{background-image:linear-g
 .scale-sync{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .scale-sync .button{min-height:40px;padding:0 12px}
 .scale-sync-note{flex:1 1 100%;font-size:var(--text-xs);color:var(--muted);line-height:1.5}
+
+/* ── 2026-11-22 第八轮：小习惯/今日记录并卡 + 弹窗磨砂 ────────────────────────────── */
+#today-fold-card{padding-top:10px}
+.fold-tabs{display:flex;gap:6px;margin-bottom:10px}
+.fold-tab{min-height:36px;padding:0 14px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--muted);font-size:var(--text-xs)}
+.fold-tab[aria-selected="true"]{border-color:transparent;background:var(--accent-soft);color:var(--ink);font-weight:var(--fw-semibold)}
+#today-fold-card .fold-panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+#today-fold-card .fold-panel-head h2{margin:0;font-size:17px;font-weight:var(--fw-semibold);letter-spacing:var(--tracking-label)}
+/* 结束训练弹窗：浮层毛玻璃（v2 只允许 Sheet/浮层） */
+.app-dialog-panel.is-glass{background:color-mix(in srgb,var(--paper) 86%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}

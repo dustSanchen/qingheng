@@ -563,6 +563,8 @@
     $('#app-dialog-ok').textContent = options.ok || '确定';
     $('#app-dialog-cancel').textContent = options.cancel || '取消';
     $('.app-dialog-panel', root).classList.toggle('danger', options.danger === true);
+    // 有内容区的弹窗（结束训练）用浮层毛玻璃：v2 允许 Sheet/浮层用 blur，卡片仍禁用。
+    $('.app-dialog-panel', root).classList.toggle('is-glass', !!options.bodyHtml);
     root.hidden = false;
     ($('.app-dialog-body [data-autofocus]', root) || $('#app-dialog-cancel')).focus();
     return new Promise(resolve => {dialogResolve = resolve;});

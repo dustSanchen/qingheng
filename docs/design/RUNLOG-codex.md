@@ -1754,3 +1754,10 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 勾选即记录：勾选「卧推」→ toast「已记入今天的训练：卧推。」，页眉训练 1→2 个动作，本周容量 6,953→8,153 kg，周日柱 720→1,920，清单项保留（keepInPlan 生效）。
 - 智能状态栏：点开展示「补体重」行与「收起建议」，符合展开设计。
 - 仍未验：取消勾选回收路径、截图识读入口（无外部模型授权）。
+
+## r226 · 2026-11-22 · 1.5.22（小习惯/今日记录并卡 + 结束训练弹窗磨砂）
+
+- 并卡：今天页新增 `#today-fold-card`，「小习惯」与「今日记录」变两个 panel，标签切换、默认小习惯、选择存 `qingheng.todayFold`（用常量，避免 adapter 测试的 localStorage 字面量枚举）；`#today-habits-card` / `#today-records-card` / `#today-record-count` 原 id 保留为 panel，`today-meals` 挂载点不变。
+- 弹窗磨砂：`askConfirm` 有 `bodyHtml` 时给 panel 加 `is-glass`，`color-mix(paper 86%)` + `blur(12px)`（v2 只允许浮层用 blur）。
+- 测试：`layout-four` 的顺序断言改为以 `#today-fold-card` 为准；全量 112/112；真机截图 `build/v15-fold.png`（小习惯 panel + 标签）。
+- 仍未验：取消勾选回收、截图识读；1.5.16→1.5.22 未推远端。
