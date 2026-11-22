@@ -1271,6 +1271,7 @@
     if (hour >= 21 && !inWindow(1020, 1380)) missing.push({key: "dinner", label: "晚餐"});
     return missing;
   }
+  let slotRows = [];
   function renderSlotHint() {
     const node = $("#slot-hint");
     if (!node) return;
@@ -1283,8 +1284,13 @@
     const primary = agenda && agenda.primary ? agenda.primary : null;
     const suffix = missing.length ? "；" + missing.map(item => item.label).join("、") + "好像还没记，点一下去补" : "";
     const timeNode = $("#slot-time"), textNode = $("#slot-text");
-    if (timeNode) timeNode.textContent = primary ? "下一步" : clock;
-    if (textNode) textNode.textContent = primary ? primary.label : slot.label + "：" + slot.hint + suffix;
+    const quiet = !primary && !missing.length;
+    if (timeNode) timeNode.textContent = primary ? "下一步" : quiet ? "状态" : clock;
+    if (textNode) {
+      textNode.textContent = primary ? primary.label
+        : quiet ? "今天没有要补的缺口，按计划走就好"
+        : slot.label + "：" + slot.hint + suffix;
+    }
     const reasonNode = $("#slot-reason");
     if (reasonNode) {
       reasonNode.textContent = primary && primary.reason ? primary.reason : "";
@@ -1296,7 +1302,27 @@
       noteNode.hidden = !primary;
     }
     node.classList.toggle("is-next", !!primary);
-    // 没有缺口也没有未完成训练时整块收起：这一屏只留一个有内容的行动面。
+    // 建议流（2026-11-22 第五轮）：主建议留在首行，其余平铺折叠，不再各自占一块。
+    const listNode = $("#slot-list"), moreNode = $("#slot-more");
+    slotRows = [];
+    for (const item of (agenda && Array.isArray(agenda.secondary) ? agenda.secondary : [])) {
+      if (item && item.label) slotRows.push({label: item.label, reason: item.reason || "", target: item.target || ""});
+    }
+    for (const item of missing) slotRows.push({label: "补记" + item.label, reason: "", target: "meal-text"});
+    if (listNode) {
+      listNode.innerHTML = slotRows.map((item, index) =>
+        `<button type="button" class="slot-row" data-slot-index="${index}"><span class="slot-row-label">${esc(item.label)}</span>`
+        + (item.reason ? `<span class="slot-row-reason">${esc(item.reason)}</span>` : "") + "</button>").join("");
+      // 默认折叠；用户展开过就记住这次展开，直到换日或消息清空。
+      listNode.hidden = !(slotRows.length && node.dataset.slotOpen === "1");
+    }
+    if (moreNode) {
+      moreNode.hidden = slotRows.length === 0;
+      const open = listNode ? !listNode.hidden : false;
+      moreNode.textContent = open ? "收起建议" : `还有 ${slotRows.length} 条建议`;
+      moreNode.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+    // 没有缺口也没有未完成训练时也不整块消失：退成一行安静的当日状态，保留「建议流」的常驻位。
     node.classList.toggle("is-quiet", !primary && !missing.length);
     document.querySelectorAll("#today-quick-actions .quick-chip").forEach(button => {
       button.classList.remove("quick-chip-primary");
@@ -1333,6 +1359,27 @@
         if (!event.target.closest("#slot-hint")) return;
         event.preventDefault();
         activate();
+      });
+      // 平铺折叠：展开看全部建议；行本身可点，直达对应表单。
+      $("#slot-more")?.addEventListener("click", event => {
+        event.stopPropagation();
+        const list = $("#slot-list");
+        if (!list) return;
+        list.hidden = !list.hidden;
+        node.dataset.slotOpen = list.hidden ? "" : "1";
+        const more = $("#slot-more");
+        if (more) {
+          more.textContent = list.hidden ? `还有 ${slotRows.length} 条建议` : "收起建议";
+          more.setAttribute("aria-expanded", list.hidden ? "false" : "true");
+        }
+      });
+      $("#slot-list")?.addEventListener("click", event => {
+        const row = event.target.closest("[data-slot-index]");
+        if (!row) return;
+        event.stopPropagation();
+        const item = slotRows[Number(row.dataset.slotIndex)];
+        if (!item) return;
+        if (typeof openRecordTarget === "function") openRecordTarget(item.target);
       });
     }
     node.dataset.slot = slot.key;

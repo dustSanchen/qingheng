@@ -28,8 +28,8 @@ check('the panel no longer moves it out', !app.includes('energyCard.after(slotHi
 check('the compass keeps its in-card styling', css.includes('#view-today .energy-card .slot-hint.is-next'));
 
 // --- 工具栏收进菜单 ---------------------------------------------------------------------
-check('the header has one more button', html.includes('id="today-more"'));
-check('the menu carries the three actions', app.includes("label: '换一天'") && app.includes("label: '复制一餐'") && app.includes("label: '显示指标'"));
+check('the ⋯ menu is gone, metrics moved to the habits card', !html.includes('id="today-more"') && html.includes('id="habit-metrics"'));
+check('the metrics sheet is the only menu action left', app.includes("openSheet({title: '显示的指标'") && !app.includes("label: '换一天'"));
 check('date jump stays visible on today', css.includes('html[data-tab="today"] .date-jump{display:inline-flex'));
 check('quick copy is a visible quiet link again', css.includes('#quick-record{display:inline-flex'));
 check('soft shadows replace card borders on today', css.includes('--shadow-soft:0 8px 24px -6px color-mix(in srgb,var(--ink) 6%,transparent)') && css.includes('#view-today .card{border:0;box-shadow:var(--shadow-soft)'));

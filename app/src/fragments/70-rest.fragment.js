@@ -161,7 +161,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.18';
+  const APP_VERSION = '1.5.19';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1448,10 +1448,15 @@
     ].filter(([, , focus]) => focus !== 'training-form' || trainingEnabled()).map(([icon, label, focus, className = '']) => `<button type="button" class="quick-chip ${className}" data-quick-focus="${focus}" data-quick-icon="${icon}"><span class="quick-chip-icon" aria-hidden="true">${iconMarkup(icon)}</span>${label}</button>`).join('');
     // 动作组紧贴能量卡之下：先读数（环 → 宏量三列 → 补蛋白提示），再动作。
     // 不放进卡里——卡内动作条会把一张卡切成两半；也没挂在宏量后面，空态时环与宏量都是 hidden，锚点会消失。
-    // 2026-11-22：行动罗盘（slot-hint）改在能量卡内部，这里只把动作与注释排在卡后。
-    energyCard.after(row);
+    // 2026-11-22 第五轮：三个核心入口进卡，固定在能量环下方的黄金区；
+    // 不再靠 ⋯ 菜单承载主操作，低频的「显示指标」移到小习惯卡标题。
+    const anchor = $('.energy-body', energyCard);
+    if (anchor && anchor.parentElement === energyCard) anchor.after(row);
+    else energyCard.prepend(row);
     const slotNote = $('#slot-note');
-    if (slotNote) row.after(slotNote);
+    const slotHint = $('#slot-hint');
+    if (slotNote && slotHint) slotHint.after(slotNote);
+    else if (slotNote) row.after(slotNote);
     row.addEventListener('click', event => {
       const chip = event.target.closest('[data-quick-focus]');
       if (!chip) return;

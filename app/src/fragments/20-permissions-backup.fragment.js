@@ -177,37 +177,23 @@
     });
   }
   /**
-   * 今天页工具栏（2026-11-22）：页眉只留一个「⋯」，把换一天、复制一餐、显示指标收进底部菜单，
-   * 主流程不再被两个文字按钮打断。菜单项沿用 openSheet，一次只开一层。
+   * 小习惯卡标题的「显示指标」（2026-11-22 第五轮）：主操作都回到卡内后取消 ⋯ 菜单，
+   * 只把低频的指标选择留在小习惯卡上；换一天/复制一餐本来就是可见入口。
    */
   function installTodayMoreMenu() {
-    const trigger = $('#today-more');
+    const trigger = $('#habit-metrics');
     if (!trigger || trigger.dataset.wired === '1') return;
     trigger.dataset.wired = '1';
     trigger.addEventListener('click', async () => {
-      const choice = await openSheet({title: '今天', options: [
-        {label: '换一天'},
-        {label: '复制一餐'},
-        {label: '显示指标'}
-      ]});
-      if (choice === 0) {
-        const input = $('#active-date');
-        if (!input) return;
-        if (typeof input.showPicker === 'function') { try { input.showPicker(); return; } catch {} }
-        input.focus(); input.click();
-      } else if (choice === 1) {
-        $('#quick-record')?.click();
-      } else if (choice === 2) {
-        const current = typeof todayMetrics === 'function' ? todayMetrics() : [];
-        const defs = typeof TODAY_METRIC_DEFS !== 'undefined' ? TODAY_METRIC_DEFS : [];
-        const picked = await openSheet({title: '显示的指标', options: defs.map(def => ({label: def.label, current: current.includes(def.key)}))});
-        if (picked === null || picked === undefined) return;
-        const key = defs[picked]?.key;
-        if (!key) return;
-        const next = current.includes(key) ? current.filter(item => item !== key) : [...current, key];
-        saveTodayMetrics(next);
-        render();
-      }
+      const current = typeof todayMetrics === 'function' ? todayMetrics() : [];
+      const defs = typeof TODAY_METRIC_DEFS !== 'undefined' ? TODAY_METRIC_DEFS : [];
+      const picked = await openSheet({title: '显示的指标', options: defs.map(def => ({label: def.label, current: current.includes(def.key)}))});
+      if (picked === null || picked === undefined) return;
+      const key = defs[picked]?.key;
+      if (!key) return;
+      const next = current.includes(key) ? current.filter(item => item !== key) : [...current, key];
+      saveTodayMetrics(next);
+      render();
     });
   }
   function installQuickRecordControls() {

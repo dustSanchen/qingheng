@@ -1712,3 +1712,13 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 构建：设备 3cba2bdc 安装 1.5.18/518；页面截图见 `build/v10-today.png`。未推远端、未发 Release。
 - 文档：新增 `docs/design/35-today-visual-v2.md`，写明 v1 禁令作废、渐变/阴影/毛玻璃的允许范围与回滚方式。
 
+
+## r223 · 2026-11-22 · 1.5.19（建议流常驻折叠 + 三核心入口进卡、取消 ⋯）
+
+- 建议流：`#slot-hint` 从高亮行动卡退回「发丝线之上的常驻行」——「下一步」小标签 + 一句行动 + 一行理由，去渐变/去阴影/去边框；`agenda.secondary` 与缺餐项平铺进 `#slot-list`，默认折叠、「还有 N 条建议」展开后为整行可点的列表；无缺口时不再整块消失，退成一行「今天没有要补的缺口，按计划走就好」（标签改「状态」）。
+- 三入口：`installTodayQuickActions()` 把「记一餐 / 训练 / 身体」插到 `.energy-body` 之后（环下方黄金区），胶囊形态（999 圆角、surface-soft、44 高、2px 柔影）。
+- 取消页眉 ⋯：`#today-more` 删除，`installTodayMoreMenu()` 改绑小习惯卡标题的「显示指标」，只开「显示的指标」一层 sheet；换一天、复制一餐保持可见。
+- 时段注释 `#slot-note` 改挂在 `#slot-hint` 之后，不再夹在胶囊与宏量带之间。
+- 测试：`layout-four`/`today-agenda`/`today-status-strip` 三处断言按新结构翻转（入口进卡、消费 secondary、无 today-more）；全量 111/111。
+- 构建：设备 3cba2bdc 安装 1.5.19/519；截图 `build/v11-today3.png`。未推远端、未发 Release。
+

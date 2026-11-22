@@ -1271,6 +1271,7 @@
     if (hour >= 21 && !inWindow(1020, 1380)) missing.push({key: "dinner", label: "晚餐"});
     return missing;
   }
+  let slotRows = [];
   function renderSlotHint() {
     const node = $("#slot-hint");
     if (!node) return;
@@ -1283,8 +1284,13 @@
     const primary = agenda && agenda.primary ? agenda.primary : null;
     const suffix = missing.length ? "；" + missing.map(item => item.label).join("、") + "好像还没记，点一下去补" : "";
     const timeNode = $("#slot-time"), textNode = $("#slot-text");
-    if (timeNode) timeNode.textContent = primary ? "下一步" : clock;
-    if (textNode) textNode.textContent = primary ? primary.label : slot.label + "：" + slot.hint + suffix;
+    const quiet = !primary && !missing.length;
+    if (timeNode) timeNode.textContent = primary ? "下一步" : quiet ? "状态" : clock;
+    if (textNode) {
+      textNode.textContent = primary ? primary.label
+        : quiet ? "今天没有要补的缺口，按计划走就好"
+        : slot.label + "：" + slot.hint + suffix;
+    }
     const reasonNode = $("#slot-reason");
     if (reasonNode) {
       reasonNode.textContent = primary && primary.reason ? primary.reason : "";
@@ -1296,7 +1302,27 @@
       noteNode.hidden = !primary;
     }
     node.classList.toggle("is-next", !!primary);
-    // 没有缺口也没有未完成训练时整块收起：这一屏只留一个有内容的行动面。
+    // 建议流（2026-11-22 第五轮）：主建议留在首行，其余平铺折叠，不再各自占一块。
+    const listNode = $("#slot-list"), moreNode = $("#slot-more");
+    slotRows = [];
+    for (const item of (agenda && Array.isArray(agenda.secondary) ? agenda.secondary : [])) {
+      if (item && item.label) slotRows.push({label: item.label, reason: item.reason || "", target: item.target || ""});
+    }
+    for (const item of missing) slotRows.push({label: "补记" + item.label, reason: "", target: "meal-text"});
+    if (listNode) {
+      listNode.innerHTML = slotRows.map((item, index) =>
+        `<button type="button" class="slot-row" data-slot-index="${index}"><span class="slot-row-label">${esc(item.label)}</span>`
+        + (item.reason ? `<span class="slot-row-reason">${esc(item.reason)}</span>` : "") + "</button>").join("");
+      // 默认折叠；用户展开过就记住这次展开，直到换日或消息清空。
+      listNode.hidden = !(slotRows.length && node.dataset.slotOpen === "1");
+    }
+    if (moreNode) {
+      moreNode.hidden = slotRows.length === 0;
+      const open = listNode ? !listNode.hidden : false;
+      moreNode.textContent = open ? "收起建议" : `还有 ${slotRows.length} 条建议`;
+      moreNode.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+    // 没有缺口也没有未完成训练时也不整块消失：退成一行安静的当日状态，保留「建议流」的常驻位。
     node.classList.toggle("is-quiet", !primary && !missing.length);
     document.querySelectorAll("#today-quick-actions .quick-chip").forEach(button => {
       button.classList.remove("quick-chip-primary");
@@ -1333,6 +1359,27 @@
         if (!event.target.closest("#slot-hint")) return;
         event.preventDefault();
         activate();
+      });
+      // 平铺折叠：展开看全部建议；行本身可点，直达对应表单。
+      $("#slot-more")?.addEventListener("click", event => {
+        event.stopPropagation();
+        const list = $("#slot-list");
+        if (!list) return;
+        list.hidden = !list.hidden;
+        node.dataset.slotOpen = list.hidden ? "" : "1";
+        const more = $("#slot-more");
+        if (more) {
+          more.textContent = list.hidden ? `还有 ${slotRows.length} 条建议` : "收起建议";
+          more.setAttribute("aria-expanded", list.hidden ? "false" : "true");
+        }
+      });
+      $("#slot-list")?.addEventListener("click", event => {
+        const row = event.target.closest("[data-slot-index]");
+        if (!row) return;
+        event.stopPropagation();
+        const item = slotRows[Number(row.dataset.slotIndex)];
+        if (!item) return;
+        if (typeof openRecordTarget === "function") openRecordTarget(item.target);
       });
     }
     node.dataset.slot = slot.key;
@@ -2759,37 +2806,23 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     });
   }
   /**
-   * 今天页工具栏（2026-11-22）：页眉只留一个「⋯」，把换一天、复制一餐、显示指标收进底部菜单，
-   * 主流程不再被两个文字按钮打断。菜单项沿用 openSheet，一次只开一层。
+   * 小习惯卡标题的「显示指标」（2026-11-22 第五轮）：主操作都回到卡内后取消 ⋯ 菜单，
+   * 只把低频的指标选择留在小习惯卡上；换一天/复制一餐本来就是可见入口。
    */
   function installTodayMoreMenu() {
-    const trigger = $('#today-more');
+    const trigger = $('#habit-metrics');
     if (!trigger || trigger.dataset.wired === '1') return;
     trigger.dataset.wired = '1';
     trigger.addEventListener('click', async () => {
-      const choice = await openSheet({title: '今天', options: [
-        {label: '换一天'},
-        {label: '复制一餐'},
-        {label: '显示指标'}
-      ]});
-      if (choice === 0) {
-        const input = $('#active-date');
-        if (!input) return;
-        if (typeof input.showPicker === 'function') { try { input.showPicker(); return; } catch {} }
-        input.focus(); input.click();
-      } else if (choice === 1) {
-        $('#quick-record')?.click();
-      } else if (choice === 2) {
-        const current = typeof todayMetrics === 'function' ? todayMetrics() : [];
-        const defs = typeof TODAY_METRIC_DEFS !== 'undefined' ? TODAY_METRIC_DEFS : [];
-        const picked = await openSheet({title: '显示的指标', options: defs.map(def => ({label: def.label, current: current.includes(def.key)}))});
-        if (picked === null || picked === undefined) return;
-        const key = defs[picked]?.key;
-        if (!key) return;
-        const next = current.includes(key) ? current.filter(item => item !== key) : [...current, key];
-        saveTodayMetrics(next);
-        render();
-      }
+      const current = typeof todayMetrics === 'function' ? todayMetrics() : [];
+      const defs = typeof TODAY_METRIC_DEFS !== 'undefined' ? TODAY_METRIC_DEFS : [];
+      const picked = await openSheet({title: '显示的指标', options: defs.map(def => ({label: def.label, current: current.includes(def.key)}))});
+      if (picked === null || picked === undefined) return;
+      const key = defs[picked]?.key;
+      if (!key) return;
+      const next = current.includes(key) ? current.filter(item => item !== key) : [...current, key];
+      saveTodayMetrics(next);
+      render();
     });
   }
   function installQuickRecordControls() {
@@ -7674,7 +7707,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.18';
+  const APP_VERSION = '1.5.19';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -8961,10 +8994,15 @@ function metricIcon(label) {
     ].filter(([, , focus]) => focus !== 'training-form' || trainingEnabled()).map(([icon, label, focus, className = '']) => `<button type="button" class="quick-chip ${className}" data-quick-focus="${focus}" data-quick-icon="${icon}"><span class="quick-chip-icon" aria-hidden="true">${iconMarkup(icon)}</span>${label}</button>`).join('');
     // 动作组紧贴能量卡之下：先读数（环 → 宏量三列 → 补蛋白提示），再动作。
     // 不放进卡里——卡内动作条会把一张卡切成两半；也没挂在宏量后面，空态时环与宏量都是 hidden，锚点会消失。
-    // 2026-11-22：行动罗盘（slot-hint）改在能量卡内部，这里只把动作与注释排在卡后。
-    energyCard.after(row);
+    // 2026-11-22 第五轮：三个核心入口进卡，固定在能量环下方的黄金区；
+    // 不再靠 ⋯ 菜单承载主操作，低频的「显示指标」移到小习惯卡标题。
+    const anchor = $('.energy-body', energyCard);
+    if (anchor && anchor.parentElement === energyCard) anchor.after(row);
+    else energyCard.prepend(row);
     const slotNote = $('#slot-note');
-    if (slotNote) row.after(slotNote);
+    const slotHint = $('#slot-hint');
+    if (slotNote && slotHint) slotHint.after(slotNote);
+    else if (slotNote) row.after(slotNote);
     row.addEventListener('click', event => {
       const chip = event.target.closest('[data-quick-focus]');
       if (!chip) return;
