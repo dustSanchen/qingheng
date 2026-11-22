@@ -33,7 +33,7 @@ check('estimate status uses verb + noun only',
   rest.includes('正在分析食品营养') && rest.includes('正在核算份量与热量') && !rest.includes('estimate-think'));
 
 check('state schema version and migration exist',
-  main.includes('STATE_VERSION = 3') && main.includes('private static void migrateState')
+  main.includes('STATE_VERSION = 4') && main.includes('private static void migrateState')
   && main.includes('backupBeforeMigration'));
 check('calc module is loaded before app.js', html.includes('./calc.js'));
 

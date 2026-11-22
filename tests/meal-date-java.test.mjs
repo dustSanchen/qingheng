@@ -136,7 +136,7 @@ check('entering a sub-page pushes history for the system back button', app.inclu
 check('restoring the tab ignores the sub-page', /function restoreTab\(\) \{\s*const fromHash = parseHash\(\)\.tab;/.test(app));
 check('hub summaries are refreshed from state', app.includes('function renderHub()') && app.includes('renderHub();'));
 check('the storage panel is driven by the new route', app.includes("api(remirror ? '/api/storage-remirror' : '/api/storage-status'"));
-check('the app version is a single constant', app.includes("const APP_VERSION = '1.5.08'"));
+check('the app version is a single constant', app.includes("const APP_VERSION = '1.5.09'"));
 check('the shown version matches the build script', (() => {
   const shown = /const APP_VERSION = '([0-9.]+)'/.exec(app);
   const built = /\$Version='([0-9.]+)'/.exec(fs.readFileSync('build.ps1', 'utf8'));
@@ -145,10 +145,10 @@ check('the shown version matches the build script', (() => {
 
 // --- Health Connect was removed on purpose: watch sync is out of scope for now ----------------------
 const manifest = fs.readFileSync('app/src/main/AndroidManifest.xml', 'utf8');
-check('the Health Connect bridge file is gone', !fs.existsSync('app/src/main/java/cn/qingheng/health/HealthConnectSync.java'));
-check('no health read permission is declared', !/android\.permission\.health\./.test(manifest));
-check('no Health Connect route or bridge method remains', !/HealthConnect|health-connect/.test(main) && !/HealthConnect/.test(app));
-check('the rationale entry is gone too', !manifest.includes('ACTION_SHOW_PERMISSIONS_RATIONALE'));
+check('the Health Connect bridge file is back', fs.existsSync('app/src/main/java/cn/qingheng/health/HealthConnectSync.java'));
+check('the five health read permissions are declared', ['READ_SLEEP', 'READ_STEPS', 'READ_EXERCISE', 'READ_ACTIVE_CALORIES_BURNED', 'READ_DISTANCE'].every(name => manifest.includes('android.permission.health.' + name)));
+check('the Health Connect route and bridge method are back', /healthConnectStatus|health-connect\/status/.test(main) && /requestHealthConnectPermissions/.test(main) && /health-connect\/sync/.test(app));
+check('the rationale entry is back too', manifest.includes('ACTION_SHOW_PERMISSIONS_RATIONALE'));
 
 // --- Reminders: on time, never two in one window, short enough for the shade ---------------------
 check('the alarm-clock permission is declared for on-time delivery', manifest.includes('android.permission.USE_EXACT_ALARM'));

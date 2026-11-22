@@ -48,7 +48,7 @@ check('the about page shows the versions', html.includes('id="version-info"') &&
 check('it explains why the versions matter', html.includes('旧记录不会被重新解释'));
 check('it loads when the about subpage opens', app.includes("loadStorageStatus(false).catch(() => {}); loadVersions().catch(() => {});"));
 check('the about page names the author and states the source is public', html.includes('作者 Sanchen') && html.includes('源码公开'));
-check('state migrates away removed health fields', main.includes('STATE_VERSION = 3') && main.includes('root.remove("healthConnectRecords")'));
+check('state migrates away removed health fields', main.includes('STATE_VERSION = 4') && main.includes('root.remove("healthConnectRecords")'));
 check('imports carry anchors and temporary targets', main.includes('next.put("foodAnchors", imported.getJSONObject("foodAnchors"))') && main.includes('next.put("temporaryTargets"'));
 check('future weights stay out of plateau maths', app.includes('if (row.date > activeDate) continue;'));
 check('the about page links to the source repository', html.includes('github.com/dustSanchen/qingheng') && html.includes('open-project-page'));

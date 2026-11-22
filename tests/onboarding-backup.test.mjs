@@ -25,7 +25,7 @@ check('the permission refresh never blocks the step change', app.includes("setTi
 
 // --- the two items and their routes (Health Connect was removed on purpose) --------------------------
 check('two items are defined', app.includes('const PERMISSION_ITEMS = [') && app.includes("key: 'notifications'") && app.includes("key: 'exactAlarm'"));
-check('health sync stays out of the checklist', !app.includes("key: 'health'") && !app.includes('health-connect'));
+check('health sync is back in the checklist', app.includes("key: 'health'") && app.includes('health-connect'));
 check('states come from the existing routes', app.includes("await api('/api/notification-permission')") && app.includes("await api('/api/push')"));
 check('an unknown state is shown as unknown, not as a failure', app.includes("const tag = granted === null ? '状态未知'"));
 check('both containers are rendered from one function', app.includes("for (const id of ['#ob-checks', '#data-checks'])"));
@@ -49,7 +49,7 @@ check('a due backup reminder carries an action button', html.includes('id="globa
 check('a first-day quick record leads to a meal instead of a dead end', app.includes('先记一餐，之后就能在这里快速复制') && app.includes("switchTab('records', true);") && app.includes("const field = $('#meal-text');"));
 check('the empty today timeline points at the one meal entry above it', app.includes('上方「记一餐」直接开始') && !app.includes("action: {label: '记一餐', go: 'records', focus: 'meal-text'}"));
 check('ACWR and plateau thresholds live in one place', app.includes('const ACWR_HIGH = 1.5;') && app.includes('const ACWR_LOW = 0.8;') && app.includes('const PLATEAU_SPAN_KG = 0.2;') && app.includes('ratio > ACWR_HIGH') && app.includes('span < PLATEAU_SPAN_KG'));
-check('the checklist speaks of two items', app.includes('两项都已就绪'));
+check('the checklist speaks of three items', app.includes('三项都已就绪'));
 
 // --- backup reminder --------------------------------------------------------------------------------
 check('native exposes backup bookkeeping', routes.includes('path.equals("/api/backup")') && main.includes('public JSONObject recordBackup(int records)'));

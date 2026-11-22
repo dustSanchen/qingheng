@@ -2248,3 +2248,18 @@ details:not(.advanced):not(.day-more)>summary::after{width:auto;height:auto;bord
 #habit-chips.is-editing .habit-chip-x{display:grid}
 .habit-chip-add{color:var(--muted);border-style:dashed;background:transparent}
 .habit-chip-add:active{color:var(--accent);border-color:var(--accent)}
+/* 2026-11-22 恢复手表同步：一张数据卡（来源 → 五类计数 → 动作），不再用两颗按钮。 */
+.sync-lede{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.sync-source{display:flex;align-items:center;gap:6px;margin:0;font-size:var(--text-sm);color:var(--body-text)}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.sync-card.is-off .sync-dot{background:var(--muted)}
+.sync-time{margin:0;font-size:var(--text-xs);color:var(--muted);font-variant-numeric:tabular-nums}
+.sync-types{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 18px;padding:12px 0 8px}
+.sync-type{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--line)}
+.sync-type span{font-size:var(--text-xs);color:var(--muted)}
+.sync-type b{font-size:17px;font-weight:var(--fw-semibold);font-variant-numeric:tabular-nums}
+.sync-note{margin:2px 0 12px;font-size:var(--text-xs);color:var(--muted)}
+.sync-actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.sync-actions .button{flex:1 1 auto;min-width:170px}
+#health-sync-tag.is-ok{background:var(--accent-soft);color:var(--accent)}
+#health-sync-tag.is-off{background:var(--surface-soft);color:var(--muted)}
