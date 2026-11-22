@@ -1579,7 +1579,7 @@
       return '<p class="plan-label">训练负荷</p><div class="plan-load is-' + level + '"><span class="plan-load-label">负荷比</span>'
         + '<span class="plan-load-value">' + stats.ratio.toFixed(2) + '</span>'
         + '<span class="plan-load-verdict">' + verdict + '</span></div>'
-        + '<p class="fine-print">负荷比 = 近 7 天 ÷ 近 4 周平均负荷；0.8–1.3 为维持区。</p>';
+        + '<p class="fine-print plan-load-note">负荷比 = 近 7 天 ÷ 近 4 周平均负荷；0.8–1.3 为维持区。</p>';
     })();
     const suggestedNote = plan.days.some(day => day.suggested) ? '<p class="fine-print">带「建议」的动作来自训练库（该模板你还没有记录），先按 3 组建立基线。</p>' : '';
     // 预览日：点周条只换「看哪天」，不动 activeDate——页面不跳、周条窗口也不挪，随时能点回今天。
@@ -1659,7 +1659,7 @@
     // 增肌与减脂的要求不同，页面上直接写出来，别让用户自己猜「这次该练几组」。
     const goalPreset = typeof GOAL_PRESETS === 'object' ? GOAL_PRESETS[(state.profile || {}).goal] : null;
     const goalRequirementHtml = goalPreset && goalPreset.muscleSetsPerWeek
-      ? '<p class="fine-print">' + esc('本周要求（' + goalLabelOf((state.profile || {}).goal) + '）：每个大肌群 '
+      ? '<p class="fine-print plan-requirement">' + esc('本周要求（' + goalLabelOf((state.profile || {}).goal) + '）：每个大肌群 '
         + goalPreset.muscleSetsPerWeek[0] + '~' + goalPreset.muscleSetsPerWeek[1] + ' 组 · 每组 '
         + goalPreset.reps[0] + '~' + goalPreset.reps[1] + ' 次 · RIR '
         + goalPreset.rir[0] + '~' + goalPreset.rir[1]) + '</p>'
@@ -1677,15 +1677,16 @@
       : '';
     // 两套清单同屏容易混：先说清谁是谁、冲突时听谁的，再让用户读数据。
     const relationHtml = plan.days.length
-      ? '<p class="fine-print">上面按偏好与最近记录排周框架，下面的「今日顺序」是模型照它排的执行顺序；两者不一致时以今日顺序为准。</p>'
+      ? '<p class="fine-print plan-relation">上面按偏好与最近记录排周框架；实际执行顺序以你在训练日志里确认的那份为准，两者不一致时以日志为准。</p>'
       : '';
     box.innerHTML = annotateTerms(thisWeekHtml + goalRequirementHtml + relationHtml + whyHtml + acwrHtml + driftHtml + adoptHtml + suggestedNote + scheduleHtml);
     // 计划说明进 sheet：本周要求 / 怎么排的 / 负荷都搬过去，卡面只留本周安排。
     const explainHost = $('#plan-explain-body');
     if (explainHost) {
       explainHost.innerHTML = '';
-      for (const node of box.querySelectorAll('.plan-why, .plan-why-lead, .acwr-line, .drift-line')) {
-        explainHost.appendChild(node.cloneNode(true));
+      // 用 move 而不是 clone：说明搬进抽屉后，卡面只留本周安排与采纳入口。
+      for (const node of [...box.querySelectorAll('.plan-requirement, .plan-relation, .plan-why, .plan-why-lead, .plan-label, .plan-load, .plan-load-note, .drift-line')]) {
+        explainHost.appendChild(node);
       }
     }
   }

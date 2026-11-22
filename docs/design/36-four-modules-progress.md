@@ -3,7 +3,7 @@
 > 版本基线：**轻衡 1.5.27**（versionCode 527）· 测试 **112/112** · commit 见 `git log --oneline -6`
 > 计划来源：用户 2026-11-22 夜四模块清单（`memory: rules`「第四份清单」），plan mode 批准
 > 设计基线：`docs/design/37-style-and-modules.html`（确认稿；实现以它第 4 节右侧那版为准）
-> 设备：3cba2bdc（**本轮装机验证未完成**：实施期间 adb 掉线，见 §5）
+> 设备：3cba2bdc（装机验证**已完成**：1.5.27 / 527，五张真机截图见 §5）
 
 ---
 
@@ -106,5 +106,6 @@ node tools/device.mjs shot build\xxx.png
 ## 5. 本轮事故与教训
 
 1. **片段不能单独 `node --check`**：`00-head.fragment.js` 只是 app.js 的一片（IIFE 的关闭在 80-boot），单独检查必然报 `Unexpected end of input`；判据只有「assemble + `node --check app.js`」。
-2. **adb 在实施中途掉线**（`adb devices` 空，重连/重启 server 均无效），1.5.27 的装机与真机截图未能完成——这是本轮唯一未闭环项。
+2. **adb 在实施中途掉线**（`adb devices` 空，重连/重启 server 均无效）；设备回来后已补：`dev-loop -Version 1.5.27 -VersionCode 527` 装机成功，`dumpsys` 确认 versionName=1.5.27 / versionCode=527；真机截图 `build/v27-today4.png`（今天页首屏）、`v27-body3.png`（今天体重）、`v27-habit4.png`（三张刻度卡）、`v27-quicksheet.png`（自定义快捷值）、`v27-train5.png` + `v27-plansheet2.png`（工具栏/播种行/计划说明 sheet）。
+3. 真机验收后又修了三处：`.plan-label/.plan-load/.plan-load-note` 未搬进抽屉（卡里残留负荷块）；习惯数值改左对齐并压缩卡高（10→8 padding、轨道 28→22）；「今日顺序」作废后的关系文案改为「以训练日志里确认的为准」。
 3. 改 `index.html` 的大行（单行 4.5k 字符）时，用 Node 按 `indexOf` 切片替换比手写 `edit` 的 old_string 稳。

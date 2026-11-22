@@ -461,32 +461,70 @@
     renderHub();
   }
   /**
-   * 顶部横滑概况（2026-11-22 第六轮）：训练（本周次数/容量）与身体（体重/体脂）各一枚，
-   * 用滚动吸附排列，取代页首那块大面积留白；点击沿用 data-go/data-focus 既有路由。
+   * 顶部横滑概况（2026-11-22 第七轮）：每枚卡 = 主数 + 基准 + 进度/缺口。
+   * 硬约束：数字旁边必须有一个比较对象（计划次数 / 上周容量 / 目标区间 / 7 日变化），带不出基准的不上卡。
    */
   function renderTodayPeek() {
     const box = $('#today-peek');
     if (!box) return;
     const end = new Date(activeDate + 'T00:00:00');
     if (Number.isNaN(end.getTime())) return;
-    const from = new Date(end); from.setDate(end.getDate() - 6);
-    let volume = 0, sessions = 0;
-    for (const row of (state.habits || [])) {
-      if (!row || !Array.isArray(row.exercises) || !row.exercises.length || !validDate(row.date)) continue;
-      const day = new Date(row.date + 'T00:00:00');
-      if (Number.isNaN(day.getTime()) || day < from || day > end) continue;
-      sessions++;
-      volume += row.exercises.reduce((sum, item) => sum + (trainingVolumeOf([item]) || 0), 0);
-    }
+    const windowOf = offset => {
+      const to = new Date(end); to.setDate(end.getDate() + offset);
+      const from = new Date(to); from.setDate(to.getDate() - 6);
+      let volume = 0, sessions = 0;
+      for (const row of (state.habits || [])) {
+        if (!row || !Array.isArray(row.exercises) || !row.exercises.length || !validDate(row.date)) continue;
+        const day = new Date(row.date + 'T00:00:00');
+        if (Number.isNaN(day.getTime()) || day < from || day > to) continue;
+        sessions++;
+        volume += row.exercises.reduce((sum, item) => sum + (trainingVolumeOf([item]) || 0), 0);
+      }
+      return {volume, sessions};
+    };
+    const thisWeek = windowOf(0), lastWeek = windowOf(-7);
+    const planDays = number(typeof planPrefs === 'function' ? planPrefs().days : null);
+    const volumeDelta = lastWeek.volume > 0 && thisWeek.volume > 0
+      ? Math.round((thisWeek.volume - lastWeek.volume) / lastWeek.volume * 100) : null;
+
     const measurements = (state.measurements || []).filter(item => validDate(item.date) && item.date <= activeDate).sort((a, b) => b.date.localeCompare(a.date));
     const weight = latestField(measurements, 'weight'), bodyFat = latestField(measurements, 'bodyFat');
+    const profile = typeof effectiveProfileForDate === 'function' ? effectiveProfileForDate(activeDate) : {};
+    const targetMin = number(profile.weightTargetMin), targetMax = number(profile.weightTargetMax);
+    const currentWeight = weight ? number(weight.weight) : null;
+    // 目标区间：报「还差多少」而不是「目标是多少」——差值才是可判断的信息。
+    let targetLine = '';
+    if (currentWeight !== null && targetMin !== null && targetMax !== null) {
+      if (currentWeight > targetMax) targetLine = `距目标 ${fmt(targetMin, 1)}–${fmt(targetMax, 1)} 还差 ${fmt(currentWeight - targetMax, 1)} kg`;
+      else if (currentWeight < targetMin) targetLine = `距目标 ${fmt(targetMin, 1)}–${fmt(targetMax, 1)} 还差 ${fmt(targetMin - currentWeight, 1)} kg`;
+      else targetLine = `已在目标区间 ${fmt(targetMin, 1)}–${fmt(targetMax, 1)}`;
+    }
+    // 7 日变化：取 activeDate-7 当天或之前最近一条体重，和当前读数比。
+    let weekDelta = null;
+    if (currentWeight !== null) {
+      const mark = new Date(end); mark.setDate(mark.getDate() - 7);
+      const markDate = mark.toISOString().slice(0, 10);
+      const past = measurements.find(row => row.date <= markDate && number(row.weight) !== null);
+      if (past) weekDelta = currentWeight - number(past.weight);
+    }
+    const bodySub = [targetLine,
+      weekDelta === null ? '' : `7 日 ${weekDelta >= 0 ? '+' : '−'}${fmt(Math.abs(weekDelta), 1)} kg`,
+      !targetLine && bodyFat && number(bodyFat.bodyFat) !== null ? `体脂 ${fmt(bodyFat.bodyFat, 1)}%` : ''
+    ].filter(Boolean).join(' · ');
+
     const cards = [
-      {label: '本周训练', value: sessions ? `${fmt(sessions, 0)} 次` : '还没练', sub: sessions ? `容量 ${fmt(volume, 0)} kg` : '先记一节', focus: 'training-form'},
-      {label: '身体', value: weight && number(weight.weight) !== null ? `${fmt(weight.weight, 1)} kg` : '—', sub: bodyFat && number(bodyFat.bodyFat) !== null ? `体脂 ${fmt(bodyFat.bodyFat, 1)}%` : '还没有体脂记录', focus: 'measurement-weight'}
+      {label: '本周训练', value: thisWeek.sessions ? `${fmt(thisWeek.sessions, 0)}${planDays ? ' / ' + fmt(planDays, 0) : ''} 次` : '还没练',
+        sub: thisWeek.sessions ? `容量 ${fmt(thisWeek.volume, 0)} kg${volumeDelta === null ? '' : ` · 较上周 ${volumeDelta >= 0 ? '+' : '−'}${Math.abs(volumeDelta)}%`}` : '先记一节',
+        progress: planDays ? Math.min(1, thisWeek.sessions / planDays) : null, focus: 'training-form'},
+      {label: '身体', value: currentWeight !== null ? `${fmt(currentWeight, 1)} kg` : '—',
+        sub: bodySub || '还没有体重记录', progress: null, focus: 'measurement-weight'}
     ];
     box.innerHTML = cards.map(card =>
       `<button type="button" class="peek-card" data-go="records" data-focus="${card.focus}" role="listitem">`
-      + `<span class="peek-label">${esc(card.label)}</span><b class="peek-value">${esc(card.value)}</b><span class="peek-sub">${esc(card.sub)}</span></button>`
+      + `<span class="peek-label">${esc(card.label)}</span><b class="peek-value">${esc(card.value)}</b>`
+      + (card.sub ? `<span class="peek-sub">${esc(card.sub)}</span>` : '')
+      + (card.progress === null ? '' : `<span class="peek-bar" aria-hidden="true"><i style="width:${(card.progress * 100).toFixed(0)}%"></i></span>`)
+      + '</button>'
     ).join('');
   }
   /** Creates the live row once; complete answer blocks keep their DOM nodes as later text arrives. */

@@ -1811,3 +1811,5 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 片段不能单独 `node --check`：`00-head.fragment.js` 只是 app.js 的一片（IIFE 收尾在 80-boot），单独检查必然报 `Unexpected end of input`；唯一判据是 assemble + `node --check app.js`。
 - 改 `index.html` 的单行大块（一行 4.5k 字符）用 Node 按 `indexOf` 切片替换，比手写 `edit` 的 old_string 稳。
 - `.slot-hint*` / `.status-strip*` 历史样式约 60 行仍留在 `styles.css`（DOM 已删、无视觉影响），列为本轮清理债。
+
+**补充（同日 23:0x，设备回连后）**：1.5.27 装机完成（dev-loop 通过，dumpsys versionName=1.5.27 / versionCode=527），真机截图 build/v27-today4.png（今天页首屏：概况 4/4 次 · 较上周 −37% ＋ 三枚胶囊 ＋ 行动行 1/2）、v27-body3.png（今天体重）、v27-habit4.png（三张刻度卡）、v27-quicksheet.png（自定义快捷值两步 sheet）、v27-train5.png（工具栏＋播种行）、v27-plansheet2.png（计划说明 sheet）。真机验收后又修三处：① .plan-label / .plan-load / .plan-load-note 漏搬，训练计划卡里残留负荷块，补进选择器；② 习惯数值改左对齐、卡内 padding 10→8、轨道 28→22，卡高压缩；③「今日顺序」作废后的关系文案改为「以训练日志里确认的为准」，并同步 plan-shared-template 断言。真机操作教训：盲点坐标会误触刻度轨道（步数一次被滑到 42166），改数值后必须 force-stop 重开再截图。
