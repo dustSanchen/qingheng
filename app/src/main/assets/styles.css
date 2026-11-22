@@ -2269,14 +2269,14 @@ details:not(.advanced):not(.day-more)>summary::after{width:auto;height:auto;bord
 .scale-sync-note{margin:0;flex:1 1 180px;font-size:var(--text-xs);color:var(--muted);line-height:1.5}
 .metric-group{margin-top:14px}
 .metric-group-title{margin:0 0 8px;font-size:var(--text-xs);color:var(--muted);letter-spacing:var(--tracking-caps);font-weight:var(--fw-semibold)}
-.metric-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:10px}
+.metric-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .metric-card{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius-md);background:var(--surface)}
 .metric-card:focus-within{border-color:var(--accent)}
 .metric-card.is-filled{border-color:var(--accent);background:var(--accent-soft)}
 .metric-name{font-size:var(--text-xs);color:var(--muted)}
 .metric-value{display:flex;align-items:baseline;gap:4px}
-#view-records .metric-value input{border:0;background:transparent;padding:0;min-height:0;width:100%;font-size:20px;font-weight:var(--fw-semibold);font-variant-numeric:tabular-nums;color:var(--ink)}
-#view-records .metric-value input:focus{outline:none}
-#view-records .metric-value input::placeholder{color:var(--muted);font-weight:var(--fw-regular)}
+#view-records .metric-card .metric-value input{border:0;border-radius:0;background:transparent;box-shadow:none;padding:0;min-height:0;height:auto;width:100%;font-size:22px;font-weight:var(--fw-semibold);font-variant-numeric:tabular-nums;color:var(--ink)}
+#view-records .metric-card .metric-value input:focus{outline:none}
+#view-records .metric-card .metric-value input::placeholder{color:var(--muted);font-weight:var(--fw-regular)}
 .metric-value small{font-size:var(--text-xs);color:var(--muted);flex:0 0 auto}
 .metric-hint{font-size:var(--text-xs);color:var(--muted);min-height:1.2em}

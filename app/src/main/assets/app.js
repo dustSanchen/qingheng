@@ -10159,6 +10159,9 @@ feedback(message,'数据已导入。'+report);
     };
     paintHints();
     form.elements.date.addEventListener('change', paintHints);
+    // 启动时 state 还没到，门一开再补一次：否则「上次 74」永远不出现。
+    const fold = $('#body-data-fold');
+    if (fold) fold.addEventListener('toggle', () => { if (fold.open) setTimeout(paintHints, 0); });
     const input = $('#scale-photo-input'), note = $('#scale-sync-note'), button = $('#scale-photo');
     // 先在 canvas 缩到 1400px：一张 4000px 原图的 base64 会把整条链路拖慢一倍以上。
     const shrink = file => new Promise((resolve, reject) => {
