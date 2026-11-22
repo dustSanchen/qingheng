@@ -161,7 +161,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.19';
+  const APP_VERSION = '1.5.20';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1455,6 +1455,8 @@
     else energyCard.prepend(row);
     const slotNote = $('#slot-note');
     const slotHint = $('#slot-hint');
+    // 智能状态栏就贴在胶囊下面（2026-11-22 第六轮）：平时只给结论，点开才是完整建议。
+    if (slotHint) row.after(slotHint);
     if (slotNote && slotHint) slotHint.after(slotNote);
     else if (slotNote) row.after(slotNote);
     row.addEventListener('click', event => {
@@ -2000,7 +2002,37 @@
   $('#trend-range').addEventListener('change',renderTrends);$('#refresh-advice').addEventListener('click',refreshAdvice);
   // 两项「更多测量」与「日常习惯」都并进当天那一行：同一天只有一行测量、一行习惯（2026-11-18）。
   // 空着的格不再写成 null，否则只改腰围会把当天的体重冲掉。
-  $('#measurement-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/measurements',form=>{const filled=Object.fromEntries(Object.entries(numericForm(form,['waist','bodyFat','muscle','visceralFat','bmr'])).filter(([,value])=>value!==null));if(!Object.keys(filled).length) throw new Error('请至少填写一项测量数据。');return {...(measurementRowFor(form.elements.date.value)||{}), date:form.elements.date.value, ...filled};});});
+  /**
+   * 身体数据保存前的阈值风控（2026-11-22 第六轮）：与同日期之前的最近一条比，
+   * 体重差 ≥2 kg 或体脂差 ≥3 个百分点时先确认，避免换秤/脱水/手误污染趋势图。
+   */
+  function bodyOutlierLines(form) {
+    const date = String(form.elements.date?.value || activeDate);
+    const prev = (state.measurements || []).filter(row => row && validDate(row.date) && row.date < date)
+      .sort((a, b) => b.date.localeCompare(a.date))[0] || null;
+    if (!prev) return [];
+    const lines = [];
+    const weight = number(form.elements.weight?.value), prevWeight = number(prev.weight);
+    const values = numericForm(form, ['waist', 'bodyFat', 'muscle', 'visceralFat', 'bmr']);
+    if (weight !== null && prevWeight !== null && Math.abs(weight - prevWeight) >= 2) lines.push(`体重差 ${fmt(Math.abs(weight - prevWeight), 1)} kg`);
+    if (number(values.bodyFat) !== null && number(prev.bodyFat) !== null && Math.abs(values.bodyFat - prev.bodyFat) >= 3) {
+      lines.push(`体脂差 ${fmt(Math.abs(values.bodyFat - prev.bodyFat), 1)} 个百分点`);
+    }
+    return lines;
+  }
+  $('#measurement-form').addEventListener('submit', event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const save = () => submitForm(form, '/api/measurements', f => {
+      const filled = Object.fromEntries(Object.entries(numericForm(f, ['waist', 'bodyFat', 'muscle', 'visceralFat', 'bmr'])).filter(([, value]) => value !== null));
+      if (!Object.keys(filled).length) throw new Error('请至少填写一项测量数据。');
+      return {...(measurementRowFor(f.elements.date.value) || {}), date: f.elements.date.value, ...filled};
+    });
+    const outliers = bodyOutlierLines(form);
+    if (!outliers.length) { save(); return; }
+    askConfirm(`和上次比，${outliers.join('、')}。数值没错就保存；若是换秤或刚运动完，改天再记更准。`, {title: '数值变化较大', ok: '确认保存'})
+      .then(ok => { if (ok) save(); });
+  });
   $('#habit-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/habits',form=>{const filled=Object.fromEntries(Object.entries(numericForm(form,['steps','water'])).filter(([,value])=>value!==null));if(!Object.keys(filled).length) throw new Error('请至少填写一项日常习惯。');return {...(habitRowFor(form.elements.date.value)||{}), date:form.elements.date.value, ...filled};});});
   // 记录页三种表单统一成「日期在最前、保存在最后」；训练日志原来没有日期输入，只能靠页面顶部的全局日期。
   $('#training-date')?.addEventListener('change', event => {
@@ -2256,6 +2288,15 @@
     if (row) refreshSetRow(row);
   });
   $('#training-exercises')?.addEventListener('click', event => {
+    // 动作要点：不再常驻长文本，点「?」才弹（2026-11-22 第六轮）。
+    const help = event.target.closest?.('[data-exercise-help]');
+    if (help) {
+      const row = help.closest('[data-exercise-row]');
+      const name = row ? String($('[data-exercise="name"]', row)?.value || '').trim() : '';
+      if (name && typeof showExerciseGuide === 'function') showExerciseGuide(name);
+      else notice('先填动作名，再点这里看要点。');
+      return;
+    }
     const done = event.target.closest?.('[data-set-done]');
     if (done) {
       const set = done.closest('[data-set-row]');

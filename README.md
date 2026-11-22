@@ -1,68 +1,50 @@
-# 轻衡
+﻿# 杞昏　
 
-**每一天，轻一点。** 一本只存在你手机里的健康账：饮食、训练、身体三栏记在一处，断网也能用，不上传任何记录。
+**姣忎竴澶╋紝杞讳竴鐐广€?* 涓€鏈彧瀛樺湪浣犳墜鏈洪噷鐨勫仴搴疯处锛氶ギ椋熴€佽缁冦€佽韩浣撲笁鏍忚鍦ㄤ竴澶勶紝鏂綉涔熻兘鐢紝涓嶄笂浼犱换浣曡褰曘€?
+![Version](https://img.shields.io/badge/version-1.5.20-informational) ![Tests](https://img.shields.io/badge/tests-109%20%2F%20109-green) ![MinSdk](https://img.shields.io/badge/minSdk-26-blue) ![TargetSdk](https://img.shields.io/badge/targetSdk-35-blue) ![APK](https://img.shields.io/badge/APK-659%20KB-lightgrey) ![License](https://img.shields.io/badge/license-%E7%A6%81%E6%AD%A2%E8%BD%AC%E5%94%AE-critical)
 
-![Version](https://img.shields.io/badge/version-1.5.19-informational) ![Tests](https://img.shields.io/badge/tests-109%20%2F%20109-green) ![MinSdk](https://img.shields.io/badge/minSdk-26-blue) ![TargetSdk](https://img.shields.io/badge/targetSdk-35-blue) ![APK](https://img.shields.io/badge/APK-659%20KB-lightgrey) ![License](https://img.shields.io/badge/license-%E7%A6%81%E6%AD%A2%E8%BD%AC%E5%94%AE-critical)
-
-[**展示页**](https://dustsanchen.github.io/qingheng/) · [**下载最新安装包**](https://github.com/dustSanchen/qingheng/releases/latest) · [**更新记录**](https://github.com/dustSanchen/qingheng/releases)
+[**灞曠ず椤?*](https://dustsanchen.github.io/qingheng/) 路 [**涓嬭浇鏈€鏂板畨瑁呭寘**](https://github.com/dustSanchen/qingheng/releases/latest) 路 [**鏇存柊璁板綍**](https://github.com/dustSanchen/qingheng/releases)
 
 <table>
 <tr>
-<td align="center"><img src="site/shots/today.jpg" width="210" alt="今天页：能量环、剩余额度与今日体检"><br><sub>今天 · 一屏看完怎么吃</sub></td>
-<td align="center"><img src="site/shots/log.jpg" width="210" alt="训练日志：一组一行，次数与负重同排"><br><sub>训练 · 一组一行</sub></td>
-<td align="center"><img src="site/shots/chat.jpg" width="210" alt="问答页：先给依据再给动作"><br><sub>问答 · 先依据后动作</sub></td>
-<td align="center"><img src="site/shots/trends.jpg" width="210" alt="趋势页：按真实测量日期连线"><br><sub>趋势 · 只连实测点</sub></td>
+<td align="center"><img src="site/shots/today.jpg" width="210" alt="浠婂ぉ椤碉細鑳介噺鐜€佸墿浣欓搴︿笌浠婃棩浣撴"><br><sub>浠婂ぉ 路 涓€灞忕湅瀹屾€庝箞鍚?/sub></td>
+<td align="center"><img src="site/shots/log.jpg" width="210" alt="璁粌鏃ュ織锛氫竴缁勪竴琛岋紝娆℃暟涓庤礋閲嶅悓鎺?><br><sub>璁粌 路 涓€缁勪竴琛?/sub></td>
+<td align="center"><img src="site/shots/chat.jpg" width="210" alt="闂瓟椤碉細鍏堢粰渚濇嵁鍐嶇粰鍔ㄤ綔"><br><sub>闂瓟 路 鍏堜緷鎹悗鍔ㄤ綔</sub></td>
+<td align="center"><img src="site/shots/trends.jpg" width="210" alt="瓒嬪娍椤碉細鎸夌湡瀹炴祴閲忔棩鏈熻繛绾?><br><sub>瓒嬪娍 路 鍙繛瀹炴祴鐐?/sub></td>
 </tr>
 </table>
 
-## 它解决什么问题
+## 瀹冭В鍐充粈涔堥棶棰?
+澶氭暟鍋ュ悍 App 瑕佷箞鎶婅褰曞仛鎴愯〃鏍硷紝瑕佷箞鎶婂缓璁仛鎴愬彛鍙枫€傝交琛″彧鍋氫袱浠朵簨锛?*璁╄褰曡冻澶熺煭**銆?*璁╃粨璁烘湁鍑哄**銆?
+- 璁颁竴椁愶細璇翠竴鍙ャ€岀背楗?100 鍏嬨€侀浮鑳?150 鍏嬨€嶅氨鑳界畻锛屾暟瀛楄窡鐫€杈撳叆瀹炴椂鍙橈紱鏈湴椋熷搧搴撳父骞村彲鐢紝甯稿悆鐨勪竴椁愪竴閿鍒躲€?- 璁拌缁冿細涓€缁勪竴琛岋紝10 娆?脳 60 kg 鍐欏湪鍚屼竴琛岋紝瀹归噺绔嬪埢鐪嬪緱瑙侊紱缁勯棿浼戞伅鎸夊姩浣滅粰鏃堕暱锛屽嬀瀹屽氨鑷姩寮€濮嬨€?- 鐪嬬粨璁猴細鐑噺鍖洪棿銆佽泲鐧界己鍙ｃ€佹湰鍛ㄥ閲忋€佷綋閲嶈秼鍔库€斺€旂己鏁版嵁灏卞啓缂猴紝涓嶈ˉ闆躲€佷笉缂栨暟銆?- 瑕佸缓璁細鍏堢粰渚濇嵁锛屽啀缁欒鍔紱涓嶈瘖鏂€佷笉寮€澶勬柟銆佷笉鎺ㄨ崘鏋佺鑺傞銆?
+## 浜旈〉鍔熻兘鍦板浘
 
-多数健康 App 要么把记录做成表格，要么把建议做成口号。轻衡只做两件事：**让记录足够短**、**让结论有出处**。
-
-- 记一餐：说一句「米饭 100 克、鸡胸 150 克」就能算，数字跟着输入实时变；本地食品库常年可用，常吃的一餐一键复制。
-- 记训练：一组一行，10 次 × 60 kg 写在同一行，容量立刻看得见；组间休息按动作给时长，勾完就自动开始。
-- 看结论：热量区间、蛋白缺口、本周容量、体重趋势——缺数据就写缺，不补零、不编数。
-- 要建议：先给依据，再给行动；不诊断、不开处方、不推荐极端节食。
-
-## 五页功能地图
-
-| 页面 | 能做什么 |
+| 椤甸潰 | 鑳藉仛浠€涔?|
 |---|---|
-| **今天** | 能量环与三大宏量、剩余额度、今日体检（四项加权，接近/偏离分档）、「下一步」单一主行动、今日记录按餐次折叠 |
-| **记录** | 饮食：拍照 / 相册 / 一句话估算，预览确认后入档，本地食品库、一键复制一餐；训练：本周容量与概览、周计划、今日顺序、逐组记录与组间休息、课后总结；身体：体重 + 睡眠一次保存 |
-| **问答** | 流式回答、联网检索开关、按天回看、收藏与搜索、拍照提问；发送前可展开核对将发送的数据 |
-| **趋势** | 体重按真实测量日期绘制、不插值；上周回看；饮食、训练与体重三块面板 |
-| **我的** | 身体档案与目标、AI 模型与密钥（含用量与余额）、提醒与每日建议、偏好与记忆、外观与餐次时间、数据管理 |
+| **浠婂ぉ** | 鑳介噺鐜笌涓夊ぇ瀹忛噺銆佸墿浣欓搴︺€佷粖鏃ヤ綋妫€锛堝洓椤瑰姞鏉冿紝鎺ヨ繎/鍋忕鍒嗘。锛夈€併€屼笅涓€姝ャ€嶅崟涓€涓昏鍔ㄣ€佷粖鏃ヨ褰曟寜椁愭鎶樺彔 |
+| **璁板綍** | 楗锛氭媿鐓?/ 鐩稿唽 / 涓€鍙ヨ瘽浼扮畻锛岄瑙堢‘璁ゅ悗鍏ユ。锛屾湰鍦伴鍝佸簱銆佷竴閿鍒朵竴椁愶紱璁粌锛氭湰鍛ㄥ閲忎笌姒傝銆佸懆璁″垝銆佷粖鏃ラ『搴忋€侀€愮粍璁板綍涓庣粍闂翠紤鎭€佽鍚庢€荤粨锛涜韩浣擄細浣撻噸 + 鐫＄湢涓€娆′繚瀛?|
+| **闂瓟** | 娴佸紡鍥炵瓟銆佽仈缃戞绱㈠紑鍏炽€佹寜澶╁洖鐪嬨€佹敹钘忎笌鎼滅储銆佹媿鐓ф彁闂紱鍙戦€佸墠鍙睍寮€鏍稿灏嗗彂閫佺殑鏁版嵁 |
+| **瓒嬪娍** | 浣撻噸鎸夌湡瀹炴祴閲忔棩鏈熺粯鍒躲€佷笉鎻掑€硷紱涓婂懆鍥炵湅锛涢ギ椋熴€佽缁冧笌浣撻噸涓夊潡闈㈡澘 |
+| **鎴戠殑** | 韬綋妗ｆ涓庣洰鏍囥€丄I 妯″瀷涓庡瘑閽ワ紙鍚敤閲忎笌浣欓锛夈€佹彁閱掍笌姣忔棩寤鸿銆佸亸濂戒笌璁板繂銆佸瑙備笌椁愭鏃堕棿銆佹暟鎹鐞?|
 
-## 数据在哪
+## 鏁版嵁鍦ㄥ摢
 
-- 全部记录存在本机（`state.json` + SQLite 镜像），没有账号、没有云同步、没有服务端。
-- 断网可用；联网只在你主动提问或让模型估一餐时发生。
-- 导出的备份是明文 JSON，放在你自己选的位置。
+- 鍏ㄩ儴璁板綍瀛樺湪鏈満锛坄state.json` + SQLite 闀滃儚锛夛紝娌℃湁璐﹀彿銆佹病鏈変簯鍚屾銆佹病鏈夋湇鍔＄銆?- 鏂綉鍙敤锛涜仈缃戝彧鍦ㄤ綘涓诲姩鎻愰棶鎴栬妯″瀷浼颁竴椁愭椂鍙戠敓銆?- 瀵煎嚭鐨勫浠芥槸鏄庢枃 JSON锛屾斁鍦ㄤ綘鑷繁閫夌殑浣嶇疆銆?
+## AI 鏄彲閫夌殑
 
-## AI 是可选的
+妯″瀷杩炴帴鏄彲閫夐」锛氬～鑷繁鐨?key锛堝瓨鍦ㄧ郴缁?Keystore锛夛紝鎴栧共鑴嗕笉濉€斺€旈ギ椋熴€佽缁冦€佽秼鍔裤€佷綋妫€閮借兘鏈湴绠椼€?涓嶅～ key 鏃讹紝椁愰浼扮畻璧版湰鍦伴鍝佸簱锛涢棶绛旈〉浼氳鏄庛€岃繕娌¤繛鎺ユā鍨嬨€嶃€?
+## 瀹夎
 
-模型连接是可选项：填自己的 key（存在系统 Keystore），或干脆不填——饮食、训练、趋势、体检都能本地算。
-不填 key 时，餐食估算走本地食品库；问答页会说明「还没连接模型」。
-
-## 安装
-
-1. 到 [Releases](https://github.com/dustSanchen/qingheng/releases/latest) 下载 `qingheng-<版本>.apk`。
-2. 安装前可核对签名：
-
+1. 鍒?[Releases](https://github.com/dustSanchen/qingheng/releases/latest) 涓嬭浇 `qingheng-<鐗堟湰>.apk`銆?2. 瀹夎鍓嶅彲鏍稿绛惧悕锛?
 ```powershell
 apksigner verify --print-certs qingheng-1.5.08.apk
-# 期望 SHA-256: b23aba9a2955e620dad5453c15a879ffab3ca4ad90a3e5b1b63beb5f55fab1ac
+# 鏈熸湜 SHA-256: b23aba9a2955e620dad5453c15a879ffab3ca4ad90a3e5b1b63beb5f55fab1ac
 ```
 
-3. 首次打开只有两项权限：通知与精确闹钟；其余（相机/相册、文件读写）都在用到时再问。
+3. 棣栨鎵撳紑鍙湁涓ら」鏉冮檺锛氶€氱煡涓庣簿纭椆閽燂紱鍏朵綑锛堢浉鏈?鐩稿唽銆佹枃浠惰鍐欙級閮藉湪鐢ㄥ埌鏃跺啀闂€?
+## 鐗堟湰涓庢祴璇?
+褰撳墠 1.5.08锛坴ersionCode 508锛夛紝109 椤硅嚜鍔ㄥ寲娴嬭瘯鍏ㄧ豢銆傜増鏈彿鐢?`tools/sync-version.mjs` 涓€澶勫悓姝ュ埌婧愮爜銆佹瀯寤鸿剼鏈笌娴嬭瘯锛岀姝㈡墜鏀广€?
+## 璁稿彲
 
-## 版本与测试
-
-当前 1.5.08（versionCode 508），109 项自动化测试全绿。版本号由 `tools/sync-version.mjs` 一处同步到源码、构建脚本与测试，禁止手改。
-
-## 许可
-
-个人作品，按 [LICENSE](LICENSE) 授权：可阅读、可自用；修改后再发布、转售不在授权范围内。
-
-作者：Sanchen
+涓汉浣滃搧锛屾寜 [LICENSE](LICENSE) 鎺堟潈锛氬彲闃呰銆佸彲鑷敤锛涗慨鏀瑰悗鍐嶅彂甯冦€佽浆鍞笉鍦ㄦ巿鏉冭寖鍥村唴銆?
+浣滆€咃細Sanchen

@@ -69,7 +69,7 @@ check('the secondary forms keep a quiet button', html.includes('<button class="b
 check('the pair is pre-filled from the day being viewed', app.includes('function renderBodyQuick()') && app.includes('form.elements.weight.value = weight ?? \'\'') && app.includes('form.elements.sleep.value = sleep ?? \'\''));
 check('saving the pair writes both collections', app.includes("await api('/api/habits', {...(habitRowFor(activeDate) || {}), date: activeDate, sleep});") && app.includes("await api('/api/measurements', {...(measurementRowFor(activeDate) || {}), date: activeDate, weight});"));
 check('an empty pair is refused with words, not a silent no-op', /if \(weight === null && sleep === null\)[\s\S]{0,80}都空着/.test(app));
-check('the same-day measurement row is reused', app.includes('function measurementRowFor(date)') && app.includes("measurementRowFor(form.elements.date.value)"));
+check('the same-day measurement row is reused', app.includes('function measurementRowFor(date)') && /measurementRowFor\([a-z]+\.elements\.date\.value\)/.test(app));
 check('the body panel lists it first', app.includes("headings: ['今天两样', '身体数据', '日常习惯']"));
 check('the habit form no longer pretends to own sleep', !app.includes("numericForm(form,['steps','sleep','water'])") && !app.includes("['睡眠 7.5h', 'sleep', 7.5]"));
 check('its tag reports the pair', app.includes("filled === 2 ? '已记录两样' : `已记录 ${filled}/2`"));

@@ -1722,3 +1722,16 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 测试：`layout-four`/`today-agenda`/`today-status-strip` 三处断言按新结构翻转（入口进卡、消费 secondary、无 today-more）；全量 111/111。
 - 构建：设备 3cba2bdc 安装 1.5.19/519；截图 `build/v11-today3.png`。未推远端、未发 Release。
 
+
+## r224 · 2026-11-22 · 1.5.20（顶部横滑概况 + 宏量胶囊 + 智能状态栏归位 + 要点按钮 + 身体阈值风控）
+
+- 顶部横滑：新增 `#today-peek`，两枚滚动吸附卡（本周训练 次数/容量、身体 体重/体脂），点击走既有 `data-go/data-focus` 进记录页对应表单；`renderTodayPeek()` 在 renderBody 尾部调用，数据只用 `state.habits` 近 7 天与 `state.measurements` 最新一条。
+- 宏量胶囊：`#macro-summary` 从三列紧凑带改为三枚胶囊卡，每枚含数值、余量（还差/余/超）、目标与进度条；超上限的胶囊转 warn 底。
+- 智能状态栏：`installTodayQuickActions()` 把 `#slot-hint` 挪到三胶囊正下方（环下），`#slot-note` 跟在其后；平时只给结论 +「还有 N 条建议」。
+- 动作要点：训练行尾新增「要点」小按钮（`data-exercise-help`），点击 `showExerciseGuide(名称)`；不再常驻长文本。
+- 阈值风控：`bodyOutlierLines()` + `#measurement-form` 提交前比对同日之前最近一条，体重差 ≥2 kg 或体脂差 ≥3 个百分点时 `askConfirm` 二次确认。
+- 修：`renderBody` 尾部此前缺少函数闭括号、靠后置 `}` 平衡的结构隐患，本轮在正确位置补 `}` 并把 `renderTodayPeek` 定义放回顶层；连续两次 `node --check` 报 `Unexpected token 'function'` 才定位。
+- 测试：`body-quick` 的 `measurementRowFor(...)` 断言放宽为正则（参数名由 form→f）；全量 111/111；README 徽章同步 1.5.20。
+- 构建：设备 3cba2bdc 安装 1.5.20/520；截图 `build/v12-today.png`。未推远端、未发 Release。
+- 未做（需拍板）：①「今日体检/小习惯/今日记录」折叠成标签页（与 1.5.16「体检并入能量卡」的单卡决定冲突）；②AI 计划「勾选即记录」（勾选即写库，需先定语义）；③训练小结弹窗的磨砂质感（功能已有）。
+

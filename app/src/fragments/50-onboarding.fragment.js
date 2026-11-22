@@ -904,7 +904,7 @@ const values = points.length<=7 ? points.map((item,i) => {
       + `<label class="exercise-name"><input data-exercise="name" value="${esc(item.name || '')}" maxlength="60" placeholder="动作名，例如卧推" aria-label="第 ${n} 个动作名称"></label>`
       + `<button type="button" class="text-button exercise-remove" data-exercise-remove="${index}" aria-label="移除这个动作">移除</button></div>`
       + `<div class="set-list" data-set-list>${body}</div>`
-      + `<div class="set-foot">${foot}</div></div>`;
+      + `<div class="set-foot">${foot}<button type="button" class="exercise-help" data-exercise-help aria-label="查看这个动作的要点">要点</button></div></div>`;
   }
   /** 一组增删后重排序号、重算该动作容量；只改 UI，保存时才落库。 */
   function refreshSetRow(row) {

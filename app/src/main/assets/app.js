@@ -1957,14 +1957,18 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
       return (map[date] && map[date].level) || 'high';
     } catch { return 'high'; }
   }
-    // 三列压成一条紧凑带：数值 + 目标同一行右对齐，只有 2px 细条单独占一行（2026-11-22 第二轮）。
+    // 宏量改成三枚胶囊卡：数值、目标、余量都在同一枚里（2026-11-22 第六轮）。
     $('#macro-summary').innerHTML = [['protein','蛋白质',p.proteinMin,p.proteinMax],['fat','脂肪',p.fatMin,p.fatMax],['carbs','碳水',null,carbCap(p, range)]].map(([key,label,min,max]) => {
       const value = totals[key], capValue = number(max);
       const progress = value !== null && capValue > 0 ? Math.min(100, value / capValue * 100) : 0;
       const over = key !== 'protein' && value !== null && capValue > 0 && value > capValue;
       const targetText = min !== null && number(min)!==null && number(max)!==null ? `目标 ${fmt(min)}–${fmt(max)} g` : key === 'carbs' ? (number(max)>0 ? `上限 ${fmt(max,0)} g` : '') : '';
-      return `<div><span class="macro-line"><span class="macro-label">${label}</span>`
+      const remain = value === null ? '' : key === 'protein'
+        ? (number(min) !== null && value < number(min) ? `还差 ${fmt(number(min) - value, 0)} g` : '已达标')
+        : (capValue > 0 ? (value > capValue ? `超 ${fmt(value - capValue, 0)} g` : `余 ${fmt(capValue - value, 0)} g`) : '');
+      return `<div class="macro-cell${over ? ' is-over' : ''}"><span class="macro-line"><span class="macro-label">${label}</span>`
         + `<b class="macro-value">${fmt(value)}</b><small class="macro-unit">g</small></span>`
+        + `<span class="macro-remain">${remain}</span>`
         + `<span class="macro-target">${targetText}</span>`
         + `<div class="progress-track"><span data-progress="${progress}"${over ? ' class="is-over"' : ''}></span></div></div>`;
     }).join('');
@@ -2032,7 +2036,37 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     renderTargetStatus();
     renderTrends();
     renderUndatedMeals();
+    renderTodayPeek();
     renderHub();
+  }
+  /**
+   * 顶部横滑概况（2026-11-22 第六轮）：训练（本周次数/容量）与身体（体重/体脂）各一枚，
+   * 用滚动吸附排列，取代页首那块大面积留白；点击沿用 data-go/data-focus 既有路由。
+   */
+  function renderTodayPeek() {
+    const box = $('#today-peek');
+    if (!box) return;
+    const end = new Date(activeDate + 'T00:00:00');
+    if (Number.isNaN(end.getTime())) return;
+    const from = new Date(end); from.setDate(end.getDate() - 6);
+    let volume = 0, sessions = 0;
+    for (const row of (state.habits || [])) {
+      if (!row || !Array.isArray(row.exercises) || !row.exercises.length || !validDate(row.date)) continue;
+      const day = new Date(row.date + 'T00:00:00');
+      if (Number.isNaN(day.getTime()) || day < from || day > end) continue;
+      sessions++;
+      volume += row.exercises.reduce((sum, item) => sum + (trainingVolumeOf([item]) || 0), 0);
+    }
+    const measurements = (state.measurements || []).filter(item => validDate(item.date) && item.date <= activeDate).sort((a, b) => b.date.localeCompare(a.date));
+    const weight = latestField(measurements, 'weight'), bodyFat = latestField(measurements, 'bodyFat');
+    const cards = [
+      {label: '本周训练', value: sessions ? `${fmt(sessions, 0)} 次` : '还没练', sub: sessions ? `容量 ${fmt(volume, 0)} kg` : '先记一节', focus: 'training-form'},
+      {label: '身体', value: weight && number(weight.weight) !== null ? `${fmt(weight.weight, 1)} kg` : '—', sub: bodyFat && number(bodyFat.bodyFat) !== null ? `体脂 ${fmt(bodyFat.bodyFat, 1)}%` : '还没有体脂记录', focus: 'measurement-weight'}
+    ];
+    box.innerHTML = cards.map(card =>
+      `<button type="button" class="peek-card" data-go="records" data-focus="${card.focus}" role="listitem">`
+      + `<span class="peek-label">${esc(card.label)}</span><b class="peek-value">${esc(card.value)}</b><span class="peek-sub">${esc(card.sub)}</span></button>`
+    ).join('');
   }
   /** Creates the live row once; complete answer blocks keep their DOM nodes as later text arrives. */
   function beginChatStream(question, hasImage, date) {
@@ -4602,7 +4636,7 @@ const values = points.length<=7 ? points.map((item,i) => {
       + `<label class="exercise-name"><input data-exercise="name" value="${esc(item.name || '')}" maxlength="60" placeholder="动作名，例如卧推" aria-label="第 ${n} 个动作名称"></label>`
       + `<button type="button" class="text-button exercise-remove" data-exercise-remove="${index}" aria-label="移除这个动作">移除</button></div>`
       + `<div class="set-list" data-set-list>${body}</div>`
-      + `<div class="set-foot">${foot}</div></div>`;
+      + `<div class="set-foot">${foot}<button type="button" class="exercise-help" data-exercise-help aria-label="查看这个动作的要点">要点</button></div></div>`;
   }
   /** 一组增删后重排序号、重算该动作容量；只改 UI，保存时才落库。 */
   function refreshSetRow(row) {
@@ -7707,7 +7741,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.19';
+  const APP_VERSION = '1.5.20';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -9001,6 +9035,8 @@ function metricIcon(label) {
     else energyCard.prepend(row);
     const slotNote = $('#slot-note');
     const slotHint = $('#slot-hint');
+    // 智能状态栏就贴在胶囊下面（2026-11-22 第六轮）：平时只给结论，点开才是完整建议。
+    if (slotHint) row.after(slotHint);
     if (slotNote && slotHint) slotHint.after(slotNote);
     else if (slotNote) row.after(slotNote);
     row.addEventListener('click', event => {
@@ -9546,7 +9582,37 @@ function metricIcon(label) {
   $('#trend-range').addEventListener('change',renderTrends);$('#refresh-advice').addEventListener('click',refreshAdvice);
   // 两项「更多测量」与「日常习惯」都并进当天那一行：同一天只有一行测量、一行习惯（2026-11-18）。
   // 空着的格不再写成 null，否则只改腰围会把当天的体重冲掉。
-  $('#measurement-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/measurements',form=>{const filled=Object.fromEntries(Object.entries(numericForm(form,['waist','bodyFat','muscle','visceralFat','bmr'])).filter(([,value])=>value!==null));if(!Object.keys(filled).length) throw new Error('请至少填写一项测量数据。');return {...(measurementRowFor(form.elements.date.value)||{}), date:form.elements.date.value, ...filled};});});
+  /**
+   * 身体数据保存前的阈值风控（2026-11-22 第六轮）：与同日期之前的最近一条比，
+   * 体重差 ≥2 kg 或体脂差 ≥3 个百分点时先确认，避免换秤/脱水/手误污染趋势图。
+   */
+  function bodyOutlierLines(form) {
+    const date = String(form.elements.date?.value || activeDate);
+    const prev = (state.measurements || []).filter(row => row && validDate(row.date) && row.date < date)
+      .sort((a, b) => b.date.localeCompare(a.date))[0] || null;
+    if (!prev) return [];
+    const lines = [];
+    const weight = number(form.elements.weight?.value), prevWeight = number(prev.weight);
+    const values = numericForm(form, ['waist', 'bodyFat', 'muscle', 'visceralFat', 'bmr']);
+    if (weight !== null && prevWeight !== null && Math.abs(weight - prevWeight) >= 2) lines.push(`体重差 ${fmt(Math.abs(weight - prevWeight), 1)} kg`);
+    if (number(values.bodyFat) !== null && number(prev.bodyFat) !== null && Math.abs(values.bodyFat - prev.bodyFat) >= 3) {
+      lines.push(`体脂差 ${fmt(Math.abs(values.bodyFat - prev.bodyFat), 1)} 个百分点`);
+    }
+    return lines;
+  }
+  $('#measurement-form').addEventListener('submit', event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const save = () => submitForm(form, '/api/measurements', f => {
+      const filled = Object.fromEntries(Object.entries(numericForm(f, ['waist', 'bodyFat', 'muscle', 'visceralFat', 'bmr'])).filter(([, value]) => value !== null));
+      if (!Object.keys(filled).length) throw new Error('请至少填写一项测量数据。');
+      return {...(measurementRowFor(f.elements.date.value) || {}), date: f.elements.date.value, ...filled};
+    });
+    const outliers = bodyOutlierLines(form);
+    if (!outliers.length) { save(); return; }
+    askConfirm(`和上次比，${outliers.join('、')}。数值没错就保存；若是换秤或刚运动完，改天再记更准。`, {title: '数值变化较大', ok: '确认保存'})
+      .then(ok => { if (ok) save(); });
+  });
   $('#habit-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/habits',form=>{const filled=Object.fromEntries(Object.entries(numericForm(form,['steps','water'])).filter(([,value])=>value!==null));if(!Object.keys(filled).length) throw new Error('请至少填写一项日常习惯。');return {...(habitRowFor(form.elements.date.value)||{}), date:form.elements.date.value, ...filled};});});
   // 记录页三种表单统一成「日期在最前、保存在最后」；训练日志原来没有日期输入，只能靠页面顶部的全局日期。
   $('#training-date')?.addEventListener('change', event => {
@@ -9802,6 +9868,15 @@ function metricIcon(label) {
     if (row) refreshSetRow(row);
   });
   $('#training-exercises')?.addEventListener('click', event => {
+    // 动作要点：不再常驻长文本，点「?」才弹（2026-11-22 第六轮）。
+    const help = event.target.closest?.('[data-exercise-help]');
+    if (help) {
+      const row = help.closest('[data-exercise-row]');
+      const name = row ? String($('[data-exercise="name"]', row)?.value || '').trim() : '';
+      if (name && typeof showExerciseGuide === 'function') showExerciseGuide(name);
+      else notice('先填动作名，再点这里看要点。');
+      return;
+    }
     const done = event.target.closest?.('[data-set-done]');
     if (done) {
       const set = done.closest('[data-set-row]');

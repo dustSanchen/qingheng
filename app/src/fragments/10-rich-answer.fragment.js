@@ -378,14 +378,18 @@
       return (map[date] && map[date].level) || 'high';
     } catch { return 'high'; }
   }
-    // 三列压成一条紧凑带：数值 + 目标同一行右对齐，只有 2px 细条单独占一行（2026-11-22 第二轮）。
+    // 宏量改成三枚胶囊卡：数值、目标、余量都在同一枚里（2026-11-22 第六轮）。
     $('#macro-summary').innerHTML = [['protein','蛋白质',p.proteinMin,p.proteinMax],['fat','脂肪',p.fatMin,p.fatMax],['carbs','碳水',null,carbCap(p, range)]].map(([key,label,min,max]) => {
       const value = totals[key], capValue = number(max);
       const progress = value !== null && capValue > 0 ? Math.min(100, value / capValue * 100) : 0;
       const over = key !== 'protein' && value !== null && capValue > 0 && value > capValue;
       const targetText = min !== null && number(min)!==null && number(max)!==null ? `目标 ${fmt(min)}–${fmt(max)} g` : key === 'carbs' ? (number(max)>0 ? `上限 ${fmt(max,0)} g` : '') : '';
-      return `<div><span class="macro-line"><span class="macro-label">${label}</span>`
+      const remain = value === null ? '' : key === 'protein'
+        ? (number(min) !== null && value < number(min) ? `还差 ${fmt(number(min) - value, 0)} g` : '已达标')
+        : (capValue > 0 ? (value > capValue ? `超 ${fmt(value - capValue, 0)} g` : `余 ${fmt(capValue - value, 0)} g`) : '');
+      return `<div class="macro-cell${over ? ' is-over' : ''}"><span class="macro-line"><span class="macro-label">${label}</span>`
         + `<b class="macro-value">${fmt(value)}</b><small class="macro-unit">g</small></span>`
+        + `<span class="macro-remain">${remain}</span>`
         + `<span class="macro-target">${targetText}</span>`
         + `<div class="progress-track"><span data-progress="${progress}"${over ? ' class="is-over"' : ''}></span></div></div>`;
     }).join('');
@@ -453,7 +457,37 @@
     renderTargetStatus();
     renderTrends();
     renderUndatedMeals();
+    renderTodayPeek();
     renderHub();
+  }
+  /**
+   * 顶部横滑概况（2026-11-22 第六轮）：训练（本周次数/容量）与身体（体重/体脂）各一枚，
+   * 用滚动吸附排列，取代页首那块大面积留白；点击沿用 data-go/data-focus 既有路由。
+   */
+  function renderTodayPeek() {
+    const box = $('#today-peek');
+    if (!box) return;
+    const end = new Date(activeDate + 'T00:00:00');
+    if (Number.isNaN(end.getTime())) return;
+    const from = new Date(end); from.setDate(end.getDate() - 6);
+    let volume = 0, sessions = 0;
+    for (const row of (state.habits || [])) {
+      if (!row || !Array.isArray(row.exercises) || !row.exercises.length || !validDate(row.date)) continue;
+      const day = new Date(row.date + 'T00:00:00');
+      if (Number.isNaN(day.getTime()) || day < from || day > end) continue;
+      sessions++;
+      volume += row.exercises.reduce((sum, item) => sum + (trainingVolumeOf([item]) || 0), 0);
+    }
+    const measurements = (state.measurements || []).filter(item => validDate(item.date) && item.date <= activeDate).sort((a, b) => b.date.localeCompare(a.date));
+    const weight = latestField(measurements, 'weight'), bodyFat = latestField(measurements, 'bodyFat');
+    const cards = [
+      {label: '本周训练', value: sessions ? `${fmt(sessions, 0)} 次` : '还没练', sub: sessions ? `容量 ${fmt(volume, 0)} kg` : '先记一节', focus: 'training-form'},
+      {label: '身体', value: weight && number(weight.weight) !== null ? `${fmt(weight.weight, 1)} kg` : '—', sub: bodyFat && number(bodyFat.bodyFat) !== null ? `体脂 ${fmt(bodyFat.bodyFat, 1)}%` : '还没有体脂记录', focus: 'measurement-weight'}
+    ];
+    box.innerHTML = cards.map(card =>
+      `<button type="button" class="peek-card" data-go="records" data-focus="${card.focus}" role="listitem">`
+      + `<span class="peek-label">${esc(card.label)}</span><b class="peek-value">${esc(card.value)}</b><span class="peek-sub">${esc(card.sub)}</span></button>`
+    ).join('');
   }
   /** Creates the live row once; complete answer blocks keep their DOM nodes as later text arrives. */
   function beginChatStream(question, hasImage, date) {

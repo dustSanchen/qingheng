@@ -2451,3 +2451,23 @@ html[data-tab="today"] .energy-card .quick-chip .quick-chip-icon img{width:18px;
 .slot-more[hidden]{display:none}
 .heading-actions{display:inline-flex;align-items:center;gap:12px}
 #habit-metrics{font-size:var(--text-xs);color:var(--muted)}
+
+/* ── 2026-11-22 第六轮：顶部横滑概况、宏量胶囊、要点按钮 ─────────────────────────── */
+/* 顶部横滑：训练 / 身体各一枚，替代页首留白 */
+.today-peek{display:flex;gap:10px;margin:2px 0 12px;padding:2px 2px 4px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.today-peek::-webkit-scrollbar{display:none}
+.peek-card{flex:0 0 auto;min-width:132px;max-width:46vw;scroll-snap-align:start;display:flex;flex-direction:column;gap:1px;padding:10px 12px;border:0;border-radius:16px;background:var(--surface);box-shadow:var(--shadow-soft);text-align:left;min-height:64px;transition:transform var(--dur-fast) var(--ease-out-soft)}
+.peek-card:active{transform:scale(.98)}
+.peek-label{font-size:var(--text-xs);color:var(--muted)}
+.peek-value{font-size:20px;font-weight:var(--fw-semibold);font-variant-numeric:tabular-nums}
+.peek-sub{font-size:var(--text-xs);color:var(--muted)}
+/* 宏量：三枚胶囊，含数值/余量/目标/进度 */
+#view-today .macro-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}
+#view-today .macro-grid>div{margin:0;padding:10px;border-radius:12px;background:var(--surface-soft);box-shadow:0 2px 8px -6px color-mix(in srgb,var(--ink) 14%,transparent)}
+#view-today .macro-grid>div.is-over{background:var(--warn-soft)}
+#view-today .macro-grid .macro-remain{display:block;margin-top:1px;font-size:var(--text-xs);color:var(--muted);font-variant-numeric:tabular-nums}
+#view-today .macro-grid>div.is-over .macro-remain{color:var(--warn-ink)}
+#view-today .macro-grid .progress-track{margin-top:6px}
+/* 要点：动作行尾的小按钮，点了才弹长文本 */
+.exercise-help{min-height:32px;margin-left:auto;padding:0 8px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--muted);font-size:var(--text-xs)}
+.exercise-help:active{color:var(--ink);border-color:var(--accent-line)}
