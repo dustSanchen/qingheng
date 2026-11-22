@@ -24,7 +24,7 @@ for (const name of ['icon-glyph-training.svg', 'icon-habit-steps.svg', 'icon-hab
   check(`icon exists: ${name}`, fs.existsSync(`app/src/main/assets/${name}`));
 }
 check('the tiles render images, not characters', app.includes("icon-habit-steps.svg") && !app.includes("['♧',"));
-check('the training tile reuses the main training glyph', app.includes("trainingEnabled() ? [['icon-glyph-training.svg'"));
+check('today habits render as a value grid', app.includes('class="habit-cell"') && app.includes('data-habit-jump') && html.includes('class="habit-grid"'));
 check('today metric icons come from the inline lucide table', app.includes('function metricIcon') && app.includes('const glyphs = {') && app.includes('Lucide') && app.includes('metric-glyph'));
 
 // --- push carries one training line ---------------------------------------------------------------------

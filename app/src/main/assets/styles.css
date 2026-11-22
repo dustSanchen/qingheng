@@ -2297,3 +2297,24 @@ details:not(.advanced):not(.day-more)>summary::after{width:auto;height:auto;bord
 .metric-more-head::marker{content:""}
 .metric-more-list{font-weight:var(--fw-regular);color:var(--muted)}
 .metric-more[open] .metric-more-head{border-bottom:1px solid var(--line);margin-bottom:10px}
+/* 2026-11-22 今天页：体检横向胶囊、习惯网格前置、下一步半透明卡、能量更密。 */
+.check-caps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:10px}
+.check-cap{display:flex;flex-direction:column;gap:5px;padding:8px 10px;border:1px solid var(--line);border-radius:12px}
+.check-cap-name{font-size:var(--text-xs);color:var(--ink);font-weight:var(--fw-semibold)}
+.check-cap-track{display:block;height:3px;border-radius:2px;background:var(--line);overflow:hidden}
+.check-cap-fill{display:block;height:100%;background:var(--accent);border-radius:2px}
+.check-cap.near .check-cap-fill{background:var(--macro-fat)}
+.check-cap.off .check-cap-fill{background:var(--warn)}
+.check-cap.idle .check-cap-fill{background:var(--muted);opacity:.4}
+.habit-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.habit-cell{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);text-align:left}
+.habit-cell:active{background:var(--accent-soft)}
+.habit-cell-label{font-size:var(--text-xs);color:var(--muted)}
+.habit-cell-value{font-size:20px;font-weight:var(--fw-semibold);font-variant-numeric:tabular-nums}
+.habit-cell-value small{margin-left:2px;font-size:var(--text-xs);font-weight:var(--fw-regular);color:var(--muted)}
+#view-today .slot-hint{padding:12px 14px;border:1px solid var(--line);border-radius:16px;background:color-mix(in srgb,var(--surface) 62%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+#view-today .slot-hint.is-quiet{display:none}
+#view-today .energy-body{padding-bottom:14px}
+#view-today .macro-grid{padding-top:12px;gap:10px}
+#view-today .macro-value{margin:2px 0}
+#view-today .progress-track{height:3px;margin:7px 0}

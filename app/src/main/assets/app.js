@@ -1205,6 +1205,8 @@
       noteNode.hidden = !primary;
     }
     node.classList.toggle("is-next", !!primary);
+    // 没有缺口也没有未完成训练时整块收起：这一屏只留一个有内容的行动面。
+    node.classList.toggle("is-quiet", !primary && !missing.length);
     document.querySelectorAll("#today-quick-actions .quick-chip").forEach(button => {
       button.classList.remove("quick-chip-primary");
     });
@@ -1867,20 +1869,18 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     // 训练情况由动作决定（2026-11-18）：不再读手填标记，只报「记了什么」。
     const training = trainedOn(activeDate) ? '已训练' : '未记录';
     // SVG icons instead of ↗ ♧ ☾ ◇: those characters rendered differently on every ROM.
-    const tiles = [
-      ...(trainingEnabled() ? [['icon-glyph-training.svg', training, '训练']] : []),
-      ['icon-habit-steps.svg', number(habit.steps) === null ? '未记录' : `${fmt(habit.steps,0)} 步`, '日常活动'],
-      ['icon-habit-sleep.svg', number(habit.sleep) === null ? '未记录' : `${fmt(habit.sleep)} 小时`, '睡眠'],
-      ['icon-water.svg', number(habit.water) === null ? '未记录' : `${fmt(habit.water,0)} ml`, '饮水']
+    // 2026-11-22：从「一行摘要」改成网格——步数/饮水/睡眠各一格，数字即刻可见；
+    // 仍只跳转不录入，进去不弹输入法。
+    const habitCells = [
+      {label: '步数', icon: 'icon-habit-steps.svg', value: number(habit.steps) === null ? '—' : fmt(habit.steps, 0), unit: '步', focus: 'habit-steps'},
+      {label: '饮水', icon: 'icon-water.svg', value: number(habit.water) === null ? '—' : fmt(habit.water, 0), unit: 'ml', focus: 'habit-steps'},
+      {label: '睡眠', icon: 'icon-habit-sleep.svg', value: number(habit.sleep) === null ? '—' : fmt(habit.sleep, 1), unit: '小时', focus: 'habit-sleep'}
     ];
-    // 四个格子改成一行：今天页只交代「记了什么」，改去记录页改，且进去不弹输入法。
-    $('#habit-summary').innerHTML = '<button type="button" class="hub-row habit-jump" data-habit-jump>'
-      + '<span class="hub-text"><span class="hub-title">日常习惯</span><span class="hub-summary">'
-      + esc((() => {
-        const parts = tiles.filter(([, value]) => !String(value).includes('未记录')).map(([, value, label]) => `${label} ${value}`);
-        return parts.length ? parts.join(' · ') : '点这里补步数、睡眠、饮水';
-      })())
-      + '</span></span><span class="hub-arrow" aria-hidden="true">›</span></button>';
+    $('#habit-summary').innerHTML = habitCells.map(cell =>
+      `<button type="button" class="habit-cell" data-habit-jump data-focus="${cell.focus}" aria-label="${cell.label}：${cell.value === '—' ? '未记录' : cell.value + cell.unit}">`
+      + `<span class="habit-cell-label">${cell.label}</span>`
+      + `<span class="habit-cell-value">${cell.value === '—' ? '—' : `${cell.value}<small>${cell.unit}</small>`}</span></button>`
+    ).join('');
     const recordMeals=[...state.meals].sort((a,b) => String(b.date).localeCompare(String(a.date)));
     renderTodayTimeline($('#today-meals'), meals);
     renderRecordMeals(favoriteOnlyMeals ? recordMeals.filter(row => row.favorite === true) : recordMeals);
@@ -5708,13 +5708,12 @@ const values = points.length<=7 ? points.map((item,i) => {
       tag.textContent = check.relax ? '放松日 · 本周 1/1' : range.unset ? '未测算' : check.score === null ? '待记录' : check.score + ' 分';
       tag.classList.toggle('is-relax', !!check.relax);
     }
-    // 2026-11-18：体检不再复述热量/蛋白/脂肪数字（能量卡已有），改成四根竖向完成度条 + 结论。
-    box.innerHTML = '<div class="check-bars" role="img" aria-label="今日体检四项完成度">' + check.items.map(item => {
+    // 2026-11-22：四根竖条改成一行横向胶囊（名称 + 3px 细条），纵向占用约减一半。
+    box.innerHTML = '<div class="check-caps" role="img" aria-label="今日体检四项完成度">' + check.items.map(item => {
       const level = check.relax ? 'idle' : !item.evaluated ? 'idle' : item.ok || item.score >= 0.95 ? 'ok' : item.score >= 0.6 ? 'near' : 'off';
       const pct = level === 'idle' ? 0 : Math.max(6, Math.round(Math.max(0, Math.min(1, item.score ?? 0)) * 100));
-      return `<div class="check-bar ${level}"><span class="check-bar-icon" aria-hidden="true">${metricIcon(item.label)}</span>`
-        + `<span class="check-bar-track"><span class="check-bar-fill" style="height:${pct}%"></span></span>`
-        + `<small>${esc(item.label)}</small></div>`;
+      return `<div class="check-cap ${level}"><span class="check-cap-name">${esc(item.label)}</span>`
+        + `<span class="check-cap-track"><span class="check-cap-fill" style="width:${pct}%"></span></span></div>`;
     }).join('') + '</div>'
       + `<p class="check-verdict">${esc(check.verdict)}</p>`;
     // A single next step lives in slot-hint; the check itself only reports state,
@@ -7483,7 +7482,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.12';
+  const APP_VERSION = '1.5.13';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}

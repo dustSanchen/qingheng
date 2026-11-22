@@ -852,13 +852,12 @@
       tag.textContent = check.relax ? '放松日 · 本周 1/1' : range.unset ? '未测算' : check.score === null ? '待记录' : check.score + ' 分';
       tag.classList.toggle('is-relax', !!check.relax);
     }
-    // 2026-11-18：体检不再复述热量/蛋白/脂肪数字（能量卡已有），改成四根竖向完成度条 + 结论。
-    box.innerHTML = '<div class="check-bars" role="img" aria-label="今日体检四项完成度">' + check.items.map(item => {
+    // 2026-11-22：四根竖条改成一行横向胶囊（名称 + 3px 细条），纵向占用约减一半。
+    box.innerHTML = '<div class="check-caps" role="img" aria-label="今日体检四项完成度">' + check.items.map(item => {
       const level = check.relax ? 'idle' : !item.evaluated ? 'idle' : item.ok || item.score >= 0.95 ? 'ok' : item.score >= 0.6 ? 'near' : 'off';
       const pct = level === 'idle' ? 0 : Math.max(6, Math.round(Math.max(0, Math.min(1, item.score ?? 0)) * 100));
-      return `<div class="check-bar ${level}"><span class="check-bar-icon" aria-hidden="true">${metricIcon(item.label)}</span>`
-        + `<span class="check-bar-track"><span class="check-bar-fill" style="height:${pct}%"></span></span>`
-        + `<small>${esc(item.label)}</small></div>`;
+      return `<div class="check-cap ${level}"><span class="check-cap-name">${esc(item.label)}</span>`
+        + `<span class="check-cap-track"><span class="check-cap-fill" style="width:${pct}%"></span></span></div>`;
     }).join('') + '</div>'
       + `<p class="check-verdict">${esc(check.verdict)}</p>`;
     // A single next step lives in slot-hint; the check itself only reports state,

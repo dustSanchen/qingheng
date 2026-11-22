@@ -66,8 +66,8 @@ check('today and historical meals share one bottom separator per row', /#today-m
   css.includes('#today-meals > :last-child,#record-meals .meal-day > .meal-row:last-child{border-bottom:0}') &&
   css.includes('.day-event{padding:var(--space-2) 0;border:0;border-bottom:1px solid var(--line)}'));
 check('the three things merged into the single next step', !html.includes('id="daily-three"') && app.includes("id: 'protein-gap'") && app.includes('is-next'));
-// 2026-11-17 用户要求「把今天的建议从更多收纳中移出至今天中」：小习惯仍留在更多里，建议回到主流程。
-check('habits stay in the folded more section, advice moves to the main flow', html.indexOf('今天的小习惯') > html.indexOf('id="day-more"') &&
+// 2026-11-22 用户要求「把折叠的日常习惯前置」：小习惯提到「更多」之前，建议仍在主流程。
+check('habits move ahead of the folded more section, advice stays in the main flow', html.indexOf('今天的小习惯') < html.indexOf('id="day-more"') &&
   html.indexOf('给今天的一点建议') < html.indexOf('id="day-more"') && html.indexOf('给今天的一点建议') < html.indexOf('id="today-records-card"'));
 check('quick copy is a quiet text link in the energy heading', app.includes("button.className = 'text-button quick-record-link'") &&
   app.includes('heading.appendChild(button)') && !html.includes('id="energy-actions"'));

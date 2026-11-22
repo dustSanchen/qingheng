@@ -1205,6 +1205,8 @@
       noteNode.hidden = !primary;
     }
     node.classList.toggle("is-next", !!primary);
+    // 没有缺口也没有未完成训练时整块收起：这一屏只留一个有内容的行动面。
+    node.classList.toggle("is-quiet", !primary && !missing.length);
     document.querySelectorAll("#today-quick-actions .quick-chip").forEach(button => {
       button.classList.remove("quick-chip-primary");
     });

@@ -428,20 +428,18 @@
     // 训练情况由动作决定（2026-11-18）：不再读手填标记，只报「记了什么」。
     const training = trainedOn(activeDate) ? '已训练' : '未记录';
     // SVG icons instead of ↗ ♧ ☾ ◇: those characters rendered differently on every ROM.
-    const tiles = [
-      ...(trainingEnabled() ? [['icon-glyph-training.svg', training, '训练']] : []),
-      ['icon-habit-steps.svg', number(habit.steps) === null ? '未记录' : `${fmt(habit.steps,0)} 步`, '日常活动'],
-      ['icon-habit-sleep.svg', number(habit.sleep) === null ? '未记录' : `${fmt(habit.sleep)} 小时`, '睡眠'],
-      ['icon-water.svg', number(habit.water) === null ? '未记录' : `${fmt(habit.water,0)} ml`, '饮水']
+    // 2026-11-22：从「一行摘要」改成网格——步数/饮水/睡眠各一格，数字即刻可见；
+    // 仍只跳转不录入，进去不弹输入法。
+    const habitCells = [
+      {label: '步数', icon: 'icon-habit-steps.svg', value: number(habit.steps) === null ? '—' : fmt(habit.steps, 0), unit: '步', focus: 'habit-steps'},
+      {label: '饮水', icon: 'icon-water.svg', value: number(habit.water) === null ? '—' : fmt(habit.water, 0), unit: 'ml', focus: 'habit-steps'},
+      {label: '睡眠', icon: 'icon-habit-sleep.svg', value: number(habit.sleep) === null ? '—' : fmt(habit.sleep, 1), unit: '小时', focus: 'habit-sleep'}
     ];
-    // 四个格子改成一行：今天页只交代「记了什么」，改去记录页改，且进去不弹输入法。
-    $('#habit-summary').innerHTML = '<button type="button" class="hub-row habit-jump" data-habit-jump>'
-      + '<span class="hub-text"><span class="hub-title">日常习惯</span><span class="hub-summary">'
-      + esc((() => {
-        const parts = tiles.filter(([, value]) => !String(value).includes('未记录')).map(([, value, label]) => `${label} ${value}`);
-        return parts.length ? parts.join(' · ') : '点这里补步数、睡眠、饮水';
-      })())
-      + '</span></span><span class="hub-arrow" aria-hidden="true">›</span></button>';
+    $('#habit-summary').innerHTML = habitCells.map(cell =>
+      `<button type="button" class="habit-cell" data-habit-jump data-focus="${cell.focus}" aria-label="${cell.label}：${cell.value === '—' ? '未记录' : cell.value + cell.unit}">`
+      + `<span class="habit-cell-label">${cell.label}</span>`
+      + `<span class="habit-cell-value">${cell.value === '—' ? '—' : `${cell.value}<small>${cell.unit}</small>`}</span></button>`
+    ).join('');
     const recordMeals=[...state.meals].sort((a,b) => String(b.date).localeCompare(String(a.date)));
     renderTodayTimeline($('#today-meals'), meals);
     renderRecordMeals(favoriteOnlyMeals ? recordMeals.filter(row => row.favorite === true) : recordMeals);

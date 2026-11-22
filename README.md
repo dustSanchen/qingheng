@@ -2,7 +2,7 @@
 
 **每一天，轻一点。** 一本只存在你手机里的健康账：饮食、训练、身体三栏记在一处，断网也能用，不上传任何记录。
 
-![Version](https://img.shields.io/badge/version-1.5.12-informational) ![Tests](https://img.shields.io/badge/tests-109%20%2F%20109-green) ![MinSdk](https://img.shields.io/badge/minSdk-26-blue) ![TargetSdk](https://img.shields.io/badge/targetSdk-35-blue) ![APK](https://img.shields.io/badge/APK-659%20KB-lightgrey) ![License](https://img.shields.io/badge/license-%E7%A6%81%E6%AD%A2%E8%BD%AC%E5%94%AE-critical)
+![Version](https://img.shields.io/badge/version-1.5.13-informational) ![Tests](https://img.shields.io/badge/tests-109%20%2F%20109-green) ![MinSdk](https://img.shields.io/badge/minSdk-26-blue) ![TargetSdk](https://img.shields.io/badge/targetSdk-35-blue) ![APK](https://img.shields.io/badge/APK-659%20KB-lightgrey) ![License](https://img.shields.io/badge/license-%E7%A6%81%E6%AD%A2%E8%BD%AC%E5%94%AE-critical)
 
 [**展示页**](https://dustsanchen.github.io/qingheng/) · [**下载最新安装包**](https://github.com/dustSanchen/qingheng/releases/latest) · [**更新记录**](https://github.com/dustSanchen/qingheng/releases)
 
