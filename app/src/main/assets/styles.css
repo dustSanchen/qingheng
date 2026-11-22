@@ -2471,3 +2471,35 @@ html[data-tab="today"] .energy-card .quick-chip .quick-chip-icon img{width:18px;
 /* 要点：动作行尾的小按钮，点了才弹长文本 */
 .exercise-help{min-height:32px;margin-left:auto;padding:0 8px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--muted);font-size:var(--text-xs)}
 .exercise-help:active{color:var(--ink);border-color:var(--accent-line)}
+
+/* 名称即入口：展示态是可点的名字，编辑态才露出输入框（2026-11-22 第七轮） */
+.exercise-name-row{position:relative;flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:8px}
+.exercise-name-row input{flex:1 1 auto;min-width:0}
+.exercise-name-row.is-locked input{position:absolute;width:1px;height:1px;padding:0;margin:0;border:0;opacity:0;overflow:hidden;clip:rect(0,0,0,0);pointer-events:none}
+.exercise-name-open{display:none;flex:1 1 auto;min-height:44px;padding:6px 0;border:0;background:transparent;text-align:left;font-size:17px;font-weight:var(--fw-semibold);color:var(--ink);letter-spacing:0}
+.exercise-name-row.is-locked .exercise-name-open{display:block}
+.exercise-name-row.is-locked .exercise-name-open::after{content:"?";margin-left:6px;font-size:11px;font-weight:var(--fw-regular);color:var(--muted);border:1px solid var(--line);border-radius:50%;padding:0 4px}
+.exercise-name-edit{display:none;min-height:32px;padding:0 8px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--muted);font-size:var(--text-xs)}
+.exercise-name-row.is-locked .exercise-name-edit{display:inline-flex;align-items:center}
+.exercise-name-edit:active{color:var(--ink);border-color:var(--accent-line)}
+#view-records .training-row .exercise-name-row input{min-height:44px;padding:6px 0;border-color:transparent;background:transparent;font-size:17px;font-weight:var(--fw-semibold)}
+
+/* ── 2026-11-22 第七轮：三胶囊微渐变、智能状态栏浮起、建议卡片 ──────────────────── */
+/* 三枚核心入口：同色系微渐变 + 纸底高光（渐变范围见 35-today-visual-v2.md 修订） */
+html[data-tab="today"] .energy-card .quick-chip{
+  background-image:linear-gradient(160deg,color-mix(in srgb,var(--accent) 9%,var(--surface)),var(--surface) 72%);
+  box-shadow:inset 0 1px 0 color-mix(in srgb,var(--paper) 70%,transparent),0 4px 12px -6px color-mix(in srgb,var(--ink) 14%,transparent)}
+html[data-tab="today"] .energy-card .quick-chip:active{background-image:linear-gradient(160deg,color-mix(in srgb,var(--accent) 14%,var(--surface)),var(--surface) 72%)}
+/* 智能状态栏：从「发丝线平铺」改成浮在卡面上的一条 */
+#view-today .energy-card .slot-hint,
+#view-today .energy-card .slot-hint.is-next{margin:12px 0 0;padding:10px 12px;border:0;border-radius:12px;background:var(--surface);background-image:none;box-shadow:var(--shadow-soft)}
+#view-today .energy-card .slot-hint.is-quiet{box-shadow:0 2px 8px -6px color-mix(in srgb,var(--ink) 12%,transparent)}
+#view-today .energy-card .slot-hint:active{transform:scale(.995)}
+/* 展开后的建议：一张小卡片，行间只留发丝线 */
+#view-today .energy-card .slot-list{margin-top:8px;padding:0 10px;border-radius:10px;background:var(--surface-soft)}
+#view-today .energy-card .slot-row{padding:10px 0;border-top:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
+#view-today .energy-card .slot-row:first-child{border-top:0}
+/* 身体识读：两个入口并排，说明换行不挤压 */
+.scale-sync{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.scale-sync .button{min-height:40px;padding:0 12px}
+.scale-sync-note{flex:1 1 100%;font-size:var(--text-xs);color:var(--muted);line-height:1.5}

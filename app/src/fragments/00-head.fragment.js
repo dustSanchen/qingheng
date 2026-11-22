@@ -507,6 +507,46 @@
     try { localStorage.setItem(TODAY_METRICS_KEY, JSON.stringify(kept)); } catch {}
     return kept.length ? kept : TODAY_METRIC_DEFS.map(def => def.key);
   }
+  /**
+   * 视觉识读的统一契约（2026-11-22 第七轮）：秤面与餐食两个端点都先过这里，
+   * 越界/非数字一律丢弃并记下来，不让脏值进表单；缺失保持缺失，不编造。
+   */
+  const VISION_FIELD_LIMITS = {weight: [20, 300], bodyFat: [1, 70], muscle: [5, 120], visceralFat: [1, 60], bmr: [500, 6000]};
+  const VISION_ITEM_LIMITS = {grams: [0, 5000], kcal: [0, 5000], protein: [0, 500], fat: [0, 500], carbs: [0, 500]};
+  function normaliseVision(data, kind) {
+    const out = {kind: kind || 'scale', fields: {}, items: [], notes: [], rejected: []};
+    const source = data && typeof data === 'object' ? data : {};
+    const fields = source.fields && typeof source.fields === 'object' ? source.fields : source;
+    for (const [key, [min, max]] of Object.entries(VISION_FIELD_LIMITS)) {
+      const raw = fields[key];
+      if (raw === undefined || raw === null || raw === '') continue;
+      const value = Number(raw);
+      if (!Number.isFinite(value)) { out.rejected.push({path: key, reason: '不是数字'}); continue; }
+      if (value < min || value > max) { out.rejected.push({path: key, reason: `超出 ${min}–${max}`}); continue; }
+      out.fields[key] = value;
+    }
+    const items = Array.isArray(source.items) ? source.items.slice(0, 24) : [];
+    if (Array.isArray(source.items) && source.items.length > 24) out.rejected.push({path: 'items', reason: '超过 24 条'});
+    for (const item of items) {
+      if (!item || typeof item !== 'object') { out.rejected.push({path: 'items', reason: '格式不对'}); continue; }
+      const name = String(item.name || '').trim().slice(0, 60);
+      if (!name) { out.rejected.push({path: 'items', reason: '缺少名称'}); continue; }
+      const row = {name};
+      for (const [key, [min, max]] of Object.entries(VISION_ITEM_LIMITS)) {
+        const raw = item[key];
+        if (raw === undefined || raw === null || raw === '') continue;
+        const value = Number(raw);
+        if (!Number.isFinite(value) || value < min || value > max) {
+          out.rejected.push({path: `items.${name}.${key}`, reason: `超出 ${min}–${max}`});
+          continue;
+        }
+        row[key] = key === 'grams' ? Math.round(value) : Math.round(value * 10) / 10;
+      }
+      out.items.push(row);
+    }
+    if (Array.isArray(source.notes)) out.notes = source.notes.map(text => String(text)).filter(Boolean).slice(0, 6);
+    return out;
+  }
   function askConfirm(text, options = {}) {
     const root = $('#app-dialog');
     if (!root) return Promise.resolve(false);

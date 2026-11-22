@@ -1735,3 +1735,15 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 构建：设备 3cba2bdc 安装 1.5.20/520；截图 `build/v12-today.png`。未推远端、未发 Release。
 - 未做（需拍板）：①「今日体检/小习惯/今日记录」折叠成标签页（与 1.5.16「体检并入能量卡」的单卡决定冲突）；②AI 计划「勾选即记录」（勾选即写库，需先定语义）；③训练小结弹窗的磨砂质感（功能已有）。
 
+
+## r225 · 2026-11-22 · 1.5.21（勾选即记录 + 名称看要点 + 休息条挂卡底 + 视觉识读统一契约）
+
+- 勾选即记录：`togglePlanDone(index, checked)` —— 今天且有组次时勾选即 `addExercisesToToday([item], {fromPlan:true, keepInPlan:true})` 写一条训练记录并把清单项标 done（清单不消失）；取消只回收「fromPlan 且未勾组」的行，其余保留并提示；写库失败回滚复选框。`addExercisesToToday` 新增 options 第二参（keepInPlan 跳过清单剔除；fromPlan 打标记）。
+- 名称即入口：训练行改为 `readonly input + 名字按钮 + 「改」`；点名字 `showExerciseGuide(name)`，点「改」解锁并聚焦，失焦且非空自动锁回。移除 1.5.20 的「要点」按钮。
+- 休息条挂卡底：`attachRestLine(exerciseRow)` 改为插到该动作 `.set-foot` 之前，一张卡一条；`paintRest` 同源不变。
+- 视觉识读统一：新增 `normaliseVision(data, kind)`（`VISION_FIELD_LIMITS` / `VISION_ITEM_LIMITS`，越界丢弃并记 `rejected`）；身体页新增「截图识读」`#scale-shot`（无 capture 的第二个 file input），与拍秤面共用 `applyScaleFile()`；餐食估算同样过契约，异常项数量进提示，仍不自动保存。
+- 质感：三胶囊同色系微渐变 + 纸底高光；`#slot-hint` 从发丝线平铺改为浮起卡（`--shadow-soft`），展开的建议列表套小卡片。
+- 测试：新增 `training-plan-loop.test.mjs`（14 条），全量 112/112；aesthetic-audit 无阻塞；README 徽章同步 1.5.21。
+- 构建：设备 3cba2bdc 安装 1.5.21/521；今日页截图 `build/v13-today2.png`。
+- 未在真机点验：勾选写库与名称弹要点（只有源码+断言验证）；截图识读入口未点（无外部授权时只能看到提示）。未推远端、未发 Release。
+

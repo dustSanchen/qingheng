@@ -161,7 +161,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.20';
+  const APP_VERSION = '1.5.21';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -371,7 +371,7 @@
    * 把一批动作并入当天训练记录：同名跳过，只追加不覆盖。
    * 训练日志与 AI 计划是两份数据，这里是唯一把它们接起来的入口。
    */
-  async function addExercisesToToday(items) {
+  async function addExercisesToToday(items, options = {}) {
     const wanted = (items || []).filter(item => item && String(item.name || "").trim());
     if (!wanted.length) { notice("没有可加入的动作。"); return; }
     const existing = habitRowFor(activeDate) || {};
@@ -394,6 +394,8 @@
       // 有氧项没有组次重量，改记距离与时长，训练日志那边才有东西可显示。
       if (number(item.distanceKm) !== null) record.distanceKm = number(item.distanceKm);
       if (number(item.durationMin) !== null) record.durationMin = number(item.durationMin);
+      // 勾选即记录写进来的行带标记：取消勾选时只回收「还没动过」的行。
+      if (options.fromPlan === true) record.fromPlan = true;
       current.push(record);
       names.add(name);
       added.push(name);
@@ -402,6 +404,11 @@
     try {
       await api("/api/habits", {...existing, date: activeDate, exercises: current});
       await loadState({quiet: true});
+      if (options.keepInPlan === true) {
+        // 勾选路径：清单项要留着显示「已做完」，不能像批量导入那样从清单里消失。
+        notice("已记入今天的训练：" + added.join("、") + "。");
+        return;
+      }
       // 已经进了训练记录的动作，从今日顺序里拿掉；没进记录的留着，避免清单凭空缩水。
       const addedSet = new Set(added);
       const planNow = aiPlanStore(activeDate) || [];
@@ -415,6 +422,54 @@
     } catch (error) {
       notice("加入训练记录失败：" + (error && error.message ? error.message : "未知错误"), true);
     }
+  }
+  /**
+   * 勾选即记录（2026-11-22 第七轮）：清单勾一个就落一条训练记录，不再要求二次导入。
+   * 只对今天生效、只在有组次时写库；取消勾选只回收「自己加进来且没动过」的行。
+   */
+  async function removeExerciseFromToday(target) {
+    const existing = habitRowFor(activeDate) || {};
+    const list = Array.isArray(existing.exercises) ? existing.exercises : [];
+    const next = list.filter(row => !(row && target && row.id === target.id));
+    if (next.length === list.length) return;
+    await api("/api/habits", {...existing, date: activeDate, exercises: next});
+    await loadState({quiet: true});
+  }
+  async function togglePlanDone(index, checked) {
+    const plan = aiPlanStore(activeDate) || [];
+    const item = plan[index];
+    if (!item || !String(item.name || "").trim()) return;
+    const name = String(item.name).trim();
+    const isToday = activeDate === localDate();
+    const canRecord = isToday && (number(item.sets) !== null || number(item.reps) !== null);
+    if (!canRecord) {
+      // 历史日期或没填组次：只做勾选框标记，绝不写历史记录。
+      item.done = checked === true;
+      aiPlanStore(activeDate, plan);
+      renderAiPlan();
+      return;
+    }
+    if (checked) {
+      const existing = exercisesFor(activeDate).find(row => String(row && row.name || "").trim() === name);
+      if (!existing) await addExercisesToToday([item], {fromPlan: true, keepInPlan: true});
+      item.done = true;
+      aiPlanStore(activeDate, plan);
+      renderAiPlan();
+      if (typeof renderTrainingLog === "function") renderTrainingLog();
+      return;
+    }
+    item.done = false;
+    aiPlanStore(activeDate, plan);
+    const current = exercisesFor(activeDate).find(row => String(row && row.name || "").trim() === name);
+    const untouched = current && current.fromPlan === true && (!Array.isArray(current.setDetails) || current.setDetails.length === 0);
+    if (untouched) {
+      await removeExerciseFromToday(current);
+      if (typeof renderTrainingLog === "function") renderTrainingLog();
+      notice("已取消勾选，并从今天的训练记录里撤掉。");
+    } else if (current) {
+      notice("已保留这条记录（里面已经有改动）。");
+    }
+    renderAiPlan();
   }
   /**
    * 从「今日清单」直接进入记录：把动作并进今天，跳到训练日志并聚焦负重。
@@ -1134,10 +1189,13 @@
     if (list) list.addEventListener("change", event => {
       const box = event.target.closest("[data-ai-done]");
       if (!box) return;
-      const plan = aiPlanStore(activeDate) || [];
       const index = Number(box.dataset.aiDone);
-      if (plan[index]) plan[index].done = box.checked;
-      aiPlanStore(activeDate, plan);
+      togglePlanDone(index, box.checked).catch(error => {
+        // 写库失败：把勾选框退回原状态，不留半条记录。
+        box.checked = !box.checked;
+        renderAiPlan();
+        notice(error && error.message ? error.message : "这次没记上，请重试。", true);
+      });
     });
     renderAiPlan();
   }
@@ -2089,14 +2147,17 @@
    * 组间休息就长在那一组上：一条走完的线 + 就地倒计时（2026-11-22 第三轮）。
    * 点倒计时即取消；线滚出视野后由底部药丸接手，两处同一份 restEnd。
    */
-  function attachRestLine(setRow) {
+  function attachRestLine(exerciseRow) {
     clearRestLine();
-    if (!setRow || !setRow.parentElement) return;
+    if (!exerciseRow) return;
     const line = document.createElement('div');
     line.className = 'rest-line';
     line.innerHTML = '<span class="rest-line-bar"><span></span></span>'
       + '<button type="button" class="rest-line-label" data-rest-inline aria-label="取消休息计时"></button>';
-    setRow.after(line);
+    // 挂在动作卡底部（.set-foot 之前），不再插在具体那一组下面：一张卡只有一条。
+    const foot = $('.set-foot', exerciseRow);
+    if (foot) foot.before(line);
+    else exerciseRow.appendChild(line);
     restLine = line;
     const fill = line.querySelector('.rest-line-bar > span');
     if (fill) fill.style.transform = 'scaleX(1)';
@@ -2287,14 +2348,34 @@
     const row = field.closest?.('[data-exercise-row]');
     if (row) refreshSetRow(row);
   });
+  // 名称改完失焦就锁回「可点看要点」的展示态；空名保持可编辑。
+  $('#training-exercises')?.addEventListener('focusout', event => {
+    const input = event.target.closest?.('[data-exercise="name"]');
+    if (!input) return;
+    const wrap = input.closest('.exercise-name-row');
+    if (!wrap) return;
+    const name = String(input.value || '').trim();
+    if (!name) return;
+    wrap.classList.add('is-locked');
+    input.readOnly = true;
+    const open = $('[data-exercise-open]', wrap);
+    if (open) { open.textContent = name; open.setAttribute('aria-label', '查看动作说明：' + name); }
+  });
   $('#training-exercises')?.addEventListener('click', event => {
-    // 动作要点：不再常驻长文本，点「?」才弹（2026-11-22 第六轮）。
-    const help = event.target.closest?.('[data-exercise-help]');
-    if (help) {
-      const row = help.closest('[data-exercise-row]');
-      const name = row ? String($('[data-exercise="name"]', row)?.value || '').trim() : '';
+    // 名称即入口（2026-11-22 第七轮）：点名字先看要点，点「改」才进编辑。
+    const openName = event.target.closest?.('[data-exercise-open]');
+    if (openName) {
+      const row = openName.closest('[data-exercise-row]');
+      const name = String($('[data-exercise="name"]', row)?.value || '').trim();
       if (name && typeof showExerciseGuide === 'function') showExerciseGuide(name);
-      else notice('先填动作名，再点这里看要点。');
+      return;
+    }
+    const editName = event.target.closest?.('[data-exercise-edit]');
+    if (editName) {
+      const row = editName.closest('[data-exercise-row]');
+      const wrap = $('.exercise-name-row', row), input = $('[data-exercise="name"]', row);
+      wrap?.classList.remove('is-locked');
+      if (input) { input.readOnly = false; input.focus(); if (input.select) input.select(); }
       return;
     }
     const done = event.target.closest?.('[data-set-done]');
@@ -2310,7 +2391,7 @@
         const name = row ? String($('[data-exercise="name"]', row)?.value || '') : '';
         startRestTimer(true, restSecondsFor(name));
         // restLength 由 startRestTimer 按动作定下；0 秒（有氧）不挂线。
-        if (restLength > 0) attachRestLine(set);
+        if (restLength > 0) attachRestLine(row || set);
       } else {
         clearRestLine();
       }
@@ -2594,7 +2675,12 @@
       let data;
       try {data=await api('/api/estimate/stream',payload);}
       catch(streamError){data=await api('/api/estimate',payload);}
-      previewDraft(data,submittedForm);feedback(message,'估算完成。请在下方修改并确认，才会保存。');
+      // 视觉识读走同一份契约：只用来统计被丢弃的异常项，不改变“先确认再保存”的流程。
+      const vision = normaliseVision(data, 'meal');
+      previewDraft(data,submittedForm);
+      feedback(message, vision.rejected.length
+        ? `估算完成，有 ${vision.rejected.length} 项读数异常已跳过。请在下方修改并确认，才会保存。`
+        : '估算完成。请在下方修改并确认，才会保存。');
     }
     catch(error){feedback(message,error.message,true);retry.hidden=false;}
     finally{window.QinghengEstimateStream=null;busy.hidden=true;busy.classList.remove('estimate-progress');estimateBusy=false;button.disabled=false;}
@@ -2931,7 +3017,7 @@ feedback(message,'数据已导入。'+report);
     // 启动时 state 还没到，门一开再补一次：否则「上次 74」与折叠态摘要都不会出现。
     const fold = $('#body-data-fold');
     if (fold) fold.addEventListener('toggle', () => { if (fold.open) setTimeout(paintBodyDataHints, 0); });
-    const input = $('#scale-photo-input'), note = $('#scale-sync-note'), button = $('#scale-photo');
+    const input = $('#scale-photo-input'), shotInput = $('#scale-shot-input'), note = $('#scale-sync-note'), button = $('#scale-photo'), shotButton = $('#scale-shot');
     // 先在 canvas 缩到 1400px：一张 4000px 原图的 base64 会把整条链路拖慢一倍以上。
     const shrink = file => new Promise((resolve, reject) => {
       const url = URL.createObjectURL(file);
@@ -2948,23 +3034,26 @@ feedback(message,'数据已导入。'+report);
       image.onerror = () => { URL.revokeObjectURL(url); reject(new Error('这张图片读不出来，换一张试试')); };
       image.src = url;
     });
-    button.addEventListener('click', () => {
+    const askFor = picker => {
       if (!externalConsent()) { note.textContent = '识别秤面需要外部模型：先到「我的 → 数据与关于」开启授权。'; return; }
       if (!navigator.onLine) { note.textContent = '当前离线，秤面识别需要联网；也可以手动填写。'; return; }
-      input.click();
-    });
-    input.addEventListener('change', async () => {
-      const file = input.files && input.files[0];
-      input.value = '';
+      picker?.click();
+    };
+    button.addEventListener('click', () => askFor(input));
+    shotButton?.addEventListener('click', () => askFor(shotInput));
+    const applyScaleFile = async file => {
       if (!file) return;
       button.disabled = true;
+      if (shotButton) shotButton.disabled = true;
       note.textContent = '正在读图…';
       try {
         const image = await shrink(file);
         const data = await api('/api/scale-read', {image, allowExternal: true});
+        // 统一契约：越界/非数字在这里就被丢掉，不让脏值进表单。
+        const vision = normaliseVision(data, 'scale');
         const filled = [];
         for (const metric of METRICS) {
-          const value = number(data?.[metric.key]);
+          const value = number(vision.fields[metric.key]);
           if (value === null) continue;
           form.elements[metric.key].value = value;
           filled.push(`${metric.label} ${fmt(value, metric.digits)} ${metric.unit}`);
@@ -2975,11 +3064,25 @@ feedback(message,'数据已导入。'+report);
           }
         }
         if (data?.measuredAt && validDate(data.measuredAt)) form.elements.date.value = data.measuredAt;
+        const skipped = vision.rejected.length ? `（跳过 ${vision.rejected.length} 项异常读数）` : '';
         note.textContent = filled.length
-          ? `读到 ${filled.length} 项：${filled.join('、')}。核对后点保存。`
-          : '没读到可用数值，换个角度重拍，或直接手填。';
+          ? `读到 ${filled.length} 项：${filled.join('、')}。核对后点保存。${skipped}`
+          : `没读到可用数值，换个角度重试，或直接手填。${skipped}`;
       } catch (error) { note.textContent = error.message; }
-      finally { button.disabled = false; }
+      finally {
+        button.disabled = false;
+        if (shotButton) shotButton.disabled = false;
+      }
+    };
+    input.addEventListener('change', async () => {
+      const file = input.files && input.files[0];
+      input.value = '';
+      await applyScaleFile(file);
+    });
+    shotInput?.addEventListener('change', async () => {
+      const file = shotInput.files && shotInput.files[0];
+      shotInput.value = '';
+      await applyScaleFile(file);
     });
   }
   /**
