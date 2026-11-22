@@ -1845,3 +1845,9 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 识别：isBodyweightMove(name) 先查用户表、再走正则；用户表优先——「做不动就换成高位下拉」这类名字被标过后也按自重处理。
 - 测试：training-bodyweight 增 6 条断言 + 一段沙箱行为测试（标记后 isBodyweightMove=true、取消后回 false）；全量 114/114。
 - 真机：按钮已确认出现在「改」之后（build/bw-edit7.png）；点按的即时视觉（自重 ✓ / 重量格占位变「自重」）因盲点坐标漂移未能稳定复现，逻辑有沙箱测试覆盖。
+### r213 · 2026-11-23 00:35 · 1.5.28（修「点改后自重按钮点不动」，用户报的 39 号待办 #2）
+- 根因（用真实 Edge headless 复现）：名称输入的 `focusout` 早于按钮 `click`，失焦时把行锁回展示态（`.is-locked`）会把「自重」按钮改成 `display:none`，click 目标消失、落到行容器上——所以按钮可见但点了没反应。复现日志：`pointerdown 自重 → focusout related=BUTTON/自重 → row re-locked, bw display=none → click on DIV`。
+- 修法：抽 `lockExerciseName(wrap)`；`focusout` 只在焦点明确移到行外（`relatedTarget` 存在且不在本行）时锁，行内换焦点或 `relatedTarget` 为空一律让位；新增行外 `pointerdown`（capture）才把未锁行收口——指针按在 `.exercise-name-row` 内不锁，保证按钮的 click 能落地。点完「自重」行保持编辑态，可连续开关。
+- 测试：`training-bodyweight` 增 2 条回归断言（守卫存在、行外 pointerdown 收口）；全量 114/114；assemble + `node --check app.js` 通过。
+- 真机（1.5.28/528，设备 3cba2bdc）：记录 → 训练 → 绳索下压点「改」→ 点「自重」，按钮变「自重 ✓」、toast「已记为自重动作：绳索下压，以后同名动作都按自重处理。」（build/bw-9-edit.png、bw-10-tap.png）；再点行外，行锁回展示态、按钮消失、`改` 回来（bw-11-locked.png）；再开一次点「自重」取消标记，恢复原状态（build/bw-13-final.png）。
+- 顺手：README 徽章同步 1.5.28 / tests 114；**发现 README 正文整体是 GBK→UTF-8 二次编码的乱码**（`# 杞昏`，至少从 1.5.24 的提交起就在），属对外展示问题，本轮未改，留待单独一轮重写。

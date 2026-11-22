@@ -105,6 +105,12 @@ check('自重表随备份走（注册表 + hydration）', app.includes("id: 'bod
   && app.includes('if (typeof loadUserBodyweightMarks === \'function\') loadUserBodyweightMarks();'));
 check('点标记后该行重量格立刻改成自重', app.includes("notice(on ? '已记为自重动作：' + name")
   && app.includes('if (typeof refreshSetRow === \'function\') refreshSetRow(row);'));
+// 回归：锁定展示态会把「自重」按钮 display:none 掉，而 focusout 早于 click，
+// 行内失焦若立刻锁回去，按钮点击就丢了（2026-11-23 用户报「点改后自重按钮点不动」）。
+check('行内失焦不锁回展示态（保住自重按钮的 click）', app.includes('const lockExerciseName = wrap =>')
+  && app.includes('if (!next || wrap.contains(next)) return;'));
+check('改为行外 pointerdown 才锁回展示态', app.includes("document.addEventListener('pointerdown', event => {")
+  && app.includes("if (event.target.closest?.('.exercise-name-row')) return;"));
 // 行为：用户标记后，同名动作在保存校验里被当成自重（允许空负重）。
 const bwSource = [
   grab('const BODYWEIGHT_MOVES', ['function isUserBodyweight(']),

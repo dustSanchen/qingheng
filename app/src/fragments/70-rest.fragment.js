@@ -161,7 +161,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.27';
+  const APP_VERSION = '1.5.28';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -2367,18 +2367,34 @@
     if (row) refreshSetRow(row);
   });
   // 名称改完失焦就锁回「可点看要点」的展示态；空名保持可编辑。
-  $('#training-exercises')?.addEventListener('focusout', event => {
-    const input = event.target.closest?.('[data-exercise="name"]');
+  // 2026-11-23 修：锁定会把「自重」按钮改成 display:none，而 focusout 早于 click——
+  // 手指落在本行控件上时若在这里锁回去，按钮先消失、click 落到行容器上，表现成「点了没反应」。
+  // 所以行内失焦一律让位，改由行外的 pointerdown 收口。
+  const lockExerciseName = wrap => {
+    const input = wrap ? $('[data-exercise="name"]', wrap) : null;
     if (!input) return;
-    const wrap = input.closest('.exercise-name-row');
-    if (!wrap) return;
     const name = String(input.value || '').trim();
     if (!name) return;
     wrap.classList.add('is-locked');
     input.readOnly = true;
     const open = $('[data-exercise-open]', wrap);
     if (open) { open.textContent = name; open.setAttribute('aria-label', '查看动作说明：' + name); }
+  };
+  $('#training-exercises')?.addEventListener('focusout', event => {
+    const input = event.target.closest?.('[data-exercise="name"]');
+    if (!input) return;
+    const wrap = input.closest('.exercise-name-row');
+    if (!wrap) return;
+    // relatedTarget 指向本行按钮（桌面 Edge/Chrome）或为空（部分触屏）都不锁：交给下面的行外 pointerdown。
+    const next = event.relatedTarget;
+    if (!next || wrap.contains(next)) return;
+    lockExerciseName(wrap);
   });
+  // 只有按在行外才锁回展示态；行内（自重 / 改 / 名称输入）不锁，否则按钮会先被 display:none 掉、click 落空。
+  document.addEventListener('pointerdown', event => {
+    if (event.target.closest?.('.exercise-name-row')) return;
+    $$('.exercise-name-row:not(.is-locked)').forEach(wrap => lockExerciseName(wrap));
+  }, true);
   $('#training-exercises')?.addEventListener('click', event => {
     // 名称即入口（2026-11-22 第七轮）：点名字先看要点，点「改」才进编辑。
     const openName = event.target.closest?.('[data-exercise-open]');
