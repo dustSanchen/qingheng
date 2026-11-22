@@ -1,12 +1,11 @@
-<#
+﻿<#
  * verify-all.ps1 -- one command for the whole verification chain.
  *
  * Runs, in order and failing fast:
  *   1. every tests/*.test.mjs
  *   2. the build (build.ps1, which owns the version number)
  *   3. byte-level APK checks (tests/verify-web-apk.mjs)
- *   4. icon-style consistency (tests/suite-infra.test.mjs)
- *   5. prints the APK path, SHA-256 and the version that was built
+ *   4. prints the APK path, SHA-256 and the version that was built
  *
  * Usage: powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\verify-all.ps1
  *        [-SkipBuild] [-Version 1.0.17 -VersionCode 18]
@@ -55,9 +54,7 @@ try {
     & $node tests\verify-web-apk.mjs *> $null
     if ($LASTEXITCODE -ne 0) { throw 'verify-web-apk failed' }
     Write-Host 'ok    verify-web-apk'
-    & $node tests\icon-style.test.mjs *> $null
-    if ($LASTEXITCODE -ne 0) { throw 'icon-style failed' }
-    Write-Host 'ok    icon-style'
+    # 图标规格（icon-style）已并入 tests/suite-infra.test.mjs，上面的 tests 段已经跑过，这里不再单独执行。
 
     $apk = Get-ChildItem dist -Filter *.apk | Sort-Object LastWriteTime -Descending | Select-Object -First 1
     if (-not $apk) { throw 'no APK in dist/' }

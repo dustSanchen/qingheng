@@ -239,7 +239,8 @@ check('a single verification command exists', exists('tools/verify-all.ps1'));
 check('it runs every test suite', ci.includes("Get-ChildItem tests -Filter *.test.mjs") && ci.includes('$failed += $suite.Name'));
 check('it fails fast on a test failure', ci.includes("if ($failed.Count) { throw (\"test failures: \" + ($failed -join ', ')) }"));
 check('it builds through build.ps1 (single source of the version)', ci.includes("Join-Path $root 'build.ps1'"));
-check('it runs the packaging checks', ci.includes('tests\\verify-web-apk.mjs') && ci.includes('tests\\icon-style.test.mjs'));
+check('it runs the packaging checks', ci.includes('tests\\verify-web-apk.mjs') && ci.includes('suite-infra.test.mjs')
+  && !ci.includes('tests\\icon-style.test.mjs'));
 check('it prints the APK hash', ci.includes('Get-FileHash $apk.FullName -Algorithm SHA256'));
 check('the packaging guard rejects backslash and leftover entries', read('build.ps1').includes('packaging guard') && read('build.ps1').includes('ZipFile'));
 check('it can skip the build for a quick test run', ci.includes('[switch]$SkipBuild'));

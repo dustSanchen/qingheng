@@ -1893,3 +1893,10 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - `#week-plan` 不再有两个监听器：排课写入收进 `renderWeekPlan` 的同一委托（`scheduleWeekPlan`），70 里那段独立 `addEventListener` 删除。
 - 教练说明与排课耗时不再搬进「计划说明」抽屉（`installTrainingSheets` 的 appendChild 删除），留在训练日志工具栏下方。
 - 结果：50 只剩新手引导 / 餐食 / 趋势；70 只剩导航、AI 排课、休息计时、训练建议；`test-all` 10/10 全绿（`check()` 站点 2,187）。
+### r221 · 2026-11-23 02:20 · 训练收尾：顶组口径、死 CSS、dev-loop 修复、重打包装机
+- 顶组口径（用户"收尾巴"）：新增 `topSetSummary(item)`（最重那组的重量与次数）；`recentExerciseBaselines` 改读原始动作（`habitRowFor`，含 setDetails）、`latestExerciseValues`、`rememberExerciseLogs`、`readTrainingExercises` 的外层汇总全部改用顶组——金字塔组（10×40 / 8×60 / 5×80）不再出现"首组次数 × 最大重量"，周计划基线与渐进规则不再被热身组带偏。
+- 死 CSS：删 49 条已无 DOM 的 `.ai-plan-*` 规则（row / name / summary / fold / edit / reason / weight-note / #ai-plan-card / .sheet-note 搬运态），只留仍在用的 `.ai-plan-note` 与 `.ai-plan-timing`；`aesthetic-audit` 无阻塞项，`entry-budget` 9/9。
+- 工具链：测试合并（r217）后 `dev-loop.ps1`、`verify-all.ps1` 仍在跑已删除的 `tests/icon-style.test.mjs`，导致 build 步骤直接失败——两处都改为由 `suite-infra` 的 icon-style 组覆盖，并补回 .ps1 的 UTF-8 BOM（edit 工具会掉 BOM）。
+- 装机：`dev-loop -Version 1.5.30 -SkipBackup` 全链通过（version sync / assemble / tests / build / install+smoke 34.3s），设备 versionName=1.5.30、versionCode=530；smoke 报 `js errors: none`，今天页与问答的训练建议（今日清单 0/6、每行剂量与"记录"）正常渲染。
+- 未完成：两条行为验证仍缺人手——「清空今天的训练 → 重启」应保持空、「今日清单勾一项」应多一条训练记录；WebView 里的复选框没有可点 label，uiautomator 只能拿到行文本，按约定不盲点坐标。
+- 测试：`check()` 站点 2,189（suite-training 675）；`test-all` 10/10 全绿。

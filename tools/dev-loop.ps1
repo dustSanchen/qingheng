@@ -154,8 +154,7 @@ if (-not $SkipBuild) {
     if ($code -ne 0) { $global:LASTEXITCODE = $code; return }
     $code = Run 'verify-web-apk' ("& '" + $node + "' tests\verify-web-apk.mjs") 120
     if ($code -ne 0) { $global:LASTEXITCODE = $code; return }
-    $code = Run 'icon-style' ("& '" + $node + "' tests\icon-style.test.mjs") 90
-    if ($code -ne 0) { $global:LASTEXITCODE = $code; return }
+    # 图标规格已并入 tests/suite-infra.test.mjs 的 icon-style 组，由上一段 test-all 覆盖；别再单独跑旧文件。
     $apk = Get-ChildItem dist\*.apk | Sort-Object LastWriteTime | Select-Object -Last 1
     $hash = (Get-FileHash $apk.FullName -Algorithm SHA256).Hash.Substring(0, 16)
     Write-Host ("      {0}  {1:n0} KB  sha256:{2}..." -f $apk.Name, ($apk.Length / 1KB), $hash)

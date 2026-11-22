@@ -1188,60 +1188,21 @@ body.no-training #training-volume-card,
 body.no-training #training-advice-order{display:none !important}
 
 /* 今日顺序（AI）：一行一个动作，勾选表示做完。 */
-.ai-plan{margin:var(--space-3) 0 0;padding-top:var(--space-3);border-top:1px solid var(--line)}
-.ai-plan .card-heading h3{margin:0;font-size:var(--text-sm);color:var(--muted);font-weight:var(--fw-medium)}
 #ai-plan-list{counter-reset:ai-step}
-.ai-plan-row{display:grid;grid-template-columns:1.5em minmax(0,1fr);column-gap:var(--space-2);align-items:start;margin:0;min-height:44px;padding:var(--space-2) 0;border-bottom:1px solid var(--line);font-size:var(--text-md)}
-.ai-plan-row input[type=checkbox]{order:-1;flex:0 0 auto;width:18px;height:18px;margin:2px 0 0;accent-color:var(--accent)}
-.ai-plan-row::before{counter-increment:ai-step;content:counter(ai-step);grid-column:1;grid-row:1;color:var(--muted);font-size:var(--text-sm);font-variant-numeric:tabular-nums}
-.ai-plan-row:last-child{border-bottom:0}
 /* 动作名是按钮：点开看「练什么、要点」，右侧的问号只是提示它可点。 */
-.ai-plan-name{display:inline-flex;align-items:center;gap:6px;min-width:0;padding:0;border:0;background:none;color:var(--ink);font:inherit;text-align:left;overflow-wrap:anywhere;cursor:pointer}
-.ai-plan-name-mark{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:16px;height:16px;border:1px solid var(--line-strong);border-radius:50%;color:var(--muted);font-size:var(--text-xs);line-height:1}
-.ai-plan-name:active .ai-plan-name-mark{color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft)}
 .guide-how{margin:10px 0 0;font-size:var(--text-sm);color:var(--ink);line-height:1.7}
 .guide-points{margin:var(--space-2) 0 0;padding-left:1.1em;font-size:var(--text-sm);color:var(--ink);line-height:1.7}
 .guide-points li{margin:4px 0}
 /* 汇总条：组数 + 按组数算出的时长；差异大时给一个改时长的入口。 */
-.ai-plan-summary{display:flex;flex-direction:row;flex-wrap:wrap;align-items:baseline;gap:var(--space-1) var(--space-2);margin:var(--space-2) 0 0;font-size:var(--text-xs);color:var(--muted);font-variant-numeric:tabular-nums}
-.ai-plan-summary-text{flex:0 1 auto}
-.ai-plan-summary-note{flex:0 1 auto;color:var(--muted)}
-.ai-plan-summary .text-button{flex:0 0 auto;min-height:0;padding:0 2px;font-size:var(--text-xs);text-decoration:underline;text-underline-offset:2px}
-.ai-plan-dose{flex:0 0 auto;white-space:nowrap;color:var(--muted);font-size:var(--text-sm);font-variant-numeric:tabular-nums}
 /* 名字与剂量同一行：宽屏左右分开，窄屏自动换到下一行，不写死宽度。 */
-.ai-plan-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;min-width:0}
-.ai-plan-main{grid-column:2;grid-row:1;display:flex;flex-direction:row;align-items:flex-start;gap:var(--space-2);min-width:0;margin:0}
 /* 组次重量 + 两个行内动作放在名字下一行：剂量不再和按钮抢同一条基线。 */
-.ai-plan-meta{grid-column:2;grid-row:2;display:flex;align-items:center;flex-wrap:wrap;gap:0 var(--space-3);margin-top:2px}
-.ai-plan-meta .ai-plan-dose{margin:0}
-.ai-plan-meta .text-button{min-height:32px;padding:0;font-size:var(--text-sm)}
-.ai-plan-meta .ai-plan-swap{margin-left:auto;color:var(--muted)}
-.ai-plan-meta .ai-plan-log{color:var(--accent);font-weight:var(--fw-semibold)}
-.ai-plan-row input:checked ~ .ai-plan-text .ai-plan-name{color:var(--muted);text-decoration:line-through}
 .busy-text{margin:0;font-size:var(--text-sm);color:var(--body-text)}
 @keyframes busy-spin{to{transform:rotate(360deg)}}
 
 /* 今日顺序的「修改」：进入后可逐项删除。 */
-.ai-plan.editing .ai-plan-row{position:relative}
 /* 编辑态：一行放不下四个输入框，改成「序号 + 名称 + 删除」一行、「组 / 次 / kg」一行。 */
-.ai-plan-row.is-editing{display:grid;grid-template-columns:1.5em 1fr auto;align-items:center;gap:var(--space-1) var(--space-2);padding:var(--space-2) 0}
-.ai-plan-row.is-editing::before{content:none}
-.ai-plan-no{color:var(--muted);font-size:var(--text-sm);font-variant-numeric:tabular-nums}
-.ai-plan-row.is-editing .ai-plan-input{width:100%;min-height:40px;padding:8px 10px;border:1px solid var(--line-strong);border-radius:var(--shape-ctrl-radius);background:var(--paper);color:var(--ink);font-size:var(--text-sm)}
-.ai-plan-row.is-editing .ai-plan-input.is-name{font-size:var(--text-md)}
-.ai-plan-nums{grid-column:1 / -1;display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);font-size:var(--text-xs);color:var(--muted)}
-.ai-plan-num{display:flex;align-items:center;gap:6px;font-size:var(--text-xs);color:var(--muted)}
-.ai-plan-edit-reason{grid-column:2 / -1;margin:0;font-size:var(--text-xs);color:var(--muted);overflow-wrap:anywhere}
-.ai-plan-append{margin-top:var(--space-2)}
-.ai-plan-row.is-editing .ai-plan-nums .ai-plan-input{width:5.5em;min-height:36px;text-align:center}
-.ai-plan-remove{width:36px;height:36px;min-height:0;border:1px solid var(--line);border-radius:var(--shape-ctrl-radius);background:var(--surface);color:var(--muted);font-size:17px;line-height:1}
-.ai-plan-remove:active{background:var(--surface-soft)}
 /* 「加入」是次要动作：贴在行尾，默认不加边框，不跟勾选框抢注意力。 */
-.ai-plan-row{align-items:flex-start}
-.ai-plan-main{display:flex;flex-direction:row;align-items:flex-start;gap:var(--space-2);flex:1 1 auto;min-width:0;margin:0}
-.ai-plan-text{display:flex;flex-direction:column;gap:2px;flex:1 1 auto;min-width:0}
 /* 今日顺序独立成卡后，不再需要卡内分隔线。 */
-#ai-plan-card .ai-plan{margin:0;padding:0;border-top:0}
 #ai-plan-all{margin-top:var(--space-2)}
 
 /* 行内等待条：贴在按钮下方，胶囊 + 呼吸光带 + 细环，不遮挡页面。 */
@@ -1289,7 +1250,7 @@ details:not(.day-more)[open]>summary:active::after{transform:rotate(180deg) scal
 /* 底部安全区：固定 tab bar 上方留出可点击空间，最后一屏的同意勾选不再被压住。 */
 :root{--tabbar-safe:96px;--dur-disclose:.46s}
 .app-shell{padding-bottom:calc(var(--tabbar-safe) + env(safe-area-inset-bottom))}
-.check-label,.ai-plan,.plan-prefs{scroll-margin-bottom:calc(var(--tabbar-safe) + 12px)}
+.check-label,.plan-prefs{scroll-margin-bottom:calc(var(--tabbar-safe) + 12px)}
 /* 健身偏好用芯片而不是下拉：点一下就看到全部可选项，改完立刻重排，不用先展开下拉再选。 */
 .pref-group{margin:0 0 var(--space-3)}
 .pref-label{display:block;margin:0 0 var(--space-1);font-size:var(--text-xs);color:var(--muted)}
@@ -1313,7 +1274,6 @@ html{scroll-padding-bottom:calc(var(--tabbar-safe,96px) + 16px)}
 .empty-title{margin:0;color:var(--ink-soft);font-weight:var(--fw-medium)}
 .empty-hint{margin:var(--space-1) 0 0;color:var(--muted);font-size:var(--text-sm);line-height:1.55}
 /* 今天页今日清单 + AI 计划理由行：只用既有令牌。 */
-.ai-plan-reason{grid-column:2;grid-row:3;display:block;font-size:var(--text-xs);color:var(--muted);margin-top:2px;overflow-wrap:anywhere}
 .adv-plan-item{display:flex;flex-direction:row;align-items:center;gap:8px;min-height:28px;cursor:pointer}
 .adv-plan-item .adv-name{flex:1 1 auto;min-width:0}
 .adv-insight{display:grid;grid-template-columns:auto 1fr;gap:var(--space-2);align-items:start;padding:var(--space-2) 0;border-top:1px solid var(--line)}
@@ -1525,7 +1485,6 @@ details.plan-why>summary::after{width:auto;height:auto;border:0;border-radius:0;
 .advice-pref-note{margin:10px 0 0}
 
 /* plan rows: one-tap log entry */
-.ai-plan-log{flex:0 0 auto;align-self:center;min-height:32px;padding:0 8px;font-size:13px;white-space:nowrap}
 .adv-plan-li{display:flex;flex-direction:row;align-items:center;gap:8px}
 .adv-plan-li .adv-plan-item{flex:1 1 auto;min-width:0}
 .adv-plan-log{flex:0 0 auto;min-height:32px;padding:0 8px;font-size:13px;white-space:nowrap}
@@ -1922,7 +1881,6 @@ details.plan-why>summary::after{width:auto;height:auto;border:0;border-radius:0;
 .plan-request-field textarea{width:100%;margin:0 0 var(--space-1);padding:var(--space-2);border:1px solid var(--line);border-radius:var(--shape-ctrl-radius);background:var(--surface-soft);color:var(--ink);font:inherit;font-size:var(--text-md);resize:vertical}
 /* 教练说明：模型调整了用户的要求时，一句话解释为什么不照办 */
 .ai-plan-note{margin:var(--space-2) 0 0;padding:2px 0 2px var(--space-2);border-left:2px solid var(--accent-line);color:var(--body-text);font-size:var(--text-sm);line-height:1.6}
-.ai-plan-weight-note{margin:var(--space-2) 0 0}
 /* 上次排课的耗时/失败原因：toast 10 秒就没，这行留在清单上方 */
 .ai-plan-timing{margin:var(--space-1) 0 0;color:var(--muted)}
 
@@ -2262,12 +2220,6 @@ details:not(.advanced):not(.day-more)>summary::after{width:auto;height:auto;bord
 .train-overview-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;min-height:32px;font-size:var(--text-md);font-weight:var(--fw-semibold);color:var(--ink);list-style:none;cursor:pointer}
 .train-overview-head::-webkit-details-marker{display:none}
 .train-overview-head::marker{content:""}
-.ai-plan-fold{margin-top:8px}
-.ai-plan-fold-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;min-height:40px;padding:6px 0;border-top:1px solid var(--line);font-size:var(--text-xs);color:var(--ink);font-weight:var(--fw-semibold);list-style:none;cursor:pointer}
-.ai-plan-fold-head::-webkit-details-marker{display:none}
-.ai-plan-fold-head::marker{content:""}
-.ai-plan-fold-count{font-weight:var(--fw-regular);color:var(--muted)}
-.ai-plan-fold[open]>.ai-plan-fold-head{border-bottom:1px solid var(--line);margin-bottom:8px}
 /* 结束训练弹窗：汇总、耗时输入、疲劳度四档、先补记录。 */
 .app-dialog-body{margin-top:10px}
 .dialog-summary{margin:0 0 10px;font-size:var(--text-sm);color:var(--ink);font-variant-numeric:tabular-nums}
@@ -2452,7 +2404,6 @@ html[data-tab="today"] .energy-card .quick-chip:active{background-image:linear-g
 
 /* 计划说明书里那两行归属说明的容器（原在训练卡上）。 */
 .sheet-note{margin:0 0 10px}
-.sheet-note .ai-plan-note,.sheet-note .ai-plan-timing{margin:0 0 6px}
 
 /* 训练行上的「约」标记：表示这一行的重量是按体重推算的起步值，不是历史记录。 */
 .exercise-approx{display:inline-grid;place-items:center;flex:0 0 auto;min-width:16px;height:16px;margin-right:4px;padding:0 4px;border-radius:4px;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent);font-size:var(--text-xs);font-weight:var(--fw-semibold);line-height:1}

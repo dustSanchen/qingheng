@@ -353,8 +353,17 @@
         reps: number($('[data-set="reps"]', set).value),
         weight: number($('[data-set="weight"]', set).value)
       }));
-      const weights = setDetails.map(set => set.weight).filter(value => value !== null);
-      return {...fromPlan, id, name, setDetails, sets: setDetails.length, reps: setDetails[0] ? setDetails[0].reps : null, weight: weights.length ? Math.max(...weights) : null};
+      // 外层汇总是「顶组」口径：sets = 组数、reps = 最重那组的次数、weight = 最重组的重量。
+      // 容量与基线都看 setDetails，这三个数只给旧读取路径与显示用；以前是「第一组次数 × 最大重量」。
+      const topSet = setDetails.reduce((best, set) => {
+        if (!best) return set;
+        const kg = set.weight === null ? -1 : set.weight;
+        const bestKg = best.weight === null ? -1 : best.weight;
+        const better = kg > bestKg || (kg === bestKg && (set.reps || 0) > (best.reps || 0));
+        return better ? set : best;
+      }, null);
+      return {...fromPlan, id, name, setDetails, sets: setDetails.length,
+        reps: topSet ? topSet.reps : null, weight: topSet ? topSet.weight : null};
     }).filter(item => item.name || item.distanceKm !== null || item.durationMin !== null || item.setDetails.some(set => set.reps !== null || set.weight !== null));
   }
 

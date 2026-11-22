@@ -4735,12 +4735,35 @@ const values = points.length<=7 ? points.map((item,i) => {
     for (const row of rows) {
       for (const item of row.exercises) {
         if (!item || String(item.name || '').trim() !== wanted) continue;
-        const sets = number(item.sets), reps = number(item.reps), weight = number(item.weight);
-        if (sets === null || reps === null || weight === null) continue;
-        return {sets, reps, weight, date: row.date};
+        // 顶组口径：金字塔组按「最重那组的次数」预填，不再拿第一组次数配最大重量。
+        const top = topSetSummary(item);
+        if (!(top.sets > 0) || top.reps === null || top.weight === null) continue;
+        return {sets: top.sets, reps: top.reps, weight: top.weight, date: row.date};
       }
     }
     return null;
+  }
+
+  /**
+   * 顶组摘要：基准重量与「那个重量做了几次」。金字塔组（10×40 / 8×60 / 5×80）不能拿第一组的次数
+   * 配最大重量——那会让渐进规则和基线一起失真。旧记录没有 setDetails 时退回外层三字段。
+   */
+  function topSetSummary(item) {
+    if (!item) return {weight: null, reps: null, sets: 0};
+    const details = Array.isArray(item.setDetails)
+      ? item.setDetails.filter(set => set && number(set.reps) !== null)
+      : [];
+    if (!details.length) {
+      return {weight: number(item.weight), reps: number(item.reps), sets: number(item.sets) || 0};
+    }
+    let best = null;
+    for (const set of details) {
+      const reps = number(set.reps), weight = number(set.weight);
+      const kg = weight === null ? -1 : weight;
+      const bestKg = best === null || best.weight === null ? -1 : best.weight;
+      if (best === null || kg > bestKg || (kg === bestKg && reps > best.reps)) best = {reps, weight};
+    }
+    return {weight: best.weight, reps: best.reps, sets: details.length};
   }
 
   /** Weekly volume per exercise, newest week first, using ISO weeks (Monday start). */
@@ -4993,8 +5016,11 @@ const values = points.length<=7 ? points.map((item,i) => {
   /** 训练落库后把真实负重写进记忆（下一次排课按它渐进）。 */
   function rememberExerciseLogs(exercises, date) {
     for (const item of Array.isArray(exercises) ? exercises : []) {
-      if (!item || !item.name || !(number(item.weight) > 0)) continue;
-      rememberExerciseWeight(item.name, {weight: number(item.weight), reps: number(item.reps), sets: number(item.sets)}, {source: 'log', date: date || activeDate});
+      if (!item || !item.name) continue;
+      // 顶组口径：记忆必须是「最重那组的次数」，否则渐进规则会用热身组的次数判断要不要加重。
+      const top = topSetSummary(item);
+      if (!(top.weight > 0)) continue;
+      rememberExerciseWeight(item.name, {weight: top.weight, reps: top.reps, sets: top.sets}, {source: 'log', date: date || activeDate});
     }
   }
 
@@ -5003,10 +5029,16 @@ const values = points.length<=7 ? points.map((item,i) => {
     const lastByExercise = {};
     for (let offset = 0; offset < days; offset++) {
       const day = shiftDay(activeDate, -offset);
-      for (const item of exercisesFor(day)) {
-        if (!item.name || lastByExercise[item.name]) continue;
-        if (item.sets === null || item.reps === null) continue; // runs and timed work are not scheduled
-        lastByExercise[item.name] = {sets: item.sets, reps: item.reps, weight: item.weight, date: day};
+      // 用原始动作（含 setDetails）：exercisesFor 只留外层汇总，金字塔组会在这里被放大。
+      const raw = typeof habitRowFor === 'function' ? habitRowFor(day) : null;
+      const rows = raw && Array.isArray(raw.exercises) ? raw.exercises : [];
+      for (const item of rows) {
+        const name = String(item && item.name || '').trim();
+        if (!name || lastByExercise[name]) continue;
+        if (number(item.durationMin) !== null || number(item.distanceKm) !== null) continue; // runs and timed work are not scheduled
+        const top = topSetSummary(item);
+        if (!(top.sets > 0) || top.reps === null) continue;
+        lastByExercise[name] = {sets: top.sets, reps: top.reps, weight: top.weight, date: day};
       }
     }
     return lastByExercise;
@@ -7990,8 +8022,17 @@ function metricIcon(label) {
         reps: number($('[data-set="reps"]', set).value),
         weight: number($('[data-set="weight"]', set).value)
       }));
-      const weights = setDetails.map(set => set.weight).filter(value => value !== null);
-      return {...fromPlan, id, name, setDetails, sets: setDetails.length, reps: setDetails[0] ? setDetails[0].reps : null, weight: weights.length ? Math.max(...weights) : null};
+      // 外层汇总是「顶组」口径：sets = 组数、reps = 最重那组的次数、weight = 最重组的重量。
+      // 容量与基线都看 setDetails，这三个数只给旧读取路径与显示用；以前是「第一组次数 × 最大重量」。
+      const topSet = setDetails.reduce((best, set) => {
+        if (!best) return set;
+        const kg = set.weight === null ? -1 : set.weight;
+        const bestKg = best.weight === null ? -1 : best.weight;
+        const better = kg > bestKg || (kg === bestKg && (set.reps || 0) > (best.reps || 0));
+        return better ? set : best;
+      }, null);
+      return {...fromPlan, id, name, setDetails, sets: setDetails.length,
+        reps: topSet ? topSet.reps : null, weight: topSet ? topSet.weight : null};
     }).filter(item => item.name || item.distanceKm !== null || item.durationMin !== null || item.setDetails.some(set => set.reps !== null || set.weight !== null));
   }
 

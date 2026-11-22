@@ -500,6 +500,35 @@ check('inferred weights are marked with 约', app.includes('class="exercise-appr
 check('the plan explains where inferred weights came from', app.includes('重量是按体重推算的起步值') && app.includes('练完一次按实际校准'));
 check('saving the plan remembers the planned load', app.includes('rememberPlanWeights(plan)'));
 check('saving the training log remembers the real load', app.includes('rememberExerciseLogs(exercises, activeDate)'));
+
+// --- 顶组口径（2026-11-23 收尾）：金字塔组不能拿第一组的次数配最大重量 -----------------------------
+const domain = readDomain();
+const number = v => (v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v)) ? Number(v) : null);
+const pyramidal = {name: '杠铃卧推', sets: 3, reps: 10, weight: 80,
+  setDetails: [{reps: 10, weight: 40}, {reps: 8, weight: 60}, {reps: 5, weight: 80}]};
+const lastApi = new Function('number', 'state', 'validDate', [
+  functionSource(domain, 'isBodyweightMove'),
+  functionSource(domain, 'topSetSummary'),
+  functionSource(domain, 'latestExerciseValues'),
+].join('\n') + '\nreturn {latestExerciseValues, topSetSummary};')(
+  number,
+  {habits: [{date: '2026-11-21', exercises: [pyramidal]}]},
+  d => /^\d{4}-\d{2}-\d{2}$/.test(String(d || ''))
+);
+const last = lastApi.latestExerciseValues('杠铃卧推');
+check('预填用顶组：次数取最重那组', last && last.weight === 80 && last.reps === 5 && last.sets === 3, JSON.stringify(last));
+const baseApi = new Function('number', 'state', 'activeDate', 'shiftDay', 'habitRowFor', [
+  functionSource(domain, 'topSetSummary'),
+  functionSource(domain, 'recentExerciseBaselines'),
+].join('\n') + '\nreturn recentExerciseBaselines;')(
+  number,
+  {habits: [{date: '2026-11-21', exercises: [pyramidal]}]},
+  '2026-11-22',
+  (date, offset) => date,
+  () => ({date: '2026-11-21', exercises: [pyramidal]})
+);
+const baselines = baseApi(14);
+check('周计划基线取顶组而不是首组', baselines['杠铃卧推'] && baselines['杠铃卧推'].weight === 80 && baselines['杠铃卧推'].reps === 5, JSON.stringify(baselines));
 ;return typeof fail === 'number' ? fail : 0;
 });
 
@@ -1616,7 +1645,7 @@ check('a chip click adds a row', rest.includes("$('#training-presets')?.addEvent
 check('the name comes from the chip', rest.includes('const name = chip.dataset.trainingPreset;'));
 check('last values are looked up', app.includes('function latestExerciseValues(name)'));
 check('lookup scans newest habits first', app.includes("sort((a, b) => String(b.date).localeCompare(String(a.date)))"));
-check('incomplete history is skipped', app.includes('if (sets === null || reps === null || weight === null) continue;'));
+check('incomplete history is skipped', app.includes('if (!(top.sets > 0) || top.reps === null || top.weight === null) continue;'));
 check('the row is prefilled', app.includes('function appendExerciseRow(name, values)') && app.includes('trainingSetDetails(item).map(setRowHtml)'));
 check('the user is told what was reused', rest.includes('沿用 ${previous.date} 的'));
 check('the 12-row cap still applies', app.includes("if (index >= 12) {notice('一次最多记录 12 个动作。', true); return null;}"));
