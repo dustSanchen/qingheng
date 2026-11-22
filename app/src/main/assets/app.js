@@ -1830,12 +1830,16 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
       return (map[date] && map[date].level) || 'high';
     } catch { return 'high'; }
   }
-    // 三列本身带槽就是「进度」，不再另开一张营养素卡；超出上限的（脂肪、碳水）槽转警示色。
+    // 三列压成一条紧凑带：数值 + 目标同一行右对齐，只有 2px 细条单独占一行（2026-11-22 第二轮）。
     $('#macro-summary').innerHTML = [['protein','蛋白质',p.proteinMin,p.proteinMax],['fat','脂肪',p.fatMin,p.fatMax],['carbs','碳水',null,carbCap(p, range)]].map(([key,label,min,max]) => {
       const value = totals[key], capValue = number(max);
       const progress = value !== null && capValue > 0 ? Math.min(100, value / capValue * 100) : 0;
       const over = key !== 'protein' && value !== null && capValue > 0 && value > capValue;
-      return `<div><span class="macro-label">${label}</span><div class="macro-value">${fmt(value)} <small>g</small></div><div class="progress-track"><span data-progress="${progress}"${over ? ' class="is-over"' : ''}></span></div><span class="macro-target">${min !== null && number(min)!==null && number(max)!==null ? `目标 ${fmt(min)}–${fmt(max)} g` : key === 'carbs' ? (number(max)>0 ? `参考上限约 ${fmt(max,0)} g` : '设置热量目标后显示进度') : '目标未设置'}</span></div>`;
+      const targetText = min !== null && number(min)!==null && number(max)!==null ? `目标 ${fmt(min)}–${fmt(max)} g` : key === 'carbs' ? (number(max)>0 ? `上限 ${fmt(max,0)} g` : '') : '';
+      return `<div><span class="macro-line"><span class="macro-label">${label}</span>`
+        + `<b class="macro-value">${fmt(value)}</b><small class="macro-unit">g</small></span>`
+        + `<span class="macro-target">${targetText}</span>`
+        + `<div class="progress-track"><span data-progress="${progress}"${over ? ' class="is-over"' : ''}></span></div></div>`;
     }).join('');
     $$('#macro-summary [data-progress]').forEach(node => {node.style.width=`${Number(node.dataset.progress)}%`;});
     recordIntakeConfidence();
@@ -7482,7 +7486,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.13';
+  const APP_VERSION = '1.5.15';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}

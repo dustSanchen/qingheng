@@ -2319,4 +2319,12 @@ details:not(.advanced):not(.day-more)>summary::after{width:auto;height:auto;bord
 #view-today .energy-body{padding-bottom:14px}
 #view-today .macro-grid{padding-top:12px;gap:10px}
 #view-today .macro-value{margin:2px 0}
-#view-today .progress-track{height:3px;margin:7px 0}
+#view-today .progress-track{height:2px;margin:6px 0 0}
+/* 2026-11-22 第二轮：宏量三列压成一条紧凑带——标签、数值、目标同一行，目标右对齐。 */
+#view-today .macro-grid{padding-top:10px;gap:10px;grid-template-columns:repeat(3,minmax(0,1fr))}
+#view-today .macro-grid>div{display:flex;flex-direction:column;gap:0;min-width:0}
+#view-today .macro-line{display:flex;align-items:baseline;gap:4px;min-width:0;overflow:hidden}
+#view-today .macro-label{font-size:var(--text-xs);color:var(--muted);flex:0 0 auto}
+#view-today .macro-value{margin:0;font-size:15px;font-weight:var(--fw-semibold);font-variant-numeric:tabular-nums;flex:0 0 auto}
+#view-today .macro-unit{font-size:var(--text-xs);color:var(--muted);font-weight:var(--fw-regular);flex:0 0 auto}
+#view-today .macro-target{display:block;margin:2px 0 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;font-size:var(--text-xs);color:var(--muted)}
