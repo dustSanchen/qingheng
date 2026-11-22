@@ -815,27 +815,6 @@
     }
     return prefix + '休息';
   }
-  /**
-   * 周条下方那块「那天练什么 + 动作要点」。要点按那天周计划里实际要做的动作点名，
-   * 所以计划换一版、动作变了，要点内容也跟着变；那天是休息日就直说，不硬凑要点。
-   */
-  function weekCueHtml(day, plan) {
-    if (!day) return '';
-    const planDay = (plan && Array.isArray(plan.days) ? plan.days : []).find(item => item && item.date === day) || null;
-    const label = dayLabel(day);
-    if (!planDay) return '<p class="fine-print">' + esc(label) + ' 是休息日，不排动作要点。</p>';
-    const cues = typeof libraryCuesFor === 'function' ? libraryCuesFor(planDay) : [];
-    const templateCues = !cues.length && typeof libraryCues === 'function' ? libraryCues(planDay.template) : [];
-    const body = cues.length
-      ? '<ul class="plan-cue-list">' + cues.map(cue =>
-        '<li><b>' + esc(cue.name) + '</b><span class="plan-cue-text">' + annotateTerms(esc(cue.text)) + '</span></li>').join('') + '</ul>'
-      : (templateCues.length
-        ? annotateTerms('<p class="plan-cue">' + templateCues.map(cue => esc(cue)).join('；') + '</p>')
-        : '');
-    if (!body) return '';
-    const head = esc(label + '（' + (TRAINING_TEMPLATES[planDay.template] || planDay.template) + '）的动作要点');
-    return '<details class="plan-why plan-cue-block" id="week-cues"><summary>' + head + '</summary>' + body + '</details>';
-  }
 
   /** Five-metric check for the selected day, plus the single action to take. */
   function renderDailyCheck() {

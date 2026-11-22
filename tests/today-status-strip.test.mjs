@@ -34,7 +34,7 @@ check('tapping the strip advances the sheet carousel', app.includes("strip.addEv
 check('the swap animation lives on the action text', app.includes('$("#today-action-text")') && app.includes('text.classList.add("is-swap")'));
 check('it swaps with a short fade', css.includes('.today-action-text.is-swap{animation:stripSwap 180ms'));
 check('reduced motion turns it off', css.includes('.today-action-text.is-swap{animation:none}'));
-check('press feedback stays at scale .98 on the chips', css.includes('#view-today .habit-cell:active,#view-today .slot-hint:active,#view-today .quick-chip:active{transform:scale(.98)') ||
+check('press feedback stays at scale .98 on the chips', css.includes('#view-today .habit-cell:active,#view-today .quick-chip:active{transform:scale(.98)') ||
   css.includes('#today-quick-actions .quick-chip:active{transform:scale(.98)}'));
 
 // --- 胶囊与 sheet -------------------------------------------------------------------------

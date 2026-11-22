@@ -95,11 +95,12 @@ node tools/device.mjs shot build\xxx.png
 
 ---
 
-## 4. 清理债（下一轮处理，不影响功能）
+## 4. 清理债（2026-11-22 深夜已清完）
 
-- `.slot-hint*` / `.status-strip*` 历史样式仍留在 `styles.css`（约 60 行，DOM 已删，无视觉影响）。
-- `weekCueHtml()` 已无调用方。
-- `#slot-note` 空节点样式 `.slot-note` 同步残留。
+- `.slot-hint*` / `.status-strip*` / `#week-cues` / `.plan-cue*` 全部删除：整条规则删 73 条、混合选择器缩减 11 条、连带去掉提到它们的注释；`styles.css` 从 210,650 B 降到 189,889 B。
+- `weekCueHtml()`（21 行，含 JSDoc）删除；要点只走动作名旁的 `?` → `showExerciseGuide()`。
+- 入口预算归零：去掉「训练概览空态的去记一餐」与「趋势空态的去记录体重」两个第二入口，`entry-budget-audit` 9/9 PASS（原 2 项 WARN）。
+- 断言同步翻转：records-density / training-library / training-plan-loop / ui-state-matrix / trends-ui / today-status-strip / week-switch 共 7 个文件的旧断言。
 
 ---
 

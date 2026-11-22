@@ -153,10 +153,10 @@ check('priority covers the transcript source', lib.priority.includes('asr-transc
 check('topic routing exists', app.includes('const LIBRARY_ROUTES') && app.includes('function libraryLookup(question'));
 check('the question routes to the right rules', app.includes('libraryLookup(question, 8)'));
 check('cues exist per template', app.includes('function libraryCues(template)') && app.includes("legs: ['leg-warmup-six-moves'"));
-check('the plan shows cues', app.includes('plan-cue') && app.includes('const cues ='));
+check('the plan no longer renders a cue block; cues live behind ?', !app.includes('plan-cue-') && app.includes('libraryCuesFor'));
 // 2026-11-17：要点与理由都要跟着「那天实际要做的动作 / 用户排的那份清单」走。
 check('cues follow the actual exercises', app.includes('function libraryCuesFor(day)') && app.includes('function cueForExercise(name, family)'));
-check('the cue list names each movement', app.includes('plan-cue-list') && app.includes('plan-cue-text'));
+check('cue lookup still names each movement', app.includes('function libraryCuesFor(day)') && app.includes('cueForExercise('));
 // 2026-11-19：块里不再重复 AI 的逐动作理由（会与预览日期脱节），理由改由「今日顺序」每行承担。
 check('the AI order reasons live on the order rows', app.includes('ai-plan-reason') && !app.includes('plan-why-ai'));
 check('the overview animates its bars', app.includes('const animateBars =') && app.includes('transitionDelay'));
@@ -265,7 +265,7 @@ check('ledger swaps the display font for sans', /\[data-skin="ledger"\][\s\S]{0,
 const appJs = fs.readFileSync('app/src/main/assets/app.js','utf8');
 const idxHtml = fs.readFileSync('app/src/main/assets/index.html','utf8');
 check('the glossary covers core terms', ['RPE','RM','ACWR','TDEE','减载','渐进超负荷','力竭'].every(k => appJs.includes('"' + k + '": {full:')));
-check('terms are annotated into the plan', appJs.includes('annotateTerms(') && appJs.includes('plan-cue'));
+check('terms are annotated wherever cues are shown', appJs.includes('annotateTerms(') && appJs.includes('annotateTerms(esc(cue.text))') === false);
 check('the term sheet can be closed', appJs.includes('installTermSheet') && appJs.includes('term-close'));
 check('photo entries follow the skin', cssText.includes('.photo-add:active{background:var(--surface-soft)}') && cssText.includes('.sheet-option:active{background:var(--accent-soft)}'));
 check('the weight calculator handles per-side input', appJs.includes('weight-per-side') && appJs.includes('weight-fill'));

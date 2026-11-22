@@ -4356,7 +4356,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     if (!points.length) {
       const weekly = $('#trend-weekly');
       if (weekly) {weekly.hidden = true; weekly.textContent = '';}
-      $('#weight-chart').innerHTML = stateBlock({kind: 'empty', title: '记录第一笔体重', body: '趋势从这里开始；之后每次记录都会画进折线。', action: {label: '去记录体重', go: 'records', focus: 'measurement-weight'}});
+      $('#weight-chart').innerHTML = stateBlock({kind: 'empty', title: '记录第一笔体重', body: '趋势从这里开始；之后每次记录都会画进折线。'});
       $('#trend-stats').innerHTML = '';
       return;
     }
@@ -6018,27 +6018,6 @@ const values = points.length<=7 ? points.map((item,i) => {
       return prefix + label + hint + (names ? ' · ' + names + (all.length > 3 ? ' 等 ' + all.length + ' 个' : '') : ' · 动作待定');
     }
     return prefix + '休息';
-  }
-  /**
-   * 周条下方那块「那天练什么 + 动作要点」。要点按那天周计划里实际要做的动作点名，
-   * 所以计划换一版、动作变了，要点内容也跟着变；那天是休息日就直说，不硬凑要点。
-   */
-  function weekCueHtml(day, plan) {
-    if (!day) return '';
-    const planDay = (plan && Array.isArray(plan.days) ? plan.days : []).find(item => item && item.date === day) || null;
-    const label = dayLabel(day);
-    if (!planDay) return '<p class="fine-print">' + esc(label) + ' 是休息日，不排动作要点。</p>';
-    const cues = typeof libraryCuesFor === 'function' ? libraryCuesFor(planDay) : [];
-    const templateCues = !cues.length && typeof libraryCues === 'function' ? libraryCues(planDay.template) : [];
-    const body = cues.length
-      ? '<ul class="plan-cue-list">' + cues.map(cue =>
-        '<li><b>' + esc(cue.name) + '</b><span class="plan-cue-text">' + annotateTerms(esc(cue.text)) + '</span></li>').join('') + '</ul>'
-      : (templateCues.length
-        ? annotateTerms('<p class="plan-cue">' + templateCues.map(cue => esc(cue)).join('；') + '</p>')
-        : '');
-    if (!body) return '';
-    const head = esc(label + '（' + (TRAINING_TEMPLATES[planDay.template] || planDay.template) + '）的动作要点');
-    return '<details class="plan-why plan-cue-block" id="week-cues"><summary>' + head + '</summary>' + body + '</details>';
   }
 
   /** Five-metric check for the selected day, plus the single action to take. */
@@ -9567,7 +9546,7 @@ function metricIcon(label) {
       // 看的是哪一天就写哪一天：切到 11-21 还写「今天」读起来就是在说错日期。
       const noteDay = typeof dayLabel === "function" ? dayLabel(activeDate) : "今天";
       lines.push(kcal === null
-        ? noteDay + '还没记饮食 · <button type="button" class="text-button inline-link" data-panel-go="food">去记一餐</button>'
+        ? noteDay + '还没记饮食'
         : noteDay + '摄入 ' + fmt(kcal, 0) + (target ? ' / ' + fmt(target, 0) : '') + ' kcal · 蛋白 ' + fmt(protein || 0, 0) + (proteinMin ? ' / ' + fmt(proteinMin, 0) + ' g' : ' g'));
       note.innerHTML = lines.map((line, index) => '<span class="overview-note-line' + (index ? ' is-muted' : '') + '">' + line + '</span>').join('');
       if (!note.dataset.wired) {

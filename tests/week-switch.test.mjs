@@ -34,11 +34,11 @@ check('详情行优先说已记录的动作', training.includes("return prefix +
 
 // ③ 要点按那天的动作重算，并且能就地替换 ---------------------------------------------------------
 check('要点不再常驻，单个动作走 ?', !training.includes('const cueHtml = weekCueHtml(weekDetailDay, plan);') && app.includes('showExerciseGuide'));
-check('要点点名那天计划里的动作', training.includes('const cues = typeof libraryCuesFor === \'function\' ? libraryCuesFor(planDay) : [];'));
+check('要点查询仍按那天计划里的动作', training.includes('function libraryCuesFor(day)') && training.includes('function cueForExercise('));
 check('要点块与宿主都已移除', !handler.includes('cueHost') && !training.includes('week-cues-host'));
 check('点日期只换当天明细', handler.includes('detail.textContent = weekDetailHtml(day, lastWeekPlan);'));
-check('休息日不给要点', training.includes('是休息日，不排动作要点'));
-check('要点标题按日期取名，不写死在「今天」', training.includes('const head = esc(label + \'（\' + (TRAINING_TEMPLATES[planDay.template] || planDay.template) + \'）的动作要点\');'));
+check('休息日不再出要点块', !training.includes('是休息日，不排动作要点'));
+check('要点标题随块一起退场', !training.includes('的动作要点\');'));
 
 // ④ 「这周怎么排的」只说周口径，不再列按天的 AI 动作清单 ------------------------------------------
 // 用户反馈：这块原来会展示当天的动作安排，切预览日期它不变，读起来像那天被改了。
@@ -55,7 +55,7 @@ check('没有留下 explainHtml/cueLabel/cueBody/cueDay/cueIsViewed 残骸',
   !/explainHtml|cueLabel|cueBody|cueDay|cueIsViewed/.test(training));
 
 // 生成物同步 -----------------------------------------------------------------------------------
-check('app.js 与片段同步', app.includes('function weekCueHtml(day, plan)') && !app.includes('id="week-cues-host"'));
+check('app.js 与片段同步', !app.includes('function weekCueHtml') && !app.includes('id="week-cues-host"'));
 
 console.log('\nFAIL total: ' + fail);
 process.exitCode = fail ? 1 : 0;

@@ -1813,3 +1813,13 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - `.slot-hint*` / `.status-strip*` 历史样式约 60 行仍留在 `styles.css`（DOM 已删、无视觉影响），列为本轮清理债。
 
 **补充（同日 23:0x，设备回连后）**：1.5.27 装机完成（dev-loop 通过，dumpsys versionName=1.5.27 / versionCode=527），真机截图 build/v27-today4.png（今天页首屏：概况 4/4 次 · 较上周 −37% ＋ 三枚胶囊 ＋ 行动行 1/2）、v27-body3.png（今天体重）、v27-habit4.png（三张刻度卡）、v27-quicksheet.png（自定义快捷值两步 sheet）、v27-train5.png（工具栏＋播种行）、v27-plansheet2.png（计划说明 sheet）。真机验收后又修三处：① .plan-label / .plan-load / .plan-load-note 漏搬，训练计划卡里残留负荷块，补进选择器；② 习惯数值改左对齐、卡内 padding 10→8、轨道 28→22，卡高压缩；③「今日顺序」作废后的关系文案改为「以训练日志里确认的为准」，并同步 plan-shared-template 断言。真机操作教训：盲点坐标会误触刻度轨道（步数一次被滑到 42166），改数值后必须 force-stop 重开再截图。
+
+## r209 · 2026-11-22 · 1.5.27（清理债与入口预算）
+
+- **死样式清完**：`.slot-hint*` / `.status-strip*` / `#week-cues` / `.plan-cue*` 全部删除。做法：先给 `/* */` 注释占位保护，再对每个规则块拆选择器列表逐项判死——整条死则删规则，混合选择器只摘掉死项；空掉的 `@media` 回收，提到这些节点的注释一并去掉。结果：整条删 73 条、缩减 11 条，`styles.css` 210,650 B → 189,889 B。
+- **`weekCueHtml()` 删除**（21 行含 JSDoc）：常驻要点块撤掉后它已无调用方，要点统一走动作名旁 `?` → `showExerciseGuide()`。
+- **入口预算归零**：去掉两个"第二入口"——训练概览空态的「去记一餐」（饮食面板上方就是表单）、趋势空态的「去记录体重」（页眉已有「去记录 →」）。`entry-budget-audit` 9 项 9 PASS（原 2 WARN）。
+- **断言翻转 7 个文件**：records-density / training-library / training-plan-loop / ui-state-matrix / trends-ui / today-status-strip / week-switch。
+- 验收：assemble + `node --check` 通过；`test-all` 112/112；`aesthetic-audit` 无阻塞项；装机 1.5.27/527 后真机对照 `build/v27-clean-today.png` 与 `v27-clean-records.png`，与清理前一致（删的都是已删 DOM 的样式，无视觉回归）。
+
+- 教训：删 CSS 死规则不能"按行删"——同名 token 会出现在混合选择器、`@media` 内、注释里三种位置；先做规则块解析（注释占位 + 逐块拆选择器），再统一重建，最后 grep 校验残留为 0。

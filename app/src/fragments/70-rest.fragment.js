@@ -1900,7 +1900,7 @@
       // 看的是哪一天就写哪一天：切到 11-21 还写「今天」读起来就是在说错日期。
       const noteDay = typeof dayLabel === "function" ? dayLabel(activeDate) : "今天";
       lines.push(kcal === null
-        ? noteDay + '还没记饮食 · <button type="button" class="text-button inline-link" data-panel-go="food">去记一餐</button>'
+        ? noteDay + '还没记饮食'
         : noteDay + '摄入 ' + fmt(kcal, 0) + (target ? ' / ' + fmt(target, 0) : '') + ' kcal · 蛋白 ' + fmt(protein || 0, 0) + (proteinMin ? ' / ' + fmt(proteinMin, 0) + ' g' : ' g'));
       note.innerHTML = lines.map((line, index) => '<span class="overview-note-line' + (index ? ' is-muted' : '') + '">' + line + '</span>').join('');
       if (!note.dataset.wired) {

@@ -34,7 +34,7 @@ check('one clear OCR entry covers screenshot and photo', html.includes('识别�
 
 // --- 质感 ------------------------------------------------------------------------------
 check('the three capsules carry the same-family gradient', /\.quick-chip\{[^}]*linear-gradient\(160deg/.test(css.replace(/\n/g, ' ')));
-check('the status bar floats above the card surface', /#view-today \.energy-card \.slot-hint[\s\S]{0,240}box-shadow:var\(--shadow-soft\)/.test(css));
+check('the single action line sits inside the energy card without its own frame', css.includes('.today-action{display:flex;align-items:center;gap:8px;min-height:48px') && !css.includes('.slot-hint'));
 
 check('the fromPlan marker survives a form rebuild', app.includes('const carried = (typeof exercisesFor === \'function\' ? exercisesFor(activeDate) : [])') && /\.\.\.fromPlan, id, name/.test(app));
 check('untouched compares set numbers against the plan prescription', app.includes('const sameAsPlan = !Array.isArray(current?.setDetails)') && app.includes('=== (number(item.reps) ?? null)'));

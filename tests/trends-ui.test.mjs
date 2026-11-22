@@ -55,5 +55,5 @@ assert(/\$\{values\}\$\{labels\}/.test(app), 'value labels are rendered above th
 
 assert(!/\.page-author/.test(css), 'the author-line styling went with the element');
 assert(/const weekly = \$\('#trend-weekly'\)[\s\S]{0,140}weekly\.hidden = true/.test(app), 'the empty trend chart clears stale weekly text');
-assert(app.includes("action: {label: '去记录体重'"), 'the empty trend chart offers a record-weight action');
+assert(!app.includes("action: {label: '去记录体重'") && app.includes("title: '记录第一笔体重'"), 'the empty trend chart is explained without a second entry');
 console.log('PASS trends UI: 7-day range, single default, no personal credit in the footer, phone-sized axes, short-range value labels, empty-state action');
