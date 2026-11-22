@@ -4,6 +4,10 @@
  */
 import fs from 'node:fs';
 import vm from 'node:vm';
+import {functionSource, constLine, constSource} from './lib/extract.mjs';
+
+const DOMAIN_FILE = 'app/src/fragments/55-training-domain.fragment.js';
+const readDomain = () => fs.readFileSync(DOMAIN_FILE, 'utf8').replace(/\r\n/g, '\n');
 
 let __fail = 0;
 async function __run(name, fn) {
@@ -226,6 +230,9 @@ const readSrc = path => fs.readFileSync(path, 'utf8').replace(/\r\n/g, '\n');
 const rest = readSrc('app/src/fragments/70-rest.fragment.js');
 const training = readSrc('app/src/fragments/60-training-copy.fragment.js');
 const onboarding = readSrc('app/src/fragments/50-onboarding.fragment.js');
+// 2026-11-23 Phase 2：自重判定 / 可装重量 / 重量记忆 / 渐进全部收进 55-training-domain，
+// 直接整份喂进沙箱（这一层是零 DOM 的纯函数），不再按相邻函数切标记。
+const domain = readSrc(DOMAIN_FILE);
 
 /** 取 [startMarker, endMarker) 之间的一段源码；两端标记必须存在，否则直接崩，避免静默截空。 */
 function sliceBetween(source, startMarker, endMarker, label) {
@@ -236,13 +243,10 @@ function sliceBetween(source, startMarker, endMarker, label) {
 }
 
 const pieces = [
-  // 自重判定（50）
-  sliceBetween(onboarding, '  const BODYWEIGHT_MOVES = ', '  /**\n   * 复合动作', 'bodyweight moves'),
-  // 可装重量 + 重量记忆 + 渐进（60）
-  sliceBetween(training, '  function loadableWeightKg(name, desired) {', '  /**\n   * 七天训练安排从', 'loadable weights'),
-  sliceBetween(training, "  const WEIGHT_MEMORY_KEY = 'qingheng.exerciseWeights';", '  const WEEK_PLAN_KEY =', 'weight memory'),
+  // 自重判定 + 可装重量 + 重量记忆 + 渐进 + 计划生成（55 整层）
+  domain,
   // 强度信号 + 教练说明（70）
-  sliceBetween(rest, '  const EFFORT_LABELS = ', '  function aiPlanDose(item) {', 'effort block'),
+  sliceBetween(rest, '  const EFFORT_LABELS = ', '  function syncPlanDoneFromRow(', 'effort block'),
   // 补重量 + 逐行转换（70）
   sliceBetween(rest, '  function planWeightFor(row) {', '  /** 流式期间只认已经闭合的', 'plan row'),
   // 解析模型回复（70）
@@ -391,7 +395,7 @@ const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + 
 const read = path => fs.readFileSync(path, 'utf8');
 
 const app = read('app/src/main/assets/app.js');
-const training = read('app/src/fragments/60-training-copy.fragment.js');
+const training = read(DOMAIN_FILE) + read('app/src/fragments/60-training-copy.fragment.js');
 const rest = read('app/src/fragments/70-rest.fragment.js');
 const main = read('app/src/main/java/cn/qingheng/health/MainActivity.java');
 
@@ -407,9 +411,10 @@ check('两处都不再各自硬编码部位名', !rest.includes("const TEMPLATE_
 check('每组时间取自 restSecondsFor 而不是固定值',
   rest.includes('function planItemMinutes(item)') && rest.includes('const rest = typeof restSecondsFor === "function" ? restSecondsFor(name) : 90;'));
 check('旧的固定 2.5 分钟/组已移除', !rest.includes('AI_PLAN_MINUTES_PER_SET'));
-check('整份清单用含休息的折算', rest.includes('const need = planMinutes(plan);'));
-check('界面写明含组间休息', rest.includes('含组间休息约需 ') && rest.includes('含休息约需 '));
-check('改时长按钮给的是档位而不是原始分钟', rest.includes("data-plan-minutes=\"' + planMinutesStep(need) + '\""));
+check('整份清单用含休息的折算', rest.includes('planMinutes(plan)') && rest.includes('function planItemMinutes(item)'));
+// Phase 2：原来那句「含组间休息约需」挂在已删除的 #ai-plan-summary 上；现役入口是 #ai-plan-timing 的「折算 N 分钟」。
+check('界面写明含组间休息', rest.includes('" / 折算 "') && rest.includes('（上限 '));
+check('改时长不再有死按钮（Phase 2 已移除 #ai-plan-summary）', !rest.includes('data-plan-minutes') && !rest.includes('function planMinutesStep'));
 check('有氧按自己的时长算，不套组次', rest.includes('const cardio = number(item && item.durationMin);'));
 
 // --- P1 单次课组数口径 ---------------------------------------------------------------------------
@@ -429,7 +434,7 @@ check('两套清单有了关系说明', training.includes('两者不一致时以
 check('app.js 与片段同步',
   app.includes('function dayTemplateNote(date = activeDate)')
   && app.includes('function planMinutes(items)')
-  && app.includes('含组间休息约需 '));
+  && app.includes('上次排课耗时 '));
 ;return typeof fail === 'number' ? fail : 0;
 });
 
@@ -447,7 +452,7 @@ const app = fs.readFileSync('app/src/main/assets/app.js', 'utf8');
 
 check('the plan card has a slot for the last run timing', html.includes('id="ai-plan-timing"'));
 check('timing is rendered from local storage', app.includes('function renderPlanTiming') && app.includes('"qingheng.planTiming."'));
-check('renderPlanTiming runs with the plan render', /function renderAiPlan\(\)[\s\S]{0,400}renderPlanTiming\(\)/.test(app));
+check('renderPlanTiming runs with the plan render', /function syncAiPlanControls\(\)[\s\S]{0,300}renderPlanTiming\(\)/.test(app));
 check('a failed run also leaves evidence', /catch \(error\) \{[\s\S]{0,400}qingheng\.planTiming\.[\s\S]{0,200}error:/.test(app));
 check('the toast still carries the numbers', app.includes('耗时 ') && app.includes('首条 '));
 check('both numbers come from the same measurement', app.includes('planFirstRowAt') && app.includes('planTotalMs'));
@@ -488,11 +493,11 @@ check('progression is step-based and capped at +10%', app.includes('Math.min(las
 check('long layoffs deload instead of adding', app.includes('if (gap > 60) return reduceLoadableWeightKg') && app.includes('if (gap > 21) return'));
 check('a first timer starts from bodyweight ratios', app.includes("const bodyweight = number((state.profile || {}).weight)") && app.includes('WEIGHT_RATIOS'));
 check('a same-family transfer is discounted to 85%', app.includes('* 0.85'));
-check('swapping an exercise recomputes its weight', /item\.name = pool\[index % pool\.length\];[\s\S]{0,500}plannedWeightFor\(item\.name\)/.test(app));
+check('换动作的死入口已移除，重量补全仍在清单入队时发生', !app.includes('data-ai-swap') && app.includes('plannedWeightFor(row && row.name)'));
 
 // --- 界面与落库 -------------------------------------------------------------------------------------------
-check('inferred weights are marked with 约', app.includes('"约 " + kg + " kg"'));
-check('the plan explains where inferred weights came from', app.includes('ai-plan-weight-note') && app.includes('练完一次后按实际记录校准'));
+check('inferred weights are marked with 约', app.includes('class="exercise-approx"') && app.includes('约</span>'));
+check('the plan explains where inferred weights came from', app.includes('重量是按体重推算的起步值') && app.includes('练完一次按实际校准'));
 check('saving the plan remembers the planned load', app.includes('rememberPlanWeights(plan)'));
 check('saving the training log remembers the real load', app.includes('rememberExerciseLogs(exercises, activeDate)'));
 ;return typeof fail === 'number' ? fail : 0;
@@ -664,11 +669,19 @@ function grab(startMarker, endMarkers) {
 }
 
 const number = v => (v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v)) ? Number(v) : null);
+// 2026-11-23 Phase 2：这些纯函数已收进 55 领域层，按函数名取，别再依赖相邻函数标记。
+const domain = readDomain();
 const pure = new Function('number', [
-  grab('const BODYWEIGHT_MOVES', ['function trainingStatsOf(']),
-  grab('function trainingStatsOf(', ['const EXERCISE_PRESETS']),
-  grab('function loadableWeightKg(', ['function generateWeekPlan(']),
-  'return {isBodyweightMove, trainingStatsOf, loadableWeightKg};'
+  constLine(domain, 'BODYWEIGHT_MOVES'),
+  constLine(domain, 'USER_BODYWEIGHT'),
+  functionSource(domain, 'readBodyweightMarks'),
+  functionSource(domain, 'loadUserBodyweightMarks'),
+  functionSource(domain, 'isUserBodyweight'),
+  functionSource(domain, 'setUserBodyweight'),
+  functionSource(domain, 'isBodyweightMove'),
+  functionSource(domain, 'trainingStatsOf'),
+  functionSource(domain, 'loadableWeightKg'),
+  'return {isBodyweightMove, trainingStatsOf, loadableWeightKg, setUserBodyweight};'
 ].join('\n'))(number);
 const { isBodyweightMove, trainingStatsOf, loadableWeightKg } = pure;
 
@@ -754,10 +767,13 @@ check('改为行外 pointerdown 才锁回展示态', app.includes("document.addE
   && app.includes("if (event.target.closest?.('.exercise-name-row')) return;"));
 // 行为：用户标记后，同名动作在保存校验里被当成自重（允许空负重）。
 const bwSource = [
-  grab('const BODYWEIGHT_MOVES', ['function isUserBodyweight(']),
-  grab('function isUserBodyweight(', ['function setUserBodyweight(']),
-  grab('function setUserBodyweight(', ['function isBodyweightMove(']),
-  grab('function isBodyweightMove(', ['const COMPOUND_MOVES =']),
+  constLine(domain, 'BODYWEIGHT_MOVES'),
+  constLine(domain, 'USER_BODYWEIGHT'),
+  functionSource(domain, 'readBodyweightMarks'),
+  functionSource(domain, 'loadUserBodyweightMarks'),
+  functionSource(domain, 'isUserBodyweight'),
+  functionSource(domain, 'setUserBodyweight'),
+  functionSource(domain, 'isBodyweightMove'),
 ].join('\n');
 const bwRun = new Function('localStorage', 'schedulePrefsSync',
   bwSource + '\nreturn {isBodyweightMove, setUserBodyweight};')({ getItem: () => null, setItem: () => {} }, () => {});
@@ -951,7 +967,7 @@ const app = read('app/src/main/assets/app.js');
 const html = read('app/src/main/assets/index.html');
 const main = read('app/src/main/java/cn/qingheng/health/MainActivity.java');
 const onboarding = read('app/src/fragments/50-onboarding.fragment.js');
-const training = read('app/src/fragments/60-training-copy.fragment.js');
+const training = read(DOMAIN_FILE) + read('app/src/fragments/60-training-copy.fragment.js');
 
 // ① 自重能存
 check('the native check allows an empty set weight', main.includes('if (weight != null && (weight < 0 || weight > 500))') &&
@@ -1078,7 +1094,9 @@ check('reasons carry a source label', normal.every(r => r.source && r.source.len
 const genStart = app.indexOf('function generateWeekPlan(');
 const genEnd = app.indexOf('\n  }', genStart);
 const genSource = app.slice(genStart, genEnd + 4);
-const runPlan = new Function('window', helpers + '\n' + whySource + '\n' + genSource + '\nreturn generateWeekPlan;')({TRAINING_PRINCIPLES: lib});
+const runPlan = new Function('window', helpers + '\n' + whySource + '\n' + genSource
+  + '\n' + constSource(readDomain(), 'BODY_PART_RULES') + '\n' + functionSource(readDomain(), 'exerciseBodyPart')
+  + '\nreturn generateWeekPlan;')({TRAINING_PRINCIPLES: lib});
 const emptyPlan = runPlan({startDate: '2026-10-26', sessions: 3, acwrFlag: 'ok', lastByExercise: {}});
 const pushDay = emptyPlan.days.find(day => day.template === 'push');
 check('empty history still gets a push day', !!pushDay);
@@ -1153,7 +1171,7 @@ check('the plan no longer renders a cue block; cues live behind ?', !app.include
 check('cues follow the actual exercises', app.includes('function libraryCuesFor(day)') && app.includes('function cueForExercise(name, family)'));
 check('cue lookup still names each movement', app.includes('function libraryCuesFor(day)') && app.includes('cueForExercise('));
 // 2026-11-19：块里不再重复 AI 的逐动作理由（会与预览日期脱节），理由改由「今日顺序」每行承担。
-check('the AI order reasons live on the order rows', app.includes('ai-plan-reason') && !app.includes('plan-why-ai'));
+check('AI 的理由只存在数据里，不再有独立理由块', !app.includes('ai-plan-reason') && !app.includes('plan-why-ai'));
 check('the overview animates its bars', app.includes('const animateBars =') && app.includes('transitionDelay'));
 check('the rest timer is a floating pill', app.includes('function syncRestDock()') && app.includes('function installRestDock()'));
 
@@ -1315,8 +1333,9 @@ check('the habit submit merges into the same-day row instead of appending', app.
 check('the training log reads back the stored exercises', app.includes('function exercisesFor(date)'));
 
 // --- volume maths -----------------------------------------------------------------------------------------
-check('volume is sets × reps × weight', app.includes('return sets * reps * weight;'));
-check('a missing factor yields null instead of a wrong number', app.includes('if (sets === null || reps === null || weight === null) return null;'));
+// 2026-11-23 Phase 2：唯一口径是逐组 reps×weight（trainingVolumeOf），旧的 exerciseVolume 已删。
+check('volume is summed per set', app.includes('if (reps !== null && weight !== null && weight > 0) volume += reps * weight;'));
+check('old records still fall back to sets × reps × weight', app.includes('if (sets !== null && reps !== null && weight !== null && weight > 0) volume += sets * reps * weight;'));
 check('volume groups by ISO week', app.includes("monday.setDate(date.getDate() - ((date.getDay() + 6) % 7));"));
 check('at least two weeks are required before comparing', app.includes('if (ordered.length < 2) continue;'));
 check('the table explains what volume means', app.includes('容量 = 组数 × 次数 × 负重'));
@@ -1336,16 +1355,14 @@ check('the today list speaks plan semantics, not log semantics', app.includes('�
 check('the today list mirrors the AI plan with done checkboxes', app.includes('data-today-done=') && app.includes('data-today-add-all'));
 // 源码里的属性引号是转义的（\"ai\"），断言不能按字面量比对。
 check('an empty day offers two generators', /data-today-plan=\\?"ai\\?"/.test(app) && /data-today-plan=\\?"week\\?"/.test(app));
-check('AI plan rows carry the model reason', app.includes('ai-plan-reason') && main.includes('一句话为什么排它'));
-check('the plan row keeps name, advice and dose in one text column', app.includes('ai-plan-text') && css.includes('.ai-plan-text{display:flex;flex-direction:column'));
-// 断言更新登记（03-global-changes.md §5.1，2026-11-11）：动作行改成三行式（名字 / 组次重量+记录·换一个 / 一句理由），
-// 剂量与理由之间隔了两个行内按钮，窗口从 300 放宽到 600；断言的意图（剂量在名字之后、理由之前）不变。
-check('the dose sits beside the name', /ai-plan-head[\s\S]{0,700}ai-plan-dose[\s\S]{0,600}ai-plan-reason/.test(app));
-check('a checked row strikes the name inside the text column', css.includes('.ai-plan-row input:checked ~ .ai-plan-text .ai-plan-name'));
-check('edit rows label their inputs in Chinese', app.includes('组数') && app.includes('负重公斤') && !app.includes('aria-label="sets"'));
-check('edit mode can add a blank row and keeps the reason visible', app.includes('data-ai-append') && app.includes('ai-plan-edit-reason') && app.includes('一份清单最多 12 个动作'));
-check('only the checkbox uses order:-1 so edit inputs keep their grid slot', css.includes('.ai-plan-row input[type=checkbox]{order:-1') && !css.includes('.ai-plan-row input{order:-1'));
-check('removing a row names it from the edit input too', app.includes('已移除这个动作') && app.includes('nameField.value'));
+// 2026-11-23 Phase 2：AI 清单的独立渲染/编辑（#ai-plan-list 等）整体移除，理由不再常驻行内。
+check('AI 清单理由不再常驻行内（改走动作要点）', !app.includes('ai-plan-reason') && app.includes('showExerciseGuide'));
+check('今日清单每行是名字 + 剂量 + 记录，且仍是唯一一份', app.includes('adv-name') && app.includes('adv-dose') && app.includes('data-today-log='));
+// 2026-11-23 Phase 2：AI 清单的独立渲染 / 编辑（#ai-plan-list 等节点早已不在 index.html）整体移除。
+// 这里改为守住「只剩一份清单」这个契约，以及清空训练的抑制标记改成持久化快照。
+check('今日清单是唯一清单（AI 清单的重复渲染与编辑已移除）',
+  !app.includes('data-ai-append') && !app.includes('ai-plan-edit-reason') && !app.includes('data-ai-swap') && !app.includes('data-ai-log='));
+check('清空训练按清单快照抑制播种，刷新不复活', app.includes('function markSeedMuted(plan)') && app.includes('seedMutedFor(planNow)'));
 check('askAiPlan sees the same baselines as the rule engine', app.includes('function recentExerciseBaselines') && app.includes('compilePlanContext(activeDate)'));
 check('askAiPlan follows the training library', /askAiPlan[\s\S]{0,6000}librarySummary\(2\)/.test(app));
 
@@ -1368,12 +1385,12 @@ const app = fs.readFileSync('app/src/main/assets/app.js', 'utf8');
 const css = fs.readFileSync('app/src/main/assets/styles.css', 'utf8');
 
 // --- 勾选即记录 ------------------------------------------------------------------------
-check('the checkbox writes a log entry', app.includes('function togglePlanDone') && /togglePlanDone\(index, box\.checked\)/.test(app));
+check('the checkbox writes a log entry', app.includes('function togglePlanDone') && /togglePlanDone\(index, done\.checked\)/.test(app));
 check('the write path keeps the plan row visible', app.includes('keepInPlan: true') && app.includes('fromPlan: true'));
 check('the added row carries a fromPlan marker', app.includes('if (options.fromPlan === true) record.fromPlan = true;'));
 check('unchecking only reclaims untouched rows', app.includes('function removeExerciseFromToday') &&
   app.includes('current.fromPlan === true') && app.includes('setDetails') );
-check('a failed write rolls the checkbox back', /box\.checked = !box\.checked/.test(app));
+check('a failed write rolls the checkbox back', /done\.checked = !done\.checked/.test(app));
 
 // --- 名称看要点 / 休息条 ---------------------------------------------------------------
 check('the name row is display + edit, not a hidden field', htmlless(app));
@@ -1450,12 +1467,21 @@ const sandbox = {
 vm.createContext(sandbox);
 vm.runInContext(libText + '\n;globalThis.__lib = window.TRAINING_PRINCIPLES;', sandbox);
 
+const domain = readDomain();
 const prelude = [
   slice('const TARGET_RULES = {', '\n  const GOAL_LABEL'),
-  slice('const BODYWEIGHT_MOVES', 'function trainingStatsOf('),
-  slice('function loadableWeightKg(', 'function generateWeekPlan('),
-  slice('function trainingLibrary()', 'function planWhy('),
-  bodyOf('function generateWeekPlan(input) {'),
+  constLine(domain, 'BODYWEIGHT_MOVES'),
+  constLine(domain, 'USER_BODYWEIGHT'),
+  functionSource(domain, 'readBodyweightMarks'),
+  functionSource(domain, 'isBodyweightMove'),
+  functionSource(domain, 'loadableWeightKg'),
+  functionSource(domain, 'trainingLibrary'),
+  functionSource(domain, 'libraryRule'),
+  functionSource(domain, 'libraryDayTemplate'),
+  functionSource(domain, 'libraryMoves'),
+  functionSource(domain, 'generateWeekPlan'),
+  constSource(domain, 'BODY_PART_RULES'),
+  functionSource(domain, 'exerciseBodyPart'),
   bodyOf('function nextStartTemplate(split) {'),
   ';globalThis.__gen = generateWeekPlan; globalThis.__next = nextStartTemplate; globalThis.__presets = GOAL_PRESETS;'
 ].join('\n');
@@ -1766,7 +1792,7 @@ const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + 
 const read = path => fs.readFileSync(path, 'utf8');
 
 const app = read('app/src/main/assets/app.js');
-const training = read('app/src/fragments/60-training-copy.fragment.js');
+const training = read(DOMAIN_FILE) + read('app/src/fragments/60-training-copy.fragment.js');
 const rest = read('app/src/fragments/70-rest.fragment.js');
 
 // ① 点日期不跳页 -------------------------------------------------------------------------------
@@ -1796,7 +1822,7 @@ check('要点标题随块一起退场', !training.includes('的动作要点\');'
 // 处理成删除——AI 给每个动作的理由本来就在「今日顺序」每行下面。
 check('折叠块不再列 AI 的逐动作理由', !training.includes('是用 AI 排的') && !training.includes('plan-why-ai'));
 check('标题改成「这周怎么排的」', training.includes('<summary>这周怎么排的</summary>'));
-check('理由仍逐条挂在今日顺序每行', rest.includes('ai-plan-reason'));
+check('理由不再挂在今日顺序每行', !rest.includes('ai-plan-reason'));
 check('只为这块存在的 aiPlanEntries 已删', !training.includes('function aiPlanEntries'));
 check('previewDay / aiEntries 残骸清零', !/previewDay|aiEntries/.test(training));
 
@@ -1821,7 +1847,7 @@ const read = path => fs.readFileSync(path, 'utf8');
 
 const appJs = read('app/src/main/assets/app.js');
 const onboarding = read('app/src/fragments/50-onboarding.fragment.js');
-const training = read('app/src/fragments/60-training-copy.fragment.js');
+const training = read(DOMAIN_FILE) + read('app/src/fragments/60-training-copy.fragment.js');
 const rest = read('app/src/fragments/70-rest.fragment.js');
 const main = read('app/src/main/java/cn/qingheng/health/MainActivity.java');
 
@@ -1840,11 +1866,9 @@ check('weekPlanToday 仍传 request', training.includes('request: pref.request')
 
 // ③ 逐组容量口径：金字塔组不能被外层汇总放大 ------------------------------------------------------
 check('dailyLoads 优先逐组口径', training.includes('trainingVolumeOf([item])'));
-const volStart = appJs.indexOf('function trainingVolumeOf');
-const volEnd = appJs.indexOf('function renderTrainingSummary', volStart);
 const number = value => (value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value))) ? Number(value) : null;
 const sandbox = {number};
-vm.runInNewContext(appJs.slice(volStart, volEnd) + '\n;globalThis.__vol = trainingVolumeOf;', sandbox);
+vm.runInNewContext(functionSource(readDomain(), 'trainingVolumeOf') + '\n;globalThis.__vol = trainingVolumeOf;', sandbox);
 const pyramidal = {sets: 3, reps: 10, weight: 80, setDetails: [{reps: 10, weight: 40}, {reps: 8, weight: 60}, {reps: 5, weight: 80}]};
 check('金字塔组容量按各组相加', sandbox.__vol([pyramidal]) === 1280, String(sandbox.__vol([pyramidal])));
 check('旧记录仍回退 sets×reps×weight', sandbox.__vol([{sets: 3, reps: 10, weight: 80}]) === 2400);

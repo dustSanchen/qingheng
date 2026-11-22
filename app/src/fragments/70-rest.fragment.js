@@ -362,11 +362,6 @@
     const total = (Array.isArray(items) ? items : []).reduce((sum, item) => sum + planItemMinutes(item), 0);
     return total > 0 ? Math.ceil(total) : 0;
   }
-  /** 折算值收进偏好档位：写回按钮的必须是能选的档，不能给 36 分钟这种。 */
-  function planMinutesStep(minutes) {
-    if (!minutes) return 0;
-    return AI_PLAN_MINUTE_STEPS.find(step => step >= minutes) || AI_PLAN_MINUTE_STEPS[AI_PLAN_MINUTE_STEPS.length - 1];
-  }
   /**
    * 把一批动作并入当天训练记录：同名跳过，只追加不覆盖。
    * 训练日志与 AI 计划是两份数据，这里是唯一把它们接起来的入口。
@@ -619,67 +614,6 @@
         + (Number(timing.sets) > 0 ? "、" + Number(timing.sets) + " 组" : "")
         + (Number(timing.minutes) > 0 ? " / 折算 " + Number(timing.minutes) + " 分钟" + (Number(timing.limit) > 0 ? "（上限 " + Number(timing.limit) + "）" : "") : "");
   }
-  function aiPlanDose(item) {
-    if (item && item.dose) return item.dose; // 旧数据只存了 dose 字符串
-    const run = [];
-    if (item && Number(item.distanceKm) > 0) run.push(item.distanceKm + " km");
-    if (item && Number(item.durationMin) > 0) run.push(item.durationMin + " 分钟");
-    if (run.length) return run.join(" · ");
-    const kg = item && Number(item.weight);
-    // 推算出来的起步重量要与实测记录区分开：写「约 40 kg」，不写「40 kg」。
-    const approximated = item && (item.weightSource === "inferred" || item.weightSource === "family");
-    return [
-      item && item.sets ? item.sets + " 组" : "",
-      item && item.reps ? item.reps + " 次" : "",
-      kg > 0 ? (approximated ? "约 " + kg + " kg" : kg + " kg") : ""
-    ].filter(Boolean).join(" × ");
-  }
-  /** 把编辑态的输入读回存储；名称被清空的行视为删除。 */
-  function collectAiPlanEdits() {
-    const box = $("#ai-plan-list");
-    const plan = aiPlanStore(activeDate) || [];
-    if (!box) return 0;
-    $$("[data-ai-row]", box).forEach(row => {
-      const item = plan[Number(row.dataset.aiRow)];
-      if (!item) return;
-      const field = name => row.querySelector(`[data-ai-field="${name}"]`);
-      const name = (field("name")?.value || "").trim();
-      item.name = name ? name.slice(0, 60) : "";
-      const sets = Number(field("sets")?.value), reps = Number(field("reps")?.value), weight = Number(field("weight")?.value);
-      item.sets = sets > 0 ? sets : 0;
-      item.reps = reps > 0 ? reps : 0;
-      item.weight = weight > 0 ? weight : null;
-      delete item.dose;
-    });
-    aiPlanStore(activeDate, plan.filter(item => item && item.name));
-    return plan.length - plan.filter(item => item && item.name).length;
-  }
-  /** 一行一个动作；编辑态把名称、组、次、负重换成输入框。 */
-  function aiPlanRowHtml(item, index, editing) {
-    if (!editing) {
-      const dose = aiPlanDose(item);
-      // 三行读一行：① 编号 + 勾选 + 动作名；② 组次重量 + 记录/换一个；③ 一句为什么。
-      // 以前 dose 和两个按钮挤在同一条基线上，会随理由长短上下错位，读起来像散落的四列。
-      // 名字本身是按钮：点开看这个动作练什么、要点是什么；勾选框仍是「已做完」。
-      return "<div class=\"ai-plan-row\" role=\"listitem\"><label class=\"ai-plan-main\"><input type=\"checkbox\" data-ai-done=\"" + index + "\"" + (item.done ? " checked" : "") + "><span class=\"ai-plan-text\"><span class=\"ai-plan-head\"><button type=\"button\" class=\"ai-plan-name\" data-ai-guide=\"" + index + "\" aria-haspopup=\"dialog\" aria-label=\"查看动作说明：" + esc(item.name) + "\">" + esc(item.name) + "<span class=\"ai-plan-name-mark\" aria-hidden=\"true\">?</span></button></span></span></label>"
-        + "<span class=\"ai-plan-meta\">" + (dose ? "<span class=\"ai-plan-dose\">" + esc(dose) + "</span>" : "")
-        + "<button type=\"button\" class=\"text-button ai-plan-swap\" data-ai-swap=\"" + index + "\" aria-label=\"换一个动作\">换一个</button>"
-        + "<button type=\"button\" class=\"text-button ai-plan-log\" data-ai-log=\"" + index + "\" aria-label=\"记录" + esc(item.name) + "\">记录</button></span>"
-        + (item.reason ? "<span class=\"ai-plan-reason\">" + esc(item.reason) + "</span>" : "")
-        + "</div>";
-    }
-    const num = (name, value, attrs, label) => "<input class=\"ai-plan-input\" data-ai-field=\"" + name + "\" type=\"number\" inputmode=\"decimal\" " + attrs + " value=\"" + (value == null ? "" : value) + "\" aria-label=\"" + label + "\">";
-    // 编辑态留一行原建议：改名字/组数时还看得见「为什么排它」，不用退出编辑再回忆。
-    return "<div class=\"ai-plan-row is-editing\" role=\"listitem\" data-ai-row=\"" + index + "\">"
-      + "<span class=\"ai-plan-no\">" + (index + 1) + "</span>"
-      + "<input class=\"ai-plan-input is-name\" data-ai-field=\"name\" maxlength=\"60\" enterkeyhint=\"done\" value=\"" + esc(item.name) + "\" aria-label=\"动作名\">"
-      + "<button type=\"button\" class=\"ai-plan-remove\" data-ai-remove=\"" + index + "\" aria-label=\"删除这个动作\">×</button>"
-      + (item.reason ? "<p class=\"ai-plan-edit-reason\">" + esc(item.reason) + "</p>" : "")
-      + "<div class=\"ai-plan-nums\"><label class=\"ai-plan-num\"><span>组</span>" + num("sets", item.sets, 'min=\"0\" max=\"30\" step=\"1\"', "组数") + "</label>"
-      + "<label class=\"ai-plan-num\"><span>次</span>" + num("reps", item.reps, 'min=\"0\" max=\"200\" step=\"1\"', "次数") + "</label>"
-      + "<label class=\"ai-plan-num\"><span>kg</span>" + num("weight", item.weight, 'min=\"0\" max=\"500\" step=\"0.5\"', "负重公斤") + "</label></div>"
-      + "</div>";
-  }
   /**
    * 播种行的每组 ○ 反过来决定计划项的 done（2026-11-22）：
    * 计划清单不再单独渲染，但 agenda 的「N 个动作还没完成」必须仍然说真话。
@@ -698,74 +632,29 @@
     renderAiPlan();
     if (typeof renderTodayAction === 'function') renderTodayAction();
   }
-  function renderAiPlan() {
+  /**
+   * 今日清单的「控件同步」：清单本体已经播进执行区（2026-11-22），这里只维护
+   * 「重排今天」文案、顺延按钮的显隐，以及教练说明与上次排课耗时两行。
+   * 2026-11-23 Phase 2：删掉 #ai-plan-list / #ai-plan-fold / #ai-plan-edit / #ai-plan-all /
+   * #ai-plan-clear / #ai-plan-summary 的渲染——这些节点在 index.html 里早已不存在，
+   * 相关分支永远不会命中（约 160 行僵尸代码）。
+   */
+  function syncAiPlanControls() {
     renderPlanNote();
     renderPlanTiming();
     const plan = aiPlanStore(activeDate);
-    const box = $("#ai-plan-list"), tag = $("#ai-plan-tag"), clear = $("#ai-plan-clear"), summary = $("#ai-plan-summary");
-    // 2026-11-22：动作清单不再单独渲染（计划直接播进执行区），这里只同步入口文案与计数。
-    const ask = $("#ai-plan-ask"), hasPlan = !!(plan && plan.length);
+    const hasPlan = !!(plan && plan.length);
+    const ask = $("#ai-plan-ask");
     if (ask) {
       ask.textContent = hasPlan ? "重排今天" : "AI 排今天";
       ask.setAttribute("aria-label", hasPlan ? "让 AI 重新排今天的动作顺序" : "让 AI 排今天的动作顺序");
     }
-    if (tag) tag.textContent = hasPlan ? plan.length + " 个动作" : "未生成";
-    if (clear) clear.hidden = !hasPlan;
-    if (!box) return;
-    const allToggle = $("#ai-plan-all");
-    if (allToggle) {
-      allToggle.classList.toggle("primary", hasPlan);
-      allToggle.classList.toggle("subtle", !hasPlan);
-    }
-    const edit = $("#ai-plan-edit");
-    if (edit) edit.hidden = !(plan && plan.length);
     const postpone = $("#ai-plan-postpone");
-    if (postpone) postpone.hidden = !(plan && plan.length);
-    if (!plan || !plan.length) {
-      if (tag) tag.textContent = "未生成";
-      if (summary) { summary.hidden = true; summary.textContent = ""; }
-      box.innerHTML = '';
-      const allBox = $("#ai-plan-all"); if (allBox) allBox.hidden = true;
-      return;
-    }
-    if (tag) tag.textContent = plan.length + " 个动作";
-    const allButtonEl = $("#ai-plan-all"); if (allButtonEl) allButtonEl.hidden = false;
-    if (summary) {
-      const prefs = typeof planPrefs === "function" ? planPrefs() : null;
-      const setMinutes = Number(prefs && prefs.minutes) > 0 ? Number(prefs.minutes) : 45;
-      const totalSets = plan.reduce((sum, item) => sum + aiPlanSets(item), 0);
-      // 时长按实际组次 + 组间休息折算，不再用固定 2.5 分钟/组。
-      const need = planMinutes(plan);
-      summary.hidden = false;
-      if (!need) {
-        summary.textContent = "共 " + plan.length + " 个动作";
-      } else if (Math.abs(need - setMinutes) >= 10) {
-        // 差异够大就给一个入口，点了才弹窗，不主动打断。
-        summary.innerHTML = '<span class="ai-plan-summary-text">共 ' + totalSets + " 组 · 含组间休息约需 " + need + ' 分钟</span>'
-          + '<button type="button" class="text-button" data-plan-minutes="' + planMinutesStep(need) + '">改单次时长</button>';
-      } else {
-        summary.innerHTML = '<span class="ai-plan-summary-text">共 ' + totalSets + " 组 · 含休息约需 " + need + ' 分钟</span>'
-          + '<span class="ai-plan-summary-note">你设的是 ' + setMinutes + ' 分钟</span>';
-      }
-    }
-    box.innerHTML = plan.map((item, index) =>
-      aiPlanRowHtml(item, index, box.classList.contains("editing"))
-    ).join("") + (box.classList.contains("editing")
-      ? '<div class="ai-plan-append"><button type="button" class="button subtle" data-ai-append>添加一个动作</button></div>'
-      : "");
-    // 动作清单默认折叠长文本：还有没做的动作就展开，全部做完自动收起，把页面还给「保存」。
-    const fold = $("#ai-plan-fold"), foldCount = $("#ai-plan-fold-count");
-    if (foldCount) foldCount.textContent = plan.length + " 个动作";
-    if (fold) {
-      const pending = plan.some(item => item && item.done !== true);
-      if (fold.open !== pending) fold.open = pending;
-    }
-    // 推算出来的重量要说清来源：第一次练完就会按你的实际记录校准，不是拍脑袋定的数。
-    const approximated = plan.filter(item => item && (item.weightSource === "inferred" || item.weightSource === "family")).length;
-    if (approximated && !box.classList.contains("editing")) {
-      box.insertAdjacentHTML("beforeend", '<p class="fine-print ai-plan-weight-note">' + approximated
-        + " 个动作的重量是按体重和你的历史推算的起步值（带「约」），练完一次后按实际记录校准。</p>");
-    }
+    if (postpone) postpone.hidden = !hasPlan;
+  }
+  /** 兼容入口：清单数据一变就同步控件（名字沿用，调用点与断言都还认它）。 */
+  function renderAiPlan() {
+    syncAiPlanControls();
   }
   /** 一行模型返回 → 计划条目；完整解析与流式预览共用同一套字段裁剪。 */
   /**
@@ -883,9 +772,9 @@
       if (exercisesFor(shiftDay(date, -offset)).some(item => item && item.name)) recordDays += 1;
     }
     // 只给该部位相关的基线：跨部位的历史对今天没帮助，还会把 prompt 撑长。
-    const family = /腿|蹲|硬拉|臀|提踵/.test(template) ? /深蹲|硬拉|腿|臀|提踵/
-      : /拉|背/.test(template) ? /划船|引体|下拉|弯举|面拉/
-        : /推|胸|肩/.test(template) ? /卧推|肩推|飞鸟|下压|臂屈伸|侧平举/ : /.*/;
+    // 部位判定与部位→正则表都收在 55 领域层（planPartFor / PLAN_PART_PATTERNS），这里不再另写一套。
+    const family = typeof planPartFor === 'function'
+      ? (PLAN_PART_PATTERNS[planPartFor(template)] || /.*/) : /.*/;
     const memory = typeof seedWeightMemoryFromHistory === "function" ? Object.values(seedWeightMemoryFromHistory()) : [];
     const baselines = memory.filter(row => row && Number(row.weight) > 0 && family.test(String(row.name || "")))
       .sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 3)
@@ -1088,7 +977,7 @@
     }
   }
   function installAiPlan() {
-    const ask = $("#ai-plan-ask"), clear = $("#ai-plan-clear"), list = $("#ai-plan-list");
+    const ask = $("#ai-plan-ask");
     if (!ask || ask.dataset.wired) return;
     ask.dataset.wired = "1";
     ask.addEventListener("click", () => askAiPlan(ask));
@@ -1108,143 +997,6 @@
         notice("已把这份清单顺延到 " + tomorrow.slice(5) + "，今天不再安排。");
       });
     }
-    if (clear) clear.addEventListener("click", () => { aiPlanStore(activeDate, []); renderAiPlan(); });
-    const edit = $("#ai-plan-edit");
-    if (list && !list.dataset.aiRemoveWired) {
-      list.dataset.aiRemoveWired = "data-ai-remove-wired";
-      list.addEventListener("click", event => {
-        // 名字是「看说明」的第二入口：先拦下，别让 label 把点击顺带给勾选框。
-        const guideButton = event.target.closest("[data-ai-guide]");
-        if (guideButton) {
-          event.preventDefault();
-          event.stopPropagation();
-          const plan = aiPlanStore(activeDate) || [];
-          const item = plan[Number(guideButton.dataset.aiGuide)];
-          if (item && typeof showExerciseGuide === "function") showExerciseGuide(item.name);
-          return;
-        }
-        const appendButton = event.target.closest("[data-ai-append]");
-        if (appendButton) {
-          event.preventDefault();
-          collectAiPlanEdits();
-          const plan = aiPlanStore(activeDate) || [];
-          if (plan.length >= 12) { notice("一份清单最多 12 个动作。"); return; }
-          // 先落成可编辑的一行，名字让用户自己改；不默认叫「动作 N」，避免带着占位词保存。
-          plan.push({name: "新动作", sets: 3, reps: 10, weight: null, reason: "", done: false});
-          aiPlanStore(activeDate, plan);
-          renderAiPlan();
-          const names = $$(".ai-plan-row.is-editing .ai-plan-input.is-name", list);
-          const last = names[names.length - 1];
-          if (last) { last.focus(); last.select(); }
-          return;
-        }
-        const logButton = event.target.closest("[data-ai-log]");
-        if (logButton) {
-          event.preventDefault();
-          const plan = aiPlanStore(activeDate) || [];
-          startLoggingFromPlan(plan[Number(logButton.dataset.aiLog)]).catch(() => {});
-          return;
-        }
-        const swapButton = event.target.closest("[data-ai-swap]");
-        if (swapButton) {
-          event.preventDefault();
-          const plan = aiPlanStore(activeDate) || [];
-          const index = Number(swapButton.dataset.aiSwap);
-          const item = plan[index];
-          if (!item) return;
-          const presets = typeof EXERCISE_PRESETS === "object" ? Object.values(EXERCISE_PRESETS).flat() : [];
-          const taken = new Set(plan.map(row => String(row.name || "")));
-          const pool = [...new Set(presets)].filter(name => name !== item.name && !taken.has(name));
-          if (!pool.length) { notice("训练库里没有可替换的动作。"); return; }
-          item.name = pool[index % pool.length];
-          // 换动作后重量按新动作重算：沿用旧重量的绝对值，在器械与哑铃之间会差出一大截。
-          if (typeof plannedWeightFor === "function") {
-            const guess = plannedWeightFor(item.name);
-            item.weight = guess.weight;
-            item.weightSource = guess.source;
-          } else if (typeof loadableWeightKg === "function" && number(item.weight) !== null) {
-            item.weight = loadableWeightKg(item.name, number(item.weight));
-          }
-          aiPlanStore(activeDate, plan);
-          renderAiPlan();
-          notice("已换成「" + item.name + "」，组次沿用原动作，可再点「换」继续。");
-          return;
-        }
-        const removeButton = event.target.closest("[data-ai-remove]");
-        if (!removeButton) return;
-        const row = event.target.closest(".ai-plan-row");
-        if (!row) return;
-        event.preventDefault();
-        const rows = [...list.querySelectorAll(".ai-plan-row")];
-        const index = Number(removeButton.dataset.aiRemove);
-        if (!Number.isFinite(index)) return;
-        const plan = aiPlanStore(activeDate) || [];
-        if (index < 0 || !plan[index]) return;
-        plan.splice(index, 1);
-        aiPlanStore(activeDate, plan);
-        renderAiPlan();
-        if (!plan.length) list.classList.remove("editing");
-        // 编辑态的名字在输入框里，非编辑态在 .ai-plan-name；两处都要能拿到，提示才不会变成 undefined。
-        const nameField = row.querySelector(".ai-plan-name") || row.querySelector("[data-ai-field=\"name\"]");
-        const removedName = nameField ? (nameField.value || nameField.textContent || "").trim() : "";
-        notice(removedName ? "已移除「" + removedName + "」。" : "已移除这个动作。");
-      });
-    }
-    if (edit && !edit.dataset.editWired) {
-      edit.dataset.editWired = "1";
-      edit.addEventListener("click", () => {
-        const box = $("#ai-plan-list");
-        if (!box) return;
-        if (box.classList.contains("editing")) {
-          const dropped = collectAiPlanEdits();
-          box.classList.remove("editing");
-          edit.textContent = "修改";
-          notice(dropped ? "已保存修改，移除了 " + dropped + " 个没有名字的动作。" : "已保存修改。");
-        } else {
-          box.classList.add("editing");
-          edit.textContent = "完成";
-        }
-        renderAiPlan();
-      });
-    }
-    const allButton = $("#ai-plan-all");
-    if (allButton && !allButton.dataset.wired) {
-      allButton.dataset.wired = "1";
-      allButton.addEventListener("click", () => {
-        const plan = aiPlanStore(activeDate) || [];
-        addExercisesToToday(plan).catch(() => {});
-      });
-    }
-    const summaryBox = $("#ai-plan-summary");
-    if (summaryBox && !summaryBox.dataset.wired) {
-      summaryBox.dataset.wired = "1";
-      summaryBox.addEventListener("click", async event => {
-        const button = event.target.closest("[data-plan-minutes]");
-        if (!button) return;
-        const minutes = Number(button.dataset.planMinutes);
-        if (!minutes) return;
-        const go = await askConfirm("按现在的组数，单次大约需要 " + minutes
-          + " 分钟。要把「单次时长」改成 " + minutes + " 分钟吗？",
-          {title: "单次时长", ok: "改成 " + minutes + " 分钟", cancel: "先不改"});
-        if (!go) return;
-        const now = (typeof planPrefs === "function" ? planPrefs() : null) || {};
-        if (typeof savePlanPrefs === "function") savePlanPrefs(Object.assign({}, now, {minutes: minutes}));
-        const picker = $("#pref-minutes"); if (picker) picker.value = String(minutes); // 偏好表单跟着改，免得回头存回旧值
-        renderAiPlan();
-        if (typeof renderWeekPlan === "function") renderWeekPlan();
-      });
-    }
-    if (list) list.addEventListener("change", event => {
-      const box = event.target.closest("[data-ai-done]");
-      if (!box) return;
-      const index = Number(box.dataset.aiDone);
-      togglePlanDone(index, box.checked).catch(error => {
-        // 写库失败：把勾选框退回原状态，不留半条记录。
-        box.checked = !box.checked;
-        renderAiPlan();
-        notice(error && error.message ? error.message : "这次没记上，请重试。", true);
-      });
-    });
     renderAiPlan();
   }
 
@@ -2506,8 +2258,8 @@
   $('#training-form')?.addEventListener('submit', event => {event.preventDefault(); saveTrainingLog().catch(error => notice(error.message, true));});
   $('#training-clear')?.addEventListener('click', async () => {
     if (!await askConfirm('清空今天的训练记录？习惯行的其他数据（步数、睡眠、饮水、用油）会保留。', {title: '清空训练', ok: '清空', danger: true})) return;
-    // 清空即「今天不按计划走了」：抑制自动播种，否则渲染时又把它播回来。
-    const form = $('#training-form'); if (form) form.dataset.seedMuted = activeDate;
+    // 清空即「今天不按计划走了」：把当时那份清单记下来抑制自动播种，刷新后也不会播回来。
+    if (typeof markSeedMuted === 'function') markSeedMuted(aiPlanStore(activeDate) || []);
     if (typeof forgetTrainingDraft === 'function') forgetTrainingDraft();
     const existing = habitRowFor(activeDate);
     if (!existing) {renderTrainingLog(); return;}

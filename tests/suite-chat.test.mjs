@@ -5,6 +5,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import {functionSource, constSource, constLine} from './lib/extract.mjs';
 
 let __fail = 0;
 async function __run(name, fn) {
@@ -417,13 +418,36 @@ function grab(startMarker, endMarkers) {
   }
   return app.slice(start, end);
 }
-const movesSource = grab('const DRAFT_MOVES = [', ['];']) + '];';
-const pureSource = grab('const ACWR_HIGH = 1.5;', ['  const DRAFT_KINDS']) + grab('function parseDraft(', ['  function renderDailyCheck()'])
-  + grab('function acwrFromDailyLoads(', ['  /** The plan currently'])
-  + grab('function plateauFromWeekly(', ['  /** The plan currently'])
-  + grab('function generateWeekPlan(', ['  /** The plan currently'])
-  + 'return {parseDraft, parseTrainingDraft, draftSummary, dailyCheck, acwrFromDailyLoads, plateauFromWeekly, generateWeekPlan, localCoachLine};';
-const api = new Function(movesSource + '\n' + pureSource.replace(/function localCoachLine[\s\S]*$/, '') + '\nfunction localCoachLine(c){return c && c.action || "";}\n' + 'return {parseDraft, parseTrainingDraft, draftSummary, dailyCheck, acwrFromDailyLoads, plateauFromWeekly, generateWeekPlan, localCoachLine};')();
+// 2026-11-23 Phase 2：纯函数按名取（55 领域层 + 60 文案层），不再按相邻函数切标记。
+const chat60 = fs.readFileSync('app/src/fragments/60-training-copy.fragment.js', 'utf8').replace(/\r\n/g, '\n');
+const domain = fs.readFileSync('app/src/fragments/55-training-domain.fragment.js', 'utf8').replace(/\r\n/g, '\n');
+const targets = fs.readFileSync('app/src/fragments/40-targets.fragment.js', 'utf8').replace(/\r\n/g, '\n');
+const pureSource = [
+  constSource(chat60, 'DRAFT_MOVES'),
+  constSource(chat60, 'DRAFT_KINDS'),
+  constSource(chat60, 'DAILY_CHECK_WEIGHTS'),
+  constLine(domain, 'ACWR_HIGH'),
+  constLine(domain, 'ACWR_LOW'),
+  constLine(chat60, 'PLATEAU_SPAN_KG'),
+  constSource(targets, 'GOAL_PRESETS'),
+  constLine(domain, 'BODYWEIGHT_MOVES'),
+  constLine(domain, 'USER_BODYWEIGHT'),
+  functionSource(domain, 'readBodyweightMarks'),
+  functionSource(domain, 'isBodyweightMove'),
+  functionSource(domain, 'loadableWeightKg'),
+  functionSource(chat60, 'parseDraft'),
+  functionSource(chat60, 'parseTrainingDraft'),
+  functionSource(chat60, 'draftSummary'),
+  functionSource(chat60, 'dailyCheck'),
+  functionSource(domain, 'acwrFromDailyLoads'),
+  functionSource(chat60, 'plateauFromWeekly'),
+  functionSource(domain, 'generateWeekPlan'),
+  constSource(domain, 'BODY_PART_RULES'),
+  functionSource(domain, 'exerciseBodyPart'),
+  'function localCoachLine(c){return c && c.action || "";}',
+  'return {parseDraft, parseTrainingDraft, draftSummary, dailyCheck, acwrFromDailyLoads, plateauFromWeekly, generateWeekPlan, localCoachLine};',
+].join('\n');
+const api = new Function(pureSource)();
 
 const BASE = '2026-10-22';
 

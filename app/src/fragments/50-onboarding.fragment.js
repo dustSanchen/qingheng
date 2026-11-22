@@ -694,19 +694,6 @@ const values = points.length<=7 ? points.map((item,i) => {
       trendTooltipTimer = null;
     }, 3000);
   }
-  /** The habit row for a date; older builds could append duplicates, so keep the fullest one. */
-  function habitRowFor(date) {
-    const rows = (state.habits || []).filter(row => row && row.date === date);
-    if (rows.length <= 1) return rows[0] || null;
-    return rows.slice().sort((a, b) => JSON.stringify(b).length - JSON.stringify(a).length)[0];
-  }
-  /**
-   * 当天算不算训练日：只看「有没有保存训练动作」（2026-11-18 用户要求：训练情况由动作判断，
-   * 不再让用户在「日常习惯」里手填）。动作删空就自动回落成休息日。
-   */
-  function trainedOn(date) {
-    return exercisesFor(date).some(item => item && String(item.name || '').trim());
-  }
   /**
    * The measurement row for a date. 同一天只该有一行：写之前先拿到它，
    * 带上 id 就变成更新，否则「身体近况」按日期取第一条时会读到旧值（2026-11-18）。
@@ -716,112 +703,6 @@ const values = points.length<=7 ? points.map((item,i) => {
     if (rows.length <= 1) return rows[0] || null;
     return rows.slice().sort((a, b) => JSON.stringify(b).length - JSON.stringify(a).length)[0];
   }
-  const TRAINING_TEMPLATES = {push: '推', pull: '拉', legs: '腿', other: '其他'};
-  /** Normalised exercise list of one day: [{name, sets, reps, weight}]. */
-  function exercisesFor(date) {
-    const row = habitRowFor(date);
-    const list = Array.isArray(row?.exercises) ? row.exercises : [];
-    return list.map(item => ({
-      id: item && item.id ? String(item.id) : '',
-      name: String(item?.name ?? '').slice(0, 60),
-      sets: number(item?.sets), reps: number(item?.reps), weight: number(item?.weight),
-      distanceKm: number(item?.distanceKm), durationMin: number(item?.durationMin)
-    })).filter(item => item.name || item.sets !== null || item.reps !== null || item.weight !== null);
-  }
-  /** Volume = sets × reps × weight; null when any factor is missing, so nothing is invented. */
-  function exerciseVolume(item) {
-    const sets = number(item?.sets), reps = number(item?.reps), weight = number(item?.weight);
-    if (sets === null || reps === null || weight === null) return null;
-    return sets * reps * weight;
-  }
-  /**
-   * 自重动作（2026-11-18）：没有外部配重也能记，负重留空不算缺项。
-   * 只按动作名判断，且带「负重 / 哑铃 / 杠铃 / 壶铃 / 配重 / 史密斯」的变体不算自重
-   * （负重引体向上、杠铃臀桥还是要填重量）。
-   */
-  const BODYWEIGHT_MOVES = /(引体向上|俯卧撑|双杠臂屈伸|双臂杠屈伸|平板支撑|卷腹|悬垂举腿|山羊挺身|臀桥|自重|空手)/;
-  /**
-   * 用户自己认定的自重动作（2026-11-23）：训练行里点「自重」就把这个名字记下来，
-   * 以后识别到同名动作直接按自重处理——不填负重也合法。
-   * 名字表存 localStorage 并随 prefs 进 state.json，换机也带着走。
-   */
-  function readBodyweightMarks() {
-    try {
-      const raw = JSON.parse(localStorage.getItem(BODYWEIGHT_MARK_KEY) || '[]');
-      return Array.isArray(raw) ? raw.map(name => String(name || '').trim()).filter(Boolean) : [];
-    } catch { return []; }
-  }
-  const USER_BODYWEIGHT = new Set(readBodyweightMarks());
-  function loadUserBodyweightMarks() {
-    USER_BODYWEIGHT.clear();
-    for (const name of readBodyweightMarks()) USER_BODYWEIGHT.add(name);
-  }
-  function isUserBodyweight(name) {
-    return USER_BODYWEIGHT.has(String(name || '').trim());
-  }
-  function setUserBodyweight(name, on) {
-    const key = String(name || '').trim();
-    if (!key) return false;
-    const names = new Set(readBodyweightMarks());
-    if (on) names.add(key); else names.delete(key);
-    const list = [...names].slice(-200);
-    try { localStorage.setItem(BODYWEIGHT_MARK_KEY, JSON.stringify(list)); } catch { }
-    USER_BODYWEIGHT.clear();
-    for (const row of list) USER_BODYWEIGHT.add(row);
-    if (typeof schedulePrefsSync === 'function') schedulePrefsSync({bodyweightMoves: list});
-    return true;
-  }
-  function isBodyweightMove(name) {
-    const text = String(name || '').trim();
-    if (!text) return false;
-    // 用户标过的名字优先：他比正则更知道自己练的是什么。
-    if (USER_BODYWEIGHT.has(text)) return true;
-    if (/(负重|加片|哑铃|杠铃|壶铃|配重|史密斯|器械)/.test(text)) return false;
-    return BODYWEIGHT_MOVES.test(text);
-  }
-  /**
-   * 复合动作（多关节、能上大重量）：组间休息要长一些。孤立动作（弯举、侧平举、下压…）短一些。
-   * 只用于「休息多久」这一个判断，不参与容量与进阶（2026-11-18）。
-   */
-  const COMPOUND_MOVES = /(卧推|深蹲|硬拉|划船|推举|肩推|引体|下拉|腿举|臀推|臀桥|分腿蹲|保加利亚|罗马尼亚|早安式|双杠|臂屈伸|推胸|推肩|农夫|壶铃|高脚杯|硬拉)/;
-  const ISOLATION_MOVES = /(侧平举|前平举|飞鸟|夹胸|弯举|下压|提踵|卷腹|平板支撑|腿屈伸|腿弯举|后束|面拉|直臂)/;
-  function isCompoundMove(name) {
-    const text = String(name || '').trim();
-    if (!text) return false;
-    if (ISOLATION_MOVES.test(text)) return false;
-    return COMPOUND_MOVES.test(text);
-  }
-  /**
-   * 一次训练的三个口径：kg 容量、总组数、自重次数。
-   * 自重的次数单独计数，不乘一个假想体重去冒充 kg 容量——缺什么就报什么，但组次要进分析。
-   */
-  function trainingStatsOf(items) {
-    const out = {volume: 0, sets: 0, bodyweightReps: 0};
-    for (const item of (items || [])) {
-      if (!item) continue;
-      const hasDetails = Array.isArray(item.setDetails) && item.setDetails.length > 0;
-      const bodyweight = isBodyweightMove(item.name);
-      if (!hasDetails) {
-        // 旧记录只有「组数 / 次数 / 重量」三个数：按 sets × reps × weight 计，别把它当成一组。
-        const sets = number(item.sets), reps = number(item.reps), weight = number(item.weight);
-        out.sets += Math.max(0, Math.round(sets || 0));
-        if (!(sets > 0) || reps === null) continue;
-        if (weight !== null && weight > 0) out.volume += sets * reps * weight;
-        else if (bodyweight) out.bodyweightReps += sets * reps;
-        continue;
-      }
-      out.sets += item.setDetails.length;
-      for (const set of item.setDetails) {
-        const reps = number(set && set.reps), weight = number(set && set.weight);
-        if (reps === null) continue;
-        if (weight !== null && weight > 0) out.volume += reps * weight;
-        else if (bodyweight) out.bodyweightReps += reps;
-      }
-    }
-    out.volume = Math.round(out.volume);
-    out.bodyweightReps = Math.round(out.bodyweightReps);
-    return out;
-  }
   /** Common lifts per template, ordered the way most people train them. */
   const EXERCISE_PRESETS = {
     push: ['卧推', '器械卧推', '上斜哑铃卧推', '哑铃肩推', '侧平举', '绳索下压', '双杠臂屈伸'],
@@ -829,22 +710,6 @@ const values = points.length<=7 ? points.map((item,i) => {
     legs: ['深蹲', '硬拉', '腿举', '保加利亚分腿蹲', '罗马尼亚硬拉', '提踵', '卷腹', '平板支撑'],
     other: ['农夫行走', '壶铃摇摆', '有氧 20 分钟', '拉伸 10 分钟']
   };
-  /** Most recent recorded values for one exercise, so a repeat is one tap instead of retyping. */
-  function latestExerciseValues(name) {
-    const wanted = String(name || '').trim();
-    if (!wanted) return null;
-    const rows = (state.habits || []).filter(row => row && Array.isArray(row.exercises) && validDate(row.date))
-      .sort((a, b) => String(b.date).localeCompare(String(a.date)));
-    for (const row of rows) {
-      for (const item of row.exercises) {
-        if (!item || String(item.name || '').trim() !== wanted) continue;
-        const sets = number(item.sets), reps = number(item.reps), weight = number(item.weight);
-        if (sets === null || reps === null || weight === null) continue;
-        return {sets, reps, weight, date: row.date};
-      }
-    }
-    return null;
-  }
   /** 一组一条：旧记录没有 setDetails 时，用 sets/次/负重复制出同样多组。 */
   function trainingSetDetails(item) {
     const bodyweight = isBodyweightMove(item && item.name);
@@ -871,18 +736,6 @@ const values = points.length<=7 ? points.map((item,i) => {
       + `<label class="set-value is-kg"><input data-set="weight" type="number" inputmode="decimal" min="0" max="500" step="0.5" aria-label="第 ${n} 组负重公斤" placeholder="—"${value(set.weight)}><small>kg</small></label>`
       + `</span>`
       + `<button type="button" class="set-remove" data-set-remove aria-label="移除第 ${n} 组">×</button></div>`;
-  }
-  /**
-   * 一个动作 = 一张手账：编号 + 动作名（行标题，不套框）→ 每一组一行「次 × kg」→ 加一组 / 容量。
-   * 删除放在动作名行右端与组行末尾，避免 44px 危险按钮压在标题行上方。
-   */
-  /** 有氧动作（跑步 / 骑行 / 椭圆…）：没有组次负重，记距离与时长。只认前缀，别把「杠铃划船」当下肢有氧。 */
-  function isCardioName(name) {
-    const text = String(name || '').trim();
-    return /^(跑步|慢跑|快跑|快走|走路|散步|骑行|单车|椭圆|划船机|跳绳|爬楼|爬坡|有氧)/.test(text);
-  }
-  function isCardioItem(item) {
-    return isCardioName(item && item.name) || number(item && item.distanceKm) !== null || number(item && item.durationMin) !== null;
   }
   /** 配速按「分钟 / 公里」算，显示成 6'00"。 */
   function fmtPace(minutesPerKm) {
@@ -1047,6 +900,27 @@ const values = points.length<=7 ? points.map((item,i) => {
     * 这里按日期留一份内存草稿：输入/勾组就记，重建时优先还原，保存或清空后丢弃。
     */
   const trainingDrafts = new Map();
+  /**
+   * 「今天不再按计划播种」的标记：以前只写在 DOM（form.dataset.seedMuted），刷新就丢，
+   * 清空训练后重新打开又会把计划动作播回来。现在按日存一份「当时那份清单的动作名」，
+   * 只有清单没变时才抑制播种——换了新清单（重排今天 / 采纳周计划）就照常播。
+   */
+  function seedMutedKey(date = activeDate) { return 'qingheng.seedMuted.' + date; }
+  function seedMutedFor(plan) {
+    try {
+      const raw = localStorage.getItem(seedMutedKey());
+      if (!raw) return false;
+      const saved = JSON.parse(raw);
+      const names = (Array.isArray(plan) ? plan : []).filter(item => item && item.name).map(item => String(item.name));
+      return Array.isArray(saved) && saved.length === names.length && saved.every((name, index) => name === names[index]);
+    } catch { return false; }
+  }
+  function markSeedMuted(plan) {
+    try {
+      const names = (Array.isArray(plan) ? plan : []).filter(item => item && item.name).map(item => String(item.name));
+      localStorage.setItem(seedMutedKey(), JSON.stringify(names));
+    } catch {}
+  }
   function draftRowsFromForm() {
     const box = $('#training-exercises');
     if (!box) return null;
@@ -1090,7 +964,9 @@ const values = points.length<=7 ? points.map((item,i) => {
     if (document.activeElement !== form.elements.template) form.elements.template.value = template;
     const box = $('#training-exercises');
     // 2026-11-22：今天还没记动作时，把计划播成可打卡的行（每组带 ○）。清空或保存后不再自动播。
-    const muted = form.dataset.seedMuted === activeDate;
+    // 2026-11-23 Phase 2：抑制标记按「清单快照」持久化，刷新后不会把清掉的动作又播回来。
+    const planNow = typeof aiPlanStore === 'function' ? (aiPlanStore(activeDate) || []) : [];
+    const muted = seedMutedFor(planNow);
     const seeds = exercises.length || muted ? [] : seedExercisesFromPlan(activeDate);
     const draft = trainingDrafts.get(activeDate);
     const rows = Array.isArray(rowsOverride) ? rowsOverride
@@ -1156,21 +1032,6 @@ const values = points.length<=7 ? points.map((item,i) => {
       const weights = setDetails.map(set => set.weight).filter(value => value !== null);
       return {...fromPlan, id, name, setDetails, sets: setDetails.length, reps: setDetails[0] ? setDetails[0].reps : null, weight: weights.length ? Math.max(...weights) : null};
     }).filter(item => item.name || item.distanceKm !== null || item.durationMin !== null || item.setDetails.some(set => set.reps !== null || set.weight !== null));
-  }
-  function trainingVolumeOf(items) {
-    let volume = 0;
-    for (const item of (items || [])) {
-      if (Array.isArray(item.setDetails) && item.setDetails.length) {
-        for (const set of item.setDetails) {
-          const reps = number(set.reps), weight = number(set.weight);
-          if (reps !== null && weight !== null && weight > 0) volume += reps * weight;
-        }
-      } else {
-        const sets = number(item.sets), reps = number(item.reps), weight = number(item.weight);
-        if (sets !== null && reps !== null && weight !== null && weight > 0) volume += sets * reps * weight;
-      }
-    }
-    return Math.round(volume);
   }
   /** 保存后的课后总结：容量、组数、和上次比、下次怎么做；不打断操作，放在表单下方。 */
   function renderTrainingSummary(items) {
@@ -1365,36 +1226,6 @@ const values = points.length<=7 ? points.map((item,i) => {
       renderTrainingSummary(exercises);
     } catch (error) {feedback(message, error.message, true);}
     finally {button.disabled = false;}
-  }
-  /** Weekly volume per exercise, newest week first, using ISO weeks (Monday start). */
-  function weeklyVolume() {
-    const byExercise = new Map();
-    for (const row of (state.habits || [])) {
-      if (!row || !Array.isArray(row.exercises) || !validDate(row.date)) continue;
-      const date = new Date(`${row.date}T00:00:00`);
-      if (Number.isNaN(date.getTime())) continue;
-      const monday = new Date(date);
-      monday.setDate(date.getDate() - ((date.getDay() + 6) % 7));
-      const week = localDate(monday);
-      for (const item of row.exercises) {
-        const name = String(item?.name ?? '').trim();
-        // 2026-11-17：与训练概览同口径——有 setDetails 按逐组算，旧记录退回 sets×reps×weight。
-        const volume = trainingVolumeOf([item]);
-        if (!name || volume === null) continue;
-        if (!byExercise.has(name)) byExercise.set(name, new Map());
-        const weeks = byExercise.get(name);
-        weeks.set(week, (weeks.get(week) || 0) + volume);
-      }
-    }
-    const out = [];
-    for (const [name, weeks] of byExercise) {
-      const ordered = [...weeks.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-      if (ordered.length < 2) continue;
-      const [lastWeek, lastVolume] = ordered[ordered.length - 1];
-      const [prevWeek, prevVolume] = ordered[ordered.length - 2];
-      out.push({name, lastWeek, lastVolume, prevWeek, prevVolume, delta: lastVolume - prevVolume});
-    }
-    return out.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta) || b.lastVolume - a.lastVolume).slice(0, 6);
   }
   function renderVolumeTable() {
     const box = $('#volume-table');

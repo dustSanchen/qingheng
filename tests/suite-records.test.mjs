@@ -235,6 +235,7 @@ const read = path => fs.readFileSync(path, 'utf8');
 
 const head = read('app/src/fragments/00-head.fragment.js');
 const training = read('app/src/fragments/60-training-copy.fragment.js');
+const domain = read('app/src/fragments/55-training-domain.fragment.js');
 const onboarding = read('app/src/fragments/50-onboarding.fragment.js');
 const rich = read('app/src/fragments/10-rich-answer.fragment.js');
 const rest = read('app/src/fragments/70-rest.fragment.js');
@@ -274,13 +275,13 @@ check('streaming chat honours logToHistory:false', adapter.includes("if(body?.lo
 check('old plan prompts are cleaned from chat history once', head.includes('cleanupPlanChatEntries') && head.includes('请为今天排一个按顺序执行的训练清单'));
 
 check('plan rows offer one-tap logging',
-  rest.includes('data-ai-log=') && rest.includes('startLoggingFromPlan')
+  rest.includes('startLoggingFromPlan')
   && training.includes('data-today-log='));
 check('the training form can repeat the last session',
   onboarding.includes('function repeatLastTraining') && html.includes('id="training-repeat"'));
 
 check('recommended loads are plate-achievable',
-  training.includes('function loadableWeightKg') && training.includes('loadableWeightKg(name, next)')
+  domain.includes('function loadableWeightKg') && domain.includes('loadableWeightKg(name, next)')
   && rest.includes('20 kg 空杆 + 每侧 2.5 kg'));
 check('the training overview connects diet and lifting',
   html.includes('id="training-overview"') && html.includes('train-overview-head')
@@ -297,14 +298,14 @@ check('training records are per set',
   && onboarding.includes('renderTrainingSummary'));
 check('rest timer and plan actions exist',
   html.includes('id="rest-timer"') && rest.includes('restEnd = Date.now() + length * 1000')
-  && rest.includes('data-ai-swap') && html.includes('id="ai-plan-postpone"'));
+  && html.includes('id="ai-plan-ask"') && html.includes('id="ai-plan-postpone"'));
 check('diet and training link both ways',
   html.includes('id="today-training-line"') && rich.includes("trainingLine.textContent"));
 
 check('each set can be marked done and starts the rest timer',
   onboarding.includes('data-set-done') && rest.includes('startRestTimer(true, restSecondsFor(name))'));
 check('swapping an exercise re-rounds the load',
-  rest.includes('loadableWeightKg(item.name, number(item.weight))'));
+  rest.includes('function planWeightFor') && rest.includes('loadableWeightKg(row.name'));
 
 console.log('\nPASS total: 0 failed');
 ;return typeof fail === 'number' ? fail : 0;
