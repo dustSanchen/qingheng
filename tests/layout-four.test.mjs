@@ -26,7 +26,7 @@ check('energy summary keeps a responsive two-column layout', css.includes('.ener
 // 2026-11-18：首页「拍照」胶囊删除——「记一餐」那张卡里本来就有添加照片，重复一步。
 for (const label of ['记一餐', '训练', '身体']) check(`chip: ${label}`, app.includes(label));
 check('no camera chip on today', !app.includes("['icon-glyph-camera.svg', '拍照', 'photo']"));
-check('the next step is the only primary; quick chips stay shortcuts', app.includes('classList.remove("quick-chip-primary")') && !app.includes('quickPrimaryFocus'));
+check('only 记一餐 keeps the primary chip weight', app.includes("['icon-meal.svg', '记一餐', 'meal-text', 'quick-chip-primary']") && !app.includes('quickPrimaryFocus'));
 check('chips route through the shared record target', app.includes('function openRecordTarget(target, options = {})') && app.includes('openRecordTarget(chip.dataset.quickFocus)'));
 check('the photo entry stays on the meal card', html.includes('id="photo-add"') && html.includes('id="photo-sheet"'));
 check('the training chip scrolls without focusing', app.includes("flashTarget(form.closest('.card'))") && app.includes("revealField(focus, {focus: false, block: 'start'});"));
@@ -65,7 +65,7 @@ check('the timeline reads weight from the same-day measurement record', app.incl
 check('today and historical meals share one bottom separator per row', /#today-meals \.meal-row,#record-meals \.meal-row\{[^}]*border-top:0;[^}]*border-bottom:1px solid var\(--record-separator\)/s.test(css) &&
   css.includes('#today-meals > :last-child,#record-meals .meal-day > .meal-row:last-child{border-bottom:0}') &&
   css.includes('.day-event{padding:var(--space-2) 0;border:0;border-bottom:1px solid var(--line)}'));
-check('the three things merged into the single next step', !html.includes('id="daily-three"') && app.includes("id: 'protein-gap'") && app.includes('is-next'));
+check('the three things merged into the single action line', !html.includes('id="daily-three"') && app.includes("id: 'protein-gap'") && html.includes('id="today-action"'));
 // 2026-11-22 用户要求「把折叠的日常习惯前置」：小习惯提到「更多」之前，建议仍在主流程。
 check('habits move ahead of the folded more section, advice stays in the main flow', html.indexOf('今天的小习惯') < html.indexOf('id="day-more"') &&
   html.indexOf('给今天的一点建议') < html.indexOf('id="day-more"') &&

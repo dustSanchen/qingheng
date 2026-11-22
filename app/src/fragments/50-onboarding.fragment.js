@@ -980,6 +980,27 @@ const values = points.length<=7 ? points.map((item,i) => {
     box.innerHTML = (EXERCISE_PRESETS[template] || []).map(name => `<button type="button" class="preset-chip" data-training-preset="${esc(name)}">${esc(name)}</button>`).join('');
     box.dataset.template = template;
   }
+  /**
+   * 计划 → 执行区预填（2026-11-22 四模块清单之二）：只产数据、不写库，
+   * 用户核对后点「保存训练」才落。优先用今天 AI 排的未完成动作，其次用本周计划当天的动作。
+   */
+  function seedExercisesFromPlan(date) {
+    if (typeof trainingEnabled === 'function' && !trainingEnabled()) return [];
+    let plan = [];
+    if (typeof aiPlanStore === 'function') {
+      try { plan = aiPlanStore(date) || []; } catch { plan = []; }
+    }
+    const pending = plan.filter(item => item && item.name && item.done !== true);
+    if (pending.length) {
+      return pending.map(item => ({name: item.name, sets: item.sets || 1, reps: item.reps || null, weight: item.weight ?? null}));
+    }
+    const week = typeof cachedWeekPlan === 'function' ? cachedWeekPlan() : null;
+    const day = week && Array.isArray(week.days) ? week.days.find(row => row && row.date === date) : null;
+    if (day && Array.isArray(day.exercises) && day.exercises.length) {
+      return day.exercises.map(item => ({name: item.name, sets: item.sets || 1, reps: item.reps || null, weight: item.weight ?? null}));
+    }
+    return [];
+  }
   function renderTrainingLog(rowsOverride = null) {
     const form = $('#training-form');
     if (!form) return;
@@ -990,8 +1011,14 @@ const values = points.length<=7 ? points.map((item,i) => {
     const template = TRAINING_TEMPLATES[row?.template] ? row.template : 'push';
     if (document.activeElement !== form.elements.template) form.elements.template.value = template;
     const box = $('#training-exercises');
-    const rows = Array.isArray(rowsOverride) ? rowsOverride : (exercises.length ? exercises : [{name: '', sets: 1, reps: null, weight: null}]);
+    // 2026-11-22：今天还没记动作时，把计划播成可打卡的行（每组带 ○）。清空或保存后不再自动播。
+    const muted = form.dataset.seedMuted === activeDate;
+    const seeds = exercises.length || muted ? [] : seedExercisesFromPlan(activeDate);
+    const rows = Array.isArray(rowsOverride) ? rowsOverride : (exercises.length ? exercises : (seeds.length ? seeds : [{name: '', sets: 1, reps: null, weight: null}]));
     box.innerHTML = rows.map(exerciseRowHtml).join('');
+    if (seeds.length && !Array.isArray(rowsOverride)) {
+      $$('[data-exercise-row]', box).forEach((node, index) => { if (seeds[index]) node.dataset.planIndex = String(index); });
+    }
     $$('[data-exercise-row]', box).forEach(refreshSetRow);
     $$('[data-exercise-row]', box).filter(node => node.dataset.cardio === '1').forEach(node => refreshCardioPace(node));
     renderTrainingPresets();
@@ -1119,7 +1146,30 @@ const values = points.length<=7 ? points.map((item,i) => {
     const levels = typeof EFFORT_LEVELS !== 'undefined' ? EFFORT_LEVELS : [];
     const chips = levels.map(level =>
       `<button type="button" class="effort-chip" data-effort="${level}" aria-pressed="${current === level}">${EFFORT_LABELS[level]}</button>`).join('');
+    // 2026-11-22：逐动作明细 + 与上次同模板训练的总容量对比——存之前先看清这一次练了什么、比上次多还是少。
+    const lines = exercises.map(item => {
+      const sets = Array.isArray(item.setDetails) && item.setDetails.length
+        ? item.setDetails.length : (number(item.sets) || 0);
+      if (item.cardio) {
+        const cardio = [number(item.distanceKm) > 0 ? fmt(item.distanceKm, 1) + ' km' : '', number(item.durationMin) > 0 ? fmt(item.durationMin, 0) + ' 分钟' : ''].filter(Boolean).join(' · ');
+        return {name: item.name, detail: cardio || '有氧'};
+      }
+      const weights = (Array.isArray(item.setDetails) ? item.setDetails : []).map(set => number(set.weight)).filter(value => value !== null && value > 0);
+      const kg = weights.length ? weights.reduce((sum, value) => sum + value, 0) / weights.length : number(item.weight);
+      return {name: item.name, detail: sets + ' 组' + (kg !== null && kg > 0 ? ' · ' + fmt(kg, 1) + ' kg' : '')};
+    });
+    const template = String(document.querySelector('#training-template')?.value || habitRowFor(activeDate)?.template || 'push');
+    const previous = (state.habits || [])
+      .filter(row => row && row.date < activeDate && String(row.template) === template && Array.isArray(row.exercises) && row.exercises.length)
+      .sort((a, b) => String(b.date).localeCompare(String(a.date)))[0] || null;
+    const previousVolume = previous ? trainingStatsOf(previous.exercises).volume : 0;
+    const delta = previous && previousVolume > 0 && stats.volume > 0 ? stats.volume - previousVolume : null;
+    const compare = delta === null ? ''
+      : `<p class="dialog-compare">同模板上次（${esc(String(previous.date).slice(5).replace('-', '/'))}）容量 ${fmt(previousVolume, 0)} kg · 这次 ${delta >= 0 ? '+' : '−'}${fmt(Math.abs(delta), 0)} kg</p>`;
     return `<p class="dialog-summary">${esc(parts.join(' · '))}</p>`
+      + `<ul class="dialog-items" aria-label="这次练了什么">${lines.map(line =>
+        `<li><span>${esc(line.name)}</span><b>${esc(line.detail)}</b></li>`).join('')}</ul>`
+      + compare
       + '<div class="dialog-field"><span>耗时</span><input type="number" inputmode="numeric" min="0" max="600" step="1" name="durationMin" value="' + sessionMinutesEstimate() + '" placeholder="—" aria-label="实际耗时（分钟）"><span>分钟</span></div>'
       + '<p class="dialog-field-label">今天练下来感觉如何？</p>'
       + `<div class="dialog-effort" role="group" aria-label="今天练下来感觉如何">${chips}</div>`

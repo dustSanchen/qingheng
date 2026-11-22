@@ -11,9 +11,9 @@ const css = read('app/src/main/assets/styles.css');
 const html = read('app/src/main/assets/index.html');
 
 check('three segments are declared', /label: '饮食'/.test(app) && /label: '训练'/.test(app) && /label: '身体'/.test(app));
-check('every card lands in a segment', ['轻松记一餐', '最近的餐食记录', '训练日志', '今天两样', '身体数据', '日常习惯']
+check('every card lands in a segment', ['轻松记一餐', '最近的餐食记录', '训练日志', '今天体重', '身体数据', '日常习惯']
   .every(h => app.includes(`'${h}'`)));
-check('body opens with the two daily numbers', app.includes("headings: ['今天两样', '身体数据', '日常习惯']"));
+check('body opens with today\'s weight, then the body card and habits', app.includes("headings: ['今天体重', '身体数据', '日常习惯']"));
 check('the food segment keeps two cards and nothing is folded any more', app.includes("headings: ['轻松记一餐', '最近的餐食记录']") && !app.includes("foldedHeadings: ['食品热量参考库'"));
 check('plan, today order, then logging', app.includes("headings: ['训练计划', '今日顺序', '训练日志']"));
 check('entering records from another page opens food first', app.includes("tab === 'records' && currentTab !== 'records' && !sub"));

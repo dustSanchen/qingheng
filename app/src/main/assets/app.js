@@ -427,7 +427,6 @@
    * 一次只显示一条，右上角 1/N；点一下看下一条，6 秒自动轮换；没有内容就整条收起。
    */
   const TODAY_SIGNALS = {energy: [], check: ''};
-  let statusCursor = 0, statusTimer = 0;
   function todayStatusList() {
     const list = [];
     const push = (text, tone) => {
@@ -437,57 +436,6 @@
     for (const item of TODAY_SIGNALS.energy) push(item.text, item.tone);
     push(TODAY_SIGNALS.check, 'info');
     return list;
-  }
-  function paintTodayStatus() {
-    const strip = $('#status-strip');
-    if (!strip) return;
-    const list = todayStatusList();
-    if (!list.length) {
-      strip.hidden = true;
-      clearInterval(statusTimer); statusTimer = 0;
-      return;
-    }
-    if (statusCursor >= list.length) statusCursor = 0;
-    const item = list[statusCursor];
-    strip.hidden = false;
-    strip.classList.toggle('is-warn', item.tone === 'warn');
-    // 轮播换文案时做一次轻微上浮淡入（180ms，reduced-motion 下由 CSS 关掉）。
-    const textNode = $('#status-strip-text');
-    if (textNode) {
-      textNode.textContent = item.text;
-      textNode.classList.remove('is-swap');
-      void textNode.offsetWidth;
-      textNode.classList.add('is-swap');
-    }
-    const count = $('#status-strip-count');
-    if (count) count.textContent = list.length > 1 ? `${statusCursor + 1}/${list.length}` : '';
-    strip.setAttribute('aria-label', list.length > 1
-      ? `今日提示 ${statusCursor + 1} / ${list.length}，点一下看下一条`
-      : '今日提示');
-  }
-  function renderTodayStatusStrip(reset) {
-    if (reset) statusCursor = 0;
-    paintTodayStatus();
-    clearInterval(statusTimer);
-    statusTimer = 0;
-    const list = todayStatusList();
-    if (list.length > 1) {
-      statusTimer = setInterval(() => {
-        statusCursor = (statusCursor + 1) % list.length;
-        paintTodayStatus();
-      }, 6000);
-    }
-  }
-  function installTodayStatusStrip() {
-    const strip = $('#status-strip');
-    if (!strip || strip.dataset.wired === '1') return;
-    strip.dataset.wired = '1';
-    strip.addEventListener('click', () => {
-      const list = todayStatusList();
-      if (list.length < 2) return;
-      statusCursor = (statusCursor + 1) % list.length;
-      renderTodayStatusStrip(false);
-    });
   }
   // 常用指标：今天页小习惯网格显示哪几格（默认三项），只存本机。
   const TODAY_METRICS_KEY = 'qingheng.todayMetrics';
@@ -1313,123 +1261,133 @@
     if (hour >= 21 && !inWindow(1020, 1380)) missing.push({key: "dinner", label: "晚餐"});
     return missing;
   }
-  let slotRows = [];
-  function renderSlotHint() {
-    const node = $("#slot-hint");
-    if (!node) return;
-    const now = new Date();
-    const slot = daySlot(now);
-    const clock = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
-    const live = activeDate === localDate();
-    const missing = live ? missingMealSlots(activeDate, now) : [];
+  /** 今天的状况条目（只读）：体检结论 + 能量/宏量信号。 */
+  let todayActionCursor = 0;
+  /**
+   * 今天页唯一的一条行动行（2026-11-22 四模块清单之一）：
+   * 左半执行当前那条 primary，右半 1/N › 打开「今天的状况」半屏——
+   * 原来分居两处的 #slot-hint（下一步）与 #status-strip（状态轮播）在这里合一。
+   */
+  function todayActionItems() {
     const agenda = typeof todayAgendaState === "function" ? todayAgendaState() : null;
-    const primary = agenda && agenda.primary ? agenda.primary : null;
-    const suffix = missing.length ? "；" + missing.map(item => item.label).join("、") + "好像还没记，点一下去补" : "";
-    const timeNode = $("#slot-time"), textNode = $("#slot-text");
-    const quiet = !primary && !missing.length;
-    if (timeNode) timeNode.textContent = primary ? "下一步" : quiet ? "状态" : clock;
-    if (textNode) {
-      textNode.textContent = primary ? primary.label
-        : quiet ? "今天没有要补的缺口，按计划走就好"
-        : slot.label + "：" + slot.hint + suffix;
+    const items = [];
+    if (agenda && agenda.primary) items.push({label: agenda.primary.label, target: agenda.primary.target, tone: "info"});
+    if (agenda && Array.isArray(agenda.secondary)) {
+      for (const item of agenda.secondary) {
+        if (item && item.label) items.push({label: item.label, target: item.target || "", tone: "info"});
+      }
     }
-    const reasonNode = $("#slot-reason");
-    if (reasonNode) {
-      reasonNode.textContent = primary && primary.reason ? primary.reason : "";
-      reasonNode.hidden = !(primary && primary.reason);
+    const live = activeDate === localDate();
+    const missing = live ? missingMealSlots(activeDate, new Date()) : [];
+    for (const item of missing) items.push({label: "补记" + item.label, target: "meal-text", tone: "warn"});
+    return items;
+  }
+  function renderTodayAction() {
+    const bar = $("#today-action");
+    if (!bar) return;
+    const items = todayActionItems();
+    const main = $("#today-action-main"), text = $("#today-action-text"), count = $("#today-action-count");
+    if (!items.length) {
+      // 没有缺口也不藏起来：退回一行安静的当日状态，位置固定，避免首屏高度来回跳。
+      bar.hidden = false;
+      bar.classList.remove("is-warn");
+      bar.dataset.target = "";
+      if (text) text.textContent = "今天没有要补的缺口，按计划走就好";
+      if (count) count.textContent = "";
+      if (main) main.disabled = false;
+      return;
     }
-    const noteNode = $("#slot-note");
-    if (noteNode) {
-      noteNode.textContent = primary ? slot.label + " · " + slot.hint : "";
-      noteNode.hidden = !primary;
+    if (todayActionCursor >= items.length) todayActionCursor = 0;
+    const item = items[todayActionCursor];
+    bar.hidden = false;
+    bar.classList.toggle("is-warn", item.tone === "warn");
+    bar.dataset.target = item.target || "";
+    if (text) {
+      text.textContent = item.label;
+      // 换条时轻微上浮淡入（180ms，reduced-motion 下由 CSS 关掉）。
+      text.classList.remove("is-swap");
+      void text.offsetWidth;
+      text.classList.add("is-swap");
     }
-    node.classList.toggle("is-next", !!primary);
-    // 建议流（2026-11-22 第五轮）：主建议留在首行，其余平铺折叠，不再各自占一块。
-    const listNode = $("#slot-list"), moreNode = $("#slot-more");
-    slotRows = [];
-    for (const item of (agenda && Array.isArray(agenda.secondary) ? agenda.secondary : [])) {
-      if (item && item.label) slotRows.push({label: item.label, reason: item.reason || "", target: item.target || ""});
+    if (count) count.textContent = items.length > 1 ? `${todayActionCursor + 1}/${items.length} ›` : "›";
+    bar.setAttribute("aria-label", items.length > 1
+      ? `下一步：${item.label}。右边可以看今天的状况，共 ${items.length} 条`
+      : `下一步：${item.label}`);
+  }
+  /** 半屏「今天的状况」：状态轮播（手动翻，不自动转）+ 还要补的建议；只读，不改任何数据。 */
+  function openDayBrief() {
+    const sheet = $("#day-brief-sheet");
+    if (!sheet) return;
+    const statuses = todayStatusList();
+    const list = $("#brief-list");
+    if (list) {
+      const rows = todayActionItems().slice(1);
+      list.innerHTML = rows.length
+        ? rows.map((item, index) =>
+          `<button type="button" class="sheet-option" data-brief-index="${index}"><span class="sheet-option-label">${esc(item.label)}</span><span class="hub-arrow" aria-hidden="true">›</span></button>`).join("")
+        : '<p class="fine-print">今天没有别的缺口了。</p>';
+      list.querySelectorAll("[data-brief-index]").forEach(button => {
+        button.addEventListener("click", () => {
+          const item = rows[Number(button.dataset.briefIndex)];
+          closeDayBrief();
+          if (item && item.target && typeof openRecordTarget === "function") openRecordTarget(item.target);
+        });
+      });
     }
-    for (const item of missing) slotRows.push({label: "补记" + item.label, reason: "", target: "meal-text"});
-    if (listNode) {
-      listNode.innerHTML = slotRows.map((item, index) =>
-        `<button type="button" class="slot-row" data-slot-index="${index}"><span class="slot-row-label">${esc(item.label)}</span>`
-        + (item.reason ? `<span class="slot-row-reason">${esc(item.reason)}</span>` : "") + "</button>").join("");
-      // 默认折叠；用户展开过就记住这次展开，直到换日或消息清空。
-      listNode.hidden = !(slotRows.length && node.dataset.slotOpen === "1");
-    }
-    if (moreNode) {
-      moreNode.hidden = slotRows.length === 0;
-      const open = listNode ? !listNode.hidden : false;
-      moreNode.textContent = open ? "收起建议" : `还有 ${slotRows.length} 条建议`;
-      moreNode.setAttribute("aria-expanded", open ? "true" : "false");
-    }
-    // 没有缺口也没有未完成训练时也不整块消失：退成一行安静的当日状态，保留「建议流」的常驻位。
-    node.classList.toggle("is-quiet", !primary && !missing.length);
-    document.querySelectorAll("#today-quick-actions .quick-chip").forEach(button => {
-      button.classList.remove("quick-chip-primary");
-    });
-    const action = primary ? primary.target : "";
-    const clickable = !!action || !!missing.length;
-    node.style.cursor = clickable ? "pointer" : "";
-    node.dataset.missing = missing.length ? missing.map(item => item.key).join(",") : "";
-    if (action) {
-      node.dataset.todayAction = action;
-      node.setAttribute("role", "button");
-      node.tabIndex = 0;
-      node.setAttribute("aria-label", primary.label + "，打开记录");
-    } else {
-      delete node.dataset.todayAction;
-      node.removeAttribute("role");
-      node.removeAttribute("aria-label");
-      node.tabIndex = -1;
-    }
-    if (!node.dataset.wired) {
-      node.dataset.wired = "1";
-      const activate = () => {
-        if (node.dataset.todayAction) {
-          if (typeof openRecordTarget === "function") openRecordTarget(node.dataset.todayAction);
-          return;
-        }
-        if (!node.dataset.missing) return;
-        switchTab("records");
-        const field = $("#meal-text"); if (field) { field.focus(); }
-      };
-      node.addEventListener("click", activate);
-      node.addEventListener("keydown", event => {
+    const text = $("#brief-text"), count = $("#brief-count");
+    const paint = () => {
+      const item = statuses[briefCursor % Math.max(1, statuses.length)] || {text: "今天还没有可说的变化。", tone: "info"};
+      if (text) text.textContent = item.text;
+      const strip = $("#brief-strip");
+      if (strip) strip.classList.toggle("is-warn", item.tone === "warn");
+      if (count) count.textContent = statuses.length > 1 ? `${(briefCursor % statuses.length) + 1}/${statuses.length}` : "";
+    };
+    briefCursor = 0;
+    paint();
+    sheet.hidden = false;
+    $("#brief-strip")?.setAttribute("role", statuses.length > 1 ? "button" : "group");
+    $("#brief-strip")?.setAttribute("tabindex", statuses.length > 1 ? "0" : "-1");
+    const advance = () => {
+      if (statuses.length < 2) return;
+      briefCursor = (briefCursor + 1) % statuses.length;
+      paint();
+    };
+    const strip = $("#brief-strip");
+    if (strip && !strip.dataset.briefWired) {
+      strip.dataset.briefWired = "1";
+      strip.addEventListener("click", advance);
+      strip.addEventListener("keydown", event => {
         if (event.key !== "Enter" && event.key !== " ") return;
-        if (!event.target.closest("#slot-hint")) return;
         event.preventDefault();
-        activate();
-      });
-      // 平铺折叠：展开看全部建议；行本身可点，直达对应表单。
-      $("#slot-more")?.addEventListener("click", event => {
-        event.stopPropagation();
-        const list = $("#slot-list");
-        if (!list) return;
-        list.hidden = !list.hidden;
-        node.dataset.slotOpen = list.hidden ? "" : "1";
-        const more = $("#slot-more");
-        if (more) {
-          more.textContent = list.hidden ? `还有 ${slotRows.length} 条建议` : "收起建议";
-          more.setAttribute("aria-expanded", list.hidden ? "false" : "true");
-        }
-      });
-      $("#slot-list")?.addEventListener("click", event => {
-        const row = event.target.closest("[data-slot-index]");
-        if (!row) return;
-        event.stopPropagation();
-        const item = slotRows[Number(row.dataset.slotIndex)];
-        if (!item) return;
-        if (typeof openRecordTarget === "function") openRecordTarget(item.target);
+        advance();
       });
     }
-    node.dataset.slot = slot.key;
-    for (const button of $$("[data-go]")) {
-      const target = button.dataset.go;
-      const spotlight = (slot.key === "evening" || slot.key === "noon") && target === "records";
-      button.classList.toggle("is-now", spotlight);
-    }
+    $("#brief-close")?.focus({preventScroll: true});
+  }
+  function closeDayBrief() {
+    const sheet = $("#day-brief-sheet");
+    if (sheet) sheet.hidden = true;
+    $("#today-action-more")?.focus({preventScroll: true});
+  }
+  let briefCursor = 0;
+  function installTodayAction() {
+    const bar = $("#today-action");
+    if (!bar || bar.dataset.wired === "1") return;
+    bar.dataset.wired = "1";
+    $("#today-action-main")?.addEventListener("click", () => {
+      const target = bar.dataset.target;
+      if (!target) return;
+      if (typeof openRecordTarget === "function") openRecordTarget(target);
+    });
+    $("#today-action-more")?.addEventListener("click", openDayBrief);
+    $("#brief-close")?.addEventListener("click", closeDayBrief);
+    $("#day-brief-sheet")?.addEventListener("click", event => {
+      if (event.target === $("#day-brief-sheet")) closeDayBrief();
+    });
+    document.addEventListener("keydown", event => {
+      const sheet = $("#day-brief-sheet");
+      if (event.key === "Escape" && sheet && !sheet.hidden) closeDayBrief();
+    });
   }
   /** Inside the range: clean greens, deeper near the centre. */
   function rangeColor(kcal, min, max) {
@@ -1946,7 +1904,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     if (kcalNow !== null && capNow !== null && kcalNow > capNow) parts.push(`热量已超上限 ${fmt(kcalNow - capNow,0)} kcal：不再加餐，晚餐只吃蛋白加蔬菜`);
     if (!parts.length && proteinNow !== null && proteinMinNow !== null && proteinNow >= proteinMinNow) parts.push('蛋白质已达标，剩下的额度分给主食与蔬菜即可。');
     TODAY_SIGNALS.energy = parts.map(text => ({text, tone: /超/.test(text) ? 'warn' : 'info'}));
-    renderTodayStatusStrip(true);
+    renderTodayAction();
   /**
    * 记录可信度（1.4.56 引入，1.4.58 起只存内部）：这个 App 的热量是估的，估的基础是记录全不全。
    * 用户明确要求「允许误差、不对外展示」——所以不占界面，只给内部两处逻辑用：
@@ -2066,7 +2024,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     renderChat();
     renderTrainingInsights();
     renderDailyCheck();
-    renderBodyQuick();
+    renderBodyWeight();
     renderWeekPlan();
     renderTrendWarnings();
     if (typeof renderDietTrend === 'function') renderDietTrend();
@@ -4754,6 +4712,27 @@ const values = points.length<=7 ? points.map((item,i) => {
     box.innerHTML = (EXERCISE_PRESETS[template] || []).map(name => `<button type="button" class="preset-chip" data-training-preset="${esc(name)}">${esc(name)}</button>`).join('');
     box.dataset.template = template;
   }
+  /**
+   * 计划 → 执行区预填（2026-11-22 四模块清单之二）：只产数据、不写库，
+   * 用户核对后点「保存训练」才落。优先用今天 AI 排的未完成动作，其次用本周计划当天的动作。
+   */
+  function seedExercisesFromPlan(date) {
+    if (typeof trainingEnabled === 'function' && !trainingEnabled()) return [];
+    let plan = [];
+    if (typeof aiPlanStore === 'function') {
+      try { plan = aiPlanStore(date) || []; } catch { plan = []; }
+    }
+    const pending = plan.filter(item => item && item.name && item.done !== true);
+    if (pending.length) {
+      return pending.map(item => ({name: item.name, sets: item.sets || 1, reps: item.reps || null, weight: item.weight ?? null}));
+    }
+    const week = typeof cachedWeekPlan === 'function' ? cachedWeekPlan() : null;
+    const day = week && Array.isArray(week.days) ? week.days.find(row => row && row.date === date) : null;
+    if (day && Array.isArray(day.exercises) && day.exercises.length) {
+      return day.exercises.map(item => ({name: item.name, sets: item.sets || 1, reps: item.reps || null, weight: item.weight ?? null}));
+    }
+    return [];
+  }
   function renderTrainingLog(rowsOverride = null) {
     const form = $('#training-form');
     if (!form) return;
@@ -4764,8 +4743,14 @@ const values = points.length<=7 ? points.map((item,i) => {
     const template = TRAINING_TEMPLATES[row?.template] ? row.template : 'push';
     if (document.activeElement !== form.elements.template) form.elements.template.value = template;
     const box = $('#training-exercises');
-    const rows = Array.isArray(rowsOverride) ? rowsOverride : (exercises.length ? exercises : [{name: '', sets: 1, reps: null, weight: null}]);
+    // 2026-11-22：今天还没记动作时，把计划播成可打卡的行（每组带 ○）。清空或保存后不再自动播。
+    const muted = form.dataset.seedMuted === activeDate;
+    const seeds = exercises.length || muted ? [] : seedExercisesFromPlan(activeDate);
+    const rows = Array.isArray(rowsOverride) ? rowsOverride : (exercises.length ? exercises : (seeds.length ? seeds : [{name: '', sets: 1, reps: null, weight: null}]));
     box.innerHTML = rows.map(exerciseRowHtml).join('');
+    if (seeds.length && !Array.isArray(rowsOverride)) {
+      $$('[data-exercise-row]', box).forEach((node, index) => { if (seeds[index]) node.dataset.planIndex = String(index); });
+    }
     $$('[data-exercise-row]', box).forEach(refreshSetRow);
     $$('[data-exercise-row]', box).filter(node => node.dataset.cardio === '1').forEach(node => refreshCardioPace(node));
     renderTrainingPresets();
@@ -4893,7 +4878,30 @@ const values = points.length<=7 ? points.map((item,i) => {
     const levels = typeof EFFORT_LEVELS !== 'undefined' ? EFFORT_LEVELS : [];
     const chips = levels.map(level =>
       `<button type="button" class="effort-chip" data-effort="${level}" aria-pressed="${current === level}">${EFFORT_LABELS[level]}</button>`).join('');
+    // 2026-11-22：逐动作明细 + 与上次同模板训练的总容量对比——存之前先看清这一次练了什么、比上次多还是少。
+    const lines = exercises.map(item => {
+      const sets = Array.isArray(item.setDetails) && item.setDetails.length
+        ? item.setDetails.length : (number(item.sets) || 0);
+      if (item.cardio) {
+        const cardio = [number(item.distanceKm) > 0 ? fmt(item.distanceKm, 1) + ' km' : '', number(item.durationMin) > 0 ? fmt(item.durationMin, 0) + ' 分钟' : ''].filter(Boolean).join(' · ');
+        return {name: item.name, detail: cardio || '有氧'};
+      }
+      const weights = (Array.isArray(item.setDetails) ? item.setDetails : []).map(set => number(set.weight)).filter(value => value !== null && value > 0);
+      const kg = weights.length ? weights.reduce((sum, value) => sum + value, 0) / weights.length : number(item.weight);
+      return {name: item.name, detail: sets + ' 组' + (kg !== null && kg > 0 ? ' · ' + fmt(kg, 1) + ' kg' : '')};
+    });
+    const template = String(document.querySelector('#training-template')?.value || habitRowFor(activeDate)?.template || 'push');
+    const previous = (state.habits || [])
+      .filter(row => row && row.date < activeDate && String(row.template) === template && Array.isArray(row.exercises) && row.exercises.length)
+      .sort((a, b) => String(b.date).localeCompare(String(a.date)))[0] || null;
+    const previousVolume = previous ? trainingStatsOf(previous.exercises).volume : 0;
+    const delta = previous && previousVolume > 0 && stats.volume > 0 ? stats.volume - previousVolume : null;
+    const compare = delta === null ? ''
+      : `<p class="dialog-compare">同模板上次（${esc(String(previous.date).slice(5).replace('-', '/'))}）容量 ${fmt(previousVolume, 0)} kg · 这次 ${delta >= 0 ? '+' : '−'}${fmt(Math.abs(delta), 0)} kg</p>`;
     return `<p class="dialog-summary">${esc(parts.join(' · '))}</p>`
+      + `<ul class="dialog-items" aria-label="这次练了什么">${lines.map(line =>
+        `<li><span>${esc(line.name)}</span><b>${esc(line.detail)}</b></li>`).join('')}</ul>`
+      + compare
       + '<div class="dialog-field"><span>耗时</span><input type="number" inputmode="numeric" min="0" max="600" step="1" name="durationMin" value="' + sessionMinutesEstimate() + '" placeholder="—" aria-label="实际耗时（分钟）"><span>分钟</span></div>'
       + '<p class="dialog-field-label">今天练下来感觉如何？</p>'
       + `<div class="dialog-effort" role="group" aria-label="今天练下来感觉如何">${chips}</div>`
@@ -6020,8 +6028,8 @@ const values = points.length<=7 ? points.map((item,i) => {
       + '<div hidden>' + `<p class="check-verdict">${esc(check.verdict)}</p>`;
     // 结论不再单独占一行：并进状态胶囊，和热量/宏量提示按优先级轮播。
     TODAY_SIGNALS.check = check.verdict || '';
-    renderTodayStatusStrip(false);
-    // A single next step lives in slot-hint; the check itself only reports state,
+    if (typeof renderTodayAction === 'function') renderTodayAction();
+    // 首屏只有一条行动行（#today-action）；体检只报状态，不再各给一条「该做什么」。
     // except for a missing sleep value, which keeps its direct jump.
     const sleepMissing = number(habit.sleep) === null;
     if (sleepMissing) {
@@ -6750,8 +6758,7 @@ const values = points.length<=7 ? points.map((item,i) => {
       + '<p>' + esc(plan.note) + '</p>'
       + (Array.isArray(plan.reasons) ? plan.reasons.map(reason =>
         '<p>' + esc(reason.text) + '</p>').join('') : '');
-    // 要点跟着周条上选中的那天走，按那天计划里实际要做的动作点名：计划换一版、动作变了，要点跟着变。
-    const cueHtml = weekCueHtml(weekDetailDay, plan);
+    // 2026-11-22：常驻的「动作要点」折叠块撤掉——动作名旁的 ? 已是唯一入口。
     // 「怎么来的」是这一周的口径，与哪天选中无关，所以单独折叠、切日期也不动它。
     const whyHtml = '<details class="plan-why"><summary>这周怎么排的</summary>' + whyBody + '</details>';
     // 本周安排：完全按用户偏好生成；没有偏好就不出方案。
@@ -6773,15 +6780,8 @@ const values = points.length<=7 ? points.map((item,i) => {
           }
           const detail = $("#week-detail");
           if (detail) detail.textContent = weekDetailHtml(day, lastWeekPlan);
-          // 要点整块换掉：内容按那天的动作重算，不重渲染整页，避免闪一下和滚动位置丢失。
-          const cueHost = $("#week-cues-host");
-          if (cueHost) {
-            cueHost.innerHTML = weekCueHtml(day, lastWeekPlan);
-            // Default is folded so the log stays near the first screen; picking a date opens
-            // that day's cue immediately.
-            const cue = cueHost.querySelector('#week-cues');
-            if (cue) cue.open = true;
-          }
+          // 2026-11-22：常驻「动作要点」块已撤掉，点日期只换这一行明细；
+          // 单个动作的要点走动作名旁的 ?（showExerciseGuide），不再占卡面。
           return;
         }
         const button = event.target.closest("[data-adopt-today]");
@@ -6845,7 +6845,15 @@ const values = points.length<=7 ? points.map((item,i) => {
     const relationHtml = plan.days.length
       ? '<p class="fine-print">上面按偏好与最近记录排周框架，下面的「今日顺序」是模型照它排的执行顺序；两者不一致时以今日顺序为准。</p>'
       : '';
-    box.innerHTML = annotateTerms(thisWeekHtml + goalRequirementHtml + relationHtml + '<div id="week-cues-host">' + cueHtml + '</div>' + whyHtml + acwrHtml + driftHtml + adoptHtml + suggestedNote + scheduleHtml);
+    box.innerHTML = annotateTerms(thisWeekHtml + goalRequirementHtml + relationHtml + whyHtml + acwrHtml + driftHtml + adoptHtml + suggestedNote + scheduleHtml);
+    // 计划说明进 sheet：本周要求 / 怎么排的 / 负荷都搬过去，卡面只留本周安排。
+    const explainHost = $('#plan-explain-body');
+    if (explainHost) {
+      explainHost.innerHTML = '';
+      for (const node of box.querySelectorAll('.plan-why, .plan-why-lead, .acwr-line, .drift-line')) {
+        explainHost.appendChild(node.cloneNode(true));
+      }
+    }
   }
 
   /** Load and plateau warnings shown above the weight chart. */
@@ -6865,23 +6873,18 @@ const values = points.length<=7 ? points.map((item,i) => {
   }
 
   /**
-   * 记录·身体 的「今天两样」：体重与睡眠并排一行、一次保存（2026-11-18）。
-   * 原来要滚两张长表、按两次保存才能补齐当天这两项；现在面板一打开就是这两格。
+   * 记录·身体 的「今天体重」（2026-11-22 由「今天两样」收窄）：卡片只报当天这一条，
+   * 点它跳到身体数据卡的体重格——体重只有一个可编辑处，不出现两套口径。
    */
-  function renderBodyQuick() {
-    const form = $('#body-quick-form');
-    if (!form) return;
-    const habit = (state.habits || []).find(row => row && row.date === activeDate) || {};
+  function renderBodyWeight() {
+    const box = $('#body-weight-jump');
+    if (!box) return;
     const measurement = (state.measurements || []).find(row => row && row.date === activeDate) || {};
-    const sleep = number(habit.sleep), weight = number(measurement.weight);
-    // 正在输入的那一格不覆盖：重渲染不该把用户刚打的字冲掉。
-    if (document.activeElement !== form.elements.weight) form.elements.weight.value = weight ?? '';
-    if (document.activeElement !== form.elements.sleep) form.elements.sleep.value = sleep ?? '';
-    const filled = [weight !== null, sleep !== null].filter(Boolean).length;
-    const tag = $('#body-quick-tag');
-    if (tag) tag.textContent = filled === 0 ? '待记录' : filled === 2 ? '已记录两样' : `已记录 ${filled}/2`;
-    const note = $('#body-quick-note');
-    if (note) note.textContent = `记到 ${activeDate.slice(5).replace('-', '/')} · 体重按空腹、同一状态记；只填一项也行，同一天再填会更新。`;
+    const weight = number(measurement.weight);
+    const value = $('#body-weight-value'), note = $('#body-weight-hint'), tag = $('#body-quick-tag');
+    if (value) value.textContent = weight === null ? '—' : fmt(weight, 1);
+    if (note) note.textContent = weight === null ? '点一下填今天的体重' : `已记 ${activeDate.slice(5).replace('-', '/')} · 点一下可修改`;
+    if (tag) tag.textContent = weight === null ? '待记录' : '已记录';
     // 折叠态标题的常用指标也要跟着数据走，别等用户展开才补。
     if (typeof paintBodyDataHints === 'function') paintBodyDataHints();
   }
@@ -6941,8 +6944,7 @@ const values = points.length<=7 ? points.map((item,i) => {
       const payload=build(form); if (payload===null) return;
       await api(path,payload);
       feedback(message,'已保存。');
-      // 习惯保存成功才把这个数记成「常用值」：失败的提交不该污染那三枚。
-      if (path === '/api/habits' && typeof rememberHabitQuick === 'function') rememberHabitQuick(payload);
+      // 快捷值不再由「保存过什么」自动改写：它现在由「自定义快捷值」显式设定，卡底两枚要可预期。
       if (path === '/api/meals') {form.reset();setDefaultDates();}
       if (path === '/api/settings') {delete providerDrafts[selectedProvider];form.elements.apiKey.value='';form.elements.clearKey.checked=false;}
       try {await loadState({quiet:true});} catch {feedback(message,'保存成功，但刷新失败。请检查连接后重新加载；不要重复提交。',true);}
@@ -7787,7 +7789,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.26';
+  const APP_VERSION = '1.5.27';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -8306,27 +8308,43 @@ function metricIcon(label) {
       + "<label class=\"ai-plan-num\"><span>kg</span>" + num("weight", item.weight, 'min=\"0\" max=\"500\" step=\"0.5\"', "负重公斤") + "</label></div>"
       + "</div>";
   }
+  /**
+   * 播种行的每组 ○ 反过来决定计划项的 done（2026-11-22）：
+   * 计划清单不再单独渲染，但 agenda 的「N 个动作还没完成」必须仍然说真话。
+   */
+  function syncPlanDoneFromRow(row) {
+    if (!row || row.dataset.planIndex == null) return;
+    const index = Number(row.dataset.planIndex);
+    const plan = aiPlanStore(activeDate) || [];
+    const item = plan[index];
+    if (!item) return;
+    const sets = $$('[data-set-row]', row);
+    const allDone = sets.length > 0 && sets.every(set => set.classList.contains('is-done'));
+    if (item.done === allDone) return;
+    item.done = allDone;
+    aiPlanStore(activeDate, plan);
+    renderAiPlan();
+    if (typeof renderTodayAction === 'function') renderTodayAction();
+  }
   function renderAiPlan() {
-    const box = $("#ai-plan-list"), tag = $("#ai-plan-tag"), clear = $("#ai-plan-clear"), summary = $("#ai-plan-summary");
-    if (!box) return;
     renderPlanNote();
     renderPlanTiming();
     const plan = aiPlanStore(activeDate);
-    // 已经有清单时，「用 AI 排今天」不再是主行动：主行动是把清单落成记录。
-    // 同一个按钮两种状态，文案也分开（排 / 重排），避免「已经排好了却还在喊排」。
+    const box = $("#ai-plan-list"), tag = $("#ai-plan-tag"), clear = $("#ai-plan-clear"), summary = $("#ai-plan-summary");
+    // 2026-11-22：动作清单不再单独渲染（计划直接播进执行区），这里只同步入口文案与计数。
     const ask = $("#ai-plan-ask"), hasPlan = !!(plan && plan.length);
     if (ask) {
-      ask.textContent = hasPlan ? "重排今天" : "用 AI 排今天";
-      ask.classList.toggle("primary", !hasPlan);
-      ask.classList.toggle("subtle", hasPlan);
+      ask.textContent = hasPlan ? "AI 重排" : "AI 排今天";
       ask.setAttribute("aria-label", hasPlan ? "让 AI 重新排今天的动作顺序" : "让 AI 排今天的动作顺序");
     }
+    if (tag) tag.textContent = hasPlan ? plan.length + " 个动作" : "未生成";
+    if (clear) clear.hidden = !hasPlan;
+    if (!box) return;
     const allToggle = $("#ai-plan-all");
     if (allToggle) {
       allToggle.classList.toggle("primary", hasPlan);
       allToggle.classList.toggle("subtle", !hasPlan);
     }
-    if (clear) clear.hidden = !plan;
     const edit = $("#ai-plan-edit");
     if (edit) edit.hidden = !(plan && plan.length);
     const postpone = $("#ai-plan-postpone");
@@ -9143,12 +9161,7 @@ function metricIcon(label) {
     const anchor = $('.energy-body', energyCard);
     if (anchor && anchor.parentElement === energyCard) anchor.after(row);
     else energyCard.prepend(row);
-    const slotNote = $('#slot-note');
-    const slotHint = $('#slot-hint');
-    // 智能状态栏就贴在胶囊下面（2026-11-22 第六轮）：平时只给结论，点开才是完整建议。
-    if (slotHint) row.after(slotHint);
-    if (slotNote && slotHint) slotHint.after(slotNote);
-    else if (slotNote) row.after(slotNote);
+
     row.addEventListener('click', event => {
       const chip = event.target.closest('[data-quick-focus]');
       if (!chip) return;
@@ -9531,7 +9544,7 @@ function metricIcon(label) {
   const RECORD_PANELS = [
     {key: 'food', label: '饮食', headings: ['轻松记一餐', '最近的餐食记录']},
     {key: 'training', label: '训练', headings: ['训练计划', '今日顺序', '训练日志'], trainingOnly: true},
-    {key: 'body', label: '身体', headings: ['今天两样', '身体数据', '日常习惯']}
+    {key: 'body', label: '身体', headings: ['今天体重', '身体数据', '日常习惯']}
   ];
   const RECORD_PANEL_STORAGE = 'qingheng.recordsPanel';
   function installRecordPanels() {
@@ -9703,7 +9716,7 @@ function metricIcon(label) {
     if (!prev) return [];
     const lines = [];
     const weight = number(form.elements.weight?.value), prevWeight = number(prev.weight);
-    const values = numericForm(form, ['waist', 'bodyFat', 'muscle', 'visceralFat', 'bmr']);
+    const values = numericForm(form, ['weight', 'waist', 'bodyFat', 'muscle', 'visceralFat', 'bmr']);
     if (weight !== null && prevWeight !== null && Math.abs(weight - prevWeight) >= 2) lines.push(`体重差 ${fmt(Math.abs(weight - prevWeight), 1)} kg`);
     if (number(values.bodyFat) !== null && number(prev.bodyFat) !== null && Math.abs(values.bodyFat - prev.bodyFat) >= 3) {
       lines.push(`体脂差 ${fmt(Math.abs(values.bodyFat - prev.bodyFat), 1)} 个百分点`);
@@ -9714,7 +9727,7 @@ function metricIcon(label) {
     event.preventDefault();
     const form = event.currentTarget;
     const save = () => submitForm(form, '/api/measurements', f => {
-      const filled = Object.fromEntries(Object.entries(numericForm(f, ['waist', 'bodyFat', 'muscle', 'visceralFat', 'bmr'])).filter(([, value]) => value !== null));
+      const filled = Object.fromEntries(Object.entries(numericForm(f, ['weight', 'waist', 'bodyFat', 'muscle', 'visceralFat', 'bmr'])).filter(([, value]) => value !== null));
       if (!Object.keys(filled).length) throw new Error('请至少填写一项测量数据。');
       return {...(measurementRowFor(f.elements.date.value) || {}), date: f.elements.date.value, ...filled};
     });
@@ -9723,7 +9736,8 @@ function metricIcon(label) {
     askConfirm(`和上次比，${outliers.join('、')}。数值没错就保存；若是换秤或刚运动完，改天再记更准。`, {title: '数值变化较大', ok: '确认保存'})
       .then(ok => { if (ok) save(); });
   });
-  $('#habit-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/habits',form=>{const filled=Object.fromEntries(Object.entries(numericForm(form,['steps','water'])).filter(([,value])=>value!==null));if(!Object.keys(filled).length) throw new Error('请至少填写一项日常习惯。');return {...(habitRowFor(form.elements.date.value)||{}), date:form.elements.date.value, ...filled};});});
+  // 2026-11-22：睡眠从「今天两样」迁回这一行——步数/饮水/睡眠同属日常习惯，一次保存。
+  $('#habit-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/habits',form=>{const filled=Object.fromEntries(Object.entries(numericForm(form,['steps','water','sleep'])).filter(([,value])=>value!==null));if(!Object.keys(filled).length) throw new Error('请至少填写一项日常习惯。');return {...(habitRowFor(form.elements.date.value)||{}), date:form.elements.date.value, ...filled};});});
   // 记录页三种表单统一成「日期在最前、保存在最后」；训练日志原来没有日期输入，只能靠页面顶部的全局日期。
   $('#training-date')?.addEventListener('change', event => {
     const value = event.target.value;
@@ -10015,6 +10029,7 @@ function metricIcon(label) {
       const set = done.closest('[data-set-row]');
       const on = set.classList.toggle('is-done');
       done.setAttribute('aria-pressed', String(on));
+      syncPlanDoneFromRow(done.closest('[data-exercise-row]'));
       if (on) {
         // 第一次勾组就是这一节的起点：结束训练时按它算「实际耗时」。
         if (typeof markSessionStart === 'function') markSessionStart();
@@ -10057,6 +10072,8 @@ function metricIcon(label) {
   $('#training-form')?.addEventListener('submit', event => {event.preventDefault(); saveTrainingLog().catch(error => notice(error.message, true));});
   $('#training-clear')?.addEventListener('click', async () => {
     if (!await askConfirm('清空今天的训练记录？习惯行的其他数据（步数、睡眠、饮水、用油）会保留。', {title: '清空训练', ok: '清空', danger: true})) return;
+    // 清空即「今天不按计划走了」：抑制自动播种，否则渲染时又把它播回来。
+    const form = $('#training-form'); if (form) form.dataset.seedMuted = activeDate;
     const existing = habitRowFor(activeDate);
     if (!existing) {renderTrainingLog(); return;}
     const next = {...existing};
@@ -10087,33 +10104,10 @@ function metricIcon(label) {
     const button = event.target.closest?.('[data-copy-meal]');
     if (button) copyMeal(button.dataset.copyMeal).catch(error => notice(error.message, true));
   });
-  // 记录·身体「今天两样」：体重写测量、睡眠并进习惯行，一次提交两处都落库（2026-11-18）。
-  $('#body-quick-form')?.addEventListener('submit', async event => {
-    event.preventDefault();
-    const form = event.currentTarget, message = $('.form-feedback', form), button = $('button[type=submit]', form);
-    if (button.disabled) return;
-    const weight = number(form.elements.weight.value), sleep = number(form.elements.sleep.value);
-    if (weight === null && sleep === null) {feedback(message, '体重和睡眠都空着，没有可保存的内容。', true); return;}
-    if (weight !== null && (weight <= 0 || weight > 500)) {feedback(message, '体重请填 1–500 kg。', true); return;}
-    if (sleep !== null && (sleep < 0 || sleep > 24)) {feedback(message, '睡眠请填 0–24 小时。', true); return;}
-    button.disabled = true;
-    feedback(message, '正在保存…');
-    const saved = [];
-    try {
-      if (sleep !== null) {
-        // 并进当天那一行：训练、饮水、训练日志都挂在同一行上，不能因为补睡眠而分裂成两行。
-        await api('/api/habits', {...(habitRowFor(activeDate) || {}), date: activeDate, sleep});
-        saved.push(`睡眠 ${fmt(sleep)} 小时`);
-      }
-      if (weight !== null) {
-        // 同一天只留一行测量：带 id 就是更新，否则「身体近况」按日期取第一条会读到旧值。
-        await api('/api/measurements', {...(measurementRowFor(activeDate) || {}), date: activeDate, weight});
-        saved.push(`体重 ${fmt(weight)} kg`);
-      }
-      await loadState({quiet: true});
-      feedback(message, `已记录：${saved.join('、')}。`);
-    } catch (error) {feedback(message, error.message, true);}
-    finally {button.disabled = false;}
+  // 「今天体重」（2026-11-22）：卡片只显示今天这一条，点它跳到身体数据卡的体重格——
+  // 体重只留一个可编辑处，避免同一数字两套口径。
+  $('#body-weight-jump')?.addEventListener('click', () => {
+    revealField('measurement-weight', {focus: false, block: 'start'});
   });
   for (const id of ['#ob-checks', '#data-checks']) {
     const node = $(id);
@@ -10600,6 +10594,8 @@ feedback(message,'数据已导入。'+report);
     }
   }
   const BODY_METRICS = [
+    // 体重是这块卡的第一指标（2026-11-22 从「今天两样」并进来）：它排在最前，首屏就能填。
+    {key: 'weight', label: '体重', unit: 'kg', digits: 1},
     {key: 'waist', label: '腰围', unit: 'cm', digits: 1},
     {key: 'bodyFat', label: '体脂率', unit: '%', digits: 1},
     {key: 'muscle', label: '肌肉量', unit: 'kg', digits: 1},
@@ -10719,193 +10715,249 @@ feedback(message,'数据已导入。'+report);
     });
   }
   /**
-   * 常用值 + 滑块的记忆：固定三档只能选它给的那三个数，滑块能把数调到任意档位。
-   * 常用值不再写死——保存过一次就记下来，最近三个、同值不重复；清空过才会回落到默认三档。
+   * 日常习惯（2026-11-22 四模块清单之四）：在原版刻度卡上加一张睡眠卡，并把高频值收进各自卡底。
+   * 每张卡 = 左色条 + 名称/单位 + 可直接输入的大数字 + −/＋ 圆钮 + 刻度轨道 + 两枚快捷胶囊。
+   * 滑块仍管任意值；胶囊只留最常用的两下；改胶囊本身进卡右上「自定义快捷值」，不再占卡面。
    */
   const HABIT_QUICK_KEY = 'qingheng.habitQuick';
-  const HABIT_QUICK_FALLBACK = {steps: [6000, 8000, 10000], water: [1500, 2000, 2500]};
+  // 步数/睡眠是「设值」，饮水是「每次再加多少」——两种语义分开，所以饮水这两档是 250/500 而不是总量。
+  const HABIT_QUICK_FALLBACK = {steps: [6000, 10000], water: [250, 500]};
   const HABIT_DIAL = {
-    steps: {min: 0, max: 20000, step: 250, unit: '步', label: '步数', color: 'var(--accent)'},
-    water: {min: 0, max: 5000, step: 100, unit: '毫升', label: '饮水', color: 'var(--macro-carb,var(--accent-soft))'}
+    steps: {label: '步数', unit: '步', min: 0, max: 200000, step: 500, digits: 0, color: 'var(--accent)',
+      candidates: [4000, 6000, 8000, 10000, 12000, 15000, 20000]},
+    water: {label: '饮水', unit: '毫升', min: 0, max: 20000, step: 250, digits: 0, color: 'var(--tone-water)',
+      candidates: [200, 250, 300, 400, 500, 600, 750]},
+    sleep: {label: '睡眠', unit: '小时', min: 0, max: 24, step: 0.5, digits: 1, color: 'var(--tone-sleep)'}
   };
+  const HABIT_KEYS = ['steps', 'water', 'sleep'];
   function readHabitQuick() {
     let raw = {};
     try { raw = JSON.parse(localStorage.getItem(HABIT_QUICK_KEY) || '{}') || {}; } catch { raw = {}; }
     const pick = key => {
-      const list = Array.isArray(raw[key]) ? raw[key].map(value => number(value)).filter(value => value !== null && value > 0) : [];
-      const clean = [...new Set(list)].slice(0, 3);
-      return clean.length ? clean : HABIT_QUICK_FALLBACK[key].slice();
+      // 只认可选档位：旧版存过「饮水总量」1500/2000，进了累加语义会变成「一次加 1.5L」，直接淘汰。
+      const list = Array.isArray(raw[key])
+        ? raw[key].map(value => number(value)).filter(value => value !== null && HABIT_DIAL[key].candidates.includes(value))
+        : [];
+      const clean = [...new Set(list)].slice(0, 2);
+      return clean.length === 2 ? clean : HABIT_QUICK_FALLBACK[key].slice();
     };
     return {steps: pick('steps'), water: pick('water')};
   }
   function writeHabitQuick(next) {
     try { localStorage.setItem(HABIT_QUICK_KEY, JSON.stringify({steps: next.steps, water: next.water})); } catch {}
   }
-  /** 保存过一次就把这个数记成常用：下次它就在第一枚，点一下即填。 */
-  function rememberHabitQuick(payload) {
-    if (!payload) return;
-    const current = readHabitQuick();
-    let changed = false;
-    for (const key of ['steps', 'water']) {
-      const value = number(payload[key]);
-      if (value === null || value <= 0) continue;
-      const next = [value, ...current[key].filter(item => item !== value)].slice(0, 3);
-      if (next.join(',') !== current[key].join(',')) { current[key] = next; changed = true; }
-    }
-    if (changed) writeHabitQuick(current);
+  /** 胶囊标签：步数按 k、饮水按 L 缩写，睡眠直接写小时。 */
+  function habitQuickLabel(key, value) {
+    if (key === 'sleep') return `${fmt(value, 1)}h`;
+    if (key === 'steps') return `${fmt(value / 1000, value % 1000 ? 1 : 0)}k`;
+    return `${fmt(value / 1000, value % 500 ? 2 : 1)}L`;
   }
-  /** 一键填值与滑块并存：滑块管任意值，常用值管高频的三下。 */
-  function installHabitChips() {
-    const row = $('#habit-chips'), form = $('#habit-form');
-    if (!row || !form) return;
-    const copyRow = $('#habit-copy-row');
-    const dials = {};
-    // 表单控件退场：数字框只留 hidden 值，界面由环形控件承担（2026-11-22 用户要求）。
-    const host = document.createElement('div');
-    host.className = 'habit-dials';
-    const grid = form.querySelector('.form-grid');
-    if (grid) grid.hidden = true;
-    (grid || row).before(host);
-    for (const [key, spec] of Object.entries(HABIT_DIAL)) {
-      const field = form.elements[key];
-      if (!field) continue;
-      field.type = 'hidden';
-      // 横向卡片：两枚并排，比圆环省一半以上的纵向高度，靠色块区分指标（2026-11-22 用户要求）。
-      const meter = document.createElement('div');
-      meter.className = 'habit-meter is-empty';
-      meter.dataset.dial = key;
-      meter.style.setProperty('--meter-color', spec.color);
-      meter.innerHTML = `<div class="habit-meter-head"><span class="habit-meter-name">${spec.label}</span><span class="habit-meter-unit">${spec.unit}</span></div>`
-        + `<div class="habit-meter-main"><strong class="habit-meter-read">—</strong>`
-        + `<div class="habit-meter-actions"><button type="button" class="habit-meter-step" data-dial-dec="${key}" aria-label="减少${spec.label}">−</button>`
-        + `<button type="button" class="habit-meter-step" data-dial-inc="${key}" aria-label="增加${spec.label}">＋</button></div></div>`
-        + `<div class="habit-meter-track" role="slider" tabindex="0" aria-label="${spec.label}" aria-valuemin="${spec.min}" aria-valuemax="${spec.max}" aria-valuenow="0"><span class="habit-meter-fill"></span><span class="habit-meter-thumb"></span></div>`;
-      host.append(meter);
-      const read = $('.habit-meter-read', meter);
-      const fill = $('.habit-meter-fill', meter);
-      const thumb = $('.habit-meter-thumb', meter);
-      const track = $('.habit-meter-track', meter);
-      const setValue = value => {
-        const clamped = Math.max(spec.min, Math.min(spec.max, Math.round(value / spec.step) * spec.step));
-        field.value = clamped > 0 ? String(clamped) : '';
-        const ratio = clamped / spec.max;
-        fill.style.width = `${(ratio * 100).toFixed(1)}%`;
-        thumb.style.left = `${(ratio * 100).toFixed(1)}%`;
-        read.textContent = clamped > 0 ? fmt(clamped, 0) : '—';
-        // 五位数会被 − ＋ 挤掉：到万位就把字号降一档，宁可小一点也不能把位数截掉。
-        read.style.fontSize = clamped >= 10000 ? '17px' : '20px';
-        track.setAttribute('aria-valuenow', String(clamped));
-        track.setAttribute('aria-valuetext', clamped > 0 ? `${fmt(clamped, 0)} ${spec.unit}` : '未填写');
-        meter.classList.toggle('is-empty', clamped <= 0);
-        return clamped;
-      };
-      dials[key] = {meter, field, spec, setValue};
-      setValue(number(field.value) ?? 0);
-      // 横向取值：点/拖轨道任意一点即按横向比例改数，起手点就是数值，不用先找环带。
-      const fromPointer = event => {
-        const box = track.getBoundingClientRect();
-        const ratio = Math.max(0, Math.min(1, (event.clientX - box.left) / Math.max(1, box.width)));
-        return spec.min + ratio * (spec.max - spec.min);
-      };
-      let dragging = false;
-      track.addEventListener('pointerdown', event => {
-        dragging = true;
-        try { track.setPointerCapture(event.pointerId); } catch {}
-        setValue(fromPointer(event));
-      });
-      track.addEventListener('pointermove', event => { if (dragging) setValue(fromPointer(event)); });
-      const stopDrag = () => { dragging = false; };
-      track.addEventListener('pointerup', stopDrag);
-      track.addEventListener('pointercancel', stopDrag);
-      track.addEventListener('keydown', event => {
-        const nowValue = number(field.value) ?? 0;
-        const jump = event.shiftKey ? spec.step * 4 : spec.step;
-        if (event.key === 'ArrowRight' || event.key === 'ArrowUp') { event.preventDefault(); setValue(nowValue + jump); }
-        else if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') { event.preventDefault(); setValue(nowValue - jump); }
-        else if (event.key === 'Home') { event.preventDefault(); setValue(spec.min); }
-        else if (event.key === 'End') { event.preventDefault(); setValue(spec.max); }
-      });
+  /**
+   * 训练的两张静态 sheet（2026-11-22 四模块清单之二）：「计划说明」放本周要求 / 怎么排的 / 今日要求；
+   * 「更多」放顺延与清空——这两件低频动作不再各占一行卡面。
+   */
+  function installTrainingSheets() {
+    const sheetOf = id => $(id);
+    const open = id => {
+      const node = sheetOf(id);
+      if (!node) return;
+      node.hidden = false;
+      const first = node.querySelector('button, textarea, [data-sheet-focus]');
+      if (first) first.focus({preventScroll: true});
+    };
+    const close = id => { const node = sheetOf(id); if (node) node.hidden = true; };
+    const pairs = [['#plan-explain-open', '#plan-sheet', '#plan-sheet-close'], ['#training-more', '#training-more-sheet', '#training-more-close']];
+    for (const [trigger, sheet, closer] of pairs) {
+      $(trigger)?.addEventListener('click', () => open(sheet));
+      $(closer)?.addEventListener('click', () => close(sheet));
+      $(sheet)?.addEventListener('click', event => { if (event.target === sheetOf(sheet)) close(sheet); });
     }
-    host.addEventListener('click', event => {
-      const button = event.target.closest('.habit-meter-step');
-      if (!button) return;
-      const key = button.dataset.dialDec || button.dataset.dialInc;
-      const entry = dials[key];
-      if (!entry) return;
-      const current = number(entry.field.value) ?? 0;
-      entry.setValue(current + (button.dataset.dialInc ? entry.spec.step : -entry.spec.step));
+    // 更多里的两件事：点的是原来那两个按钮，行为一模一样；点完把 sheet 收起来。
+    for (const id of ['#ai-plan-postpone', '#training-clear']) {
+      $(id)?.addEventListener('click', () => close('#training-more-sheet'));
+    }
+    document.addEventListener('keydown', event => {
+      if (event.key !== 'Escape') return;
+      if (sheetOf('#plan-sheet') && !sheetOf('#plan-sheet').hidden) close('#plan-sheet');
+      if (sheetOf('#training-more-sheet') && !sheetOf('#training-more-sheet').hidden) close('#training-more-sheet');
     });
-    const fillFrom = (key, value) => { dials[key]?.setValue(value); };
-    const chipLabel = (key, value) => key === 'steps'
-      ? `${fmt(value / 1000, value % 1000 ? 1 : 0)}k`
-      : `${fmt(value / 1000, value % 500 ? 2 : 1)}L`;
+  }
+  function installHabitChips() {
+    const form = $('#habit-form');
+    if (!form || form.dataset.habitWired === '1') return;
+    form.dataset.habitWired = '1';
+    const meters = {};
+    for (const key of HABIT_KEYS) {
+      const meter = $(`[data-habit="${key}"]`, form);
+      const field = form.elements[key];
+      if (!meter || !field) continue;
+      const spec = HABIT_DIAL[key];
+      meters[key] = {meter, field, spec, track: $('.habit-meter-track', meter),
+        fill: $('.habit-meter-fill', meter), thumb: $('.habit-meter-thumb', meter)};
+      // 输入途中只跟状态、不整形：把「7.」立刻写成「7」会把小数点吃掉。
+      field.addEventListener('input', () => paintMeter(key));
+      field.addEventListener('change', () => { snapMeter(key); paintMeter(key); });
+    }
+    const valueOf = key => meters[key] ? number(meters[key].field.value) : null;
+    const specOf = key => HABIT_DIAL[key];
+    function paintMeter(key) {
+      const entry = meters[key];
+      if (!entry) return;
+      const value = number(entry.field.value) ?? 0;
+      const ratio = Math.max(0, Math.min(1, value / entry.spec.max));
+      entry.fill.style.width = `${(ratio * 100).toFixed(1)}%`;
+      entry.thumb.style.left = `${(ratio * 100).toFixed(1)}%`;
+      entry.meter.classList.toggle('is-empty', value <= 0);
+      entry.track.setAttribute('aria-valuenow', String(value));
+      entry.track.setAttribute('aria-valuetext', value > 0 ? `${fmt(value, entry.spec.digits)} ${entry.spec.unit}` : '未填写');
+    }
+    function setMeter(key, value) {
+      const entry = meters[key];
+      if (!entry) return null;
+      const {min, max, digits} = entry.spec;
+      const clamped = Math.max(min, Math.min(max, Number(Number(value).toFixed(1))));
+      entry.field.value = digits ? String(Number(clamped.toFixed(1))) : String(Math.round(clamped));
+      paintMeter(key);
+      return Number(entry.field.value);
+    }
+    function snapMeter(key) {
+      const entry = meters[key];
+      if (!entry) return;
+      const raw = number(entry.field.value);
+      if (raw === null) { entry.field.value = ''; paintMeter(key); return; }
+      setMeter(key, raw);
+    }
+    const bump = (key, direction) => {
+      if (!meters[key]) return;
+      setMeter(key, (valueOf(key) ?? 0) + direction * specOf(key).step);
+    };
     const renderChips = () => {
       const quick = readHabitQuick();
-      row.innerHTML = ['steps', 'water'].map(key => quick[key].map(value =>
-        `<button type="button" class="habit-chip" data-habit-key="${key}" data-habit-value="${value}" aria-label="填入 ${chipLabel(key, value)}${key === 'steps' ? ' 步' : ' 毫升'}">${chipLabel(key, value)}<span class="habit-chip-x" data-habit-drop="${key}:${value}" role="button" aria-label="从常用值里删掉 ${chipLabel(key, value)}">×</span></button>`
-      ).join('')).join('')
-        + '<button type="button" class="habit-chip habit-chip-add" data-habit-save="1" aria-label="把当前填的数值存成常用">＋ 存为常用</button>';
+      for (const key of HABIT_KEYS) {
+        const box = $(`[data-habit-chips="${key}"]`, form);
+        if (!box) continue;
+        const spec = specOf(key);
+        // 饮水两枚是「再加」：一次喝掉多少比「总量定格」更接近真实动作；步数与睡眠是设值。
+        const mode = key === 'water' ? 'add' : 'set';
+        const values = key === 'sleep' ? [7, 8] : quick[key];
+        box.innerHTML = values.map(value =>
+          `<button type="button" class="habit-chip" data-habit-chip="1" data-habit-key="${key}" data-habit-mode="${mode}" data-habit-value="${value}" aria-label="${mode === 'add' ? '再加' : '填入'}${fmt(value, spec.digits)}${spec.unit}">${mode === 'add' ? '+' : ''}${habitQuickLabel(key, value)}</button>`
+        ).join('');
+      }
     };
     renderChips();
-    if (copyRow && !$('[data-habit-edit]', copyRow)) {
-      copyRow.innerHTML = '<button type="button" class="button subtle" data-habit-copy="1">复制昨天</button>'
-        + '<button type="button" class="text-button" data-habit-edit="1" aria-pressed="false">调整常用值</button>';
-    }
-    row.addEventListener('click', event => {
-      // 「存为常用」：这才是可自定义的那一步——今天填的数不必非得保存整天，也能进那三枚。
-      const save = event.target.closest('[data-habit-save]');
-      if (save) {
-        const quick = readHabitQuick();
-        let added = 0;
-        for (const key of ['steps', 'water']) {
-          const value = number(form.elements[key]?.value);
-          if (value === null || value <= 0) continue;
-          if (quick[key][0] === value) continue;
-          quick[key] = [value, ...quick[key].filter(item => item !== value)].slice(0, 3);
-          added += 1;
-        }
-        if (!added) {notice('先在上面的框里填一个数值，再存为常用。', true); return;}
-        writeHabitQuick(quick);
-        renderChips();
-        notice('已存为常用，下次点一下就能填。');
-        return;
-      }
-      const drop = event.target.closest('[data-habit-drop]');
-      if (drop) {
-        const [key, value] = String(drop.dataset.habitDrop).split(':');
-        const quick = readHabitQuick();
-        quick[key] = quick[key].filter(item => item !== Number(value));
-        // 全删空就回落到默认三档，否则这行会变成空的。
-        if (!quick[key].length) quick[key] = HABIT_QUICK_FALLBACK[key].slice();
-        writeHabitQuick(quick);
-        renderChips();
-        return;
-      }
-      const chip = event.target.closest('[data-habit-key]');
-      if (!chip) return;
-      fillFrom(chip.dataset.habitKey, Number(chip.dataset.habitValue));
-      // 不抢焦点：这里只是代入默认值，弹起键盘会挡住下面的字段和保存按钮。
-      chip.classList.add('is-used');
-      setTimeout(() => chip.classList.remove('is-used'), 900);
+    // 点一下走一步，按住连加：120ms 一步，松手即停；越界由 setMeter 夹住。
+    let repeat = null;
+    const stopRepeat = () => { if (repeat) { clearInterval(repeat); repeat = null; } };
+    form.addEventListener('pointerdown', event => {
+      const button = event.target.closest('[data-habit-step]');
+      if (!button) return;
+      event.preventDefault();
+      const key = button.dataset.habitStep, direction = Number(button.dataset.habitDir) || 1;
+      bump(key, direction);
+      stopRepeat();
+      repeat = setInterval(() => bump(key, direction), 120);
     });
-    copyRow?.addEventListener('click', event => {
-      const edit = event.target.closest('[data-habit-edit]');
-      if (edit) {
-        const on = !row.classList.contains('is-editing');
-        row.classList.toggle('is-editing', on);
-        edit.setAttribute('aria-pressed', String(on));
-        edit.textContent = on ? '完成' : '调整常用值';
+    window.addEventListener('pointerup', stopRepeat);
+    window.addEventListener('pointercancel', stopRepeat);
+    // 刻度轨道：点/拖任意位置即按横向比例改数，起手点就是数值。
+    form.addEventListener('pointerdown', event => {
+      const track = event.target.closest('.habit-meter-track');
+      if (!track) return;
+      const key = track.closest('[data-habit]')?.dataset.habit;
+      if (!meters[key]) return;
+      event.preventDefault();
+      try { track.setPointerCapture(event.pointerId); } catch {}
+      track.dataset.dragging = '1';
+      setMeter(key, fromPointer(key, event));
+    });
+    form.addEventListener('pointermove', event => {
+      const track = event.target.closest?.('.habit-meter-track');
+      if (!track || track.dataset.dragging !== '1') return;
+      const key = track.closest('[data-habit]')?.dataset.habit;
+      if (meters[key]) setMeter(key, fromPointer(key, event));
+    });
+    const stopDrag = event => {
+      const track = event.target.closest?.('.habit-meter-track');
+      if (track) delete track.dataset.dragging;
+    };
+    window.addEventListener('pointerup', stopDrag);
+    window.addEventListener('pointercancel', stopDrag);
+    function fromPointer(key, event) {
+      const entry = meters[key];
+      const box = entry.track.getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(1, (event.clientX - box.left) / Math.max(1, box.width)));
+      return entry.spec.min + ratio * (entry.spec.max - entry.spec.min);
+    }
+    form.addEventListener('keydown', event => {
+      const track = event.target.closest?.('.habit-meter-track');
+      if (!track) return;
+      const key = track.closest('[data-habit]')?.dataset.habit;
+      const entry = meters[key];
+      if (!entry) return;
+      const now = valueOf(key) ?? 0;
+      const jump = event.shiftKey ? entry.spec.step * 4 : entry.spec.step;
+      const handled = ['ArrowRight', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'Home', 'End'].includes(event.key);
+      if (!handled) return;
+      event.preventDefault();
+      if (event.key === 'ArrowRight' || event.key === 'ArrowUp') setMeter(key, now + jump);
+      else if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') setMeter(key, now - jump);
+      else if (event.key === 'Home') setMeter(key, entry.spec.min);
+      else setMeter(key, entry.spec.max);
+    });
+    form.addEventListener('click', event => {
+      const step = event.target.closest('[data-habit-step]');
+      // 键盘回车/空格只派发 click（detail = 0）：补这一下，指针那一路已经在 pointerdown 里做过。
+      if (step) {
+        if (event.detail === 0) bump(step.dataset.habitStep, Number(step.dataset.habitDir) || 1);
         return;
       }
+      const chip = event.target.closest('[data-habit-chip]');
+      if (chip) {
+        const key = chip.dataset.habitKey, value = Number(chip.dataset.habitValue);
+        setMeter(key, (chip.dataset.habitMode === 'add' ? (valueOf(key) ?? 0) : 0) + value);
+        chip.classList.add('is-used');
+        setTimeout(() => chip.classList.remove('is-used'), 600);
+        return;
+      }
+      // 沿用昨日数据：只填昨天真记过的项，空项不写成本日数字。
       const copy = event.target.closest('[data-habit-copy]');
       if (!copy) return;
       const yesterday = shiftDay(localDate(), -1);
       const rowData = (state.habits || []).find(item => item && item.date === yesterday);
-      if (!rowData) {notice('昨天没有习惯记录可复制。', true); return;}
-      for (const key of ['steps', 'water']) {
-        if (number(rowData[key]) !== null) fillFrom(key, number(rowData[key]));
+      if (!rowData) { notice('昨天没有习惯记录可复制。', true); return; }
+      let filled = 0;
+      for (const key of HABIT_KEYS) {
+        if (number(rowData[key]) === null) continue;
+        setMeter(key, number(rowData[key]));
+        filled += 1;
       }
-      notice('已填入昨天的数值，可修改后保存。');
+      notice(filled ? '已填入昨天的数值，可修改后保存。' : '昨天只有训练记录，没有可沿用的数值。', !filled);
+    });
+    // 快捷值可改，但改法不进卡面：右上角两步 sheet——先选槽位，再选数值，写完立刻生效。
+    $('#habit-quick-edit')?.addEventListener('click', async () => {
+      if (sheetOpen()) return;
+      const quick = readHabitQuick();
+      const slots = [{key: 'steps', index: 0}, {key: 'steps', index: 1}, {key: 'water', index: 0}, {key: 'water', index: 1}];
+      const slotChoice = await openSheet({title: '自定义快捷值', options: slots.map(slot => ({
+        label: `${HABIT_DIAL[slot.key].label}${slot.key === 'water' ? '每次加量' : '快捷值'} ${slot.index + 1} · ${habitQuickLabel(slot.key, quick[slot.key][slot.index])}`
+      }))});
+      if (slotChoice === null) return;
+      const slot = slots[slotChoice];
+      const spec = HABIT_DIAL[slot.key];
+      const valueChoice = await openSheet({title: `${spec.label}快捷值 ${slot.index + 1}`, options: spec.candidates.map(value => ({
+        label: `${fmt(value, spec.digits)} ${spec.unit}`, current: quick[slot.key][slot.index] === value
+      }))});
+      if (valueChoice === null) return;
+      const value = spec.candidates[valueChoice];
+      if (quick[slot.key][slot.index] === value) return;
+      // 两枚胶囊不重复：撞上另一槽就交换，否则卡底会出现两个一样的数。
+      const other = 1 - slot.index;
+      if (quick[slot.key][other] === value) quick[slot.key][other] = quick[slot.key][slot.index];
+      quick[slot.key][slot.index] = value;
+      writeHabitQuick(quick);
+      renderChips();
+      notice(`已改为 ${fmt(value, spec.digits)} ${spec.unit}。`);
     });
   }
   /** Suggested questions: an empty box is the main reason people do not ask anything. */
@@ -11223,7 +11275,7 @@ feedback(message,'数据已导入。'+report);
   installTrendPanels();
   installProfileAutoRecalc();
   applyTrainingVisibility();
-  installCardCollapse(); installTrainingAdvice(); installHabitChips(); installChatChips();
+  installCardCollapse(); installTrainingAdvice(); installTrainingSheets(); installTodayAction(); installHabitChips(); installChatChips();
   /**
    * 今天页「小习惯 / 今日记录」并成一张带标签的卡（2026-11-22 第八轮）：
    * 默认露习惯，切到记录才展开餐食列表；选择记在本机，换天不重置。
@@ -11248,7 +11300,7 @@ feedback(message,'数据已导入。'+report);
       try { localStorage.setItem(TODAY_FOLD_KEY, tab.dataset.foldTab); } catch {}
     }));
   }
-  setupCollapsibleSections(); installQuickRecordControls(); installHealthConnectControls(); installBodyDataControls(); installTodayStatusStrip(); installTodayMoreMenu(); installTodayFold(); restoreConsent(); installExternalConsent(); installExactAlarmControl();
+  setupCollapsibleSections(); installQuickRecordControls(); installHealthConnectControls(); installBodyDataControls(); installTodayMoreMenu(); installTodayFold(); restoreConsent(); installExternalConsent(); installExactAlarmControl();
 /* 问答页分段：问答 / 训练建议（2026-11-17：今日训练建议从今天页迁到问答页）。
    面板显隐沿用记录页的 .record-panel[hidden] 约定，选择记在 localStorage。 */
 (function () {

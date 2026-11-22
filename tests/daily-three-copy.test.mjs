@@ -14,17 +14,16 @@ const main = fs.readFileSync('app/src/main/java/cn/qingheng/health/MainActivity.
 
 // --- today's two things -----------------------------------------------------------------------------
 // 2026-11-18：三样卡并入体检后，记录页「身体」面板新增「今天两样」：体重 + 睡眠一次保存。
-check('the three things merged into the single next step', !html.includes('id="daily-three"') && app.includes("id: 'protein-gap'") && app.includes('is-next'));
-check('the body panel asks for weight and sleep in one row', html.includes('id="body-quick-form"') && html.includes('name="weight"') && html.includes('name="sleep"'));
+// 2026-11-22（四模块清单之三）：收窄为「今天体重」单栏；睡眠迁进日常习惯；体重的唯一可编辑处是身体数据卡。
+check('the three things merged into the single action line', !html.includes('id="daily-three"') && app.includes("id: 'protein-gap'") && html.includes('id="today-action"'));
+check('today\'s weight is a single read-only card with a jump', html.includes('id="body-weight-jump"') && !html.includes('id="body-quick-form"'));
+check('weight is editable in exactly one place', ((html.slice(html.indexOf('id="view-records"'), html.indexOf('id="habit-card"')).match(/name="weight"/g)) || []).length === 1);
 check('the manual oil field is not duplicated outside the estimate flow', !html.includes('name="oilSpoons"'));
 check('weight is asked for under the documented conditions', html.includes('空腹、同一状态'));
-check('the card is prefilled from the day being viewed', app.includes("const habit = (state.habits || []).find(row => row && row.date === activeDate) || {};") && app.includes("const measurement = (state.measurements || []).find(row => row && row.date === activeDate) || {};"));
-check('a two-part tag shows progress', app.includes("filled === 2 ? '已记录两样' : `已记录 ${filled}/2`"));
-check('an empty submit is refused', /if \(weight === null && sleep === null\)[\s\S]{0,80}都空着/.test(app));
-check('sleep merges into the habit row of the day', app.includes("await api('/api/habits', {...(habitRowFor(activeDate) || {}), date: activeDate, sleep});"));
-check('weight updates the same-day measurement instead of adding a row', app.includes("await api('/api/measurements', {...(measurementRowFor(activeDate) || {}), date: activeDate, weight});") && app.includes('function measurementRowFor(date)'));
-check('the app reports what was stored', app.includes("feedback(message, `已记录：${saved.join('、')}。`);"));
-check('the card is re-rendered with the day view', app.includes('    renderBodyQuick();'));
+check('sleep moved into the habit form', html.includes('id="habit-sleep"') && html.slice(html.indexOf('id="habit-form"')).includes('name="sleep"'));
+check('the habit form saves all three numbers', app.includes("numericForm(form,['steps','water','sleep'])"));
+check('weight updates the same-day measurement instead of adding a row', app.includes("numericForm(f, ['weight', 'waist', 'bodyFat', 'muscle', 'visceralFat', 'bmr'])") && app.includes("measurementRowFor(f.elements.date.value)"));
+check('the card follows the viewed day', app.includes("function renderBodyWeight()") && app.includes("$('#body-weight-jump')"));
 
 // --- native validation for the habit row --------------------------------------------------------------
 check('habits are validated natively', main.includes('private void requireHabitFields(JSONObject record)'));
@@ -49,7 +48,7 @@ check('an empty list is explained instead of showing a blank box', app.includes(
 check('the copy list is re-rendered with the records view', app.includes('    renderCopyMeals();'));
 
 // --- styles -------------------------------------------------------------------------------------------
-check('the two-things row is a two-column grid on a phone', css.includes('.quick-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))'));
+check('the two-field row leaves no dead style behind', !css.includes('.quick-two') && !css.includes('.quick-capsule') && css.includes('.body-weight{display:flex;flex-direction:column'));
 check('copy buttons are readable', css.includes('#copy-meal-buttons .button{justify-content:flex-start'));
 
 console.log('\nFAIL total: ' + fail);

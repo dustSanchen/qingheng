@@ -18,7 +18,7 @@ check('chat context links to the existing meal field, not a new editor', html.in
 check('the chat link text follows the selected day count', app.includes("recordLink.textContent=count>0?'查看这一天的记录':'去记录这一天'"));
 check('the link uses the existing delegated go handler', app.includes("document.addEventListener('click'") && app.includes('revealField(action.dataset.focus)'));
 check('no second records page or duplicate form is introduced', (html.match(/id="view-records"/g) || []).length === 1);
-check('the records page still has one primary form per segment', ['id="estimate-form"', 'id="training-form"', 'id="body-quick-form"'].every(id => html.includes(id)));
+check('the records page still has one primary form per segment', ['id="estimate-form"', 'id="training-form"', 'id="measurement-form"', 'id="habit-form"'].every(id => html.includes(id)));
 
 console.log('FAIL total: ' + fail);
 process.exitCode = fail ? 1 : 0;

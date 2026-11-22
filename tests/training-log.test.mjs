@@ -35,7 +35,7 @@ check('the tag summarises what is logged', app.includes('`${TRAINING_TEMPLATES[t
 // --- one row per day ------------------------------------------------------------------------------------
 check('a habit-row lookup exists', app.includes('function habitRowFor(date)'));
 check('duplicate rows are resolved by keeping the fullest', app.includes('rows.slice().sort((a, b) => JSON.stringify(b).length - JSON.stringify(a).length)[0]'));
-check('the daily-three submit merges instead of appending', app.includes("await api('/api/habits', {...(habitRowFor(activeDate) || {}), date: activeDate,"));
+check('the habit submit merges into the same-day row instead of appending', app.includes("return {...(habitRowFor(form.elements.date.value)||{}), date:form.elements.date.value, ...filled};"));
 check('the training log reads back the stored exercises', app.includes('function exercisesFor(date)'));
 
 // --- volume maths -----------------------------------------------------------------------------------------

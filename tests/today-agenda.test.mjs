@@ -101,11 +101,11 @@ agenda = build({isToday: false, meals: [{date: '2026-11-20'}]});
 check('a past day with records has no live urgency', agenda.primary === null && agenda.secondary.length === 0);
 
 check('the old false "补训练" copy is gone from the bundle', !app.includes('补训练'));
-check('the slot hint consumes the agenda', app.includes('todayAgendaState') && app.includes('dataset.todayAction'));
+check('the action line consumes the agenda', app.includes('todayAgendaState') && app.includes('bar.dataset.target = item.target'));
 check('the daily check keeps one sleep jump, not a second action surface', app.includes('href="#records" data-focus="habit-sleep"'));
-check('the suggestion stream consumes the agenda secondaries', app.includes('agenda.secondary') && app.includes('slot-row'));
+check('the sheet consumes the agenda secondaries', app.includes('agenda.secondary') && app.includes('data-brief-index'));
 check('a protein gap becomes the next step instead of a third reminder', app.includes("id: 'protein-gap'") && app.includes('下一餐补蛋白') && app.includes('proteinGap'));
-check('the next step is labelled explicitly', app.includes('primary ? "下一步" : quiet ? "状态" : clock') && app.includes('classList.toggle("is-next"'));
+check('the action line names itself for screen readers', app.includes('`下一步：${item.label}') && app.includes('bar.setAttribute("aria-label"'));
 check('the daily check no longer hardcodes its own sleep/weight fixes', !app.includes("if (sleepValue === null) fixes.push(chip('补睡眠'") && !app.includes("if (!weightLogged) fixes.push(chip('补体重'"));
 check('the rest control is bound to the existing habit row', app.includes("#training-rest") && app.includes('next.training = false'));
 check('the training log exposes a state tag', html.includes('id="training-tag"') && app.includes("restMarked ? '休息日'"));

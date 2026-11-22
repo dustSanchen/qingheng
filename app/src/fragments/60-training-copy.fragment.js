@@ -862,8 +862,8 @@
       + '<div hidden>' + `<p class="check-verdict">${esc(check.verdict)}</p>`;
     // 结论不再单独占一行：并进状态胶囊，和热量/宏量提示按优先级轮播。
     TODAY_SIGNALS.check = check.verdict || '';
-    renderTodayStatusStrip(false);
-    // A single next step lives in slot-hint; the check itself only reports state,
+    if (typeof renderTodayAction === 'function') renderTodayAction();
+    // 首屏只有一条行动行（#today-action）；体检只报状态，不再各给一条「该做什么」。
     // except for a missing sleep value, which keeps its direct jump.
     const sleepMissing = number(habit.sleep) === null;
     if (sleepMissing) {
@@ -1592,8 +1592,7 @@
       + '<p>' + esc(plan.note) + '</p>'
       + (Array.isArray(plan.reasons) ? plan.reasons.map(reason =>
         '<p>' + esc(reason.text) + '</p>').join('') : '');
-    // 要点跟着周条上选中的那天走，按那天计划里实际要做的动作点名：计划换一版、动作变了，要点跟着变。
-    const cueHtml = weekCueHtml(weekDetailDay, plan);
+    // 2026-11-22：常驻的「动作要点」折叠块撤掉——动作名旁的 ? 已是唯一入口。
     // 「怎么来的」是这一周的口径，与哪天选中无关，所以单独折叠、切日期也不动它。
     const whyHtml = '<details class="plan-why"><summary>这周怎么排的</summary>' + whyBody + '</details>';
     // 本周安排：完全按用户偏好生成；没有偏好就不出方案。
@@ -1615,15 +1614,8 @@
           }
           const detail = $("#week-detail");
           if (detail) detail.textContent = weekDetailHtml(day, lastWeekPlan);
-          // 要点整块换掉：内容按那天的动作重算，不重渲染整页，避免闪一下和滚动位置丢失。
-          const cueHost = $("#week-cues-host");
-          if (cueHost) {
-            cueHost.innerHTML = weekCueHtml(day, lastWeekPlan);
-            // Default is folded so the log stays near the first screen; picking a date opens
-            // that day's cue immediately.
-            const cue = cueHost.querySelector('#week-cues');
-            if (cue) cue.open = true;
-          }
+          // 2026-11-22：常驻「动作要点」块已撤掉，点日期只换这一行明细；
+          // 单个动作的要点走动作名旁的 ?（showExerciseGuide），不再占卡面。
           return;
         }
         const button = event.target.closest("[data-adopt-today]");
@@ -1687,7 +1679,15 @@
     const relationHtml = plan.days.length
       ? '<p class="fine-print">上面按偏好与最近记录排周框架，下面的「今日顺序」是模型照它排的执行顺序；两者不一致时以今日顺序为准。</p>'
       : '';
-    box.innerHTML = annotateTerms(thisWeekHtml + goalRequirementHtml + relationHtml + '<div id="week-cues-host">' + cueHtml + '</div>' + whyHtml + acwrHtml + driftHtml + adoptHtml + suggestedNote + scheduleHtml);
+    box.innerHTML = annotateTerms(thisWeekHtml + goalRequirementHtml + relationHtml + whyHtml + acwrHtml + driftHtml + adoptHtml + suggestedNote + scheduleHtml);
+    // 计划说明进 sheet：本周要求 / 怎么排的 / 负荷都搬过去，卡面只留本周安排。
+    const explainHost = $('#plan-explain-body');
+    if (explainHost) {
+      explainHost.innerHTML = '';
+      for (const node of box.querySelectorAll('.plan-why, .plan-why-lead, .acwr-line, .drift-line')) {
+        explainHost.appendChild(node.cloneNode(true));
+      }
+    }
   }
 
   /** Load and plateau warnings shown above the weight chart. */
@@ -1707,23 +1707,18 @@
   }
 
   /**
-   * 记录·身体 的「今天两样」：体重与睡眠并排一行、一次保存（2026-11-18）。
-   * 原来要滚两张长表、按两次保存才能补齐当天这两项；现在面板一打开就是这两格。
+   * 记录·身体 的「今天体重」（2026-11-22 由「今天两样」收窄）：卡片只报当天这一条，
+   * 点它跳到身体数据卡的体重格——体重只有一个可编辑处，不出现两套口径。
    */
-  function renderBodyQuick() {
-    const form = $('#body-quick-form');
-    if (!form) return;
-    const habit = (state.habits || []).find(row => row && row.date === activeDate) || {};
+  function renderBodyWeight() {
+    const box = $('#body-weight-jump');
+    if (!box) return;
     const measurement = (state.measurements || []).find(row => row && row.date === activeDate) || {};
-    const sleep = number(habit.sleep), weight = number(measurement.weight);
-    // 正在输入的那一格不覆盖：重渲染不该把用户刚打的字冲掉。
-    if (document.activeElement !== form.elements.weight) form.elements.weight.value = weight ?? '';
-    if (document.activeElement !== form.elements.sleep) form.elements.sleep.value = sleep ?? '';
-    const filled = [weight !== null, sleep !== null].filter(Boolean).length;
-    const tag = $('#body-quick-tag');
-    if (tag) tag.textContent = filled === 0 ? '待记录' : filled === 2 ? '已记录两样' : `已记录 ${filled}/2`;
-    const note = $('#body-quick-note');
-    if (note) note.textContent = `记到 ${activeDate.slice(5).replace('-', '/')} · 体重按空腹、同一状态记；只填一项也行，同一天再填会更新。`;
+    const weight = number(measurement.weight);
+    const value = $('#body-weight-value'), note = $('#body-weight-hint'), tag = $('#body-quick-tag');
+    if (value) value.textContent = weight === null ? '—' : fmt(weight, 1);
+    if (note) note.textContent = weight === null ? '点一下填今天的体重' : `已记 ${activeDate.slice(5).replace('-', '/')} · 点一下可修改`;
+    if (tag) tag.textContent = weight === null ? '待记录' : '已记录';
     // 折叠态标题的常用指标也要跟着数据走，别等用户展开才补。
     if (typeof paintBodyDataHints === 'function') paintBodyDataHints();
   }
@@ -1783,8 +1778,7 @@
       const payload=build(form); if (payload===null) return;
       await api(path,payload);
       feedback(message,'已保存。');
-      // 习惯保存成功才把这个数记成「常用值」：失败的提交不该污染那三枚。
-      if (path === '/api/habits' && typeof rememberHabitQuick === 'function') rememberHabitQuick(payload);
+      // 快捷值不再由「保存过什么」自动改写：它现在由「自定义快捷值」显式设定，卡底两枚要可预期。
       if (path === '/api/meals') {form.reset();setDefaultDates();}
       if (path === '/api/settings') {delete providerDrafts[selectedProvider];form.elements.apiKey.value='';form.elements.clearKey.checked=false;}
       try {await loadState({quiet:true});} catch {feedback(message,'保存成功，但刷新失败。请检查连接后重新加载；不要重复提交。',true);}

@@ -58,22 +58,17 @@ check('a good day keeps one calm line', /保持就好/.test(fine.verdict) && !/�
 const relaxed = dailyCheck({ meals: [{ totals: { calories: 2600, protein: 150, fat: 90 } }], habit: { sleep: 8 }, range, ...macros, relax: true });
 check('the relax day still explains itself in one line', /放松日/.test(relaxed.verdict) && /不用少吃/.test(relaxed.verdict) && /照常/.test(relaxed.action), relaxed.verdict);
 
-// --- 4. 记录·身体：今天两样 ---------------------------------------------------------------------------
-check('the body panel opens with a two-field card', html.includes('id="body-quick"') && html.includes('id="body-quick-form"'));
-check('weight and sleep keep their jump targets', html.includes('id="measurement-weight"') && html.includes('name="weight"') && html.includes('id="habit-sleep"') && html.includes('name="sleep"'));
-check('the two fields sit in one two-column row', html.includes('<div class="quick-two">') && css.includes('.quick-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))'));
-check('one primary button saves the pair', html.includes('id="body-quick-form"') && /<button class="button primary full-width" type="submit">保存今天<\/button>/.test(html));
-check('weight is no longer asked twice', !html.slice(html.indexOf('id="measurement-form"'), html.indexOf('id="habit-form"')).includes('name="weight"'));
-check('sleep is no longer asked twice', !html.slice(html.indexOf('id="habit-form"'), html.indexOf('id="training-log"')).includes('name="sleep"'));
-check('the secondary forms keep a quiet button', html.includes('<button class="button subtle" type="submit">保存身体记录</button>') && html.includes('<button class="button subtle" type="submit">保存日常习惯</button>'));
-check('the pair is pre-filled from the day being viewed', app.includes('function renderBodyQuick()') && app.includes('form.elements.weight.value = weight ?? \'\'') && app.includes('form.elements.sleep.value = sleep ?? \'\''));
-check('saving the pair writes both collections', app.includes("await api('/api/habits', {...(habitRowFor(activeDate) || {}), date: activeDate, sleep});") && app.includes("await api('/api/measurements', {...(measurementRowFor(activeDate) || {}), date: activeDate, weight});"));
-check('an empty pair is refused with words, not a silent no-op', /if \(weight === null && sleep === null\)[\s\S]{0,80}都空着/.test(app));
-check('the same-day measurement row is reused', app.includes('function measurementRowFor(date)') && /measurementRowFor\([a-z]+\.elements\.date\.value\)/.test(app));
-check('the body panel lists it first', app.includes("headings: ['今天两样', '身体数据', '日常习惯']"));
-check('the habit form no longer pretends to own sleep', !app.includes("numericForm(form,['steps','sleep','water'])") && !app.includes("['睡眠 7.5h', 'sleep', 7.5]"));
-check('its tag reports the pair', app.includes("filled === 2 ? '已记录两样' : `已记录 ${filled}/2`"));
-check('it is re-rendered with the day view', app.includes('    renderBodyQuick();'));
+// --- 4. 记录·身体：今天体重（2026-11-22 由「今天两样」收窄）-----------------------------------------
+check('the body panel opens with today\'s weight', html.includes('id="body-quick"') && html.includes('id="body-weight-jump"') && !html.includes('id="body-quick-form"'));
+check('the weight card is a read-only jump, not a second form', html.includes('data-focus="measurement-weight"') && !/<form id="body-quick-form"/.test(html));
+check('weight is editable in exactly one place', ((html.slice(html.indexOf('id="view-records"'), html.indexOf('id="habit-card"')).match(/name="weight"/g)) || []).length === 1);
+check('sleep lives in the habit form only', html.slice(html.indexOf('id="habit-form"')).includes('name="sleep"') && !html.slice(html.indexOf('id="body-quick"'), html.indexOf('id="body-data-card"')).includes('name="sleep"'));
+check('the weight card follows the viewed day', app.includes('function renderBodyWeight()') && app.includes("$('#body-weight-jump')") && app.includes("tag.textContent = weight === null ? '待记录' : '已记录'"));
+check('the jump lands on the measurement field', app.includes("revealField('measurement-weight', {focus: false, block: 'start'})"));
+check('the body form saves weight with the rest', app.includes("numericForm(f, ['weight', 'waist', 'bodyFat', 'muscle', 'visceralFat', 'bmr'])"));
+check('the same-day measurement row is reused', app.includes('function measurementRowFor(date)') && app.includes('measurementRowFor(f.elements.date.value)'));
+check('the outlier guard still compares weight', app.includes('Math.abs(weight - prevWeight) >= 2'));
+check('the body panel lists the weight card first', app.includes("headings: ['今天体重', '身体数据', '日常习惯']"));
 
 console.log('\nFAIL total: ' + fail);
 process.exitCode = fail ? 1 : 0;

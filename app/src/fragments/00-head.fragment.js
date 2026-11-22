@@ -427,7 +427,6 @@
    * 一次只显示一条，右上角 1/N；点一下看下一条，6 秒自动轮换；没有内容就整条收起。
    */
   const TODAY_SIGNALS = {energy: [], check: ''};
-  let statusCursor = 0, statusTimer = 0;
   function todayStatusList() {
     const list = [];
     const push = (text, tone) => {
@@ -437,57 +436,6 @@
     for (const item of TODAY_SIGNALS.energy) push(item.text, item.tone);
     push(TODAY_SIGNALS.check, 'info');
     return list;
-  }
-  function paintTodayStatus() {
-    const strip = $('#status-strip');
-    if (!strip) return;
-    const list = todayStatusList();
-    if (!list.length) {
-      strip.hidden = true;
-      clearInterval(statusTimer); statusTimer = 0;
-      return;
-    }
-    if (statusCursor >= list.length) statusCursor = 0;
-    const item = list[statusCursor];
-    strip.hidden = false;
-    strip.classList.toggle('is-warn', item.tone === 'warn');
-    // 轮播换文案时做一次轻微上浮淡入（180ms，reduced-motion 下由 CSS 关掉）。
-    const textNode = $('#status-strip-text');
-    if (textNode) {
-      textNode.textContent = item.text;
-      textNode.classList.remove('is-swap');
-      void textNode.offsetWidth;
-      textNode.classList.add('is-swap');
-    }
-    const count = $('#status-strip-count');
-    if (count) count.textContent = list.length > 1 ? `${statusCursor + 1}/${list.length}` : '';
-    strip.setAttribute('aria-label', list.length > 1
-      ? `今日提示 ${statusCursor + 1} / ${list.length}，点一下看下一条`
-      : '今日提示');
-  }
-  function renderTodayStatusStrip(reset) {
-    if (reset) statusCursor = 0;
-    paintTodayStatus();
-    clearInterval(statusTimer);
-    statusTimer = 0;
-    const list = todayStatusList();
-    if (list.length > 1) {
-      statusTimer = setInterval(() => {
-        statusCursor = (statusCursor + 1) % list.length;
-        paintTodayStatus();
-      }, 6000);
-    }
-  }
-  function installTodayStatusStrip() {
-    const strip = $('#status-strip');
-    if (!strip || strip.dataset.wired === '1') return;
-    strip.dataset.wired = '1';
-    strip.addEventListener('click', () => {
-      const list = todayStatusList();
-      if (list.length < 2) return;
-      statusCursor = (statusCursor + 1) % list.length;
-      renderTodayStatusStrip(false);
-    });
   }
   // 常用指标：今天页小习惯网格显示哪几格（默认三项），只存本机。
   const TODAY_METRICS_KEY = 'qingheng.todayMetrics';
@@ -1313,123 +1261,133 @@
     if (hour >= 21 && !inWindow(1020, 1380)) missing.push({key: "dinner", label: "晚餐"});
     return missing;
   }
-  let slotRows = [];
-  function renderSlotHint() {
-    const node = $("#slot-hint");
-    if (!node) return;
-    const now = new Date();
-    const slot = daySlot(now);
-    const clock = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
-    const live = activeDate === localDate();
-    const missing = live ? missingMealSlots(activeDate, now) : [];
+  /** 今天的状况条目（只读）：体检结论 + 能量/宏量信号。 */
+  let todayActionCursor = 0;
+  /**
+   * 今天页唯一的一条行动行（2026-11-22 四模块清单之一）：
+   * 左半执行当前那条 primary，右半 1/N › 打开「今天的状况」半屏——
+   * 原来分居两处的 #slot-hint（下一步）与 #status-strip（状态轮播）在这里合一。
+   */
+  function todayActionItems() {
     const agenda = typeof todayAgendaState === "function" ? todayAgendaState() : null;
-    const primary = agenda && agenda.primary ? agenda.primary : null;
-    const suffix = missing.length ? "；" + missing.map(item => item.label).join("、") + "好像还没记，点一下去补" : "";
-    const timeNode = $("#slot-time"), textNode = $("#slot-text");
-    const quiet = !primary && !missing.length;
-    if (timeNode) timeNode.textContent = primary ? "下一步" : quiet ? "状态" : clock;
-    if (textNode) {
-      textNode.textContent = primary ? primary.label
-        : quiet ? "今天没有要补的缺口，按计划走就好"
-        : slot.label + "：" + slot.hint + suffix;
+    const items = [];
+    if (agenda && agenda.primary) items.push({label: agenda.primary.label, target: agenda.primary.target, tone: "info"});
+    if (agenda && Array.isArray(agenda.secondary)) {
+      for (const item of agenda.secondary) {
+        if (item && item.label) items.push({label: item.label, target: item.target || "", tone: "info"});
+      }
     }
-    const reasonNode = $("#slot-reason");
-    if (reasonNode) {
-      reasonNode.textContent = primary && primary.reason ? primary.reason : "";
-      reasonNode.hidden = !(primary && primary.reason);
+    const live = activeDate === localDate();
+    const missing = live ? missingMealSlots(activeDate, new Date()) : [];
+    for (const item of missing) items.push({label: "补记" + item.label, target: "meal-text", tone: "warn"});
+    return items;
+  }
+  function renderTodayAction() {
+    const bar = $("#today-action");
+    if (!bar) return;
+    const items = todayActionItems();
+    const main = $("#today-action-main"), text = $("#today-action-text"), count = $("#today-action-count");
+    if (!items.length) {
+      // 没有缺口也不藏起来：退回一行安静的当日状态，位置固定，避免首屏高度来回跳。
+      bar.hidden = false;
+      bar.classList.remove("is-warn");
+      bar.dataset.target = "";
+      if (text) text.textContent = "今天没有要补的缺口，按计划走就好";
+      if (count) count.textContent = "";
+      if (main) main.disabled = false;
+      return;
     }
-    const noteNode = $("#slot-note");
-    if (noteNode) {
-      noteNode.textContent = primary ? slot.label + " · " + slot.hint : "";
-      noteNode.hidden = !primary;
+    if (todayActionCursor >= items.length) todayActionCursor = 0;
+    const item = items[todayActionCursor];
+    bar.hidden = false;
+    bar.classList.toggle("is-warn", item.tone === "warn");
+    bar.dataset.target = item.target || "";
+    if (text) {
+      text.textContent = item.label;
+      // 换条时轻微上浮淡入（180ms，reduced-motion 下由 CSS 关掉）。
+      text.classList.remove("is-swap");
+      void text.offsetWidth;
+      text.classList.add("is-swap");
     }
-    node.classList.toggle("is-next", !!primary);
-    // 建议流（2026-11-22 第五轮）：主建议留在首行，其余平铺折叠，不再各自占一块。
-    const listNode = $("#slot-list"), moreNode = $("#slot-more");
-    slotRows = [];
-    for (const item of (agenda && Array.isArray(agenda.secondary) ? agenda.secondary : [])) {
-      if (item && item.label) slotRows.push({label: item.label, reason: item.reason || "", target: item.target || ""});
+    if (count) count.textContent = items.length > 1 ? `${todayActionCursor + 1}/${items.length} ›` : "›";
+    bar.setAttribute("aria-label", items.length > 1
+      ? `下一步：${item.label}。右边可以看今天的状况，共 ${items.length} 条`
+      : `下一步：${item.label}`);
+  }
+  /** 半屏「今天的状况」：状态轮播（手动翻，不自动转）+ 还要补的建议；只读，不改任何数据。 */
+  function openDayBrief() {
+    const sheet = $("#day-brief-sheet");
+    if (!sheet) return;
+    const statuses = todayStatusList();
+    const list = $("#brief-list");
+    if (list) {
+      const rows = todayActionItems().slice(1);
+      list.innerHTML = rows.length
+        ? rows.map((item, index) =>
+          `<button type="button" class="sheet-option" data-brief-index="${index}"><span class="sheet-option-label">${esc(item.label)}</span><span class="hub-arrow" aria-hidden="true">›</span></button>`).join("")
+        : '<p class="fine-print">今天没有别的缺口了。</p>';
+      list.querySelectorAll("[data-brief-index]").forEach(button => {
+        button.addEventListener("click", () => {
+          const item = rows[Number(button.dataset.briefIndex)];
+          closeDayBrief();
+          if (item && item.target && typeof openRecordTarget === "function") openRecordTarget(item.target);
+        });
+      });
     }
-    for (const item of missing) slotRows.push({label: "补记" + item.label, reason: "", target: "meal-text"});
-    if (listNode) {
-      listNode.innerHTML = slotRows.map((item, index) =>
-        `<button type="button" class="slot-row" data-slot-index="${index}"><span class="slot-row-label">${esc(item.label)}</span>`
-        + (item.reason ? `<span class="slot-row-reason">${esc(item.reason)}</span>` : "") + "</button>").join("");
-      // 默认折叠；用户展开过就记住这次展开，直到换日或消息清空。
-      listNode.hidden = !(slotRows.length && node.dataset.slotOpen === "1");
-    }
-    if (moreNode) {
-      moreNode.hidden = slotRows.length === 0;
-      const open = listNode ? !listNode.hidden : false;
-      moreNode.textContent = open ? "收起建议" : `还有 ${slotRows.length} 条建议`;
-      moreNode.setAttribute("aria-expanded", open ? "true" : "false");
-    }
-    // 没有缺口也没有未完成训练时也不整块消失：退成一行安静的当日状态，保留「建议流」的常驻位。
-    node.classList.toggle("is-quiet", !primary && !missing.length);
-    document.querySelectorAll("#today-quick-actions .quick-chip").forEach(button => {
-      button.classList.remove("quick-chip-primary");
-    });
-    const action = primary ? primary.target : "";
-    const clickable = !!action || !!missing.length;
-    node.style.cursor = clickable ? "pointer" : "";
-    node.dataset.missing = missing.length ? missing.map(item => item.key).join(",") : "";
-    if (action) {
-      node.dataset.todayAction = action;
-      node.setAttribute("role", "button");
-      node.tabIndex = 0;
-      node.setAttribute("aria-label", primary.label + "，打开记录");
-    } else {
-      delete node.dataset.todayAction;
-      node.removeAttribute("role");
-      node.removeAttribute("aria-label");
-      node.tabIndex = -1;
-    }
-    if (!node.dataset.wired) {
-      node.dataset.wired = "1";
-      const activate = () => {
-        if (node.dataset.todayAction) {
-          if (typeof openRecordTarget === "function") openRecordTarget(node.dataset.todayAction);
-          return;
-        }
-        if (!node.dataset.missing) return;
-        switchTab("records");
-        const field = $("#meal-text"); if (field) { field.focus(); }
-      };
-      node.addEventListener("click", activate);
-      node.addEventListener("keydown", event => {
+    const text = $("#brief-text"), count = $("#brief-count");
+    const paint = () => {
+      const item = statuses[briefCursor % Math.max(1, statuses.length)] || {text: "今天还没有可说的变化。", tone: "info"};
+      if (text) text.textContent = item.text;
+      const strip = $("#brief-strip");
+      if (strip) strip.classList.toggle("is-warn", item.tone === "warn");
+      if (count) count.textContent = statuses.length > 1 ? `${(briefCursor % statuses.length) + 1}/${statuses.length}` : "";
+    };
+    briefCursor = 0;
+    paint();
+    sheet.hidden = false;
+    $("#brief-strip")?.setAttribute("role", statuses.length > 1 ? "button" : "group");
+    $("#brief-strip")?.setAttribute("tabindex", statuses.length > 1 ? "0" : "-1");
+    const advance = () => {
+      if (statuses.length < 2) return;
+      briefCursor = (briefCursor + 1) % statuses.length;
+      paint();
+    };
+    const strip = $("#brief-strip");
+    if (strip && !strip.dataset.briefWired) {
+      strip.dataset.briefWired = "1";
+      strip.addEventListener("click", advance);
+      strip.addEventListener("keydown", event => {
         if (event.key !== "Enter" && event.key !== " ") return;
-        if (!event.target.closest("#slot-hint")) return;
         event.preventDefault();
-        activate();
-      });
-      // 平铺折叠：展开看全部建议；行本身可点，直达对应表单。
-      $("#slot-more")?.addEventListener("click", event => {
-        event.stopPropagation();
-        const list = $("#slot-list");
-        if (!list) return;
-        list.hidden = !list.hidden;
-        node.dataset.slotOpen = list.hidden ? "" : "1";
-        const more = $("#slot-more");
-        if (more) {
-          more.textContent = list.hidden ? `还有 ${slotRows.length} 条建议` : "收起建议";
-          more.setAttribute("aria-expanded", list.hidden ? "false" : "true");
-        }
-      });
-      $("#slot-list")?.addEventListener("click", event => {
-        const row = event.target.closest("[data-slot-index]");
-        if (!row) return;
-        event.stopPropagation();
-        const item = slotRows[Number(row.dataset.slotIndex)];
-        if (!item) return;
-        if (typeof openRecordTarget === "function") openRecordTarget(item.target);
+        advance();
       });
     }
-    node.dataset.slot = slot.key;
-    for (const button of $$("[data-go]")) {
-      const target = button.dataset.go;
-      const spotlight = (slot.key === "evening" || slot.key === "noon") && target === "records";
-      button.classList.toggle("is-now", spotlight);
-    }
+    $("#brief-close")?.focus({preventScroll: true});
+  }
+  function closeDayBrief() {
+    const sheet = $("#day-brief-sheet");
+    if (sheet) sheet.hidden = true;
+    $("#today-action-more")?.focus({preventScroll: true});
+  }
+  let briefCursor = 0;
+  function installTodayAction() {
+    const bar = $("#today-action");
+    if (!bar || bar.dataset.wired === "1") return;
+    bar.dataset.wired = "1";
+    $("#today-action-main")?.addEventListener("click", () => {
+      const target = bar.dataset.target;
+      if (!target) return;
+      if (typeof openRecordTarget === "function") openRecordTarget(target);
+    });
+    $("#today-action-more")?.addEventListener("click", openDayBrief);
+    $("#brief-close")?.addEventListener("click", closeDayBrief);
+    $("#day-brief-sheet")?.addEventListener("click", event => {
+      if (event.target === $("#day-brief-sheet")) closeDayBrief();
+    });
+    document.addEventListener("keydown", event => {
+      const sheet = $("#day-brief-sheet");
+      if (event.key === "Escape" && sheet && !sheet.hidden) closeDayBrief();
+    });
   }
   /** Inside the range: clean greens, deeper near the centre. */
   function rangeColor(kcal, min, max) {

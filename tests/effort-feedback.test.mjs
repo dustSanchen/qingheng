@@ -33,7 +33,7 @@ check('the prompt carries the effort feedback', app.includes('最近强度反馈
 
 // --- 今天的要求 -------------------------------------------------------------------------------------------
 check('the plan card can take a request', html.includes('id="plan-request"') && html.includes('maxlength="200"'));
-check('the request is folded by default', css.includes('.plan-request>summary') && html.includes('<details class="plan-request"'));
+check('the request lives in the plan sheet', html.includes('id="plan-sheet"') && html.includes('id="plan-request"') && css.includes('.sheet-field'));
 check('the request is read when planning', app.includes('const requestText = String((requestBox && requestBox.value) || "").trim().slice(0, 200)'));
 check('the model is told to judge, not to obey', app.includes('用户今天的要求（可能不专业，需要你判断）：') && app.includes('判断原则：先保目标口径'));
 check('a rejected request leaves a one-line coach note', app.includes('把一句不超过 40 字的原因写进第一个动作的 note 字段'));

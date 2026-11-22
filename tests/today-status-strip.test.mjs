@@ -1,6 +1,7 @@
 /**
- * 今天页状态胶囊 + 行动罗盘内嵌 + ⋯ 工具栏（2026-11-22, 1.5.17）。
- * 约定：一屏只有一条提示面；罗盘在能量卡内；换一天/复制一餐/指标选择收进菜单。
+ * 今天页「一条行动行」（2026-11-22, 四模块清单之一）。
+ * 约定：首屏只有一个行动面 #today-action；左边执行下一步，右边 1/N › 打开半屏「今天的状况」；
+ * 原来分居两处的 #slot-hint（下一步）与 #status-strip（状态轮播）都不再存在。
  */
 import fs from 'node:fs';
 
@@ -13,34 +14,33 @@ const html = fs.readFileSync('app/src/main/assets/index.html', 'utf8');
 const app = fs.readFileSync('app/src/main/assets/app.js', 'utf8');
 const css = fs.readFileSync('app/src/main/assets/styles.css', 'utf8');
 
-// --- 状态胶囊 ---------------------------------------------------------------------------
-check('the strip exists and starts hidden', html.includes('id="status-strip"') && /id="status-strip"[^>]*hidden/.test(html));
-check('energy advice feeds the strip instead of its own line', app.includes('TODAY_SIGNALS.energy = parts.map(text => ({text, tone:') && app.includes('renderTodayStatusStrip(true)'));
-check('the check verdict feeds the same strip', app.includes('TODAY_SIGNALS.check = check.verdict') && app.includes('renderTodayStatusStrip(false)'));
-check('the strip rotates only when there is more than one message', app.includes('list.length > 1') && app.includes('}, 6000)'));
-check('tap advances the strip', app.includes('statusCursor = (statusCursor + 1) % list.length'));
-check('no second warning surface remains', html.includes('id="calorie-action" hidden'));
+// --- 只留一条 ---------------------------------------------------------------------------
+check('the two old surfaces are gone', !html.includes('id="status-strip"') && !html.includes('id="slot-hint"'));
+check('exactly one action line exists', (html.match(/id="today-action"/g) || []).length === 1);
+check('it sits after the macros and before the check', html.indexOf('id="macro-summary"') < html.indexOf('id="today-action"') &&
+  html.indexOf('id="today-action"') < html.indexOf('id="energy-check"'));
+check('it starts hidden', /id="today-action"[^>]*hidden/.test(html));
+check('left half executes, right half opens the sheet', html.includes('id="today-action-main"') && html.includes('id="today-action-more"') &&
+  app.includes('openRecordTarget(target)') && app.includes('openDayBrief'));
 
-// --- 行动罗盘内嵌 -----------------------------------------------------------------------
-check('the compass lives inside the energy card', html.indexOf('id="slot-hint"') > html.indexOf('class="card energy-card"') &&
-  html.indexOf('id="slot-hint"') < html.indexOf('id="energy-check"'));
-check('the panel no longer moves it out', !app.includes('energyCard.after(slotHint)'));
-check('the compass keeps its in-card styling', css.includes('#view-today .energy-card .slot-hint.is-next'));
+// --- 数据源 -------------------------------------------------------------------------------
+check('the action line reads the agenda', app.includes('function todayActionItems()') && app.includes('todayAgendaState()'));
+check('the check verdict and energy signals feed the sheet', app.includes('TODAY_SIGNALS.check = check.verdict') && app.includes('TODAY_SIGNALS.energy = parts.map(text => ({text, tone:'));
+check('the sheet reads the same status list', app.includes('const statuses = todayStatusList()') && app.includes("${(briefCursor % statuses.length) + 1}/${statuses.length}"));
+check('no auto rotation is left behind', !app.includes('statusTimer') && !app.includes('}, 6000)'));
+check('tapping the strip advances the sheet carousel', app.includes("strip.addEventListener(\"click\", advance)") && app.includes('briefCursor = (briefCursor + 1) % statuses.length'));
 
-// --- 工具栏收进菜单 ---------------------------------------------------------------------
-check('the ⋯ menu is gone, metrics moved to the habits card', !html.includes('id="today-more"') && html.includes('id="habit-metrics"'));
-check('the metrics sheet is the only menu action left', app.includes("openSheet({title: '显示的指标'") && !app.includes("label: '换一天'"));
-check('date jump stays visible on today', css.includes('html[data-tab="today"] .date-jump{display:inline-flex'));
-check('quick copy is a visible quiet link again', css.includes('#quick-record{display:inline-flex'));
-check('soft shadows replace card borders on today', css.includes('--shadow-soft:0 8px 24px -6px color-mix(in srgb,var(--ink) 6%,transparent)') && css.includes('#view-today .card{border:0;box-shadow:var(--shadow-soft)'));
-check('gradients are allowed only on progress and the compass', css.includes('--ring-fill-soft') && css.includes('#view-today .energy-card .slot-hint.is-next{'));
-check('the strip swaps with a short fade', app.includes("textNode.classList.add('is-swap')") && css.includes('@keyframes stripSwap'));
-check('press feedback is scale .98', css.includes('#view-today .habit-cell:active,#view-today .slot-hint:active,#view-today .quick-chip:active{transform:scale(.98)}'));
+// --- 动效 ---------------------------------------------------------------------------------
+check('the swap animation lives on the action text', app.includes('$("#today-action-text")') && app.includes('text.classList.add("is-swap")'));
+check('it swaps with a short fade', css.includes('.today-action-text.is-swap{animation:stripSwap 180ms'));
+check('reduced motion turns it off', css.includes('.today-action-text.is-swap{animation:none}'));
+check('press feedback stays at scale .98 on the chips', css.includes('#view-today .habit-cell:active,#view-today .slot-hint:active,#view-today .quick-chip:active{transform:scale(.98)') ||
+  css.includes('#today-quick-actions .quick-chip:active{transform:scale(.98)}'));
 
-// --- 常用指标 ---------------------------------------------------------------------------
-check('metric preference is stored locally', app.includes("'qingheng.todayMetrics'") && app.includes('function saveTodayMetrics'));
-check('the habit grid honours the preference', app.includes("todayMetrics() : ['steps', 'water', 'sleep']"));
-check('the grid filters by chosen keys', app.includes('.filter(cell => (typeof todayMetrics === \'function\''));
+// --- 胶囊与 sheet -------------------------------------------------------------------------
+check('the three entries are one row of 48px capsules', css.includes('#today-quick-actions .quick-chip{flex-direction:row;gap:6px;min-height:48px') &&
+  css.includes('background-image:linear-gradient(180deg,color-mix(in srgb,var(--accent) 8%'));
+check('the brief sheet exists as a half sheet', html.includes('id="day-brief-sheet"') && html.includes('id="brief-strip"') && html.includes('id="brief-list"'));
 
 console.log('\nFAIL total: ' + fail);
 process.exitCode = fail ? 1 : 0;

@@ -33,11 +33,10 @@ check('详情行按预览日渲染', handler.includes('detail.textContent = week
 check('详情行优先说已记录的动作', training.includes("return prefix + '已记录 ' + items.length + ' 个动作 · '"));
 
 // ③ 要点按那天的动作重算，并且能就地替换 ---------------------------------------------------------
-check('要点由预览日计算', training.includes('const cueHtml = weekCueHtml(weekDetailDay, plan);'));
+check('要点不再常驻，单个动作走 ?', !training.includes('const cueHtml = weekCueHtml(weekDetailDay, plan);') && app.includes('showExerciseGuide'));
 check('要点点名那天计划里的动作', training.includes('const cues = typeof libraryCuesFor === \'function\' ? libraryCuesFor(planDay) : [];'));
-check('要点块有稳定宿主，点日期时只换这一块', handler.includes('cueHost.innerHTML = weekCueHtml(day, lastWeekPlan);')
-  && training.includes('<div id="week-cues-host">'));
-check('要点默认收起，点日期展开', training.includes('class="plan-why plan-cue-block" id="week-cues"><summary>') && !training.includes('id="week-cues" open') && handler.includes('if (cue) cue.open = true;'));
+check('要点块与宿主都已移除', !handler.includes('cueHost') && !training.includes('week-cues-host'));
+check('点日期只换当天明细', handler.includes('detail.textContent = weekDetailHtml(day, lastWeekPlan);'));
 check('休息日不给要点', training.includes('是休息日，不排动作要点'));
 check('要点标题按日期取名，不写死在「今天」', training.includes('const head = esc(label + \'（\' + (TRAINING_TEMPLATES[planDay.template] || planDay.template) + \'）的动作要点\');'));
 
@@ -56,7 +55,7 @@ check('没有留下 explainHtml/cueLabel/cueBody/cueDay/cueIsViewed 残骸',
   !/explainHtml|cueLabel|cueBody|cueDay|cueIsViewed/.test(training));
 
 // 生成物同步 -----------------------------------------------------------------------------------
-check('app.js 与片段同步', app.includes('function weekCueHtml(day, plan)') && app.includes('id="week-cues-host"'));
+check('app.js 与片段同步', app.includes('function weekCueHtml(day, plan)') && !app.includes('id="week-cues-host"'));
 
 console.log('\nFAIL total: ' + fail);
 process.exitCode = fail ? 1 : 0;

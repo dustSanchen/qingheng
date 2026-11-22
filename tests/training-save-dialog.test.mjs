@@ -21,12 +21,12 @@ check('renderers keep their mount points', html.includes('id="daily-check"') && 
 check('the merged section is separated by a hairline', css.includes('.energy-check{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}'));
 
 // --- 训练页顺序与折叠 -------------------------------------------------------------------
-check('the week overview sits above the plan card', html.indexOf('id="training-overview"') < html.indexOf('id="ai-plan-card"'));
+check('the week overview sits above the training card', html.indexOf('id="training-overview"') < html.indexOf('id="training-log"'));
 check('the overview opens by default', html.includes('<details class="train-overview" id="training-overview" open>'));
-check('the plan list folds, the primary action does not', html.includes('id="ai-plan-fold"') &&
-  html.indexOf('id="ai-plan-list"') > html.indexOf('id="ai-plan-fold"') &&
-  html.includes('</details><button type="button" class="button subtle full-width" id="ai-plan-all"'));
-check('the fold announces how many movements there are', app.includes('foldCount.textContent = plan.length + " 个动作"'));
+check('the plan list is gone; the toolbar and the one primary remain', !html.includes('id="ai-plan-fold"') && !html.includes('id="ai-plan-list"') &&
+  html.includes('id="training-toolbar"') && html.includes('id="ai-plan-ask"') &&
+  /<div class="log-actions"><button class="button primary" type="submit">保存训练<\/button><\/div>/.test(html));
+check('the toolbar carries AI re-order, add-exercise and more', html.includes('id="training-more"') && app.includes("installTrainingSheets();"));
 
 // --- 休息倒计时内联 ---------------------------------------------------------------------
 check('the rest strip carries its own countdown', app.includes('data-rest-inline') && app.includes('rest-line-bar'));

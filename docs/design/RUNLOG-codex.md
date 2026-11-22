@@ -1774,3 +1774,40 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 根因两条：①`readTrainingExercises()` 按 DOM 重建行时只带 id/name/setDetails/sets/reps/weight，`fromPlan` 被丢掉；②判据用「setDetails 为空数组」当「没动过」，而重建后每组都是空对象，数组永远非空。
 - 修：重建时按 id 或名字从现有行继承 `fromPlan`（cardio 与普通行都带）；`untouched` 改为「没有任何一组的 reps/weight 有值」。
 - 测试：`training-plan-loop` 增加 2 条断言；全量 112/112；装机 1.5.23/523。取消勾选的真机复验留到下一轮。
+
+
+## r208 · 2026-11-22 · 1.5.27（四模块全量落地 + 今天页三条优化）
+
+**需求**：用户第四份四模块清单（page 1 行动面合并、page 2 训练执行流、page 3 身体一套口径、page 4 习惯卡精简），当晚追加「可以不止一个行动面」「三入口要像胶囊」「概况卡信息无效」三条。中途两次叫停要求「回调先前美术方案、在原版界面上改」，因此本轮全部改动都落在 1.5.25 的原版结构上。
+
+**模块四 · 习惯卡（在原版刻度卡上加增量）**
+- 两张刻度卡 → 三张（新增睡眠，`--tone-sleep`）；大数字由 `<strong>` 改为可输入的 `input.habit-meter-value`（沿用 `.set-value` 范式：20px 等宽 + `field-sizing:content` + `@supports not` 回落 + 聚焦只长内下划线），选择器带 `[type="number"]` 才压得住 `#view-records input:not(...)`。
+- 胶囊墙退场：两枚胶囊进各自卡底；步数/睡眠=设值，饮水=「每次加量」；长按 −/＋ 连加 120ms；轨道点/拖/Home/End 保留。
+- 新增卡右上「自定义快捷值」两步 sheet（选槽位 → 选数值），写 `qingheng.habitQuick`；`readHabitQuick` 只认候选档位，淘汰旧「饮水总量」。底部只留「沿用昨日数据」+「保存日常习惯」。
+
+**模块三 · 身体**
+- 「今天两样」收成「今天体重」只读卡（点它 `revealField('measurement-weight')`）；睡眠迁进习惯卡；`#body-quick-form` 移除。
+- 体重唯一可编辑处＝身体数据卡 `name="weight"`；`numericForm` 加 weight、`BODY_METRICS` 首项加体重（显示「上次」）；体重差 ≥2kg 风控自然生效。
+
+**模块二 · 训练执行流**
+- 删「今日顺序」整卡（`#ai-plan-fold/list/tag/summary/all/edit`）；`renderAiPlan` 只同步入口文案与计数。
+- 执行区卡头工具栏 `[AI 重排][＋添加动作][更多▾]`；更多 → sheet（顺延到明天 / 清空今天的训练）；计划说明 → `#plan-sheet`（本周要求/怎么排的/负荷 + 今日要求 textarea）。
+- 计划播种：`seedExercisesFromPlan()` 写进 `renderTrainingLog` 的 rows 计算（事后 append 会被下一次渲染冲掉），行标 `data-plan-index`，每组 ○ 全部点亮时 `syncPlanDoneFromRow` 回写 `done`；清空后 `seedMuted` 抑制再播。
+- 撤掉常驻「动作要点」块（`#week-cues` 宿主与 handler 分支），单个动作走 `?`；结束训练弹窗加逐动作明细 + 同模板容量对比。
+
+**模块一 · 今天页**
+- `#status-strip`（状态轮播，6s 自转）+ `#slot-hint`（下一步卡）合并为 `#today-action`：48px 一行，左半执行 primary，右半 `1/N ›` 开 `#day-brief-sheet`（状态轮播改手动翻，不再自转；下面是还要补的建议）。
+- 三入口胶囊：3 枚同宽 48px、图标+标签同一行、accent 8%→2% 微渐变 + `inset 0 1px 0` 内高光。
+- 概况卡：每个数字都带基准（本周 3/4 次、容量较上周 −37%、距目标还差 1.7 kg、7 日 Δ）。
+
+**口径与决策**
+- 行动面可以多个（用户放开），但形态统一；最终落成「一条行动行 + 一个半屏」。
+- 播种只改 DOM，保存才落库；体重只有一处可编辑；饮水胶囊是「再加」；状态轮播不自动转。
+
+**验收**：`assemble-app` + `node --check app.js` 通过；`test-all` 112/112（翻转 today-status-strip / today-paper / today-agenda / layout-four / p0-p1-round / body-quick / daily-three-copy / data-flow / records-panels / training-save-dialog / effort-feedback / week-switch 等旧断言）；`aesthetic-audit` 无阻塞项；`entry-budget-audit` 新增 1 项 WARN（记身体 3 处：今天体重只读跳转卡 + 趋势空态 + 快捷胶囊）。
+- **未完成**：1.5.27 已构建（dist/qingheng-1.5.27.apk，691 KB）但**未装机**——实施期间 adb 掉线（`adb devices` 空、reconnect/重启 server 均无效），真机截图与首屏预算实测留下一轮。
+
+**教训**
+- 片段不能单独 `node --check`：`00-head.fragment.js` 只是 app.js 的一片（IIFE 收尾在 80-boot），单独检查必然报 `Unexpected end of input`；唯一判据是 assemble + `node --check app.js`。
+- 改 `index.html` 的单行大块（一行 4.5k 字符）用 Node 按 `indexOf` 切片替换，比手写 `edit` 的 old_string 稳。
+- `.slot-hint*` / `.status-strip*` 历史样式约 60 行仍留在 `styles.css`（DOM 已删、无视觉影响），列为本轮清理债。

@@ -325,7 +325,7 @@
     if (kcalNow !== null && capNow !== null && kcalNow > capNow) parts.push(`热量已超上限 ${fmt(kcalNow - capNow,0)} kcal：不再加餐，晚餐只吃蛋白加蔬菜`);
     if (!parts.length && proteinNow !== null && proteinMinNow !== null && proteinNow >= proteinMinNow) parts.push('蛋白质已达标，剩下的额度分给主食与蔬菜即可。');
     TODAY_SIGNALS.energy = parts.map(text => ({text, tone: /超/.test(text) ? 'warn' : 'info'}));
-    renderTodayStatusStrip(true);
+    renderTodayAction();
   /**
    * 记录可信度（1.4.56 引入，1.4.58 起只存内部）：这个 App 的热量是估的，估的基础是记录全不全。
    * 用户明确要求「允许误差、不对外展示」——所以不占界面，只给内部两处逻辑用：
@@ -445,7 +445,7 @@
     renderChat();
     renderTrainingInsights();
     renderDailyCheck();
-    renderBodyQuick();
+    renderBodyWeight();
     renderWeekPlan();
     renderTrendWarnings();
     if (typeof renderDietTrend === 'function') renderDietTrend();
