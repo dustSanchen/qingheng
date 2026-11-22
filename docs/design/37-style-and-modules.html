@@ -1,0 +1,645 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>轻衡 · 美术风格与四模块修改方案</title>
+<style>
+  /* 风格卡：warm-paper（学术纸感）。理由：纸底 + 一支墨绿，与轻衡 paper 皮肤同源，
+     标题用衬线、正文用无衬线、表格只有横线。弃：quiet-luxury（留白过大，不像工具）、
+     editorial-serif（正文衬线，与账本皮肤打架）。
+     与卡冲突处按「改卡不改品牌」处理：底色取轻衡 --paper #fffefa、墨取 #293c32、
+     强调取 --accent #3f6b4a；圆角按品牌 8/12（卡要求 ≤4，见文末偏离登记）。 */
+  :root{
+    --bg:#fffefa;
+    --surface:#fffdf7;
+    --surface-soft:#f3f2ee;
+    --ink:#293c32;
+    --ink-2:#5f6a62;
+    --line:#e4e9df;
+    --line-ink:rgba(41,60,50,.10);
+    --accent:#3f6b4a;
+    --accent-soft:#eef4ea;
+    --tone-water:#3c768e;
+    --tone-sleep:#5c6a9c;
+    --tone-weight:#44755d;
+    --warn:#9e5c29;
+    --r-1:8px;
+    --r-2:12px;
+    --r-3:16px;
+    --s-1:4px;
+    --s-2:8px;
+    --s-3:12px;
+    --s-4:16px;
+    --s-5:24px;
+    --fs-display:34px;
+    --fs-h2:22px;
+    --fs-h3:17px;
+    --fs-body:15px;
+    --fs-small:12.5px;
+    --fs-label:11px;
+    --dur:180ms;
+    --dur-slow:240ms;
+    --ease:cubic-bezier(.22,.8,.3,1);
+    --serif:"Iowan Old Style",Georgia,"Songti SC",SimSun,serif;
+    --sans:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+    --mono:ui-monospace,"Cascadia Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font-family:var(--sans);font-size:var(--fs-body);line-height:1.72;
+    font-variant-numeric:tabular-nums;
+  }
+  main{max-width:960px;margin:0 auto;padding:calc(var(--s-5) * 2) var(--s-5) 96px}
+  h1,h2,h3{font-family:var(--serif);font-weight:500;margin:0}
+  h1{font-size:var(--fs-display);line-height:1.18;letter-spacing:-.01em}
+  h2{font-size:var(--fs-h2);line-height:1.3}
+  h3{font-size:var(--fs-h3);line-height:1.35}
+  p{margin:0}
+  .kicker{font-size:var(--fs-label);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);margin-bottom:var(--s-3)}
+  .lede{margin-top:var(--s-3);color:var(--ink-2);max-width:46em}
+  .meta-row{display:flex;flex-wrap:wrap;gap:var(--s-2) var(--s-4);margin-top:var(--s-4);padding-top:var(--s-3);
+    border-top:1px solid var(--line-ink);font-size:var(--fs-small);color:var(--ink-2)}
+  .meta-row b{color:var(--ink);font-weight:600}
+  section{margin-top:calc(var(--s-5) * 2)}
+  .sec-head{display:flex;align-items:baseline;gap:var(--s-3);padding-bottom:var(--s-2);border-bottom:1px solid var(--line-ink)}
+  .sec-head small{font-size:var(--fs-label);letter-spacing:.08em;color:var(--ink-2);text-transform:uppercase}
+  .sec-body{margin-top:var(--s-4)}
+  .grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s-4)}
+  .grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s-3)}
+  @media (max-width:760px){.grid-2,.grid-3{grid-template-columns:1fr}}
+  table{width:100%;border-collapse:collapse;font-size:var(--fs-small)}
+  caption{text-align:left;font-size:var(--fs-label);color:var(--ink-2);padding-bottom:var(--s-2)}
+  th,td{text-align:left;padding:9px var(--s-3);border-bottom:1px solid var(--line-ink);vertical-align:top}
+  thead th{background:var(--surface-soft);font-weight:600;letter-spacing:.02em}
+  code,kbd{font-family:var(--mono);font-size:.92em;background:var(--surface-soft);padding:1px 5px;border-radius:var(--r-1)}
+  .note{font-size:var(--fs-small);color:var(--ink-2)}
+  .swatch-row{display:flex;flex-wrap:wrap;gap:var(--s-3)}
+  .swatch{display:flex;align-items:center;gap:var(--s-2);font-size:var(--fs-small)}
+  .swatch i{width:26px;height:26px;border-radius:var(--r-1);border:1px solid var(--line-ink);display:inline-block}
+  .rule-list{padding:0;margin:0;list-style:none}
+  .rule-list li{padding:var(--s-2) 0 var(--s-2) var(--s-4);border-bottom:1px solid var(--line-ink);position:relative}
+  .rule-list li::before{content:"";position:absolute;left:0;top:18px;width:2px;height:14px;background:var(--line-ink)}
+  .rule-list b{font-weight:600}
+
+  /* ---------- 手机预览 ---------- */
+  .preview-bar{display:flex;flex-wrap:wrap;gap:var(--s-2);margin-bottom:var(--s-3)}
+  .seg{display:inline-flex;align-items:center;min-height:40px;padding:0 var(--s-4);border:1px solid var(--line-ink);
+    border-radius:var(--r-1);background:var(--surface);color:var(--ink);font:inherit;font-size:var(--fs-small);cursor:pointer;
+    transition:background var(--dur) var(--ease),color var(--dur) var(--ease)}
+  .seg[aria-selected="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+  .seg:active{transform:scale(.98)}
+  .phone-wrap{display:flex;justify-content:center}
+  .phone{width:min(390px,100%);height:844px;max-height:78vh;border:1px solid var(--line-ink);border-radius:var(--r-3);
+    background:var(--bg);overflow:hidden;position:relative}
+  .phone-status{display:flex;justify-content:space-between;align-items:center;padding:10px var(--s-4) 4px;
+    font-size:var(--fs-label);color:var(--ink-2)}
+  .screen{height:calc(100% - 34px);overflow-y:auto;padding:var(--s-2) var(--s-4) var(--s-5)}
+  .screen[hidden]{display:none}
+  .nav{position:absolute;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(5,1fr);
+    border-top:1px solid var(--line-ink);background:var(--bg);padding:6px 0 8px}
+  .nav span{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;color:var(--ink-2)}
+  .nav span.on{color:var(--accent);font-weight:600}
+  .nav svg{width:20px;height:20px;display:block}
+
+  /* ---------- 应用内的组件（与 styles.css 同一套值） ---------- */
+  .app{font-size:var(--fs-body)}
+  .app-head{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s-3);padding-bottom:var(--s-2);
+    border-bottom:1px solid var(--line-ink)}
+  .app-date{font-size:var(--fs-small);color:var(--ink-2)}
+  .app-h1{font-family:var(--serif);font-size:26px;line-height:1.2;font-weight:500;margin:var(--s-3) 0 var(--s-1)}
+  .epigraph{font-family:var(--serif);font-size:var(--fs-small);color:var(--ink-2)}
+  .app-sub{font-size:var(--fs-small);color:var(--ink-2)}
+  .tabs{display:flex;gap:var(--s-4);margin:var(--s-3) 0 0;border-bottom:1px solid var(--line-ink)}
+  .tabs span{padding:8px 0;font-size:var(--fs-small);color:var(--ink-2)}
+  .tabs span.on{color:var(--ink);font-weight:600;border-bottom:2px solid var(--accent);margin-bottom:-1px;padding-bottom:7px}
+  .card{margin-top:var(--s-4);padding:var(--s-4) 0;border-top:1px solid var(--line-ink)}
+  .card:first-of-type{border-top:0}
+  .card-head{display:flex;align-items:center;justify-content:space-between;gap:var(--s-3)}
+  .card-head h3{font-family:var(--serif);font-size:19px;font-weight:500}
+  .text-btn{background:none;border:0;padding:6px 0;color:var(--accent);font:inherit;font-size:var(--fs-small);cursor:pointer}
+  .text-btn:active{opacity:.7}
+  .field-label{display:block;font-size:var(--fs-small);color:var(--ink-2);margin:var(--s-3) 0 var(--s-1)}
+  .input{display:block;width:100%;min-height:44px;padding:0 var(--s-3);border:1px solid var(--line-ink);border-radius:var(--r-2);
+    background:var(--surface-soft);color:var(--ink);font:inherit;font-size:var(--fs-small)}
+  /* 刻度卡：名称/单位 → 大数字 + −/＋ → 轨道 → 两枚胶囊 */
+  .meters{display:flex;flex-direction:column;gap:var(--s-2);margin-top:var(--s-3)}
+  .meter{padding:10px var(--s-3);border:1px solid var(--line-ink);border-left:3px solid var(--tone,#3f6b4a);
+    border-radius:var(--r-2);background:var(--surface)}
+  .meter-head{display:flex;align-items:baseline;justify-content:space-between;font-size:var(--fs-label);color:var(--ink-2)}
+  .meter-main{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s-2);margin-top:2px}
+  .meter-value{font-size:22px;font-weight:600;letter-spacing:-.01em}
+  .meter-value small{font-size:var(--fs-label);font-weight:400;color:var(--ink-2);margin-left:2px}
+  .meter-value.empty{color:var(--ink-2)}
+  .stepper{display:flex;gap:var(--s-1)}
+  .stepper button{width:30px;height:30px;border:1px solid var(--line-ink);border-radius:50%;background:var(--bg);
+    color:var(--ink);font-size:15px;line-height:1;cursor:pointer}
+  .stepper button:active{transform:scale(.96);background:var(--accent-soft)}
+  .track{position:relative;height:22px;margin-top:var(--s-1)}
+  .track::before{content:"";position:absolute;left:0;right:0;top:10px;height:3px;border-radius:2px;background:var(--line)}
+  .track i{position:absolute;top:10px;left:0;height:3px;border-radius:2px;background:var(--tone,#3f6b4a)}
+  .track b{position:absolute;top:3px;width:16px;height:16px;margin-left:-8px;border-radius:50%;
+    background:var(--bg);border:2px solid var(--tone,#3f6b4a)}
+  .meter-chips{display:flex;gap:6px;margin-top:var(--s-1)}
+  .chip-quiet{min-height:30px;padding:0 var(--s-3);border:1px solid var(--line-ink);border-radius:var(--r-1);
+    background:var(--surface);color:var(--ink);font:inherit;font-size:var(--fs-label);cursor:pointer}
+  .chip-quiet:active,.chip-quiet.is-used{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+  .foot-row{display:flex;align-items:center;justify-content:space-between;gap:var(--s-3);margin-top:var(--s-3)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 var(--s-4);
+    border:1px solid var(--line-ink);border-radius:var(--r-2);background:var(--surface);color:var(--ink);
+    font:inherit;font-size:var(--fs-small);cursor:pointer}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn:active{transform:scale(.98)}
+  /* 半透明胶囊（体重） */
+  .capsule{display:flex;flex-direction:column;gap:2px;padding:10px var(--s-3);border:1px solid var(--line-ink);
+    border-radius:var(--r-2);background:var(--surface-soft)}
+  .capsule-name{font-size:var(--fs-label);color:var(--ink-2)}
+  .capsule-value{font-size:22px;font-weight:600}
+  .capsule-value small{font-size:var(--fs-label);font-weight:400;color:var(--ink-2)}
+  /* 身体数据 metric 卡 */
+  .metric-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s-2);margin-top:var(--s-2)}
+  .metric{padding:10px var(--s-3);border:1px solid var(--line-ink);border-radius:var(--r-2);background:var(--surface)}
+  .metric-name{display:block;font-size:var(--fs-label);color:var(--ink-2)}
+  .metric-value{display:flex;align-items:baseline;gap:2px;font-size:22px;font-weight:600}
+  .metric-value small{font-size:var(--fs-label);font-weight:400;color:var(--ink-2)}
+  .metric-hint{display:block;font-size:var(--fs-label);color:var(--ink-2);min-height:1.2em}
+  /* 今日：环 + 三入口 + 行动条 + 宏量 */
+  .ring-row{display:flex;align-items:center;gap:var(--s-4);margin-top:var(--s-3)}
+  .ring-num{font-size:30px;font-weight:600;line-height:1.1}
+  .quick-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s-2);margin-top:var(--s-3)}
+  .quick-chip{display:flex;align-items:center;justify-content:center;gap:6px;min-height:52px;border:1px solid var(--line-ink);
+    border-radius:var(--r-2);background:var(--surface);font-size:var(--fs-small);cursor:pointer}
+  .quick-chip:active{transform:scale(.98)}
+  .action-line{display:flex;align-items:center;gap:var(--s-2);min-height:48px;margin-top:var(--s-3);padding:0 var(--s-3);
+    border:1px solid var(--line-ink);border-radius:var(--r-2);background:var(--surface-soft)}
+  .action-line i{width:6px;height:6px;border-radius:50%;background:var(--accent);flex:0 0 auto}
+  .action-line span{flex:1 1 auto;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:var(--fs-small)}
+  .action-line b{font-size:var(--fs-label);color:var(--ink-2);font-weight:400}
+  .macro-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s-2);margin-top:var(--s-3)}
+  .macro{padding:8px var(--s-3);border-radius:var(--r-2);background:var(--surface-soft)}
+  .macro span{display:block;font-size:var(--fs-label);color:var(--ink-2)}
+  .macro b{font-size:18px;font-weight:600}
+  .check-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s-2);margin-top:var(--s-2)}
+  .check-cell{padding:8px;border:1px solid var(--line-ink);border-radius:var(--r-2);font-size:var(--fs-label)}
+  .check-bar{display:block;height:3px;margin-top:6px;border-radius:2px;background:var(--line)}
+  .check-bar i{display:block;height:3px;border-radius:2px;background:var(--accent)}
+  /* 训练：工具栏 + 可打卡动作行 + 组次 */
+  .toolbar{display:flex;gap:var(--s-2);margin-top:var(--s-3);flex-wrap:wrap}
+  .toolbar .btn{min-height:38px;padding:0 var(--s-3);font-size:var(--fs-label)}
+  .plan-row{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:var(--s-2);align-items:center;
+    padding:10px 0;border-bottom:1px solid var(--line-ink)}
+  .plan-row .no{font-size:var(--fs-label);color:var(--ink-2)}
+  .plan-name{font-size:var(--fs-body);font-weight:600}
+  .plan-presc{font-size:var(--fs-small);color:var(--ink-2)}
+  .done-dot{width:20px;height:20px;border:1.5px solid var(--line-ink);border-radius:50%;background:transparent}
+  .set-line{display:flex;align-items:baseline;gap:var(--s-3);padding:6px 0;font-size:var(--fs-small)}
+  .set-line b{font-size:18px;font-weight:600}
+  .set-line s{text-decoration:none;color:var(--ink-2)}
+  .sheet-mock{margin-top:var(--s-3);padding:var(--s-3);border:1px solid var(--line-ink);border-radius:var(--r-2);background:var(--surface)}
+  .sheet-mock p{font-size:var(--fs-label);color:var(--ink-2);letter-spacing:.08em;text-transform:uppercase}
+  .sheet-row{display:flex;align-items:center;justify-content:space-between;min-height:44px;border-bottom:1px solid var(--line-ink);font-size:var(--fs-small)}
+
+  /* 对照：before / after */
+  .ab{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s-4)}
+  @media (max-width:760px){.ab{grid-template-columns:1fr}}
+  .ab h4{margin:0 0 var(--s-2);font-size:var(--fs-label);letter-spacing:.08em;color:var(--ink-2);text-transform:uppercase;font-weight:600}
+  .ab-box{padding:var(--s-3);border:1px solid var(--line-ink);border-radius:var(--r-2);background:var(--surface-soft)}
+  .chip-wall{display:flex;flex-wrap:wrap;gap:6px;margin-top:var(--s-2)}
+  .chip-edge{min-height:42px;padding:0 var(--s-4);border:1px solid var(--line-edge,rgba(41,60,50,.16));border-radius:var(--r-1);
+    background:var(--surface);font-size:var(--fs-small)}
+  .del{color:var(--warn);text-decoration:line-through}
+  .tag{display:inline-block;padding:1px 7px;border-radius:var(--r-1);background:var(--accent-soft);color:var(--accent);
+    font-size:var(--fs-label);white-space:nowrap}
+  .tag.soon{background:var(--surface-soft);color:var(--ink-2)}
+  .col-role{width:96px}
+  .col-risk{width:72px}
+  footer{margin-top:calc(var(--s-5) * 2);padding-top:var(--s-4);border-top:1px solid var(--line-ink);font-size:var(--fs-small);color:var(--ink-2)}
+  a{color:var(--accent)}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none !important;animation:none !important}
+    .seg:active,.btn:active,.quick-chip:active,.stepper button:active{transform:none}
+  }
+  /* 全页只有这一条阴影：今天页主卡（v2 口径）。 */
+  .today-card{box-shadow:0 8px 24px -6px rgba(41,60,50,.06)}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="kicker">轻衡 · 内部确认稿</p>
+    <h1>美术风格与四模块修改方案</h1>
+    <p class="lede">
+      这份稿子做两件事：把身体 / 习惯这一块的<strong>美术口径</strong>落成可对照的实物（不是形容词），
+      再把用户四模块清单里的每一条落成<strong>在原版之上的增量改法</strong>。
+      所有组件都按 1.5.25 装机版的真实值排：颜色、字阶、间距、圆角、动效都是 <code>styles.css</code> 里的 token。
+    </p>
+    <div class="meta-row">
+      <span>基线 <b>1.5.25</b>（versionCode 525）</span>
+      <span>装机对照 <b>1.5.26 / 526</b>（代码＝基线）</span>
+      <span>测试 <b>112 / 112</b></span>
+      <span>稿期 <b>2026-11-22</b></span>
+      <span>状态 <b>待确认</b></span>
+    </div>
+  </header>
+
+  <section id="tokens">
+    <div class="sec-head"><h2>一 · 令牌</h2><small>tokens</small></div>
+    <div class="sec-body">
+      <p class="note">左边是角色，中间是值，右边是它被允许出现的位置。不在表里的颜色不进界面。</p>
+      <div class="swatch-row" style="margin:var(--s-3) 0">
+        <span class="swatch"><i style="background:#fffefa"></i>纸底 #fffefa</span>
+        <span class="swatch"><i style="background:#fffdf7"></i>面 #fffdf7</span>
+        <span class="swatch"><i style="background:#f3f2ee"></i>淡面 #f3f2ee</span>
+        <span class="swatch"><i style="background:#293c32"></i>墨 #293c32</span>
+        <span class="swatch"><i style="background:#5f6a62"></i>次墨 #5f6a62</span>
+        <span class="swatch"><i style="background:#3f6b4a"></i>强调 #3f6b4a</span>
+        <span class="swatch"><i style="background:#3c768e"></i>饮水 #3c768e</span>
+        <span class="swatch"><i style="background:#5c6a9c"></i>睡眠 #5c6a9c</span>
+        <span class="swatch"><i style="background:#44755d"></i>体重 #44755d</span>
+      </div>
+      <table>
+        <caption>表 1 · 令牌与用途</caption>
+        <colgroup><col class="col-role"><col><col></colgroup>
+        <thead><tr><th scope="col">角色</th><th scope="col">值</th><th scope="col">允许出现的位置</th></tr></thead>
+        <tbody>
+          <tr><td>字阶</td><td><code>26 / 20 / 17 / 15.5 / 13.5 / 12.5 / 11</code></td><td>页面标题 26、卡内大数字 20–22、卡标题 17、正文 15.5、辅助 12.5、单位 11</td></tr>
+          <tr><td>间距</td><td><code>4 / 8 / 12 / 16 / 24</code></td><td>4 基；行内 8、卡内 12/16、卡间 24</td></tr>
+          <tr><td>圆角</td><td><code>8 / 12</code></td><td>8 用于胶囊与代码、12 用于卡与输入框；不再新增第三档</td></tr>
+          <tr><td>描边</td><td><code>1px</code> 墨 10%（<code>rgba(41,60,50,.10)</code>）</td><td>所有分区线；不用灰 <code>#e5e5e5</code></td></tr>
+          <tr><td>动效</td><td><code>180ms / 240ms</code>，<code>cubic-bezier(.22,.8,.3,1)</code></td><td>按压 <code>scale(.98)</code>、胶囊换值淡入；<code>reduced-motion</code> 全归零</td></tr>
+          <tr><td>阴影</td><td><code>0 8px 24px -6px</code> 墨 6%</td><td><strong>只</strong>今天页主卡与浮层；记录页一律不加</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="rules">
+    <div class="sec-head"><h2>二 · 两套口径与一条共用红线</h2><small>rules</small></div>
+    <div class="sec-body grid-2">
+      <div>
+        <h3>今天页（v2）</h3>
+        <ul class="rule-list" style="margin-top:var(--s-2)">
+          <li>卡片<b>无 1px 边框</b>，改用弥散阴影 + 底色阶梯。</li>
+          <li>渐变只给三处：能量环、宏量进度条、行动罗盘。</li>
+          <li>磨砂只给 Sheet / 浮层，卡片与正文禁用。</li>
+          <li>按压 <code>scale(.98)</code>，胶囊换文案 180ms 上浮淡入。</li>
+        </ul>
+      </div>
+      <div>
+        <h3>记录 · 身体（原规范）</h3>
+        <ul class="rule-list" style="margin-top:var(--s-2)">
+          <li>静态卡<b>不加阴影</b>，靠发丝线与底色阶梯分区。</li>
+          <li>数字 20–22px 半粗、等宽；单位小一号、次要色。</li>
+          <li>指标块用左侧 3px 色条 + 6% 色底区分（不是靠图标）。</li>
+          <li>一屏可以有多个重点：卡各自有标题与唯一动作，不强行只留一个。</li>
+        </ul>
+      </div>
+    </div>
+    <div class="sec-body">
+      <h3 style="margin-top:var(--s-4)">共用红线</h3>
+      <ul class="rule-list" style="margin-top:var(--s-2)">
+        <li><b>一个表单只有一个主按钮</b>：习惯卡保存、训练保存、身体保存各一个 primary，其余降为次按钮或文字链。</li>
+        <li><b>颜色只走 token</b>：新增色用 <code>color-mix</code> 派生，不写新的 rgba / hex 字面量。</li>
+        <li><b>不引依赖</b>：动作、动效、图标都在本仓库内解决。</li>
+        <li><b>改完必须</b> <code>assemble-app</code> ＋ <code>test-all</code> 全绿，再装机截图。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="phone">
+    <div class="sec-head"><h2>三 · 手机端实物（可点）</h2><small>live preview</small></div>
+    <div class="sec-body">
+      <p class="note">三个屏都是按装机版的值排的：390×844、26px 页标题、发丝线分区、无卡片阴影。切页看下半区。</p>
+      <div class="preview-bar" role="tablist" aria-label="预览屏" style="margin-top:var(--s-3)">
+        <button class="seg" type="button" role="tab" aria-selected="true" aria-controls="screen-today" data-screen="screen-today">今天</button>
+        <button class="seg" type="button" role="tab" aria-selected="false" aria-controls="screen-body" data-screen="screen-body">记录 · 身体</button>
+        <button class="seg" type="button" role="tab" aria-selected="false" aria-controls="screen-training" data-screen="screen-training">训练执行区</button>
+      </div>
+      <div class="phone-wrap">
+        <div class="phone">
+          <div class="phone-status"><span>21:06</span><span>轻衡</span></div>
+
+          <div class="screen app" id="screen-today">
+            <div class="app-head"><span class="app-date">十一月二十二日 · 周日</span><span class="text-btn">换一天</span></div>
+            <h2 class="app-h1">今天</h2>
+            <p class="epigraph">人间有味是清欢</p>
+            <p class="app-sub" style="margin-top:var(--s-2)">5 餐 · 今天还没练</p>
+
+            <div class="card today-card" style="padding:var(--s-4);border:0;border-radius:var(--r-2);background:var(--surface)">
+              <div class="card-head"><h3>今日能量</h3><span class="text-btn">复制一餐</span></div>
+              <div class="ring-row">
+                <svg width="104" height="104" viewBox="0 0 104 104" aria-label="热量完成度 113%" role="img">
+                  <circle cx="52" cy="52" r="44" fill="none" stroke="#eef2ea" stroke-width="12"/>
+                  <circle cx="52" cy="52" r="44" fill="none" stroke="#5f8a68" stroke-width="12"
+                          stroke-linecap="round" stroke-dasharray="276 316" transform="rotate(-90 52 52)"/>
+                </svg>
+                <div>
+                  <div class="ring-num">2,353<small style="font-size:12px;color:#5f6a62"> kcal</small></div>
+                  <p class="app-sub">每日目标 2,084 · 超 269</p>
+                </div>
+              </div>
+              <div class="quick-actions">
+                <button class="quick-chip" type="button">记一餐</button>
+                <button class="quick-chip" type="button">训练</button>
+                <button class="quick-chip" type="button">身体</button>
+              </div>
+              <div class="action-line" role="group" aria-label="下一步">
+                <i aria-hidden="true"></i>
+                <span>按今天的顺序开始训练 · 5 个动作还没完成</span>
+                <b>1/3 ›</b>
+              </div>
+              <div class="macro-row">
+                <div class="macro"><span>蛋白质 116.4</span><b>还差 24 g</b></div>
+                <div class="macro"><span>脂肪 111.8</span><b style="color:var(--warn)">超 42 g</b></div>
+                <div class="macro"><span>碳水 219.9</span><b style="color:var(--warn)">超 22 g</b></div>
+              </div>
+              <div class="card-head" style="margin-top:var(--s-4)"><h3>今日体检</h3><span class="tag">57 分</span></div>
+              <div class="check-grid">
+                <div class="check-cell">热量<span class="check-bar"><i style="width:62%"></i></span></div>
+                <div class="check-cell">蛋白质<span class="check-bar"><i style="width:78%"></i></span></div>
+                <div class="check-cell">脂肪<span class="check-bar"><i style="width:30%"></i></span></div>
+                <div class="check-cell">睡眠<span class="check-bar"><i style="width:42%"></i></span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="screen app" id="screen-body" hidden>
+            <div class="app-head"><span class="app-date">十一月二十二日 · 周日</span><span class="text-btn">换一天</span></div>
+            <h2 class="app-h1">记录</h2>
+            <p class="epigraph">且将新火试新茶</p>
+            <div class="tabs"><span>饮食</span><span>训练</span><span class="on">身体</span></div>
+
+            <div class="card">
+              <div class="card-head"><h3>今天体重</h3><span class="tag">已记录</span></div>
+              <div style="margin-top:var(--s-2);max-width:200px">
+                <div class="capsule">
+                  <span class="capsule-name">体重 <small>kg</small></span>
+                  <span class="capsule-value">63.7</span>
+                </div>
+              </div>
+              <p class="app-sub" style="margin-top:var(--s-2)">空腹、同一状态记；同一天再填会更新。</p>
+              <div class="foot-row"><span class="app-sub">记到 11/22</span><button class="btn primary" type="button">保存今天</button></div>
+            </div>
+
+            <div class="card">
+              <div class="card-head"><h3>身体数据</h3><span class="text-btn">收起</span></div>
+              <label class="field-label" for="m-date">测量日期</label>
+              <input class="input" id="m-date" type="date" value="2026-11-22">
+              <button class="btn" type="button" style="margin-top:var(--s-3)">识别体脂秤截图 / 照片</button>
+              <p class="app-sub" style="margin-top:var(--s-2)">上传体脂秤 App 的结果截图或秤面照片，自动填入体重、体脂率、肌肉量等</p>
+              <div class="metric-cards">
+                <div class="metric"><span class="metric-name">体脂率</span><span class="metric-value">18.4<small>%</small></span><span class="metric-hint">上次 18.6%</span></div>
+                <div class="metric"><span class="metric-name">肌肉量</span><span class="metric-value">29.1<small>kg</small></span><span class="metric-hint">上次 29.0 kg</span></div>
+              </div>
+              <div class="foot-row"><button class="btn" type="button">更多指标</button><button class="btn" type="button">保存身体记录</button></div>
+            </div>
+
+            <div class="card">
+              <div class="card-head"><h3>日常习惯</h3><button class="text-btn" type="button">自定义快捷值</button></div>
+              <label class="field-label" for="h-date">日期</label>
+              <input class="input" id="h-date" type="date" value="2026-11-22">
+              <div class="meters">
+                <div class="meter" style="--tone:#3f6b4a">
+                  <div class="meter-head"><span>步数</span><span>步</span></div>
+                  <div class="meter-main">
+                    <span class="meter-value">6,000</span>
+                    <span class="stepper"><button type="button" aria-label="减少步数">−</button><button type="button" aria-label="增加步数">＋</button></span>
+                  </div>
+                  <div class="track"><i style="width:30%"></i><b style="left:30%"></b></div>
+                  <div class="meter-chips"><button class="chip-quiet" type="button">6k</button><button class="chip-quiet" type="button">10k</button></div>
+                </div>
+                <div class="meter" style="--tone:#3c768e">
+                  <div class="meter-head"><span>饮水</span><span>毫升</span></div>
+                  <div class="meter-main">
+                    <span class="meter-value">1,600</span>
+                    <span class="stepper"><button type="button" aria-label="减少饮水">−</button><button type="button" aria-label="增加饮水">＋</button></span>
+                  </div>
+                  <div class="track"><i style="width:32%"></i><b style="left:32%"></b></div>
+                  <div class="meter-chips"><button class="chip-quiet" type="button">+250</button><button class="chip-quiet" type="button">+500</button></div>
+                </div>
+                <div class="meter" style="--tone:#5c6a9c">
+                  <div class="meter-head"><span>睡眠</span><span>小时</span></div>
+                  <div class="meter-main">
+                    <span class="meter-value empty">—</span>
+                    <span class="stepper"><button type="button" aria-label="减少睡眠">−</button><button type="button" aria-label="增加睡眠">＋</button></span>
+                  </div>
+                  <div class="track"><i style="width:0%"></i><b style="left:0%"></b></div>
+                  <div class="meter-chips"><button class="chip-quiet" type="button">7h</button><button class="chip-quiet" type="button">8h</button></div>
+                </div>
+              </div>
+              <p class="app-sub" style="margin-top:var(--s-2)">训练日按当天保存的训练动作判断，不用在这里填。</p>
+              <div class="foot-row"><button class="text-btn" type="button">沿用昨日数据</button><button class="btn primary" type="button">保存日常习惯</button></div>
+            </div>
+          </div>
+
+          <div class="screen app" id="screen-training" hidden>
+            <div class="app-head"><span class="app-date">十一月二十二日 · 周日</span><span class="text-btn">换一天</span></div>
+            <h2 class="app-h1">记录</h2>
+            <p class="epigraph">且将新火试新茶</p>
+            <div class="tabs"><span>饮食</span><span class="on">训练</span><span>身体</span></div>
+
+            <div class="card">
+              <div class="card-head"><h3>今天的训练</h3><span class="tag">推（胸肩三头）</span></div>
+              <div class="toolbar">
+                <button class="btn" type="button">AI 重排</button>
+                <button class="btn" type="button">＋ 添加动作</button>
+                <button class="btn" type="button">更多 ▾</button>
+              </div>
+              <div class="plan-row"><span class="no">1</span><span><span class="plan-name">绳索下压</span><br><span class="plan-presc">3 组 × 12 次 × 25 kg</span></span><span class="done-dot" aria-hidden="true"></span></div>
+              <div class="plan-row"><span class="no">2</span><span><span class="plan-name">上斜杠铃卧推</span><br><span class="plan-presc">4 组 × 10 次 × 55 kg</span></span><span class="done-dot" aria-hidden="true"></span></div>
+              <div class="plan-row"><span class="no">3</span><span><span class="plan-name">杠铃卧推</span><br><span class="plan-presc">4 组 × 10 次 × 60 kg</span></span><span class="done-dot" aria-hidden="true"></span></div>
+              <div class="set-line"><span style="width:18px;color:var(--ink-2)">1</span><b>10</b><s>次 ×</s><b>60</b><s>kg</s></div>
+              <div class="set-line"><span style="width:18px;color:var(--ink-2)">2</span><b>10</b><s>次 ×</s><b>60</b><s>kg</s></div>
+              <div class="foot-row"><button class="btn" type="button">＋ 加一组</button><button class="btn primary" type="button">保存训练</button></div>
+            </div>
+
+            <div class="sheet-mock">
+              <p>更多</p>
+              <div class="sheet-row"><span>顺延到明天</span><span>›</span></div>
+              <div class="sheet-row"><span>清空今天的训练</span><span>›</span></div>
+              <div class="sheet-row" style="border-bottom:0"><span>应用本周计划</span><span>›</span></div>
+            </div>
+            <p class="app-sub" style="margin-top:var(--s-2)">调整动作顺序与安排，说明收在「计划说明」抽屉里，不占执行区。</p>
+          </div>
+
+          <nav class="nav" aria-label="底部导航（示意）">
+            <span class="on"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>今天</span>
+            <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16M6 8h12M6 16h12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>记录</span>
+            <span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 10h8M8 13.5h5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>问答</span>
+            <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 15l5-5 3.5 3.5L20 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 20h16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>趋势</span>
+            <span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="3.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5 20v-.6a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>我的</span>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="parts">
+    <div class="sec-head"><h2>四 · 习惯卡：原版 → 增量</h2><small>before / after</small></div>
+    <div class="sec-body">
+      <p class="note">左边是装机版现在的样子（两张刻度卡 + 胶囊墙 + 存为常用 + 复制昨天/调整常用值）；右边是四模块清单要求改成的样子。
+        结构只动三处：<b>多一张睡眠卡</b>、<b>胶囊搬进各自卡底</b>、<b>底栏只留两枚</b>。色条、刻度轨道、大数字、圆角一个都不换。</p>
+      <div class="ab" style="margin-top:var(--s-3)">
+        <div>
+          <h4>现在（1.5.25 装机）</h4>
+          <div class="ab-box">
+            <div class="meters" style="flex-direction:row;display:grid;grid-template-columns:1fr 1fr">
+              <div class="meter" style="--tone:#3f6b4a">
+                <div class="meter-head"><span>步数</span><span>步</span></div>
+                <div class="meter-main"><span class="meter-value">20,000</span><span class="stepper"><button type="button" aria-label="减">−</button><button type="button" aria-label="加">＋</button></span></div>
+                <div class="track"><i style="width:100%"></i><b style="left:100%"></b></div>
+              </div>
+              <div class="meter" style="--tone:#3c768e">
+                <div class="meter-head"><span>饮水</span><span>毫升</span></div>
+                <div class="meter-main"><span class="meter-value empty">—</span><span class="stepper"><button type="button" aria-label="减">−</button><button type="button" aria-label="加">＋</button></span></div>
+                <div class="track"><b style="left:0"></b></div>
+              </div>
+            </div>
+            <div class="chip-wall">
+              <button class="chip-edge" type="button">20k</button><button class="chip-edge" type="button">6k</button><button class="chip-edge" type="button">8k</button>
+              <button class="chip-edge" type="button">2.1L</button><button class="chip-edge" type="button">1.5L</button><button class="chip-edge" type="button">2L</button>
+              <button class="chip-edge" type="button" style="border-style:dashed;color:var(--ink-2)">＋ 存为常用</button>
+            </div>
+            <div class="foot-row" style="justify-content:flex-start;flex-wrap:wrap">
+              <button class="btn" type="button">复制昨天</button>
+              <button class="text-btn" type="button">调整常用值</button>
+            </div>
+            <button class="btn primary" type="button" style="margin-top:var(--s-2);width:100%">保存日常习惯</button>
+          </div>
+          <p class="note" style="margin-top:var(--s-2)">问题：胶囊墙 7 枚横跨两行，和刻度卡上的数字重复了一次；「存为常用、调整常用值、复制昨天」三个动作各自要点，睡眠还不在这一区。</p>
+        </div>
+        <div>
+          <h4>改后（模块四）</h4>
+          <div class="ab-box">
+            <div class="meters">
+              <div class="meter" style="--tone:#3f6b4a">
+                <div class="meter-head"><span>步数</span><span>步</span></div>
+                <div class="meter-main"><span class="meter-value">20,000</span><span class="stepper"><button type="button" aria-label="减">−</button><button type="button" aria-label="加">＋</button></span></div>
+                <div class="track"><i style="width:100%"></i><b style="left:100%"></b></div>
+                <div class="meter-chips"><button class="chip-quiet" type="button">20k</button><button class="chip-quiet" type="button">6k</button></div>
+              </div>
+              <div class="meter" style="--tone:#3c768e">
+                <div class="meter-head"><span>饮水</span><span>毫升</span></div>
+                <div class="meter-main"><span class="meter-value">1,600</span><span class="stepper"><button type="button" aria-label="减">−</button><button type="button" aria-label="加">＋</button></span></div>
+                <div class="track"><i style="width:32%"></i><b style="left:32%"></b></div>
+                <div class="meter-chips"><button class="chip-quiet" type="button">+250</button><button class="chip-quiet" type="button">+500</button></div>
+              </div>
+              <div class="meter" style="--tone:#5c6a9c">
+                <div class="meter-head"><span>睡眠</span><span>小时</span></div>
+                <div class="meter-main"><span class="meter-value empty">—</span><span class="stepper"><button type="button" aria-label="减">−</button><button type="button" aria-label="加">＋</button></span></div>
+                <div class="track"><b style="left:0"></b></div>
+                <div class="meter-chips"><button class="chip-quiet" type="button">7h</button><button class="chip-quiet" type="button">8h</button></div>
+              </div>
+            </div>
+            <div class="foot-row"><button class="text-btn" type="button">沿用昨日数据</button><button class="btn primary" type="button">保存日常习惯</button></div>
+          </div>
+          <p class="note" style="margin-top:var(--s-2)">改法：<b class="del">胶囊墙</b>、<b class="del">＋存为常用</b>、<b class="del">调整常用值</b>、<b class="del">复制昨天（改名沿用昨日数据）</b>；新增大数字可直接点进去输入、−/＋ 按住连加（120ms 一步）。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="pages">
+    <div class="sec-head"><h2>五 · 每页重点（可多个）</h2><small>per page</small></div>
+    <div class="sec-body">
+      <table>
+        <caption>表 2 · 一屏允许多个重点，但每个重点必须有标题与唯一动作</caption>
+        <colgroup><col style="width:100px"><col><col style="width:170px"></colgroup>
+        <thead><tr><th scope="col">页面</th><th scope="col">重点（按优先级）</th><th scope="col">不做什么</th></tr></thead>
+        <tbody>
+          <tr><td>今天</td><td>① 能量环与今日缺口 ② 三个高频入口 ③ 单行行动条（1/N 切换） ④ 体检四格</td><td>不再有「下一步」大卡与轮播，不再用长按手势</td></tr>
+          <tr><td>记录 · 身体</td><td>① 今天体重 ② 身体数据首屏（体脂/肌肉，可识别秤截图） ③ 日常习惯三行</td><td>体重不在两处出现；面板里只有一个 primary</td></tr>
+          <tr><td>记录 · 训练</td><td>① 今天练什么（可打卡动作行） ② 执行区（组次、加组、保存） ③ 工具栏与更多</td><td>不常驻「动作要点」；说明进抽屉</td></tr>
+          <tr><td>记录 · 饮食</td><td>① 记一餐 ② 今日餐食列表</td><td>不再有复制卡与拍照胶囊</td></tr>
+          <tr><td>趋势</td><td>① 体重变化 ② 上周回看 ③ 容量与体成分对照</td><td>不加交互式图表</td></tr>
+          <tr><td>问答</td><td>① 提问 ② 历史 ③ 训练建议分区</td><td>不新增第二个输入框</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="modules">
+    <div class="sec-head"><h2>六 · 四模块改法</h2><small>modules</small></div>
+    <div class="sec-body">
+      <table>
+        <caption>表 3 · 清单要求 → 在原版之上的增量 → 风险</caption>
+        <colgroup><col style="width:100px"><col><col style="width:96px"></colgroup>
+        <thead><tr><th scope="col">模块</th><th scope="col">在原版之上的改法</th><th scope="col" class="col-risk">风险</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>四 · 习惯</b></td>
+            <td>刻度卡两张 → 三张（睡眠用 <code>#5c6a9c</code>）；大数字改成可输入（20px 等宽 + small 单位 + 聚焦下划线）；−/＋ 保留并加长按连加；刻度轨道保留；两枚胶囊挪进各自卡底。<br>
+              删：胶囊墙、＋存为常用、调整常用值。<br>
+              新增：卡右上「自定义快捷值」→ 两步 sheet（选槽位 → 选数值），写 <code>qingheng.habitQuick</code>。<br>
+              底栏：沿用昨日数据（文字链）+ 保存日常习惯（唯一的 primary）。</td>
+            <td><span class="tag">低</span></td>
+          </tr>
+          <tr>
+            <td><b>三 · 身体</b></td>
+            <td>「今天两样」不删卡，改「今天体重」单栏（半透明胶囊 + 大数字），排在身体数据之前；身体数据卡首屏仍只放体脂/肌肉，避免同一数字两处可改；睡眠卡并入习惯区。</td>
+            <td><span class="tag">低</span></td>
+          </tr>
+          <tr>
+            <td><b>二 · 训练</b></td>
+            <td>删「今日顺序」勾选列表与「全部加入」；AI 动作直接渲染成可打卡行（预设组次重量 + 每组 ○）；训练卡顶部工具栏 <code>[AI 重排] [＋添加动作] [更多▾]</code>，顺延/清空进「更多」；计划说明收进抽屉；动作要点改 <code>?</code> 半屏；结束训练弹窗加逐动作明细与同模板容量对比。</td>
+            <td><span class="tag soon">中</span></td>
+          </tr>
+          <tr>
+            <td><b>一 · 首页</b></td>
+            <td>删 <code>#status-strip</code> / <code>#slot-hint</code>，新建 ≤48px 单行行动条（圆点 + 一句行动 + <code>1/N ›</code>）；点在宏量条之后；点文案执行 primary，点 1/N 切下一条并打开「今日建议」半屏。</td>
+            <td><span class="tag soon">中</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="accept">
+    <div class="sec-head"><h2>七 · 验收</h2><small>acceptance</small></div>
+    <div class="sec-body grid-2">
+      <div>
+        <h3>每一轮都要过的</h3>
+        <ul class="rule-list" style="margin-top:var(--s-2)">
+          <li><code>node tools/test-all.mjs</code> 全绿（基线 112，改口径时同步翻转断言）。</li>
+          <li><code>node tools/aesthetic-audit.mjs</code> 无阻塞项（无灰线、无卡阴影、无越界色）。</li>
+          <li><code>node tools/entry-budget-audit.mjs</code> 记身体/记训练同动作 ≤2 处。</li>
+          <li>装机截图与 <code>build/v25-*</code> 基线逐项对照，差异要能一句话说清是「加」还是「换」。</li>
+        </ul>
+      </div>
+      <div>
+        <h3>这一版的人眼判据</h3>
+        <ul class="rule-list" style="margin-top:var(--s-2)">
+          <li>三张刻度卡看起来是<b>同一族</b>：色条、圆钮、轨道、胶囊的位置都在同一行高上。</li>
+          <li>看不出「新做了一套表单」——大数字仍是卡里最大的一处。</li>
+          <li>习惯卡底部只剩两件事，<b>眼睛不用在五个动作里挑</b>。</li>
+          <li>睡眠卡出现后，这一区读起来是「日常三项」，不是「两项加一个补丁」。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>偏离登记：warm-paper 卡要求圆角 ≤4px、禁止阴影；本稿按品牌保留 8/12 圆角与「今天页主卡一条 6% 弥散阴影」，理由是轻衡已有两套皮肤与四模块的卡片半径，改卡不改品牌。</p>
+    <p style="margin-top:var(--s-2)">口径来源：<code>docs/design/35-today-visual-v2.md</code>（今天页 v2）、<code>docs/design/36-four-modules-progress.md</code>（四模块清单）、装机 1.5.25 的实物截图 <code>build/v25-habit.png</code>。</p>
+  </footer>
+</main>
+<script>
+  const tabs = [...document.querySelectorAll('[data-screen]')];
+  const screens = tabs.map(tab => document.getElementById(tab.dataset.screen));
+  const select = id => {
+    tabs.forEach((tab, i) => {
+      const on = tab.dataset.screen === id;
+      tab.setAttribute('aria-selected', on ? 'true' : 'false');
+      screens[i].hidden = !on;
+    });
+  };
+  tabs.forEach(tab => tab.addEventListener('click', () => select(tab.dataset.screen)));
+  // 深链：#screen-body / #screen-training 直接打开对应屏，方便截图核对。
+  const initial = location.hash.slice(1);
+  if (screens.some(screen => screen.id === initial)) select(initial);
+</script>
+</body>
+</html>
