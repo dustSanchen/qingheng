@@ -5,7 +5,7 @@
  *   1. every tests/*.test.mjs
  *   2. the build (build.ps1, which owns the version number)
  *   3. byte-level APK checks (tests/verify-web-apk.mjs)
- *   4. icon-style consistency (tests/icon-style.test.mjs)
+ *   4. icon-style consistency (tests/suite-infra.test.mjs)
  *   5. prints the APK path, SHA-256 and the version that was built
  *
  * Usage: powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\verify-all.ps1

@@ -7,7 +7,7 @@
  * 三处：
  *   1. app/src/fragments/70-rest.fragment.js   const APP_VERSION = 'x.y.z'
  *   2. build.ps1                               param(...$Version='x.y.z',[int]$VersionCode=n)
- *   3. tests/meal-date-java.test.mjs           const APP_VERSION = 'x.y.z'
+ *   3. tests/suite-food.test.mjs           const APP_VERSION = 'x.y.z'
  * 只改这几行，其余内容原样保留（UTF-8 无 BOM）。
  */
 import { readFileSync, writeFileSync } from "node:fs";
@@ -50,7 +50,7 @@ rewrite(
 );
 
 rewrite(
-  "tests/meal-date-java.test.mjs",
+  "tests/suite-food.test.mjs",
   /const APP_VERSION = '[^']*'/,
   `const APP_VERSION = '${version}'`,
 );

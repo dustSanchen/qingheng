@@ -3,7 +3,7 @@
  *
  * The generated file is what the WebView loads and what every test reads. Fragments are the source of
  * truth: edit them and re-run this (the build calls it automatically). Writing without a BOM keeps the
- * asset byte-identical to the fragments, which tests/app-fragments.test.mjs verifies.
+ * asset byte-identical to the fragments, which tests/suite-chat.test.mjs verifies.
 #>
 param([switch]$Quiet)
 

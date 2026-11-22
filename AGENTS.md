@@ -28,7 +28,7 @@ node tools/aesthetic-audit.mjs
 # 入口预算审计（同动作可点入口 ≤2、每页卡片 ≤8；只报告不修改，WARN 不阻断）
 node tools/entry-budget-audit.mjs
 
-# 全量测试（基线必须 55/55）
+# 全量测试（10 个套件 / 2,191 条断言，必须全绿）
 node tools/test-all.mjs
 
 # 片段 → app.js
@@ -67,7 +67,7 @@ adb shell dumpsys package cn.qingheng.health | Select-String 'versionName'
 
 1. **版本号漂移**（关于页写 1.1.71、装机是 1.1.91）。现在 `dev-loop.ps1` 第一步就是
    `node tools/sync-version.mjs <版本> <versionCode>`，一次对齐三处：`70-rest.fragment.js` 的
-   `APP_VERSION`、`build.ps1` 的默认 `$Version/$VersionCode`、`tests/meal-date-java.test.mjs` 的字面量。
+   `APP_VERSION`、`build.ps1` 的默认 `$Version/$VersionCode`、`tests/suite-food.test.mjs` 里的版本字面量。
    **不要手改版本号**，只跑 `dev-loop -Version X -VersionCode N`。
    版本号形如 `1.2.06`：patch 两位补零，逢百进一（1.2.99 → 1.3.00）；versionCode 由脚本按
    `minor*100 + patch` 派生，不用手算。

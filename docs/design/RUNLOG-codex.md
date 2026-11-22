@@ -1871,3 +1871,10 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 工作区：`build/` 412.6 MB → 71.0 MB——删未在 docs 引用的根级截图 1401 张（保留 docs 引用的 155 张）、headless 残留 profile `cdp`/`cdp2`（168 MB）、logcat-*.txt（27 MB）、hc-controller.apk、brand-review.zip、asr/apk112/brand-review；`logs/` 679 个 8.3 MB → 9 个 0.1 MB；`.tmp/` 121 个 5.5 MB → 8 个 1.0 MB（清掉 ui*.xml dump、验证脚本、临时 md/txt）。
 - 记忆：归档 9 条与 app 优化无关的视频/封面/配音/蹭热点条目（B 站封面规格、缩略图定律、镜头节奏、edge-tts 与声线、借热点边界、1.5.19 封面 topic 等）；新增一条「轻衡维护纪律」rules（断言只锁行为、先 grep 再读、验证产物随轮清、改完跑 test-all）。
 - 未做：把 114 个测试文件按功能合并成更少的套件——这是动安全网的单独一轮，先给清单再动。
+### r217 · 2026-11-23 02:20 · 测试合并：114 个单文件 → 10 个套件
+- 用户原话：上一轮问「114 个测试文件合并成更少的套件？」→ 回「合并」。
+- 做法：脚本把 113 个单文件按主题并成 9 个套件（training / food / today / records / chat / trends / profile / infra / misc），`food-models` 用 `node:test` 保持独立。每个原文件仍包在自己的 `async` 函数里、imports 去重后提升到套件顶部——一个文件抛错只记一条 FAIL，不中断同组其他文件。
+- 覆盖不变：`check()` 断言仍是 2,191 条；`test-all` 由 114 个进程降到 10 个，23 s → 8 s。
+- 需要跟着改的依赖：①`tools/sync-version.mjs` 的第 3 个目标从 `tests/meal-date-java.test.mjs` 改成 `tests/suite-food.test.mjs`（版本字面量在合并后落在这里）；②`sync-version` 自测的文件清单同步改；③drift guard 的「测试存在」断言改成在 `tests/*.test.mjs` 里搜「app.js is in sync with the fragments」；④`assemble-app.ps1` / `verify-all.ps1` 注释、`AGENTS.md` 基线、README 徽章（tests-114 → tests-10 suites / 2191）一起同步。
+- 索引：`tests/README.md` 记录每个套件收哪些原文件；新增回归优先加进对应套件，别再新建单文件。
+- 验收：`test-all` 10/10 套件全绿（2,191 条断言），assemble + `node --check` 不受影响；旧 114 个文件已删（git 可回溯）。
