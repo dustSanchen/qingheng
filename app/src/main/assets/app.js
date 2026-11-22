@@ -7787,7 +7787,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.23';
+  const APP_VERSION = '1.5.24';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -10697,8 +10697,9 @@ feedback(message,'数据已导入。'+report);
         }
         if (data?.measuredAt && validDate(data.measuredAt)) form.elements.date.value = data.measuredAt;
         const skipped = vision.rejected.length ? `（跳过 ${vision.rejected.length} 项异常读数）` : '';
+        note.classList.toggle('is-recognised', filled.length > 0);
         note.textContent = filled.length
-          ? `读到 ${filled.length} 项：${filled.join('、')}。核对后点保存。${skipped}`
+          ? `已自动识别，可微调：${filled.join('、')}。核对后点保存。${skipped}`
           : `没读到可用数值，换个角度重试，或直接手填。${skipped}`;
       } catch (error) { note.textContent = error.message; }
       finally {
@@ -11230,10 +11231,11 @@ feedback(message,'数据已导入。'+report);
   const TODAY_FOLD_KEY = 'qingheng.todayFold';
   function installTodayFold() {
     const card = $('#today-fold-card');
+    const tabsRoot = $('.fold-tabs');
     if (!card || card.dataset.wired === '1') return;
     card.dataset.wired = '1';
     const panels = $$('[data-fold-panel]', card);
-    const tabs = $$('[data-fold-tab]', card);
+    const tabs = $$('[data-fold-tab]', tabsRoot || card);
     const paint = key => {
       panels.forEach(panel => { panel.hidden = panel.dataset.foldPanel !== key; });
       tabs.forEach(tab => tab.setAttribute('aria-selected', String(tab.dataset.foldTab === key)));

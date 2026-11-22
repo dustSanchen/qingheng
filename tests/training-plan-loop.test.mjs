@@ -30,7 +30,7 @@ check('one normaliser for both OCR entries', app.includes('function normaliseVis
   app.includes("normaliseVision(data, 'scale')") && app.includes("normaliseVision(data, 'meal')"));
 check('out-of-range fields are rejected, not clamped', app.includes('VISION_FIELD_LIMITS') && app.includes('out.rejected.push'));
 check('the meal path still asks for confirmation before saving', app.includes('请在下方修改并确认，才会保存'));
-check('a screenshot entry exists next to the scale camera', html.includes('id="scale-shot"') && html.includes('id="scale-shot-input"'));
+check('one clear OCR entry covers screenshot and photo', html.includes('识别体脂秤截图 / 照片') && !html.includes('id="scale-shot"'));
 
 // --- 质感 ------------------------------------------------------------------------------
 check('the three capsules carry the same-family gradient', /\.quick-chip\{[^}]*linear-gradient\(160deg/.test(css.replace(/\n/g, ' ')));

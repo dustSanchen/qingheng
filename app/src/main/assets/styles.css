@@ -2513,3 +2513,6 @@ html[data-tab="today"] .energy-card .quick-chip:active{background-image:linear-g
 #today-fold-card .fold-panel-head h2{margin:0;font-size:17px;font-weight:var(--fw-semibold);letter-spacing:var(--tracking-label)}
 /* 结束训练弹窗：浮层毛玻璃（v2 只允许 Sheet/浮层） */
 .app-dialog-panel.is-glass{background:color-mix(in srgb,var(--paper) 86%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+
+.scale-sync-note.is-recognised{color:var(--accent);background:var(--accent-soft);border-radius:8px;padding:6px 8px}
+
