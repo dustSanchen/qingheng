@@ -2808,39 +2808,147 @@ feedback(message,'数据已导入。'+report);
       card.dataset.collapsed = '1';
     }
   }
-  /** One-tap habit values: 睡眠/体重 已归到「今天两样」，这里只留步数与饮水。 */
+  /**
+   * 常用值 + 滑块的记忆：固定三档只能选它给的那三个数，滑块能把数调到任意档位。
+   * 常用值不再写死——保存过一次就记下来，最近三个、同值不重复；清空过才会回落到默认三档。
+   */
+  const HABIT_QUICK_KEY = 'qingheng.habitQuick';
+  const HABIT_QUICK_FALLBACK = {steps: [6000, 8000, 10000], water: [1500, 2000, 2500]};
+  const HABIT_SLIDER = {
+    steps: {min: 0, max: 20000, step: 250, label: '步数滑块'},
+    water: {min: 0, max: 5000, step: 100, label: '饮水滑块'}
+  };
+  function readHabitQuick() {
+    let raw = {};
+    try { raw = JSON.parse(localStorage.getItem(HABIT_QUICK_KEY) || '{}') || {}; } catch { raw = {}; }
+    const pick = key => {
+      const list = Array.isArray(raw[key]) ? raw[key].map(value => number(value)).filter(value => value !== null && value > 0) : [];
+      const clean = [...new Set(list)].slice(0, 3);
+      return clean.length ? clean : HABIT_QUICK_FALLBACK[key].slice();
+    };
+    return {steps: pick('steps'), water: pick('water')};
+  }
+  function writeHabitQuick(next) {
+    try { localStorage.setItem(HABIT_QUICK_KEY, JSON.stringify({steps: next.steps, water: next.water})); } catch {}
+  }
+  /** 保存过一次就把这个数记成常用：下次它就在第一枚，点一下即填。 */
+  function rememberHabitQuick(payload) {
+    if (!payload) return;
+    const current = readHabitQuick();
+    let changed = false;
+    for (const key of ['steps', 'water']) {
+      const value = number(payload[key]);
+      if (value === null || value <= 0) continue;
+      const next = [value, ...current[key].filter(item => item !== value)].slice(0, 3);
+      if (next.join(',') !== current[key].join(',')) { current[key] = next; changed = true; }
+    }
+    if (changed) writeHabitQuick(current);
+  }
+  /** 一键填值与滑块并存：滑块管任意值，常用值管高频的三下。 */
   function installHabitChips() {
     const row = $('#habit-chips'), form = $('#habit-form');
     if (!row || !form) return;
-    const presets = [
-      ['步数 6k', 'steps', 6000], ['步数 8k', 'steps', 8000], ['步数 10k', 'steps', 10000],
-      ['饮水 1.5L', 'water', 1500], ['饮水 2L', 'water', 2000], ['饮水 2.5L', 'water', 2500]
-    ];
-    row.innerHTML = presets.map(([label, key, value], index) => `<button type="button" class="button subtle" data-habit-preset="${index}">${esc(label)}</button>`).join('')
-      ;
     const copyRow = $('#habit-copy-row');
-    if (copyRow) copyRow.innerHTML = '<button type="button" class="button subtle" data-habit-copy="1">复制昨天</button>';
+    const meters = {};
+    for (const [key, spec] of Object.entries(HABIT_SLIDER)) {
+      const field = form.elements[key];
+      if (!field || !field.parentElement || $(`[data-slider="${key}"]`, form)) continue;
+      const wrap = document.createElement('div');
+      wrap.className = 'measure-slider';
+      wrap.dataset.slider = key;
+      // list 指向 datalist 时 Chromium 会在轨道上画刻度：0 / 5k / 10k … 长距离拖动才有参考物。
+      const ticks = [];
+      for (let value = spec.min; value <= spec.max; value += spec.max / 4) ticks.push(Math.round(value));
+      wrap.innerHTML = `<input type="range" min="${spec.min}" max="${spec.max}" step="${spec.step}" value="0" data-range="${key}" aria-label="${spec.label}" list="habit-ticks-${key}">`
+        + `<datalist id="habit-ticks-${key}">${ticks.map(value => `<option value="${value}"></option>`).join('')}</datalist>`;
+      field.after(wrap);
+      const range = $('input[type="range"]', wrap);
+      meters[key] = {field, range, spec};
+      // 滑块 → 数字：滑块本身是可聚焦控件，点它 label 不会把焦点转给数字框（不弹键盘），
+      // 所以这里不能 preventDefault——挡掉 click 会连同「点轨道直接跳值」一起挡掉。
+      range.addEventListener('input', () => { field.value = range.value; });
+      // 数字 → 滑块：手填 12345 步时滑块要跟上，而不是停在旧位置。
+      field.addEventListener('input', () => {
+        const value = number(field.value);
+        range.value = String(Math.max(spec.min, Math.min(spec.max, value === null ? 0 : value)));
+      });
+    }
+    const fillFrom = (key, value) => {
+      const meter = meters[key];
+      const field = form.elements[key];
+      if (field) field.value = value;
+      if (meter) meter.range.value = String(Math.max(meter.spec.min, Math.min(meter.spec.max, value)));
+    };
+    const chipLabel = (key, value) => key === 'steps'
+      ? `${fmt(value / 1000, value % 1000 ? 1 : 0)}k`
+      : `${fmt(value / 1000, value % 500 ? 2 : 1)}L`;
+    const renderChips = () => {
+      const quick = readHabitQuick();
+      row.innerHTML = ['steps', 'water'].map(key => quick[key].map(value =>
+        `<button type="button" class="habit-chip" data-habit-key="${key}" data-habit-value="${value}" aria-label="填入 ${chipLabel(key, value)}${key === 'steps' ? ' 步' : ' 毫升'}">${chipLabel(key, value)}<span class="habit-chip-x" data-habit-drop="${key}:${value}" role="button" aria-label="从常用值里删掉 ${chipLabel(key, value)}">×</span></button>`
+      ).join('')).join('')
+        + '<button type="button" class="habit-chip habit-chip-add" data-habit-save="1" aria-label="把当前填的数值存成常用">＋ 存为常用</button>';
+    };
+    renderChips();
+    if (copyRow && !$('[data-habit-edit]', copyRow)) {
+      copyRow.innerHTML = '<button type="button" class="button subtle" data-habit-copy="1">复制昨天</button>'
+        + '<button type="button" class="text-button" data-habit-edit="1" aria-pressed="false">调整常用值</button>';
+    }
     row.addEventListener('click', event => {
-      const copy = event.target.closest('[data-habit-copy]');
-      if (copy) {
-        const yesterday = shiftDay(localDate(), -1);
-        const rowData = (state.habits || []).find(item => item && item.date === yesterday);
-        if (!rowData) {notice('昨天没有习惯记录可复制。', true); return;}
+      // 「存为常用」：这才是可自定义的那一步——今天填的数不必非得保存整天，也能进那三枚。
+      const save = event.target.closest('[data-habit-save]');
+      if (save) {
+        const quick = readHabitQuick();
+        let added = 0;
         for (const key of ['steps', 'water']) {
-          const field = form.elements[key];
-          if (field && number(rowData[key]) !== null) field.value = rowData[key];
+          const value = number(form.elements[key]?.value);
+          if (value === null || value <= 0) continue;
+          if (quick[key][0] === value) continue;
+          quick[key] = [value, ...quick[key].filter(item => item !== value)].slice(0, 3);
+          added += 1;
         }
-        notice('已填入昨天的数值，可修改后保存。');
+        if (!added) {notice('先在上面的框里填一个数值，再存为常用。', true); return;}
+        writeHabitQuick(quick);
+        renderChips();
+        notice('已存为常用，下次点一下就能填。');
         return;
       }
-      const button = event.target.closest('[data-habit-preset]');
-      if (!button) return;
-      const [label, key, value] = presets[Number(button.dataset.habitPreset)];
-      const field = form.elements[key];
+      const drop = event.target.closest('[data-habit-drop]');
+      if (drop) {
+        const [key, value] = String(drop.dataset.habitDrop).split(':');
+        const quick = readHabitQuick();
+        quick[key] = quick[key].filter(item => item !== Number(value));
+        // 全删空就回落到默认三档，否则这行会变成空的。
+        if (!quick[key].length) quick[key] = HABIT_QUICK_FALLBACK[key].slice();
+        writeHabitQuick(quick);
+        renderChips();
+        return;
+      }
+      const chip = event.target.closest('[data-habit-key]');
+      if (!chip) return;
+      fillFrom(chip.dataset.habitKey, Number(chip.dataset.habitValue));
       // 不抢焦点：这里只是代入默认值，弹起键盘会挡住下面的字段和保存按钮。
-      if (field) field.value = value;
-      button.classList.add('is-used');
-      setTimeout(() => button.classList.remove('is-used'), 900);
+      chip.classList.add('is-used');
+      setTimeout(() => chip.classList.remove('is-used'), 900);
+    });
+    copyRow?.addEventListener('click', event => {
+      const edit = event.target.closest('[data-habit-edit]');
+      if (edit) {
+        const on = !row.classList.contains('is-editing');
+        row.classList.toggle('is-editing', on);
+        edit.setAttribute('aria-pressed', String(on));
+        edit.textContent = on ? '完成' : '调整常用值';
+        return;
+      }
+      const copy = event.target.closest('[data-habit-copy]');
+      if (!copy) return;
+      const yesterday = shiftDay(localDate(), -1);
+      const rowData = (state.habits || []).find(item => item && item.date === yesterday);
+      if (!rowData) {notice('昨天没有习惯记录可复制。', true); return;}
+      for (const key of ['steps', 'water']) {
+        if (number(rowData[key]) !== null) fillFrom(key, number(rowData[key]));
+      }
+      notice('已填入昨天的数值，可修改后保存。');
     });
   }
   /** Suggested questions: an empty box is the main reason people do not ask anything. */

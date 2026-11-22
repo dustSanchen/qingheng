@@ -38,9 +38,11 @@ check('the native side narrows the prompt for training', main.includes('"trainin
 // --- habits lose friction ---------------------------------------------------------------------------
 check('habit presets exist', html.includes('id="habit-chips"'));
 // 2026-11-18：睡眠与体重挪到「记录·身体 → 今天两样」，习惯卡片只留步数与饮水。
-check('presets cover steps and water', rest.includes("['步数 8k', 'steps', 8000]") && rest.includes("['饮水 2L', 'water', 2000]") && !rest.includes("['睡眠 7.5h', 'sleep', 7.5]"));
+// 2026-11-22：固定六档改为「滑块 + 你存过的常用值」，兜底三档仍只覆盖步数与饮水。
+check('presets cover steps and water', rest.includes('HABIT_QUICK_FALLBACK = {steps: [6000, 8000, 10000], water: [1500, 2000, 2500]}') && !rest.includes('sleep: ['));
+check('a slider exists for each metric', rest.includes('HABIT_SLIDER') && rest.includes("input[type=\"range\"]") && html.includes('id="habit-chips"'));
 check('a copy-yesterday shortcut exists', rest.includes('data-habit-copy') && rest.includes("shiftDay(localDate(), -1)"));
-check('copying fills only recorded values', rest.includes("if (field && number(rowData[key]) !== null) field.value = rowData[key];"));
+check('copying fills only recorded values', rest.includes("if (number(rowData[key]) !== null) fillFrom(key, number(rowData[key]));"));
 
 // --- chat suggestions ---------------------------------------------------------------------------------
 check('chat suggestion chips exist', html.includes('id="chat-chips"') && rest.includes('function installChatChips'));

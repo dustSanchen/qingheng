@@ -2216,3 +2216,20 @@ details:not(.advanced):not(.day-more)>summary::after{width:auto;height:auto;bord
 .rest-line{height:2px;margin:6px 0 4px;background:var(--accent-soft);overflow:hidden;border-radius:1px}
 .rest-line>span{display:block;height:100%;background:var(--accent);transform-origin:left center;transition:transform 1s linear}
 @media (prefers-reduced-motion:reduce){.rest-line>span{transition:none}}
+
+/* 2026-11-22 日常习惯：数值可不凑整——滑块管任意值，常用值管高频三下。 */
+.measure-slider{margin:2px 0 2px}
+#habit-form .measure-slider input[type="range"]{-webkit-appearance:none;appearance:none;display:block;width:100%;height:28px;min-height:0;margin:0;padding:0;border:0;background:transparent;box-shadow:none}
+#habit-form .measure-slider input[type="range"]::-webkit-slider-runnable-track{height:1px;background:var(--line);border-radius:1px}
+#habit-form .measure-slider input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:20px;height:20px;border-radius:50%;background:var(--paper);border:1.5px solid var(--accent);margin-top:-10px;transition:transform var(--dur-fast)}
+#habit-form .measure-slider input[type="range"]:active::-webkit-slider-thumb{transform:scale(1.06)}
+#habit-form .measure-slider input[type="range"]:focus-visible{outline:none}
+#habit-form .measure-slider input[type="range"]:focus-visible::-webkit-slider-thumb{outline:2px solid var(--accent);outline-offset:2px}
+.habit-chip{position:relative;display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface);color:var(--ink);font-size:var(--text-sm);font-variant-numeric:tabular-nums}
+.habit-chip:active{background:var(--accent-soft)}
+.habit-chip.is-used{border-color:var(--accent);color:var(--accent)}
+.habit-chip-x{display:none;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:var(--text-xs);line-height:1}
+#habit-chips.is-editing .habit-chip{padding-right:8px}
+#habit-chips.is-editing .habit-chip-x{display:grid}
+.habit-chip-add{color:var(--muted);border-style:dashed;background:transparent}
+.habit-chip-add:active{color:var(--accent);border-color:var(--accent)}

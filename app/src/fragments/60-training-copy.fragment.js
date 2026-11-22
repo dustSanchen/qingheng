@@ -1779,6 +1779,8 @@
       const payload=build(form); if (payload===null) return;
       await api(path,payload);
       feedback(message,'已保存。');
+      // 习惯保存成功才把这个数记成「常用值」：失败的提交不该污染那三枚。
+      if (path === '/api/habits' && typeof rememberHabitQuick === 'function') rememberHabitQuick(payload);
       if (path === '/api/meals') {form.reset();setDefaultDates();}
       if (path === '/api/settings') {delete providerDrafts[selectedProvider];form.elements.apiKey.value='';form.elements.clearKey.checked=false;}
       try {await loadState({quiet:true});} catch {feedback(message,'保存成功，但刷新失败。请检查连接后重新加载；不要重复提交。',true);}
