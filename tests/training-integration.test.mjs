@@ -46,8 +46,12 @@ check('the generator receives split, gear, minutes and a start template', app.in
   app.includes('startTemplate: nextStartTemplate(planPref.split)'));
 check('the weekly sessions come from the preference, not only the profile', training.includes('number(planPref.days) || number(effectiveProfileForDate(activeDate).training)'));
 check('templates follow the split', app.includes("split === 'ul' ? ['upper', 'lower'] : split === 'fb' ? ['full'] : ['push', 'pull', 'legs']"));
-check('gear filters the movement pool', app.includes('const applyGear = list =>') && app.includes('const GEAR_RE = {'));
-check('minutes cap the density', app.includes('const maxMoves = minutes <= 30 ? 3') && app.includes('const setCap = minutes <= 30 ? 3'));
+check('gear decides which movement wins a slot', app.includes("const gearKey = String(src.gear || 'mixed');") && app.includes('gearKey === \'mixed\' || item.gear === gearKey'));
+check('minutes cap the density', app.includes('const moves = minutes <= 30 ? 3') && app.includes('const setCap = minutes <= 30 ? 3') && app.includes('const budget = Math.max(8, Math.round(minutes / 3.5));'));
+check('每套模板都有固定槽位（主复合 + 次复合 + 孤立/核心）', app.includes('const PLAN_SHAPES = {') && app.includes("push: [{role: 'main'}, {role: 'compound'}"));
+check('无历史的配重动作带推算重量', app.includes('plannedWeightFor === \'function\' ? plannedWeightFor(name) : null') && app.includes('weightApprox: true'));
+check('处方次数与 RIR 取 GOAL_PRESETS', app.includes('const repsRange = goalPreset && Array.isArray(goalPreset.reps)') && app.includes('const rirRange = goalPreset && Array.isArray(goalPreset.rir)'));
+check('生成结果带处方', app.includes('prescription: {reps: repsRange, rir: rirRange}'));
 check('the start template continues after the last session', app.includes('function nextStartTemplate(split)') &&
   app.includes("return at >= 0 ? order[(at + 1) % 3] : 'push';"));
 

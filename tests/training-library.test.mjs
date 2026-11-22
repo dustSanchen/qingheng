@@ -58,8 +58,8 @@ check('legs includes front squat', lib.moves.legs.some(m => m.name.includes('颈
 check('the library loads before the app', html.indexOf('training-principles.js') < html.indexOf('app.js'));
 check('helpers exist in the bundle', app.includes('function trainingLibrary()') && app.includes('function libraryMoves(template)'));
 check('planWhy exists', app.includes('function planWhy(input)'));
-check('empty templates use library moves', app.includes('exercises = libraryMoves(template).map(') && app.includes('composeFrom(['));
-check('days carry suggested', app.includes('template, deload, exercises, suggested}'));
+check('templates draw their movements from the library', app.includes("typeof libraryDayTemplate === 'function'") && app.includes("typeof libraryMoves === 'function'") && app.includes('if (libList && libList.length)'));
+check('days carry suggested', app.includes('exercises: picked.exercises, suggested: picked.suggested'));
 check('the plan carries reasons', app.includes("typeof planWhy === 'function' ? planWhy("));
 check('the card renders the explanation', app.includes('为什么这样排') && app.includes('plan-why'));
 check('suggested movements are labelled', app.includes("planDay.suggested ? '（训练库建议）' : ''"));

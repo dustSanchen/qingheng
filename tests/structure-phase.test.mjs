@@ -54,7 +54,7 @@ check('the training form can repeat the last session',
   onboarding.includes('function repeatLastTraining') && html.includes('id="training-repeat"'));
 
 check('recommended loads are plate-achievable',
-  training.includes('function loadableWeightKg') && training.includes('loadableWeightKg(name, suggested)')
+  training.includes('function loadableWeightKg') && training.includes('loadableWeightKg(name, next)')
   && rest.includes('20 kg 空杆 + 每侧 2.5 kg'));
 check('the training overview connects diet and lifting',
   html.includes('id="training-overview"') && html.includes('train-overview-head')

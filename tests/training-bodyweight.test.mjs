@@ -93,7 +93,7 @@ check('the weekly overview falls back to bodyweight reps', app.includes("totalVo
 check('the overview note carries bodyweight reps', app.includes("' · 自重 ' + fmt(totalBwReps, 0) + ' 次'"));
 check('the bars keep one unit per chart', app.includes("const barMetric = totalVolume > 0 ? 'volume' : totalBwReps > 0 ? 'bw' : 'volume';"));
 check('the weekly stats expose bodyweight reps', app.includes('totalBwReps: Math.round(days.reduce((sum, day) => sum + day.bwReps, 0))'));
-check('the plan progresses bodyweight by reps', app.includes('reps: bodyweight && !deload ? baseReps + 1 : baseReps'));
+check('the plan progresses bodyweight by reps', app.includes('return bodyweight && !deload ? Math.min(repsRange[1] + 2, reps + 1) : reps;'));
 check('the plan note explains the bodyweight rule', app.includes('自重动作不加重，按次数进阶'));
 check('bodyweight moves are not scheduled with a fake weight', app.includes('const bodyweight = typeof isBodyweightMove === \'function\' && isBodyweightMove(name);'));
 

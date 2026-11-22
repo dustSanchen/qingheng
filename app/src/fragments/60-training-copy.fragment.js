@@ -387,125 +387,233 @@
    * sessions from the last two weeks per exercise, with a graded progression.
    * lastByExercise: {name: {sets, reps, weight, date}}; acwr flag decides a deload.
    */
+  /**
+   * 38 号训练配套方案（docs/design/38-training-prescriptions.md）。
+   * 每套模板的动作槽位固定：1 主复合 + 1 次复合 + 孤立/核心；组次与 RIR 取 GOAL_PRESETS；
+   * 重量：有历史 ×1.025（减载 ×0.9）、无历史按体重推算并标「约」、自重留空按次数进阶。
+   * 选动作五规则：器械匹配 → 部位覆盖 → 同角度不重复 → 可加重优先 → 有历史先继承。
+   */
   function generateWeekPlan(input) {
     const src = input || {};
     const start = String(src.startDate || '');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) return null;
+    const TRAINING_POOLS = {
+      push: [
+        {name: '卧推', role: 'main', gear: 'barbell', angle: 'horizontal-press'},
+        {name: '器械卧推', role: 'compound', gear: 'machine', angle: 'horizontal-press'},
+        {name: '上斜哑铃卧推', role: 'compound', gear: 'dumbbell', angle: 'incline-press'},
+        {name: '哑铃肩推', role: 'isolate', gear: 'dumbbell', angle: 'vertical-press'},
+        {name: '侧平举', role: 'isolate', gear: 'dumbbell', angle: 'lateral-raise'},
+        {name: '绳索下压', role: 'isolate', gear: 'machine', angle: 'triceps'},
+        {name: '双杠臂屈伸', role: 'isolate', gear: 'body', angle: 'triceps'}
+      ],
+      pull: [
+        {name: '引体向上', role: 'main', gear: 'body', angle: 'vertical-pull'},
+        {name: '高位下拉', role: 'main', gear: 'machine', angle: 'vertical-pull'},
+        {name: '杠铃划船', role: 'compound', gear: 'barbell', angle: 'row'},
+        {name: '器械划船', role: 'compound', gear: 'machine', angle: 'row'},
+        {name: '面拉', role: 'isolate', gear: 'machine', angle: 'rear-delt'},
+        {name: '哑铃弯举', role: 'isolate', gear: 'dumbbell', angle: 'biceps'},
+        {name: '直臂下压', role: 'isolate', gear: 'machine', angle: 'lats'}
+      ],
+      legs: [
+        {name: '深蹲', role: 'main', gear: 'barbell', angle: 'squat'},
+        {name: '硬拉', role: 'compound', gear: 'barbell', angle: 'hinge'},
+        {name: '罗马尼亚硬拉', role: 'compound', gear: 'barbell', angle: 'hinge'},
+        {name: '腿举', role: 'isolate', gear: 'machine', angle: 'leg-press'},
+        {name: '保加利亚分腿蹲', role: 'isolate', gear: 'dumbbell', angle: 'single-leg'},
+        {name: '提踵', role: 'isolate', gear: 'machine', angle: 'calf'},
+        {name: '平板支撑', role: 'core', gear: 'body', angle: 'core'}
+      ],
+      upper: [
+        {name: '卧推', role: 'main', gear: 'barbell', angle: 'horizontal-press', family: 'push'},
+        {name: '引体向上', role: 'main', gear: 'body', angle: 'vertical-pull', family: 'pull'},
+        {name: '上斜哑铃卧推', role: 'compound', gear: 'dumbbell', angle: 'incline-press', family: 'push'},
+        {name: '杠铃划船', role: 'compound', gear: 'barbell', angle: 'row', family: 'pull'},
+        {name: '哑铃肩推', role: 'isolate', gear: 'dumbbell', angle: 'vertical-press', family: 'push'},
+        {name: '面拉', role: 'isolate', gear: 'machine', angle: 'rear-delt', family: 'pull'},
+        {name: '绳索下压', role: 'isolate', gear: 'machine', angle: 'triceps', family: 'push'}
+      ],
+      lower: [
+        {name: '深蹲', role: 'main', gear: 'barbell', angle: 'squat'},
+        {name: '罗马尼亚硬拉', role: 'compound', gear: 'barbell', angle: 'hinge'},
+        {name: '腿举', role: 'isolate', gear: 'machine', angle: 'leg-press'},
+        {name: '保加利亚分腿蹲', role: 'isolate', gear: 'dumbbell', angle: 'single-leg'},
+        {name: '提踵', role: 'isolate', gear: 'machine', angle: 'calf'},
+        {name: '平板支撑', role: 'core', gear: 'body', angle: 'core'}
+      ],
+      full: [
+        {name: '深蹲', role: 'main', gear: 'barbell', angle: 'squat', family: 'legs'},
+        {name: '卧推', role: 'compound', gear: 'barbell', angle: 'horizontal-press', family: 'push'},
+        {name: '杠铃划船', role: 'compound', gear: 'barbell', angle: 'row', family: 'pull'},
+        {name: '引体向上', role: 'isolate', gear: 'body', angle: 'vertical-pull', family: 'pull'},
+        {name: '腿举', role: 'isolate', gear: 'machine', angle: 'leg-press', family: 'legs'},
+        {name: '平板支撑', role: 'core', gear: 'body', angle: 'core', family: 'legs'}
+      ]
+    };
+    /** 每天要填的槽位：上肢=推 2 + 拉 2；全身=推拉腿各 1 + 核心；其余=1 主 + 1 次 + 孤立。 */
+    const PLAN_SHAPES = {
+      push: [{role: 'main'}, {role: 'compound'}, {role: 'isolate'}, {role: 'isolate'}, {role: 'isolate'}],
+      pull: [{role: 'main'}, {role: 'compound'}, {role: 'isolate'}, {role: 'isolate'}, {role: 'isolate'}],
+      legs: [{role: 'main'}, {role: 'compound'}, {role: 'isolate'}, {role: 'isolate'}, {role: 'core'}],
+      upper: [
+        {role: 'main', family: 'push'}, {role: 'main', family: 'pull'},
+        {role: 'compound', family: 'push'}, {role: 'compound', family: 'pull'},
+        {role: 'isolate'}
+      ],
+      lower: [{role: 'main'}, {role: 'compound'}, {role: 'isolate'}, {role: 'isolate'}, {role: 'core'}],
+      full: [
+        {role: 'main', family: 'legs'}, {role: 'compound', family: 'push'},
+        {role: 'compound', family: 'pull'}, {role: 'isolate', family: 'pull'}, {role: 'core'}
+      ]
+    };
     const pad2 = n => String(n).padStart(2, '0');
     const sessions = Math.max(1, Math.min(6, Number(src.sessions) || 3));
-    // 2026-11-22 深夜：分化/器械/时长真正进生成（以前只进 AI 提示词与缓存指纹，改了也没用）。
     const split = ['ppl', 'ul', 'fb'].includes(String(src.split)) ? String(src.split) : 'ppl';
     const templates = split === 'ul' ? ['upper', 'lower'] : split === 'fb' ? ['full'] : ['push', 'pull', 'legs'];
     const startAt = Math.max(0, templates.indexOf(String(src.startTemplate || '')));
     const minutes = Math.max(20, Math.min(120, Number(src.minutes) || 45));
-    // 时长换算成密度：动作数与每组组数的上限。
-    const maxMoves = minutes <= 30 ? 3 : minutes <= 50 ? 4 : 5;
+    const moves = minutes <= 30 ? 3 : minutes <= 45 ? 4 : minutes <= 60 ? 5 : 6;
     const setCap = minutes <= 30 ? 3 : minutes <= 60 ? 4 : 5;
-    const GEAR_RE = {
-      barbell: /(杠铃|深蹲|硬拉|卧推|推举|划船|弯举|下压|提踵|俯身)/,
-      dumbbell: /(哑铃)/,
-      machine: /(器械|固定|绳索|下拉|推胸|腿举|夹胸|屈伸|提踵)/,
-      body: /(引体|俯卧撑|双杠|平板支撑|卷腹|举腿|臀桥|自重|空手)/
-    };
-    // 器械不匹配时宁可少一点；少于 3 个就用原表补齐，别给一个空白的训练日。
-    const applyGear = list => {
-      const re = GEAR_RE[String(src.gear || '')];
-      if (!re) return list;
-      const kept = list.filter(item => re.test(String(item.name || '')));
-      if (kept.length >= 3) return kept;
-      return [...kept, ...list.filter(item => !kept.includes(item))].slice(0, 3);
-    };
-    const composeFrom = (ids, perGroup) => {
-      const out = [];
-      for (const id of ids) {
-        const day = typeof libraryDayTemplate === 'function' ? libraryDayTemplate(id) : null;
-        const list = day && day.exercises && day.exercises.length
-          ? day.exercises
-          : (typeof libraryMoves === 'function' ? libraryMoves(id) : []);
-        for (const item of list.slice(0, perGroup)) {
-          out.push({name: item.name, sets: item.sets || 3, reps: item.reps || 8, weight: null, role: item.role || '', rpe: item.rpe || null});
-        }
-      }
-      return out;
-    };
-    const rotation = s => {
+    const budget = Math.max(8, Math.round(minutes / 3.5));
+    const gearKey = String(src.gear || 'mixed');
+    const rotation = n => {
       const plan = [];
-      for (let i = 0; i < s; i++) plan.push(templates[(startAt + i) % templates.length]);
+      for (let i = 0; i < n; i++) plan.push(templates[(startAt + i) % templates.length]);
       return plan;
     };
     // Spread the sessions over the week: Mon/Tue/Thu/Fri/Sat pattern.
     const slots = [[0], [0, 3], [0, 2, 4], [0, 1, 3, 5], [0, 1, 2, 4, 5], [0, 1, 2, 3, 4, 6]][sessions - 1];
     const deload = src.acwrFlag === 'high';
     const goal = String(src.goal || '');
-    // 目标对应的训练要求来自同一张表（docs/design/27-evidence-requirements.md）：
-    // 增肌期主动把当天第一个动作多排 1 组；减脂/薄肌不靠加量，按证据保量即可。
+    // 组次与 RIR 只取这一张表，不另造数字（27 号证据表 §1）。
     const goalPreset = typeof GOAL_PRESETS === 'object' ? GOAL_PRESETS[goal] : null;
+    const repsRange = goalPreset && Array.isArray(goalPreset.reps) ? goalPreset.reps : [8, 12];
+    const rirRange = goalPreset && Array.isArray(goalPreset.rir) ? goalPreset.rir : [2, 3];
     const lastByExercise = src.lastByExercise || {};
-    const byTemplate = {push: [], pull: [], legs: [], other: []};
+
+    // 历史 → 处方重量：有历史按 +2.5%（减载 ×0.9）并落到可装载档；自重只按次数进阶。
+    const history = new Map();
     for (const [name, row] of Object.entries(lastByExercise)) {
+      if (!row || row.sets === null || !Number.isFinite(Number(row.sets))) continue;
       // A run has duration/distance instead of sets: it is not a lift and must not be scheduled as one.
-      if (!row || !Number.isFinite(Number(row.sets)) || row.sets === null) continue;
       if (Number.isFinite(Number(row.durationMin)) || Number.isFinite(Number(row.distanceKm))) continue;
-      const template = /(深蹲|硬拉|腿|提踵)/.test(name) ? 'legs' : /(划船|引体|下拉|弯举|面拉)/.test(name) ? 'pull' : /(卧推|肩推|侧平举|下压|臂屈伸)/.test(name) ? 'push' : 'other';
-      const weight = Number(row.weight);
-      // 自重动作（引体、俯卧撑、平板支撑…）不按 kg 加重：重量留空，下次每组 +1 次。
       const bodyweight = typeof isBodyweightMove === 'function' && isBodyweightMove(name);
-      let suggested = !bodyweight && Number.isFinite(weight) && weight > 0
+      const weight = Number(row.weight);
+      let next = !bodyweight && Number.isFinite(weight) && weight > 0
         ? Math.round((deload ? weight * 0.9 : weight * 1.025) * 2) / 2
         : null;
-      if (suggested !== null) {
-        suggested = loadableWeightKg(name, suggested);
-        // +2.5% 对轻重量可能落回同一档（60 kg → 61.5 → 装不出 → 60），这时至少进一档，不能原地不动。
-        if (!deload && suggested !== null && suggested <= weight) suggested = loadableWeightKg(name, weight + 2.5);
+      if (next !== null && typeof loadableWeightKg === 'function') {
+        next = loadableWeightKg(name, next);
+        // +2.5% 对轻重量可能落回同一档，这时至少进一档，不能原地不动。
+        if (!deload && next !== null && next <= weight) next = loadableWeightKg(name, weight + 2.5);
       }
-      const baseReps = Number(row.reps) || 8;
-      const firstOfTemplate = byTemplate[template].length === 0;
-      const gainBonus = goalPreset && goal === 'gain' && !deload && firstOfTemplate ? 1 : 0;
-      byTemplate[template].push({
-        name,
-        sets: Math.min(5, Math.max(2, Number(row.sets) - (deload ? 1 : 0)) + gainBonus),
-        reps: bodyweight && !deload ? baseReps + 1 : baseReps,
-        weight: suggested,
-        ...(bodyweight ? {bodyweight: true} : {})
-      });
+      history.set(name, {sets: Number(row.sets), reps: Number(row.reps) || null, weight: next, bodyweight});
     }
+
+    const isBodyweight = name => typeof isBodyweightMove === 'function' ? isBodyweightMove(name) : false;
+    const weightFor = name => {
+      if (isBodyweight(name)) return {weight: null, bodyweight: true};
+      const past = history.get(name);
+      if (past && past.weight !== null && past.weight > 0) return {weight: past.weight};
+      // 没有历史也要给一个可执行的起步值：按体重与动作系数推算，界面上标「约」，练完一次自动校准。
+      const guess = typeof plannedWeightFor === 'function' ? plannedWeightFor(name) : null;
+      const value = guess && Number(guess.weight);
+      if (Number.isFinite(value) && value > 0) return {weight: value, approx: true};
+      return {weight: null};
+    };
+    const repsFor = (role, bodyweight) => {
+      const base = role === 'main' ? repsRange[0] : Math.round((repsRange[0] + repsRange[1]) / 2);
+      const reps = Math.max(repsRange[0], Math.min(repsRange[1], base));
+      return bodyweight && !deload ? Math.min(repsRange[1] + 2, reps + 1) : reps;
+    };
+    const rirFor = role => role === 'main' ? rirRange[0] : rirRange[1];
+    const setsFor = role => {
+      const base = role === 'isolate' || role === 'core' ? 3 : 4;
+      const gain = goal === 'gain' && role === 'main' && !deload ? 1 : 0;
+      return Math.max(2, Math.min(5, base + gain - (deload ? 1 : 0)));
+    };
+
+    const pickDay = template => {
+      // 动作来源：训练库（training-principles.js）里有这套模板就用库里的动作，没有才用内置池。
+      // 库是「数据库」，生成器不该自己编一份和它对不上的清单。
+      let pool = (TRAINING_POOLS[template] || []).slice();
+      const libDay = typeof libraryDayTemplate === 'function' ? libraryDayTemplate(template) : null;
+      const libList = libDay && Array.isArray(libDay.exercises) && libDay.exercises.length
+        ? libDay.exercises
+        : (typeof libraryMoves === 'function' ? libraryMoves(template) : []);
+      if (libList && libList.length) {
+        const known = new Map(pool.map(item => [item.name, item]));
+        pool = libList.map((item, index) => {
+          const name = String(item.name || '').trim();
+          if (known.has(name)) return {...known.get(name), rpe: item.rpe || null};
+          const gear = /(杠铃|深蹲|硬拉|卧推|划船|推举)/.test(name) ? 'barbell'
+            : /(哑铃)/.test(name) ? 'dumbbell'
+              : /(引体|俯卧撑|双杠|平板|卷腹)/.test(name) ? 'body' : 'machine';
+          return {name, role: index === 0 ? 'main' : index < 2 ? 'compound' : 'isolate', gear, angle: name, rpe: item.rpe || null};
+        }).filter(item => item.name);
+      }
+      const shape = (PLAN_SHAPES[template] || []).slice(0, Math.max(1, moves));
+      if (!pool.length || !shape.length) return {exercises: [], suggested: false};
+      const taken = new Set(), usedAngles = new Set(), exercises = [];
+      for (const slot of shape) {
+        const candidates = pool.filter(item => !taken.has(item.name)
+          && (item.role || 'isolate') === slot.role
+          && (!slot.family || item.family === slot.family)
+          && !usedAngles.has(item.angle));
+        if (!candidates.length) continue;
+        // 器械优先匹配 → 有历史先继承 → 可加重优先（barbell/dumbbell/machine 排在 body 前）。
+        const score = item => (gearKey === 'mixed' || item.gear === gearKey ? 4 : 0)
+          + (history.has(item.name) ? 2 : 0)
+          + (item.gear === 'body' ? 0 : 1);
+        candidates.sort((a, b) => score(b) - score(a));
+        const picked = candidates[0];
+        taken.add(picked.name);
+        usedAngles.add(picked.angle);
+        const {weight, bodyweight, approx} = weightFor(picked.name);
+        exercises.push({
+          name: picked.name,
+          sets: setsFor(picked.role),
+          reps: repsFor(picked.role, bodyweight),
+          rir: rirFor(picked.role),
+          weight,
+          ...(approx ? {weightApprox: true} : {}),
+          ...(bodyweight ? {bodyweight: true} : {}),
+          role: picked.role,
+          gear: picked.gear,
+          ...(picked.rpe ? {rpe: picked.rpe} : {})
+        });
+      }
+      // 总组数预算：超了先裁孤立/核心，不动主复合。
+      const totalSets = () => exercises.reduce((sum, item) => sum + item.sets, 0);
+      while (totalSets() > budget) {
+        const at = exercises.map((item, i) => (item.role === 'isolate' || item.role === 'core') ? i : -1).filter(i => i >= 0).pop();
+        if (at === undefined) break;
+        exercises.splice(at, 1);
+      }
+      for (const item of exercises) item.sets = Math.min(setCap, item.sets);
+      return {exercises, suggested: !exercises.some(item => history.has(item.name))};
+    };
+
     const days = [];
     rotation(sessions).forEach((template, index) => {
       const date = new Date(start + 'T00:00:00');
       date.setDate(date.getDate() + slots[index]);
-      // Only that template's own movements: borrowing 跑步 into a 推 day was a real bug.
-      let exercises = ((byTemplate[template] || []).slice(0, 5));
-      let suggested = false;
-      if (!exercises.length) {
-        // 上半身/下半身/全身没有历史分区，就从推拉腿的动作库里组合：上肢=推+拉，下肢=腿，全身=各取一个。
-        if (template === 'upper') exercises = composeFrom(['push', 'pull'], 2);
-        else if (template === 'lower') exercises = composeFrom(['legs'], 5);
-        else if (template === 'full') exercises = composeFrom(['push', 'pull', 'legs'], 1);
-        else {
-          const day = typeof libraryDayTemplate === 'function' ? libraryDayTemplate(template) : null;
-          if (day && day.exercises.length) {
-            exercises = day.exercises.map(item => ({name: item.name, sets: item.sets || 3, reps: item.reps || 8,
-              weight: null, role: item.role || '', rpe: item.rpe || null}));
-          } else if (typeof libraryMoves === 'function') {
-            exercises = libraryMoves(template).map(item => ({name: item.name, sets: item.sets || 3,
-              reps: item.reps || 8, weight: null, role: item.role || ''}));
-          }
-        }
-        suggested = exercises.length > 0;
-      }
-      // 器械过滤 + 时长密度：这两项以前完全没参与生成。
-      exercises = applyGear(exercises)
-        .slice(0, maxMoves)
-        .map(item => ({...item, sets: Math.min(setCap, Math.max(2, Number(item.sets) || 3))}));
+      const picked = pickDay(template);
       days.push({date: date.getFullYear() + '-' + pad2(date.getMonth() + 1) + '-' + pad2(date.getDate()),
-        template, deload, exercises, suggested});
+        template, deload, exercises: picked.exercises, suggested: picked.suggested,
+        prescription: {reps: repsRange, rir: rirRange}});
     });
     // The analysis layer is optional: the generator still works without the library loaded.
     const reasons = typeof planWhy === 'function' ? planWhy({deload, suggested: days.some(day => day.suggested),
       templateId: 'push-day-template'}) : [];
-    return {startDate: start, sessions, deload, days, reasons,
-      note: deload ? '本周负荷偏高（ACWR > 1.5），按减载周安排：负重 ×0.9、组数 −1。'
-        : '按上周重量 +2.5% 安排；自重动作不加重，按次数进阶（下次每组 +1 次）；重量留空的动作表示上周没记到负重。'};
+    const approxCount = days.reduce((sum, day) => sum + day.exercises.filter(item => item.weightApprox).length, 0);
+    return {startDate: start, sessions, deload, days, reasons, goal: goal || null,
+      prescription: {reps: repsRange, rir: rirRange},
+      note: deload
+        ? '本周负荷偏高（ACWR > 1.5），按减载周安排：负重 ×0.9、组数 −1。'
+        : '按上周重量 +2.5% 安排；自重动作不加重，按次数进阶（下次每组 +1 次）；'
+          + (approxCount ? approxCount + ' 个动作没有历史，重量是按体重推算的起步值（带「约」），练完一次按实际校准。' : '重量按你最近 14 天的记录安排。')};
   }
 
   /** The model-free one-liner used when a request does not need an LLM at all. */

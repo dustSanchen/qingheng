@@ -62,8 +62,9 @@ check('the AI plan request carries the requirement through the local context car
 check('the profile status prints the training requirement', app.includes('训练要求（${goalLabelOf(goal)}）：每个大肌群'));
 check('the profile status prints the weight rate', app.includes('体重速率：每周 ${ratePctPerWeek[0]}~${ratePctPerWeek[1]}%'));
 check('the computed result exposes the requirements', app.includes('trainingTargets, ratePctPerWeek, weeklyRatePercent: weeklyLossFromRate,'));
-check('a gain day gets one extra set on its first lift', app.includes('const gainBonus = goalPreset && goal === \'gain\' && !deload && firstOfTemplate ? 1 : 0;'));
-check('a cutting plan is not padded with volume', app.includes("goal === 'gain' && !deload && firstOfTemplate ? 1 : 0"));
+check('a gain day gets one extra set on its first lift', app.includes("const gain = goal === 'gain' && role === 'main' && !deload ? 1 : 0;") &&
+  app.includes('const gain = goal === \'gain\' && role === \'main\' && !deload ? 1 : 0;'));
+check('a cutting plan is not padded with volume', app.includes("goal === 'gain' && role === 'main' && !deload ? 1 : 0"));
 check('the goal table is used by the plan generator', app.includes("typeof GOAL_PRESETS === 'object' ? GOAL_PRESETS[goal] : null"));
 check('a rate outside the goal band warns instead of silently changing numbers', app.includes('高于「${goalLabelOf(goal)}」的 ${lo}~${hi}%/周'));
 
