@@ -2370,6 +2370,55 @@ details:not(.advanced):not(.day-more)>summary::after{width:auto;height:auto;bord
 #view-today .energy-card .slot-hint.is-next{border-radius:12px;border:1px solid var(--accent-line);background:var(--accent-soft);-webkit-backdrop-filter:none;backdrop-filter:none}
 .today-more{width:40px;height:40px;min-height:0;margin-left:auto;border:1px solid var(--line);background:transparent}
 .page-heading--today .date-picker{position:absolute;width:1px;height:1px;padding:0;border:0;opacity:0;overflow:hidden;clip:rect(0,0,0,0);pointer-events:none}
-#quick-record{display:none}
-/* 换一天收进 ⋯ 菜单后，今天页只留日期文案（其他页仍保留 running-head 的日期入口）。 */
-html[data-tab="today"] .date-jump{display:none}
+
+/* ── 2026-11-22 视觉方针 v2：温润现代（85% 有机质感 + 15% 灵动微光） ────────────────
+   本轮解除旧版「禁阴影 / 禁渐变 / 禁毛玻璃」。控制范围：
+   - 阴影只用于今天页的卡片与浮层，不用在正文段落上；
+   - 渐变只用于「进度类」与「行动罗盘」，不做装饰渐变；
+   - 毛玻璃只允许 Sheet / 浮层，卡片上不用。 */
+:root{
+  --shadow-soft:0 8px 24px -6px color-mix(in srgb,var(--ink) 6%,transparent);
+  --shadow-lift:0 12px 32px -10px color-mix(in srgb,var(--ink) 10%,transparent);
+  --ease-out-soft:cubic-bezier(.22,1,.36,1);
+  --ring-fill-soft:color-mix(in srgb,var(--ring-green) 40%,var(--paper));
+}
+/* 1) 去边框：主卡与内部模块改用自然弥散阴影 + 底色阶梯 */
+#view-today .card{border:0;box-shadow:var(--shadow-soft);background:var(--surface)}
+#view-today .energy-card{background:linear-gradient(180deg,var(--surface),color-mix(in srgb,var(--accent) 3%,var(--surface)))}
+.status-strip{border:0}
+.today-more{border:0;background:var(--surface-soft)}
+
+/* 2) 克制的微渐变：环与宏量条同色系过渡 */
+#view-today .energy-ring{background:
+  conic-gradient(from 300deg,var(--ink-soft) 0 1.1deg,transparent 0),
+  conic-gradient(from 300deg,var(--warn) 0 var(--over),transparent 0),
+  conic-gradient(from 300deg,var(--ring-fill-soft) 0deg,var(--ring-fill) var(--progress),var(--accent-soft) var(--progress))}
+#view-today .progress-track span{background-image:linear-gradient(90deg,color-mix(in srgb,var(--paper) 55%,transparent),transparent)}
+
+/* 3) 15% 灵动：只在行动罗盘上给光泽描边 + 同色系微渐变 */
+#view-today .energy-card .slot-hint.is-next{
+  border-color:var(--accent-line);
+  background-image:linear-gradient(160deg,color-mix(in srgb,var(--accent) 12%,transparent),transparent 72%);
+  box-shadow:inset 0 1px 0 color-mix(in srgb,var(--paper) 70%,transparent),var(--shadow-soft)}
+
+/* 4) 高频入口（换一天 / 复制一餐）保持可见、弱化为 13px 文字 */
+html[data-tab="today"] .date-jump{display:inline-flex;align-items:center;min-height:32px;padding:0 4px;border:0;background:transparent;color:var(--muted);font-size:var(--text-xs)}
+html[data-tab="today"] .date-jump:active{color:var(--ink)}
+#quick-record{display:inline-flex;align-items:center;min-height:32px;padding:0 4px;font-size:var(--text-xs);color:var(--muted);background:transparent;border:0}
+#quick-record:active{color:var(--ink)}
+#view-today .energy-card .card-heading{align-items:center;gap:8px}
+
+/* 5) 按压跟手、轮播淡入、数据缓动 */
+#view-today .habit-cell,#view-today .slot-hint,#view-today .quick-chip,
+#quick-record,html[data-tab="today"] .date-jump{transition:transform var(--dur-fast) var(--ease-out-soft),color var(--dur-fast) var(--ease-out-soft)}
+#view-today .habit-cell:active,#view-today .slot-hint:active,#view-today .quick-chip:active{transform:scale(.98)}
+#view-today .progress-track span{transition:width var(--dur-base) var(--ease-out-soft)}
+.status-strip-text.is-swap{animation:stripSwap 180ms var(--ease-out-soft)}
+@keyframes stripSwap{from{opacity:0;transform:translateY(2px)}to{opacity:1;transform:none}}
+/* 6) 小习惯网格自适应：隐藏某项后剩余格子等分铺满 */
+.habit-grid{grid-template-columns:repeat(auto-fit,minmax(96px,1fr))}
+@media (prefers-reduced-motion:reduce){
+  .status-strip-text.is-swap{animation:none}
+  #view-today .habit-cell:active,#view-today .slot-hint:active,#view-today .quick-chip:active{transform:none}
+  #view-today .progress-track span{transition:none}
+}

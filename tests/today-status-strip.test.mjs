@@ -30,8 +30,12 @@ check('the compass keeps its in-card styling', css.includes('#view-today .energy
 // --- 工具栏收进菜单 ---------------------------------------------------------------------
 check('the header has one more button', html.includes('id="today-more"'));
 check('the menu carries the three actions', app.includes("label: '换一天'") && app.includes("label: '复制一餐'") && app.includes("label: '显示指标'"));
-check('date jump hides only on today', css.includes('html[data-tab="today"] .date-jump{display:none}'));
-check('quick copy is no longer a visible link', css.includes('#quick-record{display:none}'));
+check('date jump stays visible on today', css.includes('html[data-tab="today"] .date-jump{display:inline-flex'));
+check('quick copy is a visible quiet link again', css.includes('#quick-record{display:inline-flex'));
+check('soft shadows replace card borders on today', css.includes('--shadow-soft:0 8px 24px -6px color-mix(in srgb,var(--ink) 6%,transparent)') && css.includes('#view-today .card{border:0;box-shadow:var(--shadow-soft)'));
+check('gradients are allowed only on progress and the compass', css.includes('--ring-fill-soft') && css.includes('#view-today .energy-card .slot-hint.is-next{'));
+check('the strip swaps with a short fade', app.includes("textNode.classList.add('is-swap')") && css.includes('@keyframes stripSwap'));
+check('press feedback is scale .98', css.includes('#view-today .habit-cell:active,#view-today .slot-hint:active,#view-today .quick-chip:active{transform:scale(.98)}'));
 
 // --- 常用指标 ---------------------------------------------------------------------------
 check('metric preference is stored locally', app.includes("'qingheng.todayMetrics'") && app.includes('function saveTodayMetrics'));

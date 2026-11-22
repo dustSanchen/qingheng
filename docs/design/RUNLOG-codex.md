@@ -1699,3 +1699,16 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 今日体检只恢复一个「补睡眠」直达链接（habit-sleep → body），其余体检项不抢主行动。
 - 时段提醒独立成一行：`夜里 · 只补记录，不追额度`，放在快捷入口之后、体检之前，只作语境，不带按钮。
 - 全量 109/109；真机 1.5.07 截图核对；APK 659 KB，sha256 `3F25D4B9A3AB0339…`；未推送、未发 Release。
+## r222 · 2026-11-22 · 1.5.18（今天页视觉方针 v2：温润现代 + 15% 灵动微光）
+
+- 依据：用户指定 `发给 DeepSeek 的统一视觉与交互升级指令.md` 为最终视觉方针，正式解除旧版「禁阴影 / 禁渐变 / 禁毛玻璃」三禁令。
+- 材质：今天页卡片去掉 1px 实线边框，改 `--shadow-soft`（`color-mix(var(--ink) 6%, transparent)`）弥散阴影 + 底色阶梯；`.status-strip{border:0}`。
+- 渐变范围：能量环改同色系 conic 渐变（`--ring-fill-soft` → `--ring-fill`）；宏量条加纸底高光；只给行动罗盘 `linear-gradient(160deg, accent 12% → transparent)` + `inset` 光泽描边。
+- 微交互：格/罗盘/芯片 `:active{transform:scale(.98)}` + `cubic-bezier(.22,1,.36,1)`；状态胶囊换文案加 `stripSwap 180ms` 上浮淡入；进度条 220ms 缓动；reduced-motion 全量降级。
+- 布局修正：换一天 / 复制一餐 恢复可见（13px 文字，不再只在 ⋯ 菜单）；`.habit-grid` 改 `repeat(auto-fit,minmax(96px,1fr))`。
+- 令牌：新增颜色一律 `color-mix`，不写 rgba 字面量——`token-ratchet` 保持 12 处基线。
+- 测试：`today-status-strip` 增 6 条（阴影令牌/渐变范围/`.is-swap`/按压/高频入口可见），并翻转旧「隐藏换一天」两条断言；全量 111/111。
+- 审计：aesthetic-audit 无阻塞（强调色收敛仍为既有 WARN）；entry-budget 9/9 PASS。
+- 构建：设备 3cba2bdc 安装 1.5.18/518；页面截图见 `build/v10-today.png`。未推远端、未发 Release。
+- 文档：新增 `docs/design/35-today-visual-v2.md`，写明 v1 禁令作废、渐变/阴影/毛玻璃的允许范围与回滚方式。
+

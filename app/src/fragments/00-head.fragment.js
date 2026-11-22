@@ -451,7 +451,14 @@
     const item = list[statusCursor];
     strip.hidden = false;
     strip.classList.toggle('is-warn', item.tone === 'warn');
-    $('#status-strip-text').textContent = item.text;
+    // 轮播换文案时做一次轻微上浮淡入（180ms，reduced-motion 下由 CSS 关掉）。
+    const textNode = $('#status-strip-text');
+    if (textNode) {
+      textNode.textContent = item.text;
+      textNode.classList.remove('is-swap');
+      void textNode.offsetWidth;
+      textNode.classList.add('is-swap');
+    }
     const count = $('#status-strip-count');
     if (count) count.textContent = list.length > 1 ? `${statusCursor + 1}/${list.length}` : '';
     strip.setAttribute('aria-label', list.length > 1
