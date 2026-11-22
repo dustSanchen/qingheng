@@ -461,11 +461,13 @@
     item.done = false;
     aiPlanStore(activeDate, plan);
     const current = exercisesFor(activeDate).find(row => String(row && row.name || "").trim() === name);
-    // 「没动过」= 没填过次数/负重；空 setDetails 不代表没动过（表单重建时每组都是空对象）。
-    const recorded = Array.isArray(current?.setDetails)
-      ? current.setDetails.some(set => set && (number(set.reps) !== null || number(set.weight) !== null))
-      : false;
-    const untouched = current && current.fromPlan === true && !recorded;
+    // 「没动过」= 组次负重仍然全是计划里给的那组数字（或还没生成组明细）。
+    // 只看「数组是否为空」会误判：表单重建后每组都是对象，而计划本来就带 5 组 × 5 次 × 60 kg。
+    const sameAsPlan = !Array.isArray(current?.setDetails) || !current.setDetails.length
+      || current.setDetails.every(set => set
+        && (number(set.reps) ?? null) === (number(item.reps) ?? null)
+        && (number(set.weight) ?? null) === (number(item.weight) ?? null));
+    const untouched = current && current.fromPlan === true && sameAsPlan;
     if (untouched) {
       await removeExerciseFromToday(current);
       if (typeof renderTrainingLog === "function") renderTrainingLog();
