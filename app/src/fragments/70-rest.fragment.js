@@ -2396,6 +2396,21 @@
       if (input) { input.readOnly = false; input.focus(); if (input.select) input.select(); }
       return;
     }
+    // 「自重」标记：点一下就把这个动作名记进用户的自重表，保存时不校验负重。
+    const bw = event.target.closest?.('[data-exercise-bodyweight]');
+    if (bw) {
+      const row = bw.closest('[data-exercise-row]');
+      const name = String($('[data-exercise="name"]', row)?.value || '').trim();
+      if (!name) { notice('先填动作名称，再标自重。', true); return; }
+      const on = bw.getAttribute('aria-pressed') !== 'true';
+      if (typeof setUserBodyweight === 'function') setUserBodyweight(name, on);
+      bw.setAttribute('aria-pressed', String(on));
+      bw.textContent = on ? '自重 ✓' : '自重';
+      // 该行的重量格随之变化：自重→占位「自重」，取消→占位「—」。
+      if (typeof refreshSetRow === 'function') refreshSetRow(row);
+      notice(on ? '已记为自重动作：' + name + '，以后同名动作都按自重处理。' : '已取消自重标记：' + name + '。');
+      return;
+    }
     const done = event.target.closest?.('[data-set-done]');
     if (done) {
       const set = done.closest('[data-set-row]');

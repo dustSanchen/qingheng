@@ -940,6 +940,8 @@
   const CHAT_UNHELPFUL_KEY = 'qingheng.chat.unhelpful';
   const CHAT_WEB_KEY = 'qingheng.chat.web';
   const TRAINING_CONSENT_KEY = 'qingheng.training.consent';
+  // 用户手工标记的自重动作名（训练行「自重」按钮写入，随 prefs 备份）。
+  const BODYWEIGHT_MARK_KEY = 'qingheng.bodyweightMoves';
   // ---- 用户偏好收编进 state.json：localStorage 保持即时缓存，导出/换机随之携带 ----------------------
   let prefsSyncTimer = 0;
   /** Collects the per-date AI plans (newest 10) from localStorage into one portable object. */
@@ -972,6 +974,10 @@
       if (Array.isArray(prefs.unhelpfulChats)) localStorage.setItem(CHAT_UNHELPFUL_KEY, JSON.stringify(prefs.unhelpfulChats));
       if (typeof prefs.chatWeb === 'boolean') localStorage.setItem(CHAT_WEB_KEY, prefs.chatWeb ? '1' : '0');
       if (prefs.trainingConsent === true) localStorage.setItem(TRAINING_CONSENT_KEY, '1');
+    if (Array.isArray(prefs.bodyweightMoves)) {
+      localStorage.setItem(BODYWEIGHT_MARK_KEY, JSON.stringify(prefs.bodyweightMoves));
+      if (typeof loadUserBodyweightMarks === 'function') loadUserBodyweightMarks();
+    }
       if (Array.isArray(prefs.preferences)) {
         const entries = normalizePreferenceEntries(prefs.preferences, prefs.preferenceMeta);
         const local = readPreferenceRows();
@@ -1005,6 +1011,8 @@
     {id: 'planPrefs', read: () => { try { return JSON.parse(localStorage.getItem(PLAN_PREFS_KEY) || 'null'); } catch { return null; } }, fromState: prefs => prefs.planPrefs ?? null},
     {id: 'aiPlans', read: () => collectedAiPlans(), fromState: prefs => prefs.aiPlans || {}},
     {id: 'preferences', read: () => readPreferenceRows(), fromState: prefs => normalizePreferenceEntries(Array.isArray(prefs.preferences) ? prefs.preferences : [], prefs.preferenceMeta)},
+    // 用户手工标记的自重动作名：跟着备份走，换机后同名动作仍然按自重处理。
+    {id: 'bodyweightMoves', read: () => { try { return JSON.parse(localStorage.getItem(BODYWEIGHT_MARK_KEY) || '[]'); } catch { return []; } }, fromState: prefs => Array.isArray(prefs.bodyweightMoves) ? prefs.bodyweightMoves : []},
   ];
   /** 启动时对齐一次：本地缓存是当前事实，state.prefs 是随备份走的那份；漂移时以本地为准回写。 */
   function verifyConfigSync() {

@@ -1838,3 +1838,10 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 重量兜底：plannedWeightFor 也给不出数时按器械给保守起步值（杠铃 40 / 哑铃 8 / 器械 20 / 其它 10），同样标「约」——非自重动作不再出现空负重。
 - 新增 	ests/training-prescription.test.mjs：把 generateWeekPlan / nextStartTemplate / GOAL_PRESETS / isBodyweightMove / loadableWeightKg / 训练库 一起塞进 vm 沙箱，对输出断言 §7 六条（结构、重量、时长预算、周组数上限、起始部位、次数与 RIR 区间）。
 - 全量 114/114；aesthetic-audit 无阻塞项；entry-budget 9/9。真机（1.5.27/527）：本周安排 11-23 起、今天 full 日＝深蹲/卧推/杠铃划船，采纳后行内带处方重量。
+  
+### r212 · 2026-11-23 00:20 · 训练行「自重」标记（用户要求）
+- 动作名行新增「自重」按钮：只在编辑态（点「改」后）出现，点一下把这个动作名写进用户的自重表，保存时不校验负重。
+- 存储：qingheng.bodyweightMoves（常量 BODYWEIGHT_MARK_KEY），随 prefs 进 state.json；已在 CONFIG_REGISTRY 登记并接入 hydratePrefsFromState，换机恢复。
+- 识别：isBodyweightMove(name) 先查用户表、再走正则；用户表优先——「做不动就换成高位下拉」这类名字被标过后也按自重处理。
+- 测试：training-bodyweight 增 6 条断言 + 一段沙箱行为测试（标记后 isBodyweightMove=true、取消后回 false）；全量 114/114。
+- 真机：按钮已确认出现在「改」之后（build/bw-edit7.png）；点按的即时视觉（自重 ✓ / 重量格占位变「自重」）因盲点坐标漂移未能稳定复现，逻辑有沙箱测试覆盖。

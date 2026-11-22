@@ -2456,3 +2456,9 @@ html[data-tab="today"] .energy-card .quick-chip:active{background-image:linear-g
 
 /* 训练行上的「约」标记：表示这一行的重量是按体重推算的起步值，不是历史记录。 */
 .exercise-approx{display:inline-grid;place-items:center;flex:0 0 auto;min-width:16px;height:16px;margin-right:4px;padding:0 4px;border-radius:4px;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent);font-size:var(--text-xs);font-weight:var(--fw-semibold);line-height:1}
+
+/* 训练行的「自重」标记：只有编辑态（未锁定）才出现，避免每行都挂一个按钮。 */
+.exercise-bodyweight{display:none;flex:0 0 auto;margin-left:6px;padding:0 8px;min-height:28px;border:1px solid color-mix(in srgb,var(--ink) 14%,transparent);border-radius:6px;background:none;color:var(--muted);font:inherit;font-size:var(--text-xs)}
+.exercise-name-row:not(.is-locked) .exercise-bodyweight{display:inline-flex;align-items:center}
+.exercise-bodyweight[aria-pressed="true"]{border-color:transparent;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent);font-weight:var(--fw-semibold)}
+.exercise-bodyweight:active{transform:scale(.98)}

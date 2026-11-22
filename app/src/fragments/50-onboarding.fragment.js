@@ -740,9 +740,42 @@ const values = points.length<=7 ? points.map((item,i) => {
    * （负重引体向上、杠铃臀桥还是要填重量）。
    */
   const BODYWEIGHT_MOVES = /(引体向上|俯卧撑|双杠臂屈伸|双臂杠屈伸|平板支撑|卷腹|悬垂举腿|山羊挺身|臀桥|自重|空手)/;
+  /**
+   * 用户自己认定的自重动作（2026-11-23）：训练行里点「自重」就把这个名字记下来，
+   * 以后识别到同名动作直接按自重处理——不填负重也合法。
+   * 名字表存 localStorage 并随 prefs 进 state.json，换机也带着走。
+   */
+  function readBodyweightMarks() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(BODYWEIGHT_MARK_KEY) || '[]');
+      return Array.isArray(raw) ? raw.map(name => String(name || '').trim()).filter(Boolean) : [];
+    } catch { return []; }
+  }
+  const USER_BODYWEIGHT = new Set(readBodyweightMarks());
+  function loadUserBodyweightMarks() {
+    USER_BODYWEIGHT.clear();
+    for (const name of readBodyweightMarks()) USER_BODYWEIGHT.add(name);
+  }
+  function isUserBodyweight(name) {
+    return USER_BODYWEIGHT.has(String(name || '').trim());
+  }
+  function setUserBodyweight(name, on) {
+    const key = String(name || '').trim();
+    if (!key) return false;
+    const names = new Set(readBodyweightMarks());
+    if (on) names.add(key); else names.delete(key);
+    const list = [...names].slice(-200);
+    try { localStorage.setItem(BODYWEIGHT_MARK_KEY, JSON.stringify(list)); } catch { }
+    USER_BODYWEIGHT.clear();
+    for (const row of list) USER_BODYWEIGHT.add(row);
+    if (typeof schedulePrefsSync === 'function') schedulePrefsSync({bodyweightMoves: list});
+    return true;
+  }
   function isBodyweightMove(name) {
     const text = String(name || '').trim();
     if (!text) return false;
+    // 用户标过的名字优先：他比正则更知道自己练的是什么。
+    if (USER_BODYWEIGHT.has(text)) return true;
     if (/(负重|加片|哑铃|杠铃|壶铃|配重|史密斯|器械)/.test(text)) return false;
     return BODYWEIGHT_MOVES.test(text);
   }
@@ -901,7 +934,7 @@ const values = points.length<=7 ? points.map((item,i) => {
       : '<button type="button" class="text-button" data-set-add>＋ 加一组</button><span class="row-meta">容量 <b data-set-volume>—</b></span>';
     return `<div class="training-row" data-exercise-row="${index}" data-exercise-id="${esc(item.id || '')}" data-cardio="${cardio ? 1 : 0}">`
       + `<div class="exercise-row-head"><span class="exercise-no" aria-hidden="true">${n}</span>`
-      + `<div class="exercise-name-row${item.name ? ' is-locked' : ''}">${item.weightApprox ? '<span class="exercise-approx" title="重量是按体重推算的起步值，练完一次按实际校准">约</span>' : ''}<input data-exercise="name" value="${esc(item.name || '')}" maxlength="60" placeholder="动作名，例如卧推" aria-label="第 ${n} 个动作名称"${item.name ? ' readonly' : ''}><button type="button" class="exercise-name-open" data-exercise-open aria-haspopup="dialog" aria-label="查看动作说明：${esc(item.name || '')}">${esc(item.name || '')}</button><button type="button" class="exercise-name-edit" data-exercise-edit aria-label="修改动作名称">改</button></div>`
+      + `<div class="exercise-name-row${item.name ? ' is-locked' : ''}">${item.weightApprox ? '<span class="exercise-approx" title="重量是按体重推算的起步值，练完一次按实际校准">约</span>' : ''}<input data-exercise="name" value="${esc(item.name || '')}" maxlength="60" placeholder="动作名，例如卧推" aria-label="第 ${n} 个动作名称"${item.name ? ' readonly' : ''}><button type="button" class="exercise-name-open" data-exercise-open aria-haspopup="dialog" aria-label="查看动作说明：${esc(item.name || '')}">${esc(item.name || '')}</button><button type="button" class="exercise-name-edit" data-exercise-edit aria-label="修改动作名称">改</button><button type="button" class="exercise-bodyweight" data-exercise-bodyweight aria-pressed="${isBodyweightMove(item.name) ? 'true' : 'false'}" title="标为自重动作：不填负重也算完整">${isBodyweightMove(item.name) ? '自重 ✓' : '自重'}</button></div>`
       + `<button type="button" class="text-button exercise-remove" data-exercise-remove="${index}" aria-label="移除这个动作">移除</button></div>`
       + `<div class="set-list" data-set-list>${body}</div>`
       + `<div class="set-foot">${foot}</div></div>`;

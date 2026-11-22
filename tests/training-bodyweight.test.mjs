@@ -96,6 +96,29 @@ check('the weekly stats expose bodyweight reps', app.includes('totalBwReps: Math
 check('the plan progresses bodyweight by reps', app.includes('return bodyweight && !deload ? Math.min(repsRange[1] + 2, reps + 1) : reps;'));
 check('the plan note explains the bodyweight rule', app.includes('自重动作不加重，按次数进阶'));
 check('bodyweight moves are not scheduled with a fake weight', app.includes('const bodyweight = typeof isBodyweightMove === \'function\' && isBodyweightMove(name);'));
+// --- 用户手工标记的自重动作（2026-11-23 用户要求）----------------------------------------
+check('训练行有「自重」标记按钮', app.includes('data-exercise-bodyweight') && app.includes('class="exercise-bodyweight"'));
+check('点「自重」写入用户自重表并同步 prefs', app.includes('function setUserBodyweight(name, on)')
+  && app.includes("schedulePrefsSync({bodyweightMoves: list})"));
+check('isBodyweightMove 先查用户表', app.includes('if (USER_BODYWEIGHT.has(text)) return true;'));
+check('自重表随备份走（注册表 + hydration）', app.includes("id: 'bodyweightMoves'")
+  && app.includes('if (typeof loadUserBodyweightMarks === \'function\') loadUserBodyweightMarks();'));
+check('点标记后该行重量格立刻改成自重', app.includes("notice(on ? '已记为自重动作：' + name")
+  && app.includes('if (typeof refreshSetRow === \'function\') refreshSetRow(row);'));
+// 行为：用户标记后，同名动作在保存校验里被当成自重（允许空负重）。
+const bwSource = [
+  grab('const BODYWEIGHT_MOVES', ['function isUserBodyweight(']),
+  grab('function isUserBodyweight(', ['function setUserBodyweight(']),
+  grab('function setUserBodyweight(', ['function isBodyweightMove(']),
+  grab('function isBodyweightMove(', ['const COMPOUND_MOVES =']),
+].join('\n');
+const bwRun = new Function('localStorage', 'schedulePrefsSync',
+  bwSource + '\nreturn {isBodyweightMove, setUserBodyweight};')({ getItem: () => null, setItem: () => {} }, () => {});
+check('未标记前「绳索下压」不是自重', bwRun.isBodyweightMove('绳索下压') === false);
+bwRun.setUserBodyweight('绳索下压', true);
+check('标记后「绳索下压」算自重', bwRun.isBodyweightMove('绳索下压') === true);
+bwRun.setUserBodyweight('绳索下压', false);
+check('取消标记后又回到正则判断', bwRun.isBodyweightMove('绳索下压') === false);
 
 // --- AI 排今天：器械动作要写清是哪种、自重不编重量 -------------------------------------------------------
 check('the plan prompt names the bench variants', main.includes('卧推 / 器械卧推 / 史密斯机卧推 是三个不同动作'));

@@ -940,6 +940,8 @@
   const CHAT_UNHELPFUL_KEY = 'qingheng.chat.unhelpful';
   const CHAT_WEB_KEY = 'qingheng.chat.web';
   const TRAINING_CONSENT_KEY = 'qingheng.training.consent';
+  // 用户手工标记的自重动作名（训练行「自重」按钮写入，随 prefs 备份）。
+  const BODYWEIGHT_MARK_KEY = 'qingheng.bodyweightMoves';
   // ---- 用户偏好收编进 state.json：localStorage 保持即时缓存，导出/换机随之携带 ----------------------
   let prefsSyncTimer = 0;
   /** Collects the per-date AI plans (newest 10) from localStorage into one portable object. */
@@ -972,6 +974,10 @@
       if (Array.isArray(prefs.unhelpfulChats)) localStorage.setItem(CHAT_UNHELPFUL_KEY, JSON.stringify(prefs.unhelpfulChats));
       if (typeof prefs.chatWeb === 'boolean') localStorage.setItem(CHAT_WEB_KEY, prefs.chatWeb ? '1' : '0');
       if (prefs.trainingConsent === true) localStorage.setItem(TRAINING_CONSENT_KEY, '1');
+    if (Array.isArray(prefs.bodyweightMoves)) {
+      localStorage.setItem(BODYWEIGHT_MARK_KEY, JSON.stringify(prefs.bodyweightMoves));
+      if (typeof loadUserBodyweightMarks === 'function') loadUserBodyweightMarks();
+    }
       if (Array.isArray(prefs.preferences)) {
         const entries = normalizePreferenceEntries(prefs.preferences, prefs.preferenceMeta);
         const local = readPreferenceRows();
@@ -1005,6 +1011,8 @@
     {id: 'planPrefs', read: () => { try { return JSON.parse(localStorage.getItem(PLAN_PREFS_KEY) || 'null'); } catch { return null; } }, fromState: prefs => prefs.planPrefs ?? null},
     {id: 'aiPlans', read: () => collectedAiPlans(), fromState: prefs => prefs.aiPlans || {}},
     {id: 'preferences', read: () => readPreferenceRows(), fromState: prefs => normalizePreferenceEntries(Array.isArray(prefs.preferences) ? prefs.preferences : [], prefs.preferenceMeta)},
+    // 用户手工标记的自重动作名：跟着备份走，换机后同名动作仍然按自重处理。
+    {id: 'bodyweightMoves', read: () => { try { return JSON.parse(localStorage.getItem(BODYWEIGHT_MARK_KEY) || '[]'); } catch { return []; } }, fromState: prefs => Array.isArray(prefs.bodyweightMoves) ? prefs.bodyweightMoves : []},
   ];
   /** 启动时对齐一次：本地缓存是当前事实，state.prefs 是随备份走的那份；漂移时以本地为准回写。 */
   function verifyConfigSync() {
@@ -4510,9 +4518,42 @@ const values = points.length<=7 ? points.map((item,i) => {
    * （负重引体向上、杠铃臀桥还是要填重量）。
    */
   const BODYWEIGHT_MOVES = /(引体向上|俯卧撑|双杠臂屈伸|双臂杠屈伸|平板支撑|卷腹|悬垂举腿|山羊挺身|臀桥|自重|空手)/;
+  /**
+   * 用户自己认定的自重动作（2026-11-23）：训练行里点「自重」就把这个名字记下来，
+   * 以后识别到同名动作直接按自重处理——不填负重也合法。
+   * 名字表存 localStorage 并随 prefs 进 state.json，换机也带着走。
+   */
+  function readBodyweightMarks() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(BODYWEIGHT_MARK_KEY) || '[]');
+      return Array.isArray(raw) ? raw.map(name => String(name || '').trim()).filter(Boolean) : [];
+    } catch { return []; }
+  }
+  const USER_BODYWEIGHT = new Set(readBodyweightMarks());
+  function loadUserBodyweightMarks() {
+    USER_BODYWEIGHT.clear();
+    for (const name of readBodyweightMarks()) USER_BODYWEIGHT.add(name);
+  }
+  function isUserBodyweight(name) {
+    return USER_BODYWEIGHT.has(String(name || '').trim());
+  }
+  function setUserBodyweight(name, on) {
+    const key = String(name || '').trim();
+    if (!key) return false;
+    const names = new Set(readBodyweightMarks());
+    if (on) names.add(key); else names.delete(key);
+    const list = [...names].slice(-200);
+    try { localStorage.setItem(BODYWEIGHT_MARK_KEY, JSON.stringify(list)); } catch { }
+    USER_BODYWEIGHT.clear();
+    for (const row of list) USER_BODYWEIGHT.add(row);
+    if (typeof schedulePrefsSync === 'function') schedulePrefsSync({bodyweightMoves: list});
+    return true;
+  }
   function isBodyweightMove(name) {
     const text = String(name || '').trim();
     if (!text) return false;
+    // 用户标过的名字优先：他比正则更知道自己练的是什么。
+    if (USER_BODYWEIGHT.has(text)) return true;
     if (/(负重|加片|哑铃|杠铃|壶铃|配重|史密斯|器械)/.test(text)) return false;
     return BODYWEIGHT_MOVES.test(text);
   }
@@ -4671,7 +4712,7 @@ const values = points.length<=7 ? points.map((item,i) => {
       : '<button type="button" class="text-button" data-set-add>＋ 加一组</button><span class="row-meta">容量 <b data-set-volume>—</b></span>';
     return `<div class="training-row" data-exercise-row="${index}" data-exercise-id="${esc(item.id || '')}" data-cardio="${cardio ? 1 : 0}">`
       + `<div class="exercise-row-head"><span class="exercise-no" aria-hidden="true">${n}</span>`
-      + `<div class="exercise-name-row${item.name ? ' is-locked' : ''}">${item.weightApprox ? '<span class="exercise-approx" title="重量是按体重推算的起步值，练完一次按实际校准">约</span>' : ''}<input data-exercise="name" value="${esc(item.name || '')}" maxlength="60" placeholder="动作名，例如卧推" aria-label="第 ${n} 个动作名称"${item.name ? ' readonly' : ''}><button type="button" class="exercise-name-open" data-exercise-open aria-haspopup="dialog" aria-label="查看动作说明：${esc(item.name || '')}">${esc(item.name || '')}</button><button type="button" class="exercise-name-edit" data-exercise-edit aria-label="修改动作名称">改</button></div>`
+      + `<div class="exercise-name-row${item.name ? ' is-locked' : ''}">${item.weightApprox ? '<span class="exercise-approx" title="重量是按体重推算的起步值，练完一次按实际校准">约</span>' : ''}<input data-exercise="name" value="${esc(item.name || '')}" maxlength="60" placeholder="动作名，例如卧推" aria-label="第 ${n} 个动作名称"${item.name ? ' readonly' : ''}><button type="button" class="exercise-name-open" data-exercise-open aria-haspopup="dialog" aria-label="查看动作说明：${esc(item.name || '')}">${esc(item.name || '')}</button><button type="button" class="exercise-name-edit" data-exercise-edit aria-label="修改动作名称">改</button><button type="button" class="exercise-bodyweight" data-exercise-bodyweight aria-pressed="${isBodyweightMove(item.name) ? 'true' : 'false'}" title="标为自重动作：不填负重也算完整">${isBodyweightMove(item.name) ? '自重 ✓' : '自重'}</button></div>`
       + `<button type="button" class="text-button exercise-remove" data-exercise-remove="${index}" aria-label="移除这个动作">移除</button></div>`
       + `<div class="set-list" data-set-list>${body}</div>`
       + `<div class="set-foot">${foot}</div></div>`;
@@ -10287,6 +10328,21 @@ function metricIcon(label) {
       const wrap = $('.exercise-name-row', row), input = $('[data-exercise="name"]', row);
       wrap?.classList.remove('is-locked');
       if (input) { input.readOnly = false; input.focus(); if (input.select) input.select(); }
+      return;
+    }
+    // 「自重」标记：点一下就把这个动作名记进用户的自重表，保存时不校验负重。
+    const bw = event.target.closest?.('[data-exercise-bodyweight]');
+    if (bw) {
+      const row = bw.closest('[data-exercise-row]');
+      const name = String($('[data-exercise="name"]', row)?.value || '').trim();
+      if (!name) { notice('先填动作名称，再标自重。', true); return; }
+      const on = bw.getAttribute('aria-pressed') !== 'true';
+      if (typeof setUserBodyweight === 'function') setUserBodyweight(name, on);
+      bw.setAttribute('aria-pressed', String(on));
+      bw.textContent = on ? '自重 ✓' : '自重';
+      // 该行的重量格随之变化：自重→占位「自重」，取消→占位「—」。
+      if (typeof refreshSetRow === 'function') refreshSetRow(row);
+      notice(on ? '已记为自重动作：' + name + '，以后同名动作都按自重处理。' : '已取消自重标记：' + name + '。');
       return;
     }
     const done = event.target.closest?.('[data-set-done]');
