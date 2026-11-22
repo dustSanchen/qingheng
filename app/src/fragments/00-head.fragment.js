@@ -429,11 +429,17 @@
     dialogReturnFocus = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
     $('#app-dialog-title').textContent = options.title || '请确认';
     $('#app-dialog-text').textContent = text;
+    // 可选的内容区：只接收本地拼好的标记（容量/耗时/疲劳度），不接后端字符串，避免注入面。
+    const body = $('#app-dialog-body');
+    if (body) {
+      body.innerHTML = options.bodyHtml || '';
+      body.hidden = !options.bodyHtml;
+    }
     $('#app-dialog-ok').textContent = options.ok || '确定';
     $('#app-dialog-cancel').textContent = options.cancel || '取消';
     $('.app-dialog-panel', root).classList.toggle('danger', options.danger === true);
     root.hidden = false;
-    $('#app-dialog-cancel').focus();
+    ($('.app-dialog-body [data-autofocus]', root) || $('#app-dialog-cancel')).focus();
     return new Promise(resolve => {dialogResolve = resolve;});
   }
   function closeDialog(result) {

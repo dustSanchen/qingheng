@@ -429,11 +429,17 @@
     dialogReturnFocus = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
     $('#app-dialog-title').textContent = options.title || '请确认';
     $('#app-dialog-text').textContent = text;
+    // 可选的内容区：只接收本地拼好的标记（容量/耗时/疲劳度），不接后端字符串，避免注入面。
+    const body = $('#app-dialog-body');
+    if (body) {
+      body.innerHTML = options.bodyHtml || '';
+      body.hidden = !options.bodyHtml;
+    }
     $('#app-dialog-ok').textContent = options.ok || '确定';
     $('#app-dialog-cancel').textContent = options.cancel || '取消';
     $('.app-dialog-panel', root).classList.toggle('danger', options.danger === true);
     root.hidden = false;
-    $('#app-dialog-cancel').focus();
+    ($('.app-dialog-body [data-autofocus]', root) || $('#app-dialog-cancel')).focus();
     return new Promise(resolve => {dialogResolve = resolve;});
   }
   function closeDialog(result) {
@@ -4630,6 +4636,66 @@ const values = points.length<=7 ? points.map((item,i) => {
       + `<p class="fine-print">${next}</p>`;
     box.hidden = false;
   }
+  /**
+   * 训练计时（2026-11-22）：第一次把某组标记完成时记下起点，「结束训练」时给出实际耗时的默认值。
+   * 只存本机、按日覆盖；保存成功后清掉，第二天不会沿用昨天的起点。
+   */
+  function sessionStartKey(date = activeDate) { return 'qingheng.sessionStart.' + date; }
+  function sessionStartedAt(date = activeDate) {
+    try { const raw = Number(localStorage.getItem(sessionStartKey(date))); return Number.isFinite(raw) && raw > 0 ? raw : null; } catch { return null; }
+  }
+  function markSessionStart(date = activeDate) {
+    if (sessionStartedAt(date)) return;
+    try { localStorage.setItem(sessionStartKey(date), String(Date.now())); } catch {}
+  }
+  function clearSessionStart(date = activeDate) {
+    try { localStorage.removeItem(sessionStartKey(date)); } catch {}
+  }
+  /** 默认耗时（分钟）：有起点按实际、夹在 5–300 之间；没有起点就留空，不编一个数。 */
+  function sessionMinutesEstimate(date = activeDate) {
+    const start = sessionStartedAt(date);
+    if (!start) return '';
+    return String(Math.min(300, Math.max(5, Math.round((Date.now() - start) / 60000))));
+  }
+  /** 「结束训练」弹窗内容：汇总 + 实际耗时 + 疲劳度 + 先补记录。只拼本地数字，不接后端字符串。 */
+  function trainingSaveDialogHtml(exercises) {
+    const setsCount = exercises.reduce((sum, item) => sum + (Array.isArray(item.setDetails) ? item.setDetails.length : (number(item.sets) || 0)), 0);
+    const stats = trainingStatsOf(exercises);
+    const runKm = exercises.reduce((sum, item) => sum + (number(item.distanceKm) || 0), 0);
+    const runMin = exercises.reduce((sum, item) => sum + (number(item.durationMin) || 0), 0);
+    const parts = [fmt(exercises.length, 0) + ' 个动作'];
+    if (setsCount) parts.push(setsCount + ' 组');
+    if (stats.volume > 0) parts.push('容量 ' + fmt(stats.volume, 0) + ' kg');
+    if (stats.bodyweightReps > 0) parts.push('自重 ' + fmt(stats.bodyweightReps, 0) + ' 次');
+    if (runKm > 0 || runMin > 0) parts.push('有氧 ' + [runKm > 0 ? fmt(runKm, 1) + ' km' : '', runMin > 0 ? fmt(runMin, 0) + ' 分钟' : ''].filter(Boolean).join(' · '));
+    const current = typeof effortFor === 'function' ? effortFor(activeDate) : null;
+    const levels = typeof EFFORT_LEVELS !== 'undefined' ? EFFORT_LEVELS : [];
+    const chips = levels.map(level =>
+      `<button type="button" class="effort-chip" data-effort="${level}" aria-pressed="${current === level}">${EFFORT_LABELS[level]}</button>`).join('');
+    return `<p class="dialog-summary">${esc(parts.join(' · '))}</p>`
+      + '<div class="dialog-field"><span>耗时</span><input type="number" inputmode="numeric" min="0" max="600" step="1" name="durationMin" value="' + sessionMinutesEstimate() + '" placeholder="—" aria-label="实际耗时（分钟）"><span>分钟</span></div>'
+      + '<p class="dialog-field-label">今天练下来感觉如何？</p>'
+      + `<div class="dialog-effort" role="group" aria-label="今天练下来感觉如何">${chips}</div>`
+      + '<button type="button" class="text-button" data-dialog-fill>先补记录</button>';
+  }
+  /** 弹窗内的交互：疲劳度单选、先补记录（关弹窗并把焦点送回第一个没填完的组）。 */
+  function wireTrainingSaveDialog() {
+    const body = $('#app-dialog-body');
+    if (!body) return;
+    body.querySelectorAll('.effort-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        body.querySelectorAll('.effort-chip').forEach(other => other.setAttribute('aria-pressed', String(other === chip)));
+      });
+    });
+    body.querySelector('[data-dialog-fill]')?.addEventListener('click', () => {
+      closeDialog(false);
+      const rows = $$('[data-set-row]');
+      const empty = rows.find(row => number($('[data-set="reps"]', row)?.value) === null)
+        || rows.find(row => number($('[data-set="weight"]', row)?.value) === null);
+      const target = empty || $('[data-exercise="name"]') || $('#training-exercises');
+      if (target && typeof target.focus === 'function') { target.scrollIntoView({block: 'center'}); target.focus({preventScroll: true}); }
+    });
+  }
   /** Saves the log onto the day's habit row, preserving every other field it already carries. */
   async function saveTrainingLog() {
     const form = $('#training-form'), message = $('.form-feedback', form), button = $('button[type=submit]', form);
@@ -4678,19 +4744,30 @@ const values = points.length<=7 ? points.map((item,i) => {
       + (volume > 0 ? ' · 容量 ' + fmt(volume, 0) + ' kg' : '')
       + (stats.bodyweightReps > 0 ? ' · 自重 ' + fmt(stats.bodyweightReps, 0) + ' 次' : '')
       + (runKm > 0 || runMin > 0 ? ' · 有氧 ' + [runKm > 0 ? fmt(runKm, 1) + ' km' : '', runMin > 0 ? fmt(runMin, 0) + ' 分钟' : ''].filter(Boolean).join(' · ') : '');
-    if (!await askConfirm(summary, {title: '核对后保存', ok: '确认保存'})) return;
+    // 2026-11-22：保存变成「结束训练」——汇总 + 实际耗时 + 疲劳度一次核对，补记录入口在弹窗里。
+    const confirmPromise = askConfirm('确认后写入今天的训练记录。', {title: '结束训练', ok: '确认保存', bodyHtml: trainingSaveDialogHtml(exercises)});
+    wireTrainingSaveDialog();
+    if (!await confirmPromise) return;
+    const dialogBody = $('#app-dialog-body');
+    const durationMin = dialogBody ? number($('input[name="durationMin"]', dialogBody)?.value) : null;
+    const chosenEffort = dialogBody ? $('.effort-chip[aria-pressed="true"]', dialogBody)?.dataset.effort || null : null;
     if (button.disabled) return;
     button.disabled = true;
     feedback(message, '正在保存训练…');
     try {
       const existing = habitRowFor(activeDate) || {};
       await api('/api/habits', {...existing, date: activeDate, training: true, template: form.elements.template.value, exercises,
-        ...(exerciseVolume(exercises[0]) === null ? {} : {})});
+        ...(number(durationMin) > 0 ? {durationMin: Math.round(number(durationMin))} : {})});
+      // 疲劳度与日志同一次确认提交：先写日志再补 effort，失败时日志已经落地，不会丢。
+      if (chosenEffort && typeof saveTrainingEffort === 'function' && effortFor(activeDate) !== chosenEffort) {
+        try { await saveTrainingEffort(chosenEffort); } catch { notice('训练已保存，疲劳度没记上；可在下面再点一次。', true); }
+      }
       await loadState({quiet: true});
+      clearSessionStart();
       // 真实负重写进本地重量记忆：下一次「用 AI 排今天」按它渐进（不用再靠 14 天窗口撞运气）。
       if (typeof rememberExerciseLogs === 'function') rememberExerciseLogs(exercises, activeDate);
-      feedback(message, `已保存 ${exercises.length} 个动作。`);
-      // 保存完顺手问一句强度：answer 直接影响下一次排课的组数与重量。
+      feedback(message, `已保存：${summary}。`);
+      // 没在弹窗里选疲劳度时兜底问一句：这个答案直接影响下一次排课的组数与重量。
       if (typeof effortFor === 'function' && !effortFor(activeDate)) {
         notice('今天练下来感觉如何？在下面点一下「太轻 / 刚好 / 有点累 / 太累」，下次排课会参考。');
       }
@@ -7486,7 +7563,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.15';
+  const APP_VERSION = '1.5.16';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -8001,6 +8078,13 @@ function metricIcon(label) {
     ).join("") + (box.classList.contains("editing")
       ? '<div class="ai-plan-append"><button type="button" class="button subtle" data-ai-append>添加一个动作</button></div>'
       : "");
+    // 动作清单默认折叠长文本：还有没做的动作就展开，全部做完自动收起，把页面还给「保存」。
+    const fold = $("#ai-plan-fold"), foldCount = $("#ai-plan-fold-count");
+    if (foldCount) foldCount.textContent = plan.length + " 个动作";
+    if (fold) {
+      const pending = plan.some(item => item && item.done !== true);
+      if (fold.open !== pending) fold.open = pending;
+    }
     // 推算出来的重量要说清来源：第一次练完就会按你的实际记录校准，不是拍脑袋定的数。
     const approximated = plan.filter(item => item && (item.weightSource === "inferred" || item.weightSource === "family")).length;
     if (approximated && !box.classList.contains("editing")) {
@@ -9370,17 +9454,25 @@ function metricIcon(label) {
   function clearRestLine() {
     if (restLine) { restLine.remove(); restLine = null; }
   }
+  /**
+   * 组间休息就长在那一组上：一条走完的线 + 就地倒计时（2026-11-22 第三轮）。
+   * 点倒计时即取消；线滚出视野后由底部药丸接手，两处同一份 restEnd。
+   */
   function attachRestLine(setRow) {
     clearRestLine();
     if (!setRow || !setRow.parentElement) return;
     const line = document.createElement('div');
     line.className = 'rest-line';
-    line.setAttribute('aria-hidden', 'true');
-    line.innerHTML = '<span></span>';
+    line.innerHTML = '<span class="rest-line-bar"><span></span></span>'
+      + '<button type="button" class="rest-line-label" data-rest-inline aria-label="取消休息计时"></button>';
     setRow.after(line);
     restLine = line;
-    const fill = line.firstElementChild;
+    const fill = line.querySelector('.rest-line-bar > span');
     if (fill) fill.style.transform = 'scaleX(1)';
+    line.querySelector('[data-rest-inline]')?.addEventListener('click', () => {
+      clearRestLine();
+      startRestTimer(false, restLength);
+    });
   }
   /** 默认休息秒数（没选具体动作、直接点药丸时用）；具体动作按 restSecondsFor 决定。 */
   const REST_SECONDS = 90;
@@ -9442,11 +9534,19 @@ function metricIcon(label) {
       return true;
     } catch { return false; }
   }
+  /** 休息线是否还在视野里：在就由行内倒计时负责，药丸不重复出现。 */
+  function restLineVisible() {
+    if (!restLine || !restLine.isConnected) return false;
+    const box = restLine.getBoundingClientRect();
+    return box.bottom > 0 && box.top < window.innerHeight;
+  }
   function syncRestDock() {
     const dock = $('#rest-dock');
     if (!dock) return;
-    // 计时中常驻；空转时只在「正在记组」的视野里出现——滚到预设/保存按钮时不挡点击。
-    dock.classList.toggle('is-in', !!restTick || (restExercisesInView && !restActionsInView));
+    // 计时中：行内倒计时可见就收药丸，滚出视野后药丸接手（保证随时能取消）；
+    // 空转时只在「正在记组」的视野里出现——滚到预设/保存按钮时不挡点击。
+    const inline = restLineVisible();
+    dock.classList.toggle('is-in', restTick ? !inline : (restExercisesInView && !restActionsInView));
   }
   /** 计时与药丸一起画：剩余时间、环形进度、aria-label 同源。 */
   function paintRest(left) {
@@ -9469,11 +9569,17 @@ function metricIcon(label) {
       : `开始 ${restLength} 秒组间休息`);
     const ring = $('#rest-timer .rest-ring-fill');
     if (ring) ring.style.strokeDashoffset = String(REST_RING_C * Math.max(0, Math.min(1, 1 - left / Math.max(1, restLength))));
-    // 同一只真源同时画那根线：计时结束把线收掉，行回到常态。
+    // 同一只真源同时画那根线与行内倒计时：计时结束把线收掉，行回到常态。
     if (restLine && !restLine.isConnected) restLine = null;
     if (restLine) {
-      const fill = restLine.firstElementChild;
+      const fill = restLine.querySelector('.rest-line-bar > span');
       if (fill) fill.style.transform = `scaleX(${Math.max(0, Math.min(1, left / Math.max(1, restLength))).toFixed(4)})`;
+      const inline = restLine.querySelector('[data-rest-inline]');
+      if (inline) {
+        inline.textContent = left > 0
+          ? `休息 ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`
+          : `休息 ${restLength}s`;
+      }
       if (!left) clearRestLine();
     }
     button.dataset.left = String(left);
@@ -9557,6 +9663,8 @@ function metricIcon(label) {
       const on = set.classList.toggle('is-done');
       done.setAttribute('aria-pressed', String(on));
       if (on) {
+        // 第一次勾组就是这一节的起点：结束训练时按它算「实际耗时」。
+        if (typeof markSessionStart === 'function') markSessionStart();
         // 按这一行的动作决定休息多久（复合/孤立/自重不同）；有氧行不计时。
         const row = done.closest('[data-exercise-row]');
         const name = row ? String($('[data-exercise="name"]', row)?.value || '') : '';

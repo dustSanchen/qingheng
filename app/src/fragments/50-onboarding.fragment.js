@@ -1079,6 +1079,66 @@ const values = points.length<=7 ? points.map((item,i) => {
       + `<p class="fine-print">${next}</p>`;
     box.hidden = false;
   }
+  /**
+   * 训练计时（2026-11-22）：第一次把某组标记完成时记下起点，「结束训练」时给出实际耗时的默认值。
+   * 只存本机、按日覆盖；保存成功后清掉，第二天不会沿用昨天的起点。
+   */
+  function sessionStartKey(date = activeDate) { return 'qingheng.sessionStart.' + date; }
+  function sessionStartedAt(date = activeDate) {
+    try { const raw = Number(localStorage.getItem(sessionStartKey(date))); return Number.isFinite(raw) && raw > 0 ? raw : null; } catch { return null; }
+  }
+  function markSessionStart(date = activeDate) {
+    if (sessionStartedAt(date)) return;
+    try { localStorage.setItem(sessionStartKey(date), String(Date.now())); } catch {}
+  }
+  function clearSessionStart(date = activeDate) {
+    try { localStorage.removeItem(sessionStartKey(date)); } catch {}
+  }
+  /** 默认耗时（分钟）：有起点按实际、夹在 5–300 之间；没有起点就留空，不编一个数。 */
+  function sessionMinutesEstimate(date = activeDate) {
+    const start = sessionStartedAt(date);
+    if (!start) return '';
+    return String(Math.min(300, Math.max(5, Math.round((Date.now() - start) / 60000))));
+  }
+  /** 「结束训练」弹窗内容：汇总 + 实际耗时 + 疲劳度 + 先补记录。只拼本地数字，不接后端字符串。 */
+  function trainingSaveDialogHtml(exercises) {
+    const setsCount = exercises.reduce((sum, item) => sum + (Array.isArray(item.setDetails) ? item.setDetails.length : (number(item.sets) || 0)), 0);
+    const stats = trainingStatsOf(exercises);
+    const runKm = exercises.reduce((sum, item) => sum + (number(item.distanceKm) || 0), 0);
+    const runMin = exercises.reduce((sum, item) => sum + (number(item.durationMin) || 0), 0);
+    const parts = [fmt(exercises.length, 0) + ' 个动作'];
+    if (setsCount) parts.push(setsCount + ' 组');
+    if (stats.volume > 0) parts.push('容量 ' + fmt(stats.volume, 0) + ' kg');
+    if (stats.bodyweightReps > 0) parts.push('自重 ' + fmt(stats.bodyweightReps, 0) + ' 次');
+    if (runKm > 0 || runMin > 0) parts.push('有氧 ' + [runKm > 0 ? fmt(runKm, 1) + ' km' : '', runMin > 0 ? fmt(runMin, 0) + ' 分钟' : ''].filter(Boolean).join(' · '));
+    const current = typeof effortFor === 'function' ? effortFor(activeDate) : null;
+    const levels = typeof EFFORT_LEVELS !== 'undefined' ? EFFORT_LEVELS : [];
+    const chips = levels.map(level =>
+      `<button type="button" class="effort-chip" data-effort="${level}" aria-pressed="${current === level}">${EFFORT_LABELS[level]}</button>`).join('');
+    return `<p class="dialog-summary">${esc(parts.join(' · '))}</p>`
+      + '<div class="dialog-field"><span>耗时</span><input type="number" inputmode="numeric" min="0" max="600" step="1" name="durationMin" value="' + sessionMinutesEstimate() + '" placeholder="—" aria-label="实际耗时（分钟）"><span>分钟</span></div>'
+      + '<p class="dialog-field-label">今天练下来感觉如何？</p>'
+      + `<div class="dialog-effort" role="group" aria-label="今天练下来感觉如何">${chips}</div>`
+      + '<button type="button" class="text-button" data-dialog-fill>先补记录</button>';
+  }
+  /** 弹窗内的交互：疲劳度单选、先补记录（关弹窗并把焦点送回第一个没填完的组）。 */
+  function wireTrainingSaveDialog() {
+    const body = $('#app-dialog-body');
+    if (!body) return;
+    body.querySelectorAll('.effort-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        body.querySelectorAll('.effort-chip').forEach(other => other.setAttribute('aria-pressed', String(other === chip)));
+      });
+    });
+    body.querySelector('[data-dialog-fill]')?.addEventListener('click', () => {
+      closeDialog(false);
+      const rows = $$('[data-set-row]');
+      const empty = rows.find(row => number($('[data-set="reps"]', row)?.value) === null)
+        || rows.find(row => number($('[data-set="weight"]', row)?.value) === null);
+      const target = empty || $('[data-exercise="name"]') || $('#training-exercises');
+      if (target && typeof target.focus === 'function') { target.scrollIntoView({block: 'center'}); target.focus({preventScroll: true}); }
+    });
+  }
   /** Saves the log onto the day's habit row, preserving every other field it already carries. */
   async function saveTrainingLog() {
     const form = $('#training-form'), message = $('.form-feedback', form), button = $('button[type=submit]', form);
@@ -1127,19 +1187,30 @@ const values = points.length<=7 ? points.map((item,i) => {
       + (volume > 0 ? ' · 容量 ' + fmt(volume, 0) + ' kg' : '')
       + (stats.bodyweightReps > 0 ? ' · 自重 ' + fmt(stats.bodyweightReps, 0) + ' 次' : '')
       + (runKm > 0 || runMin > 0 ? ' · 有氧 ' + [runKm > 0 ? fmt(runKm, 1) + ' km' : '', runMin > 0 ? fmt(runMin, 0) + ' 分钟' : ''].filter(Boolean).join(' · ') : '');
-    if (!await askConfirm(summary, {title: '核对后保存', ok: '确认保存'})) return;
+    // 2026-11-22：保存变成「结束训练」——汇总 + 实际耗时 + 疲劳度一次核对，补记录入口在弹窗里。
+    const confirmPromise = askConfirm('确认后写入今天的训练记录。', {title: '结束训练', ok: '确认保存', bodyHtml: trainingSaveDialogHtml(exercises)});
+    wireTrainingSaveDialog();
+    if (!await confirmPromise) return;
+    const dialogBody = $('#app-dialog-body');
+    const durationMin = dialogBody ? number($('input[name="durationMin"]', dialogBody)?.value) : null;
+    const chosenEffort = dialogBody ? $('.effort-chip[aria-pressed="true"]', dialogBody)?.dataset.effort || null : null;
     if (button.disabled) return;
     button.disabled = true;
     feedback(message, '正在保存训练…');
     try {
       const existing = habitRowFor(activeDate) || {};
       await api('/api/habits', {...existing, date: activeDate, training: true, template: form.elements.template.value, exercises,
-        ...(exerciseVolume(exercises[0]) === null ? {} : {})});
+        ...(number(durationMin) > 0 ? {durationMin: Math.round(number(durationMin))} : {})});
+      // 疲劳度与日志同一次确认提交：先写日志再补 effort，失败时日志已经落地，不会丢。
+      if (chosenEffort && typeof saveTrainingEffort === 'function' && effortFor(activeDate) !== chosenEffort) {
+        try { await saveTrainingEffort(chosenEffort); } catch { notice('训练已保存，疲劳度没记上；可在下面再点一次。', true); }
+      }
       await loadState({quiet: true});
+      clearSessionStart();
       // 真实负重写进本地重量记忆：下一次「用 AI 排今天」按它渐进（不用再靠 14 天窗口撞运气）。
       if (typeof rememberExerciseLogs === 'function') rememberExerciseLogs(exercises, activeDate);
-      feedback(message, `已保存 ${exercises.length} 个动作。`);
-      // 保存完顺手问一句强度：answer 直接影响下一次排课的组数与重量。
+      feedback(message, `已保存：${summary}。`);
+      // 没在弹窗里选疲劳度时兜底问一句：这个答案直接影响下一次排课的组数与重量。
       if (typeof effortFor === 'function' && !effortFor(activeDate)) {
         notice('今天练下来感觉如何？在下面点一下「太轻 / 刚好 / 有点累 / 太累」，下次排课会参考。');
       }

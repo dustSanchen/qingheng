@@ -161,7 +161,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.15';
+  const APP_VERSION = '1.5.16';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -676,6 +676,13 @@
     ).join("") + (box.classList.contains("editing")
       ? '<div class="ai-plan-append"><button type="button" class="button subtle" data-ai-append>添加一个动作</button></div>'
       : "");
+    // 动作清单默认折叠长文本：还有没做的动作就展开，全部做完自动收起，把页面还给「保存」。
+    const fold = $("#ai-plan-fold"), foldCount = $("#ai-plan-fold-count");
+    if (foldCount) foldCount.textContent = plan.length + " 个动作";
+    if (fold) {
+      const pending = plan.some(item => item && item.done !== true);
+      if (fold.open !== pending) fold.open = pending;
+    }
     // 推算出来的重量要说清来源：第一次练完就会按你的实际记录校准，不是拍脑袋定的数。
     const approximated = plan.filter(item => item && (item.weightSource === "inferred" || item.weightSource === "family")).length;
     if (approximated && !box.classList.contains("editing")) {
@@ -2045,17 +2052,25 @@
   function clearRestLine() {
     if (restLine) { restLine.remove(); restLine = null; }
   }
+  /**
+   * 组间休息就长在那一组上：一条走完的线 + 就地倒计时（2026-11-22 第三轮）。
+   * 点倒计时即取消；线滚出视野后由底部药丸接手，两处同一份 restEnd。
+   */
   function attachRestLine(setRow) {
     clearRestLine();
     if (!setRow || !setRow.parentElement) return;
     const line = document.createElement('div');
     line.className = 'rest-line';
-    line.setAttribute('aria-hidden', 'true');
-    line.innerHTML = '<span></span>';
+    line.innerHTML = '<span class="rest-line-bar"><span></span></span>'
+      + '<button type="button" class="rest-line-label" data-rest-inline aria-label="取消休息计时"></button>';
     setRow.after(line);
     restLine = line;
-    const fill = line.firstElementChild;
+    const fill = line.querySelector('.rest-line-bar > span');
     if (fill) fill.style.transform = 'scaleX(1)';
+    line.querySelector('[data-rest-inline]')?.addEventListener('click', () => {
+      clearRestLine();
+      startRestTimer(false, restLength);
+    });
   }
   /** 默认休息秒数（没选具体动作、直接点药丸时用）；具体动作按 restSecondsFor 决定。 */
   const REST_SECONDS = 90;
@@ -2117,11 +2132,19 @@
       return true;
     } catch { return false; }
   }
+  /** 休息线是否还在视野里：在就由行内倒计时负责，药丸不重复出现。 */
+  function restLineVisible() {
+    if (!restLine || !restLine.isConnected) return false;
+    const box = restLine.getBoundingClientRect();
+    return box.bottom > 0 && box.top < window.innerHeight;
+  }
   function syncRestDock() {
     const dock = $('#rest-dock');
     if (!dock) return;
-    // 计时中常驻；空转时只在「正在记组」的视野里出现——滚到预设/保存按钮时不挡点击。
-    dock.classList.toggle('is-in', !!restTick || (restExercisesInView && !restActionsInView));
+    // 计时中：行内倒计时可见就收药丸，滚出视野后药丸接手（保证随时能取消）；
+    // 空转时只在「正在记组」的视野里出现——滚到预设/保存按钮时不挡点击。
+    const inline = restLineVisible();
+    dock.classList.toggle('is-in', restTick ? !inline : (restExercisesInView && !restActionsInView));
   }
   /** 计时与药丸一起画：剩余时间、环形进度、aria-label 同源。 */
   function paintRest(left) {
@@ -2144,11 +2167,17 @@
       : `开始 ${restLength} 秒组间休息`);
     const ring = $('#rest-timer .rest-ring-fill');
     if (ring) ring.style.strokeDashoffset = String(REST_RING_C * Math.max(0, Math.min(1, 1 - left / Math.max(1, restLength))));
-    // 同一只真源同时画那根线：计时结束把线收掉，行回到常态。
+    // 同一只真源同时画那根线与行内倒计时：计时结束把线收掉，行回到常态。
     if (restLine && !restLine.isConnected) restLine = null;
     if (restLine) {
-      const fill = restLine.firstElementChild;
+      const fill = restLine.querySelector('.rest-line-bar > span');
       if (fill) fill.style.transform = `scaleX(${Math.max(0, Math.min(1, left / Math.max(1, restLength))).toFixed(4)})`;
+      const inline = restLine.querySelector('[data-rest-inline]');
+      if (inline) {
+        inline.textContent = left > 0
+          ? `休息 ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`
+          : `休息 ${restLength}s`;
+      }
       if (!left) clearRestLine();
     }
     button.dataset.left = String(left);
@@ -2232,6 +2261,8 @@
       const on = set.classList.toggle('is-done');
       done.setAttribute('aria-pressed', String(on));
       if (on) {
+        // 第一次勾组就是这一节的起点：结束训练时按它算「实际耗时」。
+        if (typeof markSessionStart === 'function') markSessionStart();
         // 按这一行的动作决定休息多久（复合/孤立/自重不同）；有氧行不计时。
         const row = done.closest('[data-exercise-row]');
         const name = row ? String($('[data-exercise="name"]', row)?.value || '') : '';
