@@ -2446,6 +2446,7 @@
     if (!await askConfirm('清空今天的训练记录？习惯行的其他数据（步数、睡眠、饮水、用油）会保留。', {title: '清空训练', ok: '清空', danger: true})) return;
     // 清空即「今天不按计划走了」：抑制自动播种，否则渲染时又把它播回来。
     const form = $('#training-form'); if (form) form.dataset.seedMuted = activeDate;
+    if (typeof forgetTrainingDraft === 'function') forgetTrainingDraft();
     const existing = habitRowFor(activeDate);
     if (!existing) {renderTrainingLog(); return;}
     const next = {...existing};
@@ -3143,6 +3144,14 @@ feedback(message,'数据已导入。'+report);
       $(trigger)?.addEventListener('click', () => open(sheet));
       $(closer)?.addEventListener('click', () => close(sheet));
       $(sheet)?.addEventListener('click', event => { if (event.target === sheetOf(sheet)) close(sheet); });
+    }
+    // 训练卡上那两行归属说明（昨日轮换提示、排课耗时）也是「计划说明」，搬进抽屉，卡面只留操作。
+    const notesHost = $('#plan-explain-notes');
+    if (notesHost) {
+      for (const id of ['ai-plan-note', 'ai-plan-timing']) {
+        const node = document.getElementById(id);
+        if (node) notesHost.appendChild(node);
+      }
     }
     // 更多里的两件事：点的是原来那两个按钮，行为一模一样；点完把 sheet 收起来。
     for (const id of ['#ai-plan-postpone', '#training-clear']) {

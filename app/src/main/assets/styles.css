@@ -2449,3 +2449,7 @@ html[data-tab="today"] .energy-card .quick-chip:active{background-image:linear-g
 /* 2026-11-22 概况卡：进度条只用 3px，和宏量条同一套读法。 */
 .peek-bar{display:block;height:3px;margin-top:6px;border-radius:2px;background:var(--line)}
 .peek-bar i{display:block;height:3px;border-radius:2px;background:var(--accent)}
+
+/* 计划说明书里那两行归属说明的容器（原在训练卡上）。 */
+.sheet-note{margin:0 0 10px}
+.sheet-note .ai-plan-note,.sheet-note .ai-plan-timing{margin:0 0 6px}

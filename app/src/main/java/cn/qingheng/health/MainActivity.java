@@ -3759,7 +3759,8 @@ import java.util.concurrent.Executors;
                         if (set == null) throw fail("组记录格式不正确");
                         Double reps = finite(set, "reps"), weight = finite(set, "weight");
                         if (reps == null || reps < 0 || reps > 200) throw fail("每组的次数需在 0~200");
-                        if (weight == null || weight < 0 || weight > 500) throw fail("每组的负重需在 0~500 kg");
+                        // 自重动作（引体、俯卧撑、平板支撑）没有配重：负重留空合法，只有填了值才查范围。
+                        if (weight != null && (weight < 0 || weight > 500)) throw fail("每组的负重需在 0~500 kg");
                     }
                 }
             }

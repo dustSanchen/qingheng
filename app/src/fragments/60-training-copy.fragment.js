@@ -393,10 +393,44 @@
     if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) return null;
     const pad2 = n => String(n).padStart(2, '0');
     const sessions = Math.max(1, Math.min(6, Number(src.sessions) || 3));
-    const templates = ['push', 'pull', 'legs'];
+    // 2026-11-22 深夜：分化/器械/时长真正进生成（以前只进 AI 提示词与缓存指纹，改了也没用）。
+    const split = ['ppl', 'ul', 'fb'].includes(String(src.split)) ? String(src.split) : 'ppl';
+    const templates = split === 'ul' ? ['upper', 'lower'] : split === 'fb' ? ['full'] : ['push', 'pull', 'legs'];
+    const startAt = Math.max(0, templates.indexOf(String(src.startTemplate || '')));
+    const minutes = Math.max(20, Math.min(120, Number(src.minutes) || 45));
+    // 时长换算成密度：动作数与每组组数的上限。
+    const maxMoves = minutes <= 30 ? 3 : minutes <= 50 ? 4 : 5;
+    const setCap = minutes <= 30 ? 3 : minutes <= 60 ? 4 : 5;
+    const GEAR_RE = {
+      barbell: /(杠铃|深蹲|硬拉|卧推|推举|划船|弯举|下压|提踵|俯身)/,
+      dumbbell: /(哑铃)/,
+      machine: /(器械|固定|绳索|下拉|推胸|腿举|夹胸|屈伸|提踵)/,
+      body: /(引体|俯卧撑|双杠|平板支撑|卷腹|举腿|臀桥|自重|空手)/
+    };
+    // 器械不匹配时宁可少一点；少于 3 个就用原表补齐，别给一个空白的训练日。
+    const applyGear = list => {
+      const re = GEAR_RE[String(src.gear || '')];
+      if (!re) return list;
+      const kept = list.filter(item => re.test(String(item.name || '')));
+      if (kept.length >= 3) return kept;
+      return [...kept, ...list.filter(item => !kept.includes(item))].slice(0, 3);
+    };
+    const composeFrom = (ids, perGroup) => {
+      const out = [];
+      for (const id of ids) {
+        const day = typeof libraryDayTemplate === 'function' ? libraryDayTemplate(id) : null;
+        const list = day && day.exercises && day.exercises.length
+          ? day.exercises
+          : (typeof libraryMoves === 'function' ? libraryMoves(id) : []);
+        for (const item of list.slice(0, perGroup)) {
+          out.push({name: item.name, sets: item.sets || 3, reps: item.reps || 8, weight: null, role: item.role || '', rpe: item.rpe || null});
+        }
+      }
+      return out;
+    };
     const rotation = s => {
       const plan = [];
-      for (let i = 0; i < s; i++) plan.push(templates[i % 3]);
+      for (let i = 0; i < s; i++) plan.push(templates[(startAt + i) % templates.length]);
       return plan;
     };
     // Spread the sessions over the week: Mon/Tue/Thu/Fri/Sat pattern.
@@ -443,19 +477,26 @@
       let exercises = ((byTemplate[template] || []).slice(0, 5));
       let suggested = false;
       if (!exercises.length) {
-        // No history yet: use the community-verified day template (sets / reps / RPE from the digest image),
-        // falling back to the plain movement list if the template is missing.
-        const day = typeof libraryDayTemplate === 'function' ? libraryDayTemplate(template) : null;
-        if (day && day.exercises.length) {
-          exercises = day.exercises.map(item => ({name: item.name, sets: item.sets || 3, reps: item.reps || 8,
-            weight: null, role: item.role || '', rpe: item.rpe || null}));
-          suggested = true;
-        } else if (typeof libraryMoves === 'function') {
-          exercises = libraryMoves(template).slice(0, 5).map(item => ({name: item.name, sets: item.sets || 3,
-            reps: item.reps || 8, weight: null, role: item.role || ''}));
-          suggested = exercises.length > 0;
+        // 上半身/下半身/全身没有历史分区，就从推拉腿的动作库里组合：上肢=推+拉，下肢=腿，全身=各取一个。
+        if (template === 'upper') exercises = composeFrom(['push', 'pull'], 2);
+        else if (template === 'lower') exercises = composeFrom(['legs'], 5);
+        else if (template === 'full') exercises = composeFrom(['push', 'pull', 'legs'], 1);
+        else {
+          const day = typeof libraryDayTemplate === 'function' ? libraryDayTemplate(template) : null;
+          if (day && day.exercises.length) {
+            exercises = day.exercises.map(item => ({name: item.name, sets: item.sets || 3, reps: item.reps || 8,
+              weight: null, role: item.role || '', rpe: item.rpe || null}));
+          } else if (typeof libraryMoves === 'function') {
+            exercises = libraryMoves(template).map(item => ({name: item.name, sets: item.sets || 3,
+              reps: item.reps || 8, weight: null, role: item.role || ''}));
+          }
         }
+        suggested = exercises.length > 0;
       }
+      // 器械过滤 + 时长密度：这两项以前完全没参与生成。
+      exercises = applyGear(exercises)
+        .slice(0, maxMoves)
+        .map(item => ({...item, sets: Math.min(setCap, Math.max(2, Number(item.sets) || 3))}));
       days.push({date: date.getFullYear() + '-' + pad2(date.getMonth() + 1) + '-' + pad2(date.getDate()),
         template, deload, exercises, suggested});
     });
@@ -1519,6 +1560,19 @@
     return dayLabel(date) + "按周计划应练：" + label + "日（" + slot.template + "）；动作与建议都围绕这一类。";
   }
   /** 明确「重新生成」：清掉本窗口缓存并强制重算，偏好不变也能换一版。 */
+  /** 起始部位＝接上一次训练的下一个（2026-11-22 用户拍板）。ppl 按推→拉→腿轮转；上下肢按上下交替；全身固定。 */
+  function nextStartTemplate(split) {
+    const key = ['ppl', 'ul', 'fb'].includes(String(split)) ? String(split) : 'ppl';
+    const rows = (state.habits || [])
+      .filter(row => row && validDate(row.date) && row.date < activeDate && row.template && Array.isArray(row.exercises) && row.exercises.length)
+      .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    const last = rows[0] ? String(rows[0].template) : '';
+    if (key === 'fb') return 'full';
+    if (key === 'ul') return ['legs', 'lower'].includes(last) ? 'upper' : 'lower';
+    const order = ['push', 'pull', 'legs'];
+    const at = order.indexOf(last);
+    return at >= 0 ? order[(at + 1) % 3] : 'push';
+  }
   function regenerateWeekPlan() {
     const startDate = planStartDate();
     try { localStorage.removeItem(WEEK_PLAN_KEY(startDate)); } catch { }
@@ -1532,7 +1586,9 @@
     const loads = dailyLoads(28);
     const stats = acwrFromDailyLoads(loads, activeDate);
     const lastByExercise = recentExerciseBaselines(14);
-    const sessions = Math.max(1, Math.min(6, Math.round(number(effectiveProfileForDate(activeDate).training) || 3)));
+    const planPref = prefsForPlan() || {};
+    // 以「计划偏好里的每周训练次数」为准，档案次数只做兜底——否则改了 chip 也不生效。
+    const sessions = Math.max(1, Math.min(6, Math.round(number(planPref.days) || number(effectiveProfileForDate(activeDate).training) || 3)));
     const startDate = planStartDate();
     const fingerprint = weekPlanFingerprint(prefsForPlan(), lastByExercise, sessions);
     const cached = forceWeekPlan ? null : readWeekPlanCache(startDate);
@@ -1540,7 +1596,9 @@
     if (cached && cached.plan && cached.fingerprint === fingerprint) {
       plan = cached.plan; // 指纹没变：照用上次的结果，计划是被「约定」过的
     } else {
-      plan = generateWeekPlan({startDate, sessions, lastByExercise, acwrFlag: stats ? stats.flag : 'ok', goal: (state.profile || {}).goal});
+      plan = generateWeekPlan({startDate, sessions, lastByExercise, acwrFlag: stats ? stats.flag : 'ok',
+        goal: (state.profile || {}).goal, split: planPref.split, gear: planPref.gear, minutes: planPref.minutes,
+        startTemplate: nextStartTemplate(planPref.split)});
       drifted = !!(cached && cached.plan);
       if (plan) writeWeekPlanCache(startDate, {plan, fingerprint, savedAt: Date.now()});
     }
@@ -1664,7 +1722,7 @@
     if (explainHost) {
       explainHost.innerHTML = '';
       // 用 move 而不是 clone：说明搬进抽屉后，卡面只留本周安排与采纳入口。
-      for (const node of [...box.querySelectorAll('.plan-requirement, .plan-relation, .plan-why, .plan-why-lead, .plan-label, .plan-load, .plan-load-note, .drift-line')]) {
+      for (const node of [...box.querySelectorAll('.plan-requirement, .plan-relation, .plan-why, .plan-label, .plan-load, .plan-load-note, .drift-line')]) {
         explainHost.appendChild(node);
       }
     }

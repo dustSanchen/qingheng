@@ -821,7 +821,7 @@ const values = points.length<=7 ? points.map((item,i) => {
       return bodyweight && weight !== null && weight <= 0 ? null : weight;
     };
     const details = Array.isArray(item && item.setDetails) ? item.setDetails : null;
-    if (details && details.length) return details.slice(0, 30).map(set => ({reps: number(set.reps), weight: normWeight(set.weight)}));
+    if (details && details.length) return details.slice(0, 30).map(set => ({reps: number(set.reps), weight: normWeight(set.weight), done: set.done === true}));
     const count = Math.max(1, Math.min(30, Math.round(number(item && item.sets) || 1)));
     return Array.from({length: count}, () => ({reps: number(item && item.reps), weight: normWeight(item && item.weight)}));
   }
@@ -830,7 +830,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     const value = v => v === null || v === undefined ? '' : ` value="${Number(v)}"`;
     // 2026-11-11 晚：这里不再是一张表（表头 + 两个输入框），而是一行手账：
     // 「◯ 1  10 次 × 60 kg   ×」，数字本身就是主角，单位只跟一次，改数时只有一条下划线出现。
-    return `<div class="set-row" data-set-row><button type="button" class="set-check" data-set-done aria-pressed="false" aria-label="标记第 ${n} 组完成">✓</button>`
+    return `<div class="set-row${set && set.done ? ' is-done' : ''}" data-set-row><button type="button" class="set-check" data-set-done aria-pressed="${set && set.done ? 'true' : 'false'}" aria-label="标记第 ${n} 组完成">✓</button>`
       + `<span class="set-no" aria-hidden="true">${n}</span>`
       + `<span class="set-values">`
       + `<label class="set-value"><input data-set="reps" type="number" inputmode="numeric" min="0" max="200" step="1" aria-label="第 ${n} 组次数" placeholder="—"${value(set.reps)}><small>次</small></label>`
@@ -1001,6 +1001,35 @@ const values = points.length<=7 ? points.map((item,i) => {
     }
     return [];
   }
+  /**
+    * 训练表单只活在 DOM 里，但趋势页等路径会重建它（renderTrends → renderTrainingLog）。
+    * 这里按日期留一份内存草稿：输入/勾组就记，重建时优先还原，保存或清空后丢弃。
+    */
+  const trainingDrafts = new Map();
+  function draftRowsFromForm() {
+    const box = $('#training-exercises');
+    if (!box) return null;
+    const rows = [...box.querySelectorAll('[data-exercise-row]')].map(row => {
+      const name = ($('[data-exercise="name"]', row)?.value || '').trim();
+      if (!name) return null;
+      if (row.dataset.cardio === '1') {
+        return {name, distanceKm: number($('[data-cardio="distance"]', row)?.value), durationMin: number($('[data-cardio="minutes"]', row)?.value)};
+      }
+      const setDetails = [...row.querySelectorAll('[data-set-row]')].map(set => ({
+        reps: number($('[data-set="reps"]', set)?.value),
+        weight: number($('[data-set="weight"]', set)?.value),
+        done: $('[data-set-done]', set)?.getAttribute('aria-pressed') === 'true'
+      }));
+      return {name, setDetails};
+    }).filter(Boolean);
+    return rows.length ? rows : null;
+  }
+  function rememberTrainingDraft() {
+    const rows = draftRowsFromForm();
+    if (rows) trainingDrafts.set(activeDate, rows);
+    else trainingDrafts.delete(activeDate);
+  }
+  function forgetTrainingDraft() { trainingDrafts.delete(activeDate); }
   function renderTrainingLog(rowsOverride = null) {
     const form = $('#training-form');
     if (!form) return;
@@ -1014,10 +1043,23 @@ const values = points.length<=7 ? points.map((item,i) => {
     // 2026-11-22：今天还没记动作时，把计划播成可打卡的行（每组带 ○）。清空或保存后不再自动播。
     const muted = form.dataset.seedMuted === activeDate;
     const seeds = exercises.length || muted ? [] : seedExercisesFromPlan(activeDate);
-    const rows = Array.isArray(rowsOverride) ? rowsOverride : (exercises.length ? exercises : (seeds.length ? seeds : [{name: '', sets: 1, reps: null, weight: null}]));
+    const draft = trainingDrafts.get(activeDate);
+    const rows = Array.isArray(rowsOverride) ? rowsOverride
+      : (draft && draft.length ? draft : (exercises.length ? exercises : (seeds.length ? seeds : [{name: '', sets: 1, reps: null, weight: null}])));
     box.innerHTML = rows.map(exerciseRowHtml).join('');
     if (seeds.length && !Array.isArray(rowsOverride)) {
       $$('[data-exercise-row]', box).forEach((node, index) => { if (seeds[index]) node.dataset.planIndex = String(index); });
+    }
+    if (!box.dataset.draftWired) {
+      box.dataset.draftWired = '1';
+      const remember = () => rememberTrainingDraft();
+      box.addEventListener('input', remember);
+      box.addEventListener('change', remember);
+      box.addEventListener('focusout', remember);
+      // 勾组 / 加组 / 删组走 click，等 DOM 更新完再记一份。
+      box.addEventListener('click', event => {
+        if (event.target.closest('[data-set-done], [data-set-add], [data-exercise-remove]')) setTimeout(remember, 0);
+      });
     }
     $$('[data-exercise-row]', box).forEach(refreshSetRow);
     $$('[data-exercise-row]', box).filter(node => node.dataset.cardio === '1').forEach(node => refreshCardioPace(node));
@@ -1040,6 +1082,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     if (!sessions.length) { notice('还没有可照抄的训练记录，先记一次。'); return; }
     const last = sessions[0];
     renderTrainingLog(last.exercises.map(item => ({name: item.name, sets: item.sets, reps: item.reps, weight: item.weight, distanceKm: item.distanceKm, durationMin: item.durationMin})));
+    if (typeof rememberTrainingDraft === 'function') rememberTrainingDraft();
     notice(`已照 ${last.date.slice(5)} 的训练填好；核对实际组次后点「保存训练」。`);
     $('#training-form')?.scrollIntoView({block: 'start', behavior: 'smooth'});
   }
@@ -1268,6 +1311,7 @@ const values = points.length<=7 ? points.map((item,i) => {
       if (typeof effortFor === 'function' && !effortFor(activeDate)) {
         notice('今天练下来感觉如何？在下面点一下「太轻 / 刚好 / 有点累 / 太累」，下次排课会参考。');
       }
+      forgetTrainingDraft();
       renderTrainingLog();
       renderTrainingSummary(exercises);
     } catch (error) {feedback(message, error.message, true);}

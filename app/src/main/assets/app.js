@@ -4591,7 +4591,7 @@ const values = points.length<=7 ? points.map((item,i) => {
       return bodyweight && weight !== null && weight <= 0 ? null : weight;
     };
     const details = Array.isArray(item && item.setDetails) ? item.setDetails : null;
-    if (details && details.length) return details.slice(0, 30).map(set => ({reps: number(set.reps), weight: normWeight(set.weight)}));
+    if (details && details.length) return details.slice(0, 30).map(set => ({reps: number(set.reps), weight: normWeight(set.weight), done: set.done === true}));
     const count = Math.max(1, Math.min(30, Math.round(number(item && item.sets) || 1)));
     return Array.from({length: count}, () => ({reps: number(item && item.reps), weight: normWeight(item && item.weight)}));
   }
@@ -4600,7 +4600,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     const value = v => v === null || v === undefined ? '' : ` value="${Number(v)}"`;
     // 2026-11-11 晚：这里不再是一张表（表头 + 两个输入框），而是一行手账：
     // 「◯ 1  10 次 × 60 kg   ×」，数字本身就是主角，单位只跟一次，改数时只有一条下划线出现。
-    return `<div class="set-row" data-set-row><button type="button" class="set-check" data-set-done aria-pressed="false" aria-label="标记第 ${n} 组完成">✓</button>`
+    return `<div class="set-row${set && set.done ? ' is-done' : ''}" data-set-row><button type="button" class="set-check" data-set-done aria-pressed="${set && set.done ? 'true' : 'false'}" aria-label="标记第 ${n} 组完成">✓</button>`
       + `<span class="set-no" aria-hidden="true">${n}</span>`
       + `<span class="set-values">`
       + `<label class="set-value"><input data-set="reps" type="number" inputmode="numeric" min="0" max="200" step="1" aria-label="第 ${n} 组次数" placeholder="—"${value(set.reps)}><small>次</small></label>`
@@ -4771,6 +4771,35 @@ const values = points.length<=7 ? points.map((item,i) => {
     }
     return [];
   }
+  /**
+    * 训练表单只活在 DOM 里，但趋势页等路径会重建它（renderTrends → renderTrainingLog）。
+    * 这里按日期留一份内存草稿：输入/勾组就记，重建时优先还原，保存或清空后丢弃。
+    */
+  const trainingDrafts = new Map();
+  function draftRowsFromForm() {
+    const box = $('#training-exercises');
+    if (!box) return null;
+    const rows = [...box.querySelectorAll('[data-exercise-row]')].map(row => {
+      const name = ($('[data-exercise="name"]', row)?.value || '').trim();
+      if (!name) return null;
+      if (row.dataset.cardio === '1') {
+        return {name, distanceKm: number($('[data-cardio="distance"]', row)?.value), durationMin: number($('[data-cardio="minutes"]', row)?.value)};
+      }
+      const setDetails = [...row.querySelectorAll('[data-set-row]')].map(set => ({
+        reps: number($('[data-set="reps"]', set)?.value),
+        weight: number($('[data-set="weight"]', set)?.value),
+        done: $('[data-set-done]', set)?.getAttribute('aria-pressed') === 'true'
+      }));
+      return {name, setDetails};
+    }).filter(Boolean);
+    return rows.length ? rows : null;
+  }
+  function rememberTrainingDraft() {
+    const rows = draftRowsFromForm();
+    if (rows) trainingDrafts.set(activeDate, rows);
+    else trainingDrafts.delete(activeDate);
+  }
+  function forgetTrainingDraft() { trainingDrafts.delete(activeDate); }
   function renderTrainingLog(rowsOverride = null) {
     const form = $('#training-form');
     if (!form) return;
@@ -4784,10 +4813,23 @@ const values = points.length<=7 ? points.map((item,i) => {
     // 2026-11-22：今天还没记动作时，把计划播成可打卡的行（每组带 ○）。清空或保存后不再自动播。
     const muted = form.dataset.seedMuted === activeDate;
     const seeds = exercises.length || muted ? [] : seedExercisesFromPlan(activeDate);
-    const rows = Array.isArray(rowsOverride) ? rowsOverride : (exercises.length ? exercises : (seeds.length ? seeds : [{name: '', sets: 1, reps: null, weight: null}]));
+    const draft = trainingDrafts.get(activeDate);
+    const rows = Array.isArray(rowsOverride) ? rowsOverride
+      : (draft && draft.length ? draft : (exercises.length ? exercises : (seeds.length ? seeds : [{name: '', sets: 1, reps: null, weight: null}])));
     box.innerHTML = rows.map(exerciseRowHtml).join('');
     if (seeds.length && !Array.isArray(rowsOverride)) {
       $$('[data-exercise-row]', box).forEach((node, index) => { if (seeds[index]) node.dataset.planIndex = String(index); });
+    }
+    if (!box.dataset.draftWired) {
+      box.dataset.draftWired = '1';
+      const remember = () => rememberTrainingDraft();
+      box.addEventListener('input', remember);
+      box.addEventListener('change', remember);
+      box.addEventListener('focusout', remember);
+      // 勾组 / 加组 / 删组走 click，等 DOM 更新完再记一份。
+      box.addEventListener('click', event => {
+        if (event.target.closest('[data-set-done], [data-set-add], [data-exercise-remove]')) setTimeout(remember, 0);
+      });
     }
     $$('[data-exercise-row]', box).forEach(refreshSetRow);
     $$('[data-exercise-row]', box).filter(node => node.dataset.cardio === '1').forEach(node => refreshCardioPace(node));
@@ -4810,6 +4852,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     if (!sessions.length) { notice('还没有可照抄的训练记录，先记一次。'); return; }
     const last = sessions[0];
     renderTrainingLog(last.exercises.map(item => ({name: item.name, sets: item.sets, reps: item.reps, weight: item.weight, distanceKm: item.distanceKm, durationMin: item.durationMin})));
+    if (typeof rememberTrainingDraft === 'function') rememberTrainingDraft();
     notice(`已照 ${last.date.slice(5)} 的训练填好；核对实际组次后点「保存训练」。`);
     $('#training-form')?.scrollIntoView({block: 'start', behavior: 'smooth'});
   }
@@ -5038,6 +5081,7 @@ const values = points.length<=7 ? points.map((item,i) => {
       if (typeof effortFor === 'function' && !effortFor(activeDate)) {
         notice('今天练下来感觉如何？在下面点一下「太轻 / 刚好 / 有点累 / 太累」，下次排课会参考。');
       }
+      forgetTrainingDraft();
       renderTrainingLog();
       renderTrainingSummary(exercises);
     } catch (error) {feedback(message, error.message, true);}
@@ -5597,10 +5641,44 @@ const values = points.length<=7 ? points.map((item,i) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) return null;
     const pad2 = n => String(n).padStart(2, '0');
     const sessions = Math.max(1, Math.min(6, Number(src.sessions) || 3));
-    const templates = ['push', 'pull', 'legs'];
+    // 2026-11-22 深夜：分化/器械/时长真正进生成（以前只进 AI 提示词与缓存指纹，改了也没用）。
+    const split = ['ppl', 'ul', 'fb'].includes(String(src.split)) ? String(src.split) : 'ppl';
+    const templates = split === 'ul' ? ['upper', 'lower'] : split === 'fb' ? ['full'] : ['push', 'pull', 'legs'];
+    const startAt = Math.max(0, templates.indexOf(String(src.startTemplate || '')));
+    const minutes = Math.max(20, Math.min(120, Number(src.minutes) || 45));
+    // 时长换算成密度：动作数与每组组数的上限。
+    const maxMoves = minutes <= 30 ? 3 : minutes <= 50 ? 4 : 5;
+    const setCap = minutes <= 30 ? 3 : minutes <= 60 ? 4 : 5;
+    const GEAR_RE = {
+      barbell: /(杠铃|深蹲|硬拉|卧推|推举|划船|弯举|下压|提踵|俯身)/,
+      dumbbell: /(哑铃)/,
+      machine: /(器械|固定|绳索|下拉|推胸|腿举|夹胸|屈伸|提踵)/,
+      body: /(引体|俯卧撑|双杠|平板支撑|卷腹|举腿|臀桥|自重|空手)/
+    };
+    // 器械不匹配时宁可少一点；少于 3 个就用原表补齐，别给一个空白的训练日。
+    const applyGear = list => {
+      const re = GEAR_RE[String(src.gear || '')];
+      if (!re) return list;
+      const kept = list.filter(item => re.test(String(item.name || '')));
+      if (kept.length >= 3) return kept;
+      return [...kept, ...list.filter(item => !kept.includes(item))].slice(0, 3);
+    };
+    const composeFrom = (ids, perGroup) => {
+      const out = [];
+      for (const id of ids) {
+        const day = typeof libraryDayTemplate === 'function' ? libraryDayTemplate(id) : null;
+        const list = day && day.exercises && day.exercises.length
+          ? day.exercises
+          : (typeof libraryMoves === 'function' ? libraryMoves(id) : []);
+        for (const item of list.slice(0, perGroup)) {
+          out.push({name: item.name, sets: item.sets || 3, reps: item.reps || 8, weight: null, role: item.role || '', rpe: item.rpe || null});
+        }
+      }
+      return out;
+    };
     const rotation = s => {
       const plan = [];
-      for (let i = 0; i < s; i++) plan.push(templates[i % 3]);
+      for (let i = 0; i < s; i++) plan.push(templates[(startAt + i) % templates.length]);
       return plan;
     };
     // Spread the sessions over the week: Mon/Tue/Thu/Fri/Sat pattern.
@@ -5647,19 +5725,26 @@ const values = points.length<=7 ? points.map((item,i) => {
       let exercises = ((byTemplate[template] || []).slice(0, 5));
       let suggested = false;
       if (!exercises.length) {
-        // No history yet: use the community-verified day template (sets / reps / RPE from the digest image),
-        // falling back to the plain movement list if the template is missing.
-        const day = typeof libraryDayTemplate === 'function' ? libraryDayTemplate(template) : null;
-        if (day && day.exercises.length) {
-          exercises = day.exercises.map(item => ({name: item.name, sets: item.sets || 3, reps: item.reps || 8,
-            weight: null, role: item.role || '', rpe: item.rpe || null}));
-          suggested = true;
-        } else if (typeof libraryMoves === 'function') {
-          exercises = libraryMoves(template).slice(0, 5).map(item => ({name: item.name, sets: item.sets || 3,
-            reps: item.reps || 8, weight: null, role: item.role || ''}));
-          suggested = exercises.length > 0;
+        // 上半身/下半身/全身没有历史分区，就从推拉腿的动作库里组合：上肢=推+拉，下肢=腿，全身=各取一个。
+        if (template === 'upper') exercises = composeFrom(['push', 'pull'], 2);
+        else if (template === 'lower') exercises = composeFrom(['legs'], 5);
+        else if (template === 'full') exercises = composeFrom(['push', 'pull', 'legs'], 1);
+        else {
+          const day = typeof libraryDayTemplate === 'function' ? libraryDayTemplate(template) : null;
+          if (day && day.exercises.length) {
+            exercises = day.exercises.map(item => ({name: item.name, sets: item.sets || 3, reps: item.reps || 8,
+              weight: null, role: item.role || '', rpe: item.rpe || null}));
+          } else if (typeof libraryMoves === 'function') {
+            exercises = libraryMoves(template).map(item => ({name: item.name, sets: item.sets || 3,
+              reps: item.reps || 8, weight: null, role: item.role || ''}));
+          }
         }
+        suggested = exercises.length > 0;
       }
+      // 器械过滤 + 时长密度：这两项以前完全没参与生成。
+      exercises = applyGear(exercises)
+        .slice(0, maxMoves)
+        .map(item => ({...item, sets: Math.min(setCap, Math.max(2, Number(item.sets) || 3))}));
       days.push({date: date.getFullYear() + '-' + pad2(date.getMonth() + 1) + '-' + pad2(date.getDate()),
         template, deload, exercises, suggested});
     });
@@ -6723,6 +6808,19 @@ const values = points.length<=7 ? points.map((item,i) => {
     return dayLabel(date) + "按周计划应练：" + label + "日（" + slot.template + "）；动作与建议都围绕这一类。";
   }
   /** 明确「重新生成」：清掉本窗口缓存并强制重算，偏好不变也能换一版。 */
+  /** 起始部位＝接上一次训练的下一个（2026-11-22 用户拍板）。ppl 按推→拉→腿轮转；上下肢按上下交替；全身固定。 */
+  function nextStartTemplate(split) {
+    const key = ['ppl', 'ul', 'fb'].includes(String(split)) ? String(split) : 'ppl';
+    const rows = (state.habits || [])
+      .filter(row => row && validDate(row.date) && row.date < activeDate && row.template && Array.isArray(row.exercises) && row.exercises.length)
+      .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    const last = rows[0] ? String(rows[0].template) : '';
+    if (key === 'fb') return 'full';
+    if (key === 'ul') return ['legs', 'lower'].includes(last) ? 'upper' : 'lower';
+    const order = ['push', 'pull', 'legs'];
+    const at = order.indexOf(last);
+    return at >= 0 ? order[(at + 1) % 3] : 'push';
+  }
   function regenerateWeekPlan() {
     const startDate = planStartDate();
     try { localStorage.removeItem(WEEK_PLAN_KEY(startDate)); } catch { }
@@ -6736,7 +6834,9 @@ const values = points.length<=7 ? points.map((item,i) => {
     const loads = dailyLoads(28);
     const stats = acwrFromDailyLoads(loads, activeDate);
     const lastByExercise = recentExerciseBaselines(14);
-    const sessions = Math.max(1, Math.min(6, Math.round(number(effectiveProfileForDate(activeDate).training) || 3)));
+    const planPref = prefsForPlan() || {};
+    // 以「计划偏好里的每周训练次数」为准，档案次数只做兜底——否则改了 chip 也不生效。
+    const sessions = Math.max(1, Math.min(6, Math.round(number(planPref.days) || number(effectiveProfileForDate(activeDate).training) || 3)));
     const startDate = planStartDate();
     const fingerprint = weekPlanFingerprint(prefsForPlan(), lastByExercise, sessions);
     const cached = forceWeekPlan ? null : readWeekPlanCache(startDate);
@@ -6744,7 +6844,9 @@ const values = points.length<=7 ? points.map((item,i) => {
     if (cached && cached.plan && cached.fingerprint === fingerprint) {
       plan = cached.plan; // 指纹没变：照用上次的结果，计划是被「约定」过的
     } else {
-      plan = generateWeekPlan({startDate, sessions, lastByExercise, acwrFlag: stats ? stats.flag : 'ok', goal: (state.profile || {}).goal});
+      plan = generateWeekPlan({startDate, sessions, lastByExercise, acwrFlag: stats ? stats.flag : 'ok',
+        goal: (state.profile || {}).goal, split: planPref.split, gear: planPref.gear, minutes: planPref.minutes,
+        startTemplate: nextStartTemplate(planPref.split)});
       drifted = !!(cached && cached.plan);
       if (plan) writeWeekPlanCache(startDate, {plan, fingerprint, savedAt: Date.now()});
     }
@@ -6868,7 +6970,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     if (explainHost) {
       explainHost.innerHTML = '';
       // 用 move 而不是 clone：说明搬进抽屉后，卡面只留本周安排与采纳入口。
-      for (const node of [...box.querySelectorAll('.plan-requirement, .plan-relation, .plan-why, .plan-why-lead, .plan-label, .plan-load, .plan-load-note, .drift-line')]) {
+      for (const node of [...box.querySelectorAll('.plan-requirement, .plan-relation, .plan-why, .plan-label, .plan-load, .plan-load-note, .drift-line')]) {
         explainHost.appendChild(node);
       }
     }
@@ -10092,6 +10194,7 @@ function metricIcon(label) {
     if (!await askConfirm('清空今天的训练记录？习惯行的其他数据（步数、睡眠、饮水、用油）会保留。', {title: '清空训练', ok: '清空', danger: true})) return;
     // 清空即「今天不按计划走了」：抑制自动播种，否则渲染时又把它播回来。
     const form = $('#training-form'); if (form) form.dataset.seedMuted = activeDate;
+    if (typeof forgetTrainingDraft === 'function') forgetTrainingDraft();
     const existing = habitRowFor(activeDate);
     if (!existing) {renderTrainingLog(); return;}
     const next = {...existing};
@@ -10789,6 +10892,14 @@ feedback(message,'数据已导入。'+report);
       $(trigger)?.addEventListener('click', () => open(sheet));
       $(closer)?.addEventListener('click', () => close(sheet));
       $(sheet)?.addEventListener('click', event => { if (event.target === sheetOf(sheet)) close(sheet); });
+    }
+    // 训练卡上那两行归属说明（昨日轮换提示、排课耗时）也是「计划说明」，搬进抽屉，卡面只留操作。
+    const notesHost = $('#plan-explain-notes');
+    if (notesHost) {
+      for (const id of ['ai-plan-note', 'ai-plan-timing']) {
+        const node = document.getElementById(id);
+        if (node) notesHost.appendChild(node);
+      }
     }
     // 更多里的两件事：点的是原来那两个按钮，行为一模一样；点完把 sheet 收起来。
     for (const id of ['#ai-plan-postpone', '#training-clear']) {

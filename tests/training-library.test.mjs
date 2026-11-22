@@ -58,7 +58,7 @@ check('legs includes front squat', lib.moves.legs.some(m => m.name.includes('颈
 check('the library loads before the app', html.indexOf('training-principles.js') < html.indexOf('app.js'));
 check('helpers exist in the bundle', app.includes('function trainingLibrary()') && app.includes('function libraryMoves(template)'));
 check('planWhy exists', app.includes('function planWhy(input)'));
-check('empty templates use library moves', app.includes('exercises = libraryMoves(template).slice(0, 5)'));
+check('empty templates use library moves', app.includes('exercises = libraryMoves(template).map(') && app.includes('composeFrom(['));
 check('days carry suggested', app.includes('template, deload, exercises, suggested}'));
 check('the plan carries reasons', app.includes("typeof planWhy === 'function' ? planWhy("));
 check('the card renders the explanation', app.includes('为什么这样排') && app.includes('plan-why'));
