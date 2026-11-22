@@ -2516,3 +2516,9 @@ html[data-tab="today"] .energy-card .quick-chip:active{background-image:linear-g
 
 .scale-sync-note.is-recognised{color:var(--accent);background:var(--accent-soft);border-radius:8px;padding:6px 8px}
 
+
+/* 2026-11-23：分段控制移到卡片外，作为下半区统一控制器 */
+.today-seg{display:flex;gap:8px;margin:2px 0 10px}
+#today-fold-card{padding-top:10px}
+.fold-tabs{display:flex;gap:6px;margin:0 0 10px}
+
