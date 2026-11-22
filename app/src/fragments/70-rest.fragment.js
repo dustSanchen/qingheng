@@ -161,7 +161,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.28';
+  const APP_VERSION = '1.5.29';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -706,7 +706,7 @@
     // 2026-11-22：动作清单不再单独渲染（计划直接播进执行区），这里只同步入口文案与计数。
     const ask = $("#ai-plan-ask"), hasPlan = !!(plan && plan.length);
     if (ask) {
-      ask.textContent = hasPlan ? "AI 重排" : "AI 排今天";
+      ask.textContent = hasPlan ? "重排今天" : "AI 排今天";
       ask.setAttribute("aria-label", hasPlan ? "让 AI 重新排今天的动作顺序" : "让 AI 排今天的动作顺序");
     }
     if (tag) tag.textContent = hasPlan ? plan.length + " 个动作" : "未生成";
@@ -1960,6 +1960,9 @@
       host.append(container);
       panels[panel.key] = container;
     }
+    // 训练概览只属于训练段：以前它留在 .record-grid 里，饮食 / 身体两段也会看到（2026-11-23 用户要求收回训练下）。
+    const overview = $('#training-overview'), logCard = $('#training-log');
+    if (overview && logCard && panels.training) panels.training.insertBefore(overview, logCard);
     // Nothing left in the original grid: keep the element for its layout, it is now just a wrapper.
     const saved = (() => {try {return localStorage.getItem(RECORD_PANEL_STORAGE);} catch {return null;}})();
     switchRecordPanel(RECORD_PANELS.some(p => p.key === saved) ? saved : 'food');

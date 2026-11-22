@@ -45,7 +45,7 @@ check('the strip covers seven days from the start', app.includes('for (let offse
 check('the strips follows the plan start', app.includes('const weekStartPlan = startDate;'));
 check('the generator spreads the sessions from day 0', app.includes('const date = new Date(start + \'T00:00:00\');') && app.includes('date.setDate(date.getDate() + slots[index]);'));
 // 2026-11-19：按钮文案改成跟着所看的日期走（今天 / MM-DD），所以不再是一整句字面量。
-check('the schedule button is rendered again', app.includes('data-plan-schedule="1"') && app.includes("应用本周计划 · 写入' + esc(dayLabel(activeDate)) + '起 "));
+check('the schedule button is rendered again', app.includes('data-plan-schedule="1"') && app.includes("写入' + esc(dayLabel(activeDate)) + '起 "));
 check('the dead plan-table expression is gone', !app.includes("+ '<div class=\"plan-days\">'"));
 check('the suggested marker moved into the strip detail', app.includes("planDay.suggested ? '（训练库建议）' : ''"));
 

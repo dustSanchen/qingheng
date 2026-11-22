@@ -1075,53 +1075,79 @@
       const on = chipsOf(name).find(chip => chip.getAttribute("aria-pressed") === "true");
       return on ? on.dataset.value : null;
     };
-    const prefs = planPrefs();
     // 器械默认「综合」：不限单一器材，交给模型混用。
-    mark("days", prefs && prefs.days ? prefs.days : 3);
-    mark("split", (prefs && prefs.split) || "ppl");
-    mark("gear", (prefs && prefs.gear) || "mixed");
-    mark("minutes", (prefs && prefs.minutes) || 45);
+    const markSaved = saved => {
+      mark("days", saved && saved.days ? saved.days : 3);
+      mark("split", (saved && saved.split) || "ppl");
+      mark("gear", (saved && saved.gear) || "mixed");
+      mark("minutes", (saved && saved.minutes) || 45);
+    };
+    markSaved(planPrefs());
+    const summary = $("#plan-prefs-summary"), edit = $("#pref-edit");
+    const regen = $("#pref-regen"), save = $("#pref-save");
+    // 摘要跟着 chips 走：展开改选项时上方摘要也换成新值，收起时才不会「看着没变」。
+    const paintSummary = () => {
+      const saved = planPrefs();
+      if (!summary) return;
+      if (!saved) { summary.hidden = true; summary.textContent = ""; return; }
+      summary.textContent = planPrefsSummary({
+        days: Number(read("days")) || saved.days,
+        split: read("split") || saved.split,
+        gear: read("gear") || saved.gear,
+        minutes: Number(read("minutes")) || saved.minutes
+      });
+    };
+    /** 收起 = 放弃这次改动：chips 回到已保存的偏好。 */
+    const restoreSaved = () => {
+      markSaved(planPrefs());
+      paintSummary();
+    };
     for (const name of ["days", "split", "gear", "minutes"]) {
       chipsOf(name).forEach(chip => {
         if (chip.dataset.wired) return;
         chip.dataset.wired = "1";
-        chip.addEventListener("click", () => mark(name, chip.dataset.value));
+        chip.addEventListener("click", () => { mark(name, chip.dataset.value); paintSummary(); });
       });
     }
-    // 已经定过的安排默认收起：首屏只留一行摘要，要看或改再展开。
-    const summary = $("#plan-prefs-summary"), edit = $("#pref-edit");
+    // 收起时是一行摘要 + 两个动作；展开后同一位置变成「取消」——不再出现「点进来就出不去」。
     const setCollapsed = collapsed => {
       box.hidden = collapsed;
-      if (summary) {
-        summary.hidden = !collapsed;
-        if (collapsed) summary.textContent = planPrefsSummary(planPrefs());
-      }
+      const has = !!planPrefs();
+      if (summary) { summary.hidden = !has; paintSummary(); }
       if (edit) {
-        edit.hidden = !collapsed;
+        edit.hidden = !has;
+        edit.textContent = collapsed ? "改偏好" : "取消";
         edit.setAttribute("aria-expanded", String(!collapsed));
+        edit.setAttribute("aria-label", collapsed ? "改训练偏好" : "取消训练偏好编辑，改动不保存");
+        edit.setAttribute("title", collapsed ? "改频率 / 分化 / 器械 / 时长" : "取消编辑，改动不保存");
       }
+      // 「换一套」只在收起时出现：展开时它和「保存并重排」太像，会分不清。
+      if (regen) regen.hidden = !has || !collapsed;
     };
-    setCollapsed(!!prefs);
+    setCollapsed(!!planPrefs());
     if (edit && !edit.dataset.wired) {
       edit.dataset.wired = "1";
       edit.addEventListener("click", () => {
-        setCollapsed(false);
-        const first = $("#plan-prefs .pref-chip");
-        if (first) first.focus();
+        if (box.hidden) {
+          setCollapsed(false);
+          // preventScroll：展开时卡片会变高，再把焦点抢到第一排按钮会把整页往上顶，
+          // 用户刚点的位置就跑了（2026-11-23 真机复验踩到）。焦点给键盘用户，但别动滚动位置。
+          const first = $("#plan-prefs .pref-chip");
+          if (first) first.focus({preventScroll: true});
+          return;
+        }
+        // 没点「保存」就收起，等于放弃改动：先把 chips 还原到已保存的偏好。
+        restoreSaved();
+        setCollapsed(true);
       });
     }
-    const regen = $("#pref-regen");
-    if (regen) {
-      regen.hidden = !prefs;
-      if (!regen.dataset.wired) {
-        regen.dataset.wired = "1";
-        regen.addEventListener("click", () => {
-          regenerateWeekPlan();
-          notice("已按当前偏好重新生成本周安排（偏好没改也能换一版）。");
-        });
-      }
+    if (regen && !regen.dataset.wired) {
+      regen.dataset.wired = "1";
+      regen.addEventListener("click", () => {
+        regenerateWeekPlan();
+        notice("已按当前偏好换了一套本周安排。");
+      });
     }
-    const save = $("#pref-save");
     if (save && !save.dataset.wired) {
       save.dataset.wired = "1";
       save.addEventListener("click", () => {
@@ -1134,7 +1160,7 @@
         // 保存偏好与生成本周安排是同一次动作：以前指纹没变就复用缓存，看起来像「点了没反应」。
         regenerateWeekPlan();
         setCollapsed(true);
-        notice("已保存训练偏好，并按新偏好重新生成本周安排。");
+        notice("已保存训练偏好，并按新偏好重排本周安排。");
       });
     }
   }
@@ -1853,13 +1879,17 @@
     // 一键排课：1.3.44 把 7 行表格换成周条时，这个按钮留在了一段死表达式里，handler 一直在、按钮再也
     // 没渲染出来。2026-11-18 顺手接回来：写入的是「今天起 7 天」，确认框里写清日期。
     const scheduleHtml = plan.days.length
-      ? '<details class="plan-schedule-more" id="plan-schedule-more"><summary>应用本周计划（可选）</summary><p class="fine-print">上面的按钮只影响今天；这里会把已生成的本周安排写入未来几天的训练记录。</p><button type="button" class="button subtle full-width" data-plan-schedule="1">应用本周计划 · 写入' + esc(dayLabel(activeDate)) + '起 ' + plan.days.length + ' 次训练</button></details>'
+      ? '<details class="plan-schedule-more" id="plan-schedule-more"><summary>把这周写进训练记录</summary><p class="fine-print">上面的按钮只改今天的安排；这里会把这周剩下的 ' + plan.days.length + ' 次训练写成记录，之后还能在日志里改。</p><button type="button" class="button subtle full-width" data-plan-schedule="1">写入' + esc(dayLabel(activeDate)) + '起 ' + plan.days.length + ' 次训练</button></details>'
+      : '';
+    // 「计划 vs 日志」是同屏最容易混的一对：卡上只留一句话说清谁写安排、谁写记录。
+    const scopeHtml = plan.days.length
+      ? '<p class="fine-print plan-scope">周条只写「练什么」；真正记录的是下面「训练日志」，两者不一致时以日志为准。</p>'
       : '';
     // 两套清单同屏容易混：先说清谁是谁、冲突时听谁的，再让用户读数据。
     const relationHtml = plan.days.length
       ? '<p class="fine-print plan-relation">上面按偏好与最近记录排周框架；实际执行顺序以你在训练日志里确认的那份为准，两者不一致时以日志为准。</p>'
       : '';
-    box.innerHTML = annotateTerms(thisWeekHtml + goalRequirementHtml + relationHtml + whyHtml + acwrHtml + driftHtml + adoptHtml + suggestedNote + scheduleHtml);
+    box.innerHTML = annotateTerms(thisWeekHtml + goalRequirementHtml + relationHtml + whyHtml + acwrHtml + driftHtml + scopeHtml + adoptHtml + suggestedNote + scheduleHtml);
     // 计划说明进 sheet：本周要求 / 怎么排的 / 负荷都搬过去，卡面只留本周安排。
     const explainHost = $('#plan-explain-body');
     if (explainHost) {

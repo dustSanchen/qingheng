@@ -16,6 +16,10 @@ check('every card lands in a segment', ['轻松记一餐', '最近的餐食记�
 check('body opens with today\'s weight, then the body card and habits', app.includes("headings: ['今天体重', '身体数据', '日常习惯']"));
 check('the food segment keeps two cards and nothing is folded any more', app.includes("headings: ['轻松记一餐', '最近的餐食记录']") && !app.includes("foldedHeadings: ['食品热量参考库'"));
 check('plan, today order, then logging', app.includes("headings: ['训练计划', '今日顺序', '训练日志']"));
+check('training overview belongs to the training segment', app.includes('panels.training.insertBefore(overview, logCard)'));
+check('plan preferences can be collapsed again', app.includes('edit.textContent = collapsed ? "改偏好" : "取消"') &&
+  app.includes('restoreSaved();') && app.includes('"改训练偏好"'));
+check('opening the preferences does not jump the page', app.includes('first.focus({preventScroll: true})'));
 check('entering records from another page opens food first', app.includes("tab === 'records' && currentTab !== 'records' && !sub"));
 check('training save outranks week planning', html.includes('class="button subtle" id="pref-save"') && html.includes('class="button primary" type="submit">保存训练'));
 check('the installer runs at boot', app.includes('installRecordPanels();'));
