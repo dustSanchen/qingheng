@@ -422,6 +422,84 @@
   });
   // In-app replacement for window.confirm(): the WebView would show a browser-style prompt.
   let dialogResolve = null, dialogReturnFocus = null;
+  /**
+   * 今天页状态胶囊（2026-11-22）：热量/宏量提示与体检结论合成一条，按优先级轮播。
+   * 一次只显示一条，右上角 1/N；点一下看下一条，6 秒自动轮换；没有内容就整条收起。
+   */
+  const TODAY_SIGNALS = {energy: [], check: ''};
+  let statusCursor = 0, statusTimer = 0;
+  function todayStatusList() {
+    const list = [];
+    const push = (text, tone) => {
+      const value = String(text || '').trim();
+      if (value && !list.some(item => item.text === value)) list.push({text: value, tone: tone || 'info'});
+    };
+    for (const item of TODAY_SIGNALS.energy) push(item.text, item.tone);
+    push(TODAY_SIGNALS.check, 'info');
+    return list;
+  }
+  function paintTodayStatus() {
+    const strip = $('#status-strip');
+    if (!strip) return;
+    const list = todayStatusList();
+    if (!list.length) {
+      strip.hidden = true;
+      clearInterval(statusTimer); statusTimer = 0;
+      return;
+    }
+    if (statusCursor >= list.length) statusCursor = 0;
+    const item = list[statusCursor];
+    strip.hidden = false;
+    strip.classList.toggle('is-warn', item.tone === 'warn');
+    $('#status-strip-text').textContent = item.text;
+    const count = $('#status-strip-count');
+    if (count) count.textContent = list.length > 1 ? `${statusCursor + 1}/${list.length}` : '';
+    strip.setAttribute('aria-label', list.length > 1
+      ? `今日提示 ${statusCursor + 1} / ${list.length}，点一下看下一条`
+      : '今日提示');
+  }
+  function renderTodayStatusStrip(reset) {
+    if (reset) statusCursor = 0;
+    paintTodayStatus();
+    clearInterval(statusTimer);
+    statusTimer = 0;
+    const list = todayStatusList();
+    if (list.length > 1) {
+      statusTimer = setInterval(() => {
+        statusCursor = (statusCursor + 1) % list.length;
+        paintTodayStatus();
+      }, 6000);
+    }
+  }
+  function installTodayStatusStrip() {
+    const strip = $('#status-strip');
+    if (!strip || strip.dataset.wired === '1') return;
+    strip.dataset.wired = '1';
+    strip.addEventListener('click', () => {
+      const list = todayStatusList();
+      if (list.length < 2) return;
+      statusCursor = (statusCursor + 1) % list.length;
+      renderTodayStatusStrip(false);
+    });
+  }
+  // 常用指标：今天页小习惯网格显示哪几格（默认三项），只存本机。
+  const TODAY_METRICS_KEY = 'qingheng.todayMetrics';
+  const TODAY_METRIC_DEFS = [{key: 'steps', label: '步数'}, {key: 'water', label: '饮水'}, {key: 'sleep', label: '睡眠'}];
+  function todayMetrics() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(TODAY_METRICS_KEY) || 'null');
+      if (Array.isArray(raw)) {
+        const kept = raw.filter(key => TODAY_METRIC_DEFS.some(def => def.key === key));
+        if (kept.length) return kept;
+      }
+    } catch {}
+    return TODAY_METRIC_DEFS.map(def => def.key);
+  }
+  function saveTodayMetrics(keys) {
+    const kept = (Array.isArray(keys) ? keys : []).filter(key => TODAY_METRIC_DEFS.some(def => def.key === key));
+    try { localStorage.setItem(TODAY_METRICS_KEY, JSON.stringify(kept)); } catch {}
+    return kept.length ? kept : TODAY_METRIC_DEFS.map(def => def.key);
+  }
   function askConfirm(text, options = {}) {
     const root = $('#app-dialog');
     if (!root) return Promise.resolve(false);
@@ -1763,27 +1841,16 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     const captionGap = totals.calories < floor ? floor - totals.calories : totals.calories <= cap ? cap - totals.calories : totals.calories - cap;
     const captionLead = totals.calories < floor ? '距区间下限还差' : totals.calories <= cap ? '在区间内，距上限' : '超出区间上限';
     $('#calorie-caption').innerHTML = captionStatic || `${captionLead} <b>${fmt(captionGap,0)}</b> kcal。`;
-    // What to do next, not just how far off the target is: a number without an action is useless.
-    const actionBox = $('#calorie-action');
-    if (actionBox) {
-      const parts = [];
-      const protein = number(totals.protein), proteinMin = number(p.proteinMin);
-      const fat = number(totals.fat), fatMax = number(p.fatMax);
-      const kcal = number(totals.calories), actionCap = range ? number(range.max) : number(p.calorieTarget);
-      if (protein !== null && proteinMin !== null && protein < proteinMin) {
-        // The deficit is status here; slot-hint owns the single next action.
-      }
-      if (fat !== null && fatMax !== null && fat > fatMax) parts.push(`脂肪超 ${fmt(fat - fatMax,0)} g：剩下的菜改白灼或清蒸，别再额外加油`);
-      if (kcal !== null && actionCap !== null && kcal > actionCap) parts.push(`热量已超上限 ${fmt(kcal - actionCap,0)} kcal：不再加餐，晚餐只吃蛋白加蔬菜`);
-      if (!parts.length && protein !== null && proteinMin !== null && protein >= proteinMin) parts.push('蛋白质已达标，剩下的额度分给主食与蔬菜即可。');
-      // 能量卡曾经一口气列出三条提示，把「＋ 记录一餐」挤到了屏幕外。
-      // 现在只留最该做的一条，其余收进 details。
-      const note = parts.length > 1
-        ? '<details class="energy-more"><summary>另外 ' + (parts.length - 1) + ' 条提示</summary>'
-          + parts.slice(1).map(text => '<p>' + esc(text) + '</p>').join('') + '</details>'
-        : '';
-      actionBox.innerHTML = parts.length ? '<p class="energy-hint">' + esc(parts[0]) + '</p>' + note : '';
-    }
+    // 提示不再各自占一行：全部交给状态胶囊按优先级轮播（2026-11-22 第四轮）。
+    const parts = [];
+    const proteinNow = number(totals.protein), proteinMinNow = number(p.proteinMin);
+    const fatNow = number(totals.fat), fatMaxNow = number(p.fatMax);
+    const kcalNow = number(totals.calories), capNow = range ? number(range.max) : number(p.calorieTarget);
+    if (fatNow !== null && fatMaxNow !== null && fatNow > fatMaxNow) parts.push(`脂肪超 ${fmt(fatNow - fatMaxNow,0)} g：剩下的菜改白灼或清蒸，别再额外加油`);
+    if (kcalNow !== null && capNow !== null && kcalNow > capNow) parts.push(`热量已超上限 ${fmt(kcalNow - capNow,0)} kcal：不再加餐，晚餐只吃蛋白加蔬菜`);
+    if (!parts.length && proteinNow !== null && proteinMinNow !== null && proteinNow >= proteinMinNow) parts.push('蛋白质已达标，剩下的额度分给主食与蔬菜即可。');
+    TODAY_SIGNALS.energy = parts.map(text => ({text, tone: /超/.test(text) ? 'warn' : 'info'}));
+    renderTodayStatusStrip(true);
   /**
    * 记录可信度（1.4.56 引入，1.4.58 起只存内部）：这个 App 的热量是估的，估的基础是记录全不全。
    * 用户明确要求「允许误差、不对外展示」——所以不占界面，只给内部两处逻辑用：
@@ -1882,10 +1949,10 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     // 2026-11-22：从「一行摘要」改成网格——步数/饮水/睡眠各一格，数字即刻可见；
     // 仍只跳转不录入，进去不弹输入法。
     const habitCells = [
-      {label: '步数', icon: 'icon-habit-steps.svg', value: number(habit.steps) === null ? '—' : fmt(habit.steps, 0), unit: '步', focus: 'habit-steps'},
-      {label: '饮水', icon: 'icon-water.svg', value: number(habit.water) === null ? '—' : fmt(habit.water, 0), unit: 'ml', focus: 'habit-steps'},
-      {label: '睡眠', icon: 'icon-habit-sleep.svg', value: number(habit.sleep) === null ? '—' : fmt(habit.sleep, 1), unit: '小时', focus: 'habit-sleep'}
-    ];
+      {key: 'steps', label: '步数', icon: 'icon-habit-steps.svg', value: number(habit.steps) === null ? '—' : fmt(habit.steps, 0), unit: '步', focus: 'habit-steps'},
+      {key: 'water', label: '饮水', icon: 'icon-water.svg', value: number(habit.water) === null ? '—' : fmt(habit.water, 0), unit: 'ml', focus: 'habit-steps'},
+      {key: 'sleep', label: '睡眠', icon: 'icon-habit-sleep.svg', value: number(habit.sleep) === null ? '—' : fmt(habit.sleep, 1), unit: '小时', focus: 'habit-sleep'}
+    ].filter(cell => (typeof todayMetrics === 'function' ? todayMetrics() : ['steps', 'water', 'sleep']).includes(cell.key));
     $('#habit-summary').innerHTML = habitCells.map(cell =>
       `<button type="button" class="habit-cell" data-habit-jump data-focus="${cell.focus}" aria-label="${cell.label}：${cell.value === '—' ? '未记录' : cell.value + cell.unit}">`
       + `<span class="habit-cell-label">${cell.label}</span>`
@@ -2682,6 +2749,40 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
       const on = node.dataset.mealType === quickRecordType;
       node.classList.toggle('is-selected', on);
       node.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+  }
+  /**
+   * 今天页工具栏（2026-11-22）：页眉只留一个「⋯」，把换一天、复制一餐、显示指标收进底部菜单，
+   * 主流程不再被两个文字按钮打断。菜单项沿用 openSheet，一次只开一层。
+   */
+  function installTodayMoreMenu() {
+    const trigger = $('#today-more');
+    if (!trigger || trigger.dataset.wired === '1') return;
+    trigger.dataset.wired = '1';
+    trigger.addEventListener('click', async () => {
+      const choice = await openSheet({title: '今天', options: [
+        {label: '换一天'},
+        {label: '复制一餐'},
+        {label: '显示指标'}
+      ]});
+      if (choice === 0) {
+        const input = $('#active-date');
+        if (!input) return;
+        if (typeof input.showPicker === 'function') { try { input.showPicker(); return; } catch {} }
+        input.focus(); input.click();
+      } else if (choice === 1) {
+        $('#quick-record')?.click();
+      } else if (choice === 2) {
+        const current = typeof todayMetrics === 'function' ? todayMetrics() : [];
+        const defs = typeof TODAY_METRIC_DEFS !== 'undefined' ? TODAY_METRIC_DEFS : [];
+        const picked = await openSheet({title: '显示的指标', options: defs.map(def => ({label: def.label, current: current.includes(def.key)}))});
+        if (picked === null || picked === undefined) return;
+        const key = defs[picked]?.key;
+        if (!key) return;
+        const next = current.includes(key) ? current.filter(item => item !== key) : [...current, key];
+        saveTodayMetrics(next);
+        render();
+      }
     });
   }
   function installQuickRecordControls() {
@@ -5796,7 +5897,10 @@ const values = points.length<=7 ? points.map((item,i) => {
       return `<div class="check-cap ${level}"><span class="check-cap-name">${esc(item.label)}</span>`
         + `<span class="check-cap-track"><span class="check-cap-fill" style="width:${pct}%"></span></span></div>`;
     }).join('') + '</div>'
-      + `<p class="check-verdict">${esc(check.verdict)}</p>`;
+      + '<div hidden>' + `<p class="check-verdict">${esc(check.verdict)}</p>`;
+    // 结论不再单独占一行：并进状态胶囊，和热量/宏量提示按优先级轮播。
+    TODAY_SIGNALS.check = check.verdict || '';
+    renderTodayStatusStrip(false);
     // A single next step lives in slot-hint; the check itself only reports state,
     // except for a missing sleep value, which keeps its direct jump.
     const sleepMissing = number(habit.sleep) === null;
@@ -7563,7 +7667,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.16';
+  const APP_VERSION = '1.5.17';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -8850,12 +8954,8 @@ function metricIcon(label) {
     ].filter(([, , focus]) => focus !== 'training-form' || trainingEnabled()).map(([icon, label, focus, className = '']) => `<button type="button" class="quick-chip ${className}" data-quick-focus="${focus}" data-quick-icon="${icon}"><span class="quick-chip-icon" aria-hidden="true">${iconMarkup(icon)}</span>${label}</button>`).join('');
     // 动作组紧贴能量卡之下：先读数（环 → 宏量三列 → 补蛋白提示），再动作。
     // 不放进卡里——卡内动作条会把一张卡切成两半；也没挂在宏量后面，空态时环与宏量都是 hidden，锚点会消失。
+    // 2026-11-22：行动罗盘（slot-hint）改在能量卡内部，这里只把动作与注释排在卡后。
     energyCard.after(row);
-    const slotHint = $('.slot-hint', view);
-    if (slotHint) {
-      energyCard.after(slotHint);
-      slotHint.after(row);
-    }
     const slotNote = $('#slot-note');
     if (slotNote) row.after(slotNote);
     row.addEventListener('click', event => {
@@ -10848,7 +10948,7 @@ feedback(message,'数据已导入。'+report);
   installProfileAutoRecalc();
   applyTrainingVisibility();
   installCardCollapse(); installTrainingAdvice(); installHabitChips(); installChatChips();
-  setupCollapsibleSections(); installQuickRecordControls(); installHealthConnectControls(); installBodyDataControls(); restoreConsent(); installExternalConsent(); installExactAlarmControl();
+  setupCollapsibleSections(); installQuickRecordControls(); installHealthConnectControls(); installBodyDataControls(); installTodayStatusStrip(); installTodayMoreMenu(); restoreConsent(); installExternalConsent(); installExactAlarmControl();
 /* 问答页分段：问答 / 训练建议（2026-11-17：今日训练建议从今天页迁到问答页）。
    面板显隐沿用记录页的 .record-panel[hidden] 约定，选择记在 localStorage。 */
 (function () {

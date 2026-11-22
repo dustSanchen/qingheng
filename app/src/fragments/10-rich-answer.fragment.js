@@ -316,27 +316,16 @@
     const captionGap = totals.calories < floor ? floor - totals.calories : totals.calories <= cap ? cap - totals.calories : totals.calories - cap;
     const captionLead = totals.calories < floor ? '距区间下限还差' : totals.calories <= cap ? '在区间内，距上限' : '超出区间上限';
     $('#calorie-caption').innerHTML = captionStatic || `${captionLead} <b>${fmt(captionGap,0)}</b> kcal。`;
-    // What to do next, not just how far off the target is: a number without an action is useless.
-    const actionBox = $('#calorie-action');
-    if (actionBox) {
-      const parts = [];
-      const protein = number(totals.protein), proteinMin = number(p.proteinMin);
-      const fat = number(totals.fat), fatMax = number(p.fatMax);
-      const kcal = number(totals.calories), actionCap = range ? number(range.max) : number(p.calorieTarget);
-      if (protein !== null && proteinMin !== null && protein < proteinMin) {
-        // The deficit is status here; slot-hint owns the single next action.
-      }
-      if (fat !== null && fatMax !== null && fat > fatMax) parts.push(`脂肪超 ${fmt(fat - fatMax,0)} g：剩下的菜改白灼或清蒸，别再额外加油`);
-      if (kcal !== null && actionCap !== null && kcal > actionCap) parts.push(`热量已超上限 ${fmt(kcal - actionCap,0)} kcal：不再加餐，晚餐只吃蛋白加蔬菜`);
-      if (!parts.length && protein !== null && proteinMin !== null && protein >= proteinMin) parts.push('蛋白质已达标，剩下的额度分给主食与蔬菜即可。');
-      // 能量卡曾经一口气列出三条提示，把「＋ 记录一餐」挤到了屏幕外。
-      // 现在只留最该做的一条，其余收进 details。
-      const note = parts.length > 1
-        ? '<details class="energy-more"><summary>另外 ' + (parts.length - 1) + ' 条提示</summary>'
-          + parts.slice(1).map(text => '<p>' + esc(text) + '</p>').join('') + '</details>'
-        : '';
-      actionBox.innerHTML = parts.length ? '<p class="energy-hint">' + esc(parts[0]) + '</p>' + note : '';
-    }
+    // 提示不再各自占一行：全部交给状态胶囊按优先级轮播（2026-11-22 第四轮）。
+    const parts = [];
+    const proteinNow = number(totals.protein), proteinMinNow = number(p.proteinMin);
+    const fatNow = number(totals.fat), fatMaxNow = number(p.fatMax);
+    const kcalNow = number(totals.calories), capNow = range ? number(range.max) : number(p.calorieTarget);
+    if (fatNow !== null && fatMaxNow !== null && fatNow > fatMaxNow) parts.push(`脂肪超 ${fmt(fatNow - fatMaxNow,0)} g：剩下的菜改白灼或清蒸，别再额外加油`);
+    if (kcalNow !== null && capNow !== null && kcalNow > capNow) parts.push(`热量已超上限 ${fmt(kcalNow - capNow,0)} kcal：不再加餐，晚餐只吃蛋白加蔬菜`);
+    if (!parts.length && proteinNow !== null && proteinMinNow !== null && proteinNow >= proteinMinNow) parts.push('蛋白质已达标，剩下的额度分给主食与蔬菜即可。');
+    TODAY_SIGNALS.energy = parts.map(text => ({text, tone: /超/.test(text) ? 'warn' : 'info'}));
+    renderTodayStatusStrip(true);
   /**
    * 记录可信度（1.4.56 引入，1.4.58 起只存内部）：这个 App 的热量是估的，估的基础是记录全不全。
    * 用户明确要求「允许误差、不对外展示」——所以不占界面，只给内部两处逻辑用：
@@ -435,10 +424,10 @@
     // 2026-11-22：从「一行摘要」改成网格——步数/饮水/睡眠各一格，数字即刻可见；
     // 仍只跳转不录入，进去不弹输入法。
     const habitCells = [
-      {label: '步数', icon: 'icon-habit-steps.svg', value: number(habit.steps) === null ? '—' : fmt(habit.steps, 0), unit: '步', focus: 'habit-steps'},
-      {label: '饮水', icon: 'icon-water.svg', value: number(habit.water) === null ? '—' : fmt(habit.water, 0), unit: 'ml', focus: 'habit-steps'},
-      {label: '睡眠', icon: 'icon-habit-sleep.svg', value: number(habit.sleep) === null ? '—' : fmt(habit.sleep, 1), unit: '小时', focus: 'habit-sleep'}
-    ];
+      {key: 'steps', label: '步数', icon: 'icon-habit-steps.svg', value: number(habit.steps) === null ? '—' : fmt(habit.steps, 0), unit: '步', focus: 'habit-steps'},
+      {key: 'water', label: '饮水', icon: 'icon-water.svg', value: number(habit.water) === null ? '—' : fmt(habit.water, 0), unit: 'ml', focus: 'habit-steps'},
+      {key: 'sleep', label: '睡眠', icon: 'icon-habit-sleep.svg', value: number(habit.sleep) === null ? '—' : fmt(habit.sleep, 1), unit: '小时', focus: 'habit-sleep'}
+    ].filter(cell => (typeof todayMetrics === 'function' ? todayMetrics() : ['steps', 'water', 'sleep']).includes(cell.key));
     $('#habit-summary').innerHTML = habitCells.map(cell =>
       `<button type="button" class="habit-cell" data-habit-jump data-focus="${cell.focus}" aria-label="${cell.label}：${cell.value === '—' ? '未记录' : cell.value + cell.unit}">`
       + `<span class="habit-cell-label">${cell.label}</span>`

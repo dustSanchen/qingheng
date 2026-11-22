@@ -77,7 +77,7 @@ check('quick record meal type is an in-dialog chip row, not a native select', ap
 check('today records empty state does not add a dashed inner frame', css.includes('#today-records-card .empty-state.is-empty{border:0;border-radius:0}'));
 
 // --- styles ---------------------------------------------------------------------------------------------
-check('quick actions follow the next-step note without overlaying content', app.includes('energyCard.after(slotHint)') && app.includes('slotHint.after(row)') && css.includes('.quick-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))') && !css.includes('.quick-actions{position:fixed'));
+check('quick actions follow the card that now holds the next step', app.includes('energyCard.after(row)') && !app.includes('energyCard.after(slotHint)') && css.includes('.quick-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))') && !css.includes('.quick-actions{position:fixed'));
 check('quick action targets stay at least 44px with 8px gaps', css.includes('gap:8px') && css.includes('min-height:52px'));
 check('bottom navigation keeps 52px targets and 8px spacing', /\.bottom-nav button\{[^}]*min-height:52px/.test(css) && /\.bottom-nav\{[^}]*gap:8px/.test(css));
 check('record and trend tabs keep 44px targets and 8px spacing', /\.segment-bar\{[^}]*gap:8px/.test(css) && /\.segment\{[^}]*min-height:44px/.test(css));

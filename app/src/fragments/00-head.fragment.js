@@ -422,6 +422,84 @@
   });
   // In-app replacement for window.confirm(): the WebView would show a browser-style prompt.
   let dialogResolve = null, dialogReturnFocus = null;
+  /**
+   * 今天页状态胶囊（2026-11-22）：热量/宏量提示与体检结论合成一条，按优先级轮播。
+   * 一次只显示一条，右上角 1/N；点一下看下一条，6 秒自动轮换；没有内容就整条收起。
+   */
+  const TODAY_SIGNALS = {energy: [], check: ''};
+  let statusCursor = 0, statusTimer = 0;
+  function todayStatusList() {
+    const list = [];
+    const push = (text, tone) => {
+      const value = String(text || '').trim();
+      if (value && !list.some(item => item.text === value)) list.push({text: value, tone: tone || 'info'});
+    };
+    for (const item of TODAY_SIGNALS.energy) push(item.text, item.tone);
+    push(TODAY_SIGNALS.check, 'info');
+    return list;
+  }
+  function paintTodayStatus() {
+    const strip = $('#status-strip');
+    if (!strip) return;
+    const list = todayStatusList();
+    if (!list.length) {
+      strip.hidden = true;
+      clearInterval(statusTimer); statusTimer = 0;
+      return;
+    }
+    if (statusCursor >= list.length) statusCursor = 0;
+    const item = list[statusCursor];
+    strip.hidden = false;
+    strip.classList.toggle('is-warn', item.tone === 'warn');
+    $('#status-strip-text').textContent = item.text;
+    const count = $('#status-strip-count');
+    if (count) count.textContent = list.length > 1 ? `${statusCursor + 1}/${list.length}` : '';
+    strip.setAttribute('aria-label', list.length > 1
+      ? `今日提示 ${statusCursor + 1} / ${list.length}，点一下看下一条`
+      : '今日提示');
+  }
+  function renderTodayStatusStrip(reset) {
+    if (reset) statusCursor = 0;
+    paintTodayStatus();
+    clearInterval(statusTimer);
+    statusTimer = 0;
+    const list = todayStatusList();
+    if (list.length > 1) {
+      statusTimer = setInterval(() => {
+        statusCursor = (statusCursor + 1) % list.length;
+        paintTodayStatus();
+      }, 6000);
+    }
+  }
+  function installTodayStatusStrip() {
+    const strip = $('#status-strip');
+    if (!strip || strip.dataset.wired === '1') return;
+    strip.dataset.wired = '1';
+    strip.addEventListener('click', () => {
+      const list = todayStatusList();
+      if (list.length < 2) return;
+      statusCursor = (statusCursor + 1) % list.length;
+      renderTodayStatusStrip(false);
+    });
+  }
+  // 常用指标：今天页小习惯网格显示哪几格（默认三项），只存本机。
+  const TODAY_METRICS_KEY = 'qingheng.todayMetrics';
+  const TODAY_METRIC_DEFS = [{key: 'steps', label: '步数'}, {key: 'water', label: '饮水'}, {key: 'sleep', label: '睡眠'}];
+  function todayMetrics() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(TODAY_METRICS_KEY) || 'null');
+      if (Array.isArray(raw)) {
+        const kept = raw.filter(key => TODAY_METRIC_DEFS.some(def => def.key === key));
+        if (kept.length) return kept;
+      }
+    } catch {}
+    return TODAY_METRIC_DEFS.map(def => def.key);
+  }
+  function saveTodayMetrics(keys) {
+    const kept = (Array.isArray(keys) ? keys : []).filter(key => TODAY_METRIC_DEFS.some(def => def.key === key));
+    try { localStorage.setItem(TODAY_METRICS_KEY, JSON.stringify(kept)); } catch {}
+    return kept.length ? kept : TODAY_METRIC_DEFS.map(def => def.key);
+  }
   function askConfirm(text, options = {}) {
     const root = $('#app-dialog');
     if (!root) return Promise.resolve(false);

@@ -859,7 +859,10 @@
       return `<div class="check-cap ${level}"><span class="check-cap-name">${esc(item.label)}</span>`
         + `<span class="check-cap-track"><span class="check-cap-fill" style="width:${pct}%"></span></span></div>`;
     }).join('') + '</div>'
-      + `<p class="check-verdict">${esc(check.verdict)}</p>`;
+      + '<div hidden>' + `<p class="check-verdict">${esc(check.verdict)}</p>`;
+    // 结论不再单独占一行：并进状态胶囊，和热量/宏量提示按优先级轮播。
+    TODAY_SIGNALS.check = check.verdict || '';
+    renderTodayStatusStrip(false);
     // A single next step lives in slot-hint; the check itself only reports state,
     // except for a missing sleep value, which keeps its direct jump.
     const sleepMissing = number(habit.sleep) === null;

@@ -30,7 +30,7 @@ check('protein gap turns into one next step, not a food ladder', app.includes('�
 check('excess fat gets a cooking change', app.includes('改白灼或清蒸'));
 check('excess calories gets a stop rule', app.includes('不再加餐，晚餐只吃蛋白加蔬菜'));
 check('a met protein target still gives guidance', app.includes('蛋白质已达标，剩下的额度分给主食与蔬菜即可'));
-check('the action line is only filled when there is data', app.includes("const protein = number(totals.protein), proteinMin = number(p.proteinMin)"));
+check('the action line is only filled when there is data', app.includes('TODAY_SIGNALS.energy = parts.map(text => ({text, tone:') && html.includes('id="status-strip"'));
 
 // --- P1-5: training insights ---------------------------------------------------------------------------
 check('insights reuse weeklyVolume', app.includes("typeof weeklyVolume === 'function' ? weeklyVolume() : []"));

@@ -161,7 +161,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.16';
+  const APP_VERSION = '1.5.17';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1448,12 +1448,8 @@
     ].filter(([, , focus]) => focus !== 'training-form' || trainingEnabled()).map(([icon, label, focus, className = '']) => `<button type="button" class="quick-chip ${className}" data-quick-focus="${focus}" data-quick-icon="${icon}"><span class="quick-chip-icon" aria-hidden="true">${iconMarkup(icon)}</span>${label}</button>`).join('');
     // 动作组紧贴能量卡之下：先读数（环 → 宏量三列 → 补蛋白提示），再动作。
     // 不放进卡里——卡内动作条会把一张卡切成两半；也没挂在宏量后面，空态时环与宏量都是 hidden，锚点会消失。
+    // 2026-11-22：行动罗盘（slot-hint）改在能量卡内部，这里只把动作与注释排在卡后。
     energyCard.after(row);
-    const slotHint = $('.slot-hint', view);
-    if (slotHint) {
-      energyCard.after(slotHint);
-      slotHint.after(row);
-    }
     const slotNote = $('#slot-note');
     if (slotNote) row.after(slotNote);
     row.addEventListener('click', event => {
@@ -3446,4 +3442,4 @@ feedback(message,'数据已导入。'+report);
   installProfileAutoRecalc();
   applyTrainingVisibility();
   installCardCollapse(); installTrainingAdvice(); installHabitChips(); installChatChips();
-  setupCollapsibleSections(); installQuickRecordControls(); installHealthConnectControls(); installBodyDataControls(); restoreConsent(); installExternalConsent(); installExactAlarmControl();
+  setupCollapsibleSections(); installQuickRecordControls(); installHealthConnectControls(); installBodyDataControls(); installTodayStatusStrip(); installTodayMoreMenu(); restoreConsent(); installExternalConsent(); installExactAlarmControl();

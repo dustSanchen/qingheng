@@ -2358,3 +2358,18 @@ details:not(.advanced):not(.day-more)>summary::after{width:auto;height:auto;bord
 .dialog-field-label{margin:0 0 6px;font-size:var(--text-xs);color:var(--muted)}
 .dialog-effort{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
 .dialog-body{display:block}
+/* 2026-11-22 第四轮：状态胶囊、卡内行动罗盘、页眉 ⋯ 菜单。 */
+.status-strip{display:flex;align-items:center;gap:8px;margin-top:12px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface-soft);font-size:var(--text-xs);color:var(--body-text)}
+.status-strip[hidden]{display:none}
+.status-strip-dot{flex:0 0 auto;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.status-strip.is-warn{background:var(--warn-soft);color:var(--warn-ink)}
+.status-strip.is-warn .status-strip-dot{background:var(--warn)}
+.status-strip-text{flex:1 1 auto;min-width:0;margin:0;line-height:1.5}
+.status-strip-count{flex:0 0 auto;color:var(--muted);font-variant-numeric:tabular-nums}
+#view-today .energy-card .slot-hint{margin:10px 0 0}
+#view-today .energy-card .slot-hint.is-next{border-radius:12px;border:1px solid var(--accent-line);background:var(--accent-soft);-webkit-backdrop-filter:none;backdrop-filter:none}
+.today-more{width:40px;height:40px;min-height:0;margin-left:auto;border:1px solid var(--line);background:transparent}
+.page-heading--today .date-picker{position:absolute;width:1px;height:1px;padding:0;border:0;opacity:0;overflow:hidden;clip:rect(0,0,0,0);pointer-events:none}
+#quick-record{display:none}
+/* 换一天收进 ⋯ 菜单后，今天页只留日期文案（其他页仍保留 running-head 的日期入口）。 */
+html[data-tab="today"] .date-jump{display:none}
