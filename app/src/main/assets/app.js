@@ -5763,7 +5763,34 @@ const values = points.length<=7 ? points.map((item,i) => {
     const split = ['ppl', 'ul', 'fb'].includes(String(src.split)) ? String(src.split) : 'ppl';
     const templates = split === 'ul' ? ['upper', 'lower'] : split === 'fb' ? ['full'] : ['push', 'pull', 'legs'];
     const startAt = Math.max(0, templates.indexOf(String(src.startTemplate || '')));
-    const minutes = Math.max(20, Math.min(120, Number(src.minutes) || 45));
+    // 用户在偏好里写的训练要求（2026-11-23 从「计划说明」搬进改偏好）：本地生成器只做能确定的两件事——
+    // 改这次时长、把明确说「别 / 不要 / 避免」的动作剔除；部位轮换与更复杂的要求交给「重排今天」的 AI。
+    const request = String(src.request || '').slice(0, 200);
+    const requestMinutes = (request.match(/(\d{2,3})\s*分钟/) || [])[1];
+    const minutes = Math.max(20, Math.min(120, Number(requestMinutes) || Number(src.minutes) || 45));
+    const bannedAngles = new Set(), bannedWords = [], bannedNameRe = [];
+    for (const match of request.matchAll(/(?:别|不要|避免|不安排|避开)([^。；，,\n]{1,14})/g)) {
+      const text = match[1];
+      bannedWords.push(text);
+      for (const [re, angles] of [
+        [/过头|肩推|推举|侧平举/, ['vertical-press', 'lateral-raise']],
+        [/卧推|推胸|飞鸟/, ['horizontal-press', 'incline-press']],
+        [/深蹲|蹲|腿举/, ['squat', 'leg-press', 'single-leg']],
+        [/硬拉/, ['hinge']],
+        [/划船/, ['row']],
+        [/引体|下拉/, ['vertical-pull']],
+        [/弯举/, ['biceps']],
+        [/下压|臂屈伸/, ['triceps']],
+        [/卷腹|平板|核心/, ['core']]
+      ]) if (re.test(text)) angles.forEach(angle => bannedAngles.add(angle));
+      // 训练库里的动作 angle 直接用名字，角度表罩不住；按名字里的关键动作再补一层。
+      for (const re of [/深蹲|蹲/, /硬拉/, /卧推|飞鸟/, /肩推|推举|侧平举/, /划船/, /引体|下拉/, /弯举/, /下压|臂屈伸/, /卷腹|平板/]) {
+        if (re.test(text)) bannedNameRe.push(re);
+      }
+    }
+    const excludedMove = item => !!item && (bannedAngles.has(item.angle)
+      || bannedNameRe.some(re => re.test(item.name))
+      || bannedWords.some(word => word && (item.name.includes(word) || word.includes(item.name))));
     const moves = minutes <= 30 ? 3 : minutes <= 45 ? 4 : minutes <= 60 ? 5 : 6;
     const setCap = minutes <= 30 ? 3 : minutes <= 60 ? 4 : 5;
     const budget = Math.max(8, Math.round(minutes / 3.5));
@@ -5846,6 +5873,9 @@ const values = points.length<=7 ? points.map((item,i) => {
       }
       const shape = (PLAN_SHAPES[template] || []).slice(0, Math.max(1, moves));
       if (!pool.length || !shape.length) return {exercises: [], suggested: false};
+      // 用户写了「别安排 X」就先把这些动作剔掉；剔完还有动作才生效，避免一句话把整天排空。
+      const allowed = pool.filter(item => !excludedMove(item));
+      if (allowed.length) pool = allowed;
       const taken = new Set(), usedAngles = new Set(), exercises = [];
       for (const slot of shape) {
         const candidates = pool.filter(item => !taken.has(item.name)
@@ -6375,7 +6405,13 @@ const values = points.length<=7 ? points.map((item,i) => {
     };
     markSaved(planPrefs());
     const summary = $("#plan-prefs-summary"), edit = $("#pref-edit");
-    const regen = $("#pref-regen"), save = $("#pref-save");
+    const regen = $("#pref-regen"), save = $("#pref-save"), requestBox = $("#plan-request");
+    // 训练要求跟着偏好一起存：换手机、切日期都还在；取消编辑时也要还原成已保存的那句。
+    const readRequest = () => String((requestBox && requestBox.value) || "").trim().slice(0, 200);
+    const paintRequest = () => {
+      if (requestBox) requestBox.value = String((planPrefs() || {}).request || "");
+    };
+    paintRequest();
     // 摘要跟着 chips 走：展开改选项时上方摘要也换成新值，收起时才不会「看着没变」。
     const paintSummary = () => {
       const saved = planPrefs();
@@ -6388,9 +6424,10 @@ const values = points.length<=7 ? points.map((item,i) => {
         minutes: Number(read("minutes")) || saved.minutes
       });
     };
-    /** 收起 = 放弃这次改动：chips 回到已保存的偏好。 */
+    /** 收起 = 放弃这次改动：chips 与要求都回到已保存的偏好。 */
     const restoreSaved = () => {
       markSaved(planPrefs());
+      paintRequest();
       paintSummary();
     };
     for (const name of ["days", "split", "gear", "minutes"]) {
@@ -6446,7 +6483,8 @@ const values = points.length<=7 ? points.map((item,i) => {
           days: Number(read("days")) || 3,
           split: read("split") || "ppl",
           gear: read("gear") || "mixed",
-          minutes: Number(read("minutes")) || 45
+          minutes: Number(read("minutes")) || 45,
+          request: readRequest()
         });
         // 保存偏好与生成本周安排是同一次动作：以前指纹没变就复用缓存，看起来像「点了没反应」。
         regenerateWeekPlan();
@@ -6473,9 +6511,12 @@ const values = points.length<=7 ? points.map((item,i) => {
     if (!plan) {
       try {
         const baselines = recentExerciseBaselines(14);
-        const sessions = Math.max(1, Math.min(6, Math.round(number(effectiveProfileForDate(activeDate).training) || 3)));
+        const pref = prefsForPlan() || {};
+        const sessions = Math.max(1, Math.min(6, Math.round(number(pref.days) || number(effectiveProfileForDate(activeDate).training) || 3)));
         const flag = (acwrFromDailyLoads(dailyLoads(28), activeDate) || {}).flag || "ok";
-        plan = generateWeekPlan({startDate: weekStart, sessions, lastByExercise: baselines, acwrFlag: flag, goal: (state.profile || {}).goal});
+        plan = generateWeekPlan({startDate: weekStart, sessions, lastByExercise: baselines, acwrFlag: flag,
+          goal: (state.profile || {}).goal, split: pref.split, gear: pref.gear, minutes: pref.minutes,
+          request: pref.request, startTemplate: typeof nextStartTemplate === "function" ? nextStartTemplate(pref.split) : ""});
         if (plan) writeWeekPlanCache(weekStart, {plan, fingerprint: weekPlanFingerprint(prefsForPlan(), baselines, sessions), savedAt: Date.now()});
       } catch { plan = null; }
     }
@@ -6978,7 +7019,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     return typeof planPrefs === "function" ? planPrefs() : null;
   }
   function weekPlanFingerprint(prefs, lastByExercise, sessions) {
-    const parts = [sessions, prefs ? prefs.days : "", prefs ? prefs.split : "", prefs ? prefs.gear : "", prefs ? prefs.minutes : ""];
+    const parts = [sessions, prefs ? prefs.days : "", prefs ? prefs.split : "", prefs ? prefs.gear : "", prefs ? prefs.minutes : "", prefs ? prefs.request : ""];
     for (const name of Object.keys(lastByExercise || {}).sort()) {
       const row = lastByExercise[name];
       parts.push(name + ":" + row.sets + "x" + row.reps + "x" + row.weight);
@@ -8125,7 +8166,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.29';
+  const APP_VERSION = '1.5.30';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -8748,7 +8789,14 @@ function metricIcon(label) {
       return {weight: kg, source: "model"};
     }
     const planned = typeof plannedWeightFor === "function" ? plannedWeightFor(row && row.name) : null;
-    return planned ? {weight: planned.weight, source: planned.source} : {weight: null, source: "none"};
+    if (planned && Number(planned.weight) > 0) return {weight: planned.weight, source: planned.source};
+    // 推断不出来时按器械给保守起步值（与 38 号周计划同一套：杠铃 40 / 哑铃 8 / 器械 20 / 其它 10）。
+    // 以前这里会留空，AI 排出来的配重动作到了保存校验就被「配重动作还要填负重」拦住整份清单（2026-11-23 用户报）。
+    const bodyweight = typeof isBodyweightMove === "function" && isBodyweightMove(row && row.name);
+    if (bodyweight) return {weight: null, source: "bodyweight"};
+    const gear = typeof exerciseEquip === "function" ? exerciseEquip(row && row.name) : "";
+    const START = {barbell: 40, dumbbell: 8, machine: 20};
+    return {weight: START[gear] || 10, source: "gear"};
   }
   function planItemFromRow(row) {
     const guess = planWeightFor(row);
@@ -8758,6 +8806,7 @@ function metricIcon(label) {
       reps: Number(row.reps) > 0 ? Math.round(Number(row.reps)) : 0,
       weight: guess.weight,
       weightSource: guess.source,
+      weightApprox: guess.source === "gear" || guess.source === "family" || guess.source === "inferred",
       distanceKm: Number(row.distanceKm) > 0 ? Number(row.distanceKm) : null,
       durationMin: Number(row.durationMin) > 0 ? Number(row.durationMin) : null,
       reason: String(row.reason || "").slice(0, 60),
@@ -8913,6 +8962,9 @@ function metricIcon(label) {
     // 慢的时候要说清还在等模型，别让按钮无声地停在「正在排…」。
     const slowTimer = setTimeout(() => showBusy("模型还在排，一般要半分钟左右，请再等一会儿…", "plan-busy"), 12000);
     const planBefore = aiPlanStore(activeDate) || [];
+    // 流式期间收到的全文要留一份：后端 done 事件偶尔不带 reply，只剩 deltas；
+    // 不给这份兜底，最后一步会解析出空清单、把刚画出来的动作全清掉（2026-11-23 用户报「排了但存不了」）。
+    let streamedText = "";
     // 本地计时：慢的时候要能说清是「模型第一句就慢」还是「写得长」，别靠感觉。
     const planStarted = Date.now();
     let planFirstRowAt = 0;
@@ -8963,6 +9015,7 @@ function metricIcon(label) {
         window.QinghengStream = {onDelta: chunk => {
           if (!chunk) return;
           streamed += chunk;
+          streamedText += chunk;
           const rows = partialPlanRows(streamed);
           if (rows.length > shown) {
             shown = rows.length;
@@ -8976,14 +9029,22 @@ function metricIcon(label) {
         data = await api("/api/chat/stream", payload);
       } catch (streamError) {
         // 流式不可用（浏览器演示、断网、服务商不支持）：退回一次性接口，行为与旧版一致。
-        aiPlanStore(activeDate, planBefore);
-        renderAiPlan();
+        // 已经画出动作时不清空：那份清单用户看得见，退回一次性接口失败也不该让它消失。
+        if (!planShownRows) {
+          aiPlanStore(activeDate, planBefore);
+          renderAiPlan();
+        }
         showBusy("模型还在排，请再等一会儿…", "plan-busy");
         data = await api("/api/chat", payload);
       } finally {
         window.QinghengStream = null;
       }
-      const plan = validatePlanAgainstContext(applyEffortSignalToPlan(parseAiPlanReply(String(data && data.reply ? data.reply : ""))), context);
+      const finalText = String(data && data.reply ? data.reply : streamedText);
+      let plan = validatePlanAgainstContext(applyEffortSignalToPlan(parseAiPlanReply(finalText)), context);
+      if (!plan.length) {
+        // done 事件没带 reply 时，退回流式期间收到的全文再解析一次。
+        plan = validatePlanAgainstContext(applyEffortSignalToPlan(parseAiPlanReply(streamedText)), context);
+      }
       if (!plan.length) {
         // 一份都没解析出来：把原来的清单放回去，别让用户白等还丢计划。
         aiPlanStore(activeDate, planBefore);
@@ -8992,11 +9053,14 @@ function metricIcon(label) {
       }
       aiPlanStore(activeDate, plan);
       // 教练说明：模型把「为什么不完全照办」写进第一个动作的 note，单独取出来显示。
-      const noteMatch = /"note"\s*:\s*"([^"]{1,60})"/.exec(String((data && data.reply) || ""));
+      const noteMatch = /"note"\s*:\s*"([^"]{1,60})"/.exec(finalText);
       writePlanNote(activeDate, noteMatch ? noteMatch[1] : "");
       // 清单落库同时把重量记进本地记忆：下次排课同名动作直接按上次表现渐进。
       if (typeof rememberPlanWeights === "function") rememberPlanWeights(plan);
       renderAiPlan();
+      // 计划只写进 aiPlanStore 不够：执行区要重新播种成可勾选的行，否则用户看到的是空表单、
+      // 按「保存训练」只会提示「还没有动作可保存」——这就是「排了但存不了」的现场（2026-11-23）。
+      if (typeof renderTrainingLog === "function") renderTrainingLog();
       // 今日页的「今日清单」读的是同一份数据，排完必须一起刷，否则两个页面各说各话。
       if (typeof renderAdviceOrder === "function") renderAdviceOrder();
       // 模型偶尔只回一两个动作：留着重排的入口，但要说清"这次偏少"，别让用户以为本该如此。
@@ -9008,7 +9072,7 @@ function metricIcon(label) {
       const planSets = plan.reduce((sum, item) => sum + (Number(item && item.sets) || 0), 0);
       const planNeed = typeof planMinutes === "function" ? planMinutes(plan) : null;
       const timingText = "（耗时 " + (planTotalMs / 1000).toFixed(1) + " 秒" + (firstMs !== null ? "，首条 " + (firstMs / 1000).toFixed(1) + " 秒" : "") + "）";
-      try { localStorage.setItem("qingheng.planTiming." + activeDate, JSON.stringify({total: planTotalMs, first: firstMs, rows: plan.length, sets: planSets, minutes: planNeed, limit: context.minutes, chars: String((data && data.reply) || "").length, at: new Date().toISOString()})); } catch {}
+      try { localStorage.setItem("qingheng.planTiming." + activeDate, JSON.stringify({total: planTotalMs, first: firstMs, rows: plan.length, sets: planSets, minutes: planNeed, limit: context.minutes, chars: finalText.length, at: new Date().toISOString()})); } catch {}
       if (typeof renderPlanTiming === "function") renderPlanTiming();
       if (plan.length < 3 && wantMinutes >= 30) {
         notice("模型这次只排了 " + plan.length + " 个动作，比 " + wantMinutes + " 分钟的量少；可以点「修改」补动作，或再点一次重排。" + timingText);
@@ -11124,8 +11188,9 @@ feedback(message,'数据已导入。'+report);
     return `${fmt(value / 1000, value % 500 ? 2 : 1)}L`;
   }
   /**
-   * 训练的两张静态 sheet（2026-11-22 四模块清单之二）：「计划说明」放本周要求 / 怎么排的 / 今日要求；
-   * 「更多」放顺延与清空——这两件低频动作不再各占一行卡面。
+   * 训练的两张静态 sheet：计划说明放本周要求 / 怎么排的 / 负荷；
+   * 顺延与清空已从「其他」里搬出来，直接挂在训练日志的操作行（2026-11-23 用户要求）——
+   * 这两件低频动作不再需要一个折叠层，也少一个「其他」按钮。
    */
   function installTrainingSheets() {
     const sheetOf = id => $(id);
@@ -11137,7 +11202,7 @@ feedback(message,'数据已导入。'+report);
       if (first) first.focus({preventScroll: true});
     };
     const close = id => { const node = sheetOf(id); if (node) node.hidden = true; };
-    const pairs = [['#plan-explain-open', '#plan-sheet', '#plan-sheet-close'], ['#training-more', '#training-more-sheet', '#training-more-close']];
+    const pairs = [['#plan-explain-open', '#plan-sheet', '#plan-sheet-close']];
     for (const [trigger, sheet, closer] of pairs) {
       $(trigger)?.addEventListener('click', () => open(sheet));
       $(closer)?.addEventListener('click', () => close(sheet));
@@ -11151,14 +11216,9 @@ feedback(message,'数据已导入。'+report);
         if (node) notesHost.appendChild(node);
       }
     }
-    // 更多里的两件事：点的是原来那两个按钮，行为一模一样；点完把 sheet 收起来。
-    for (const id of ['#ai-plan-postpone', '#training-clear']) {
-      $(id)?.addEventListener('click', () => close('#training-more-sheet'));
-    }
     document.addEventListener('keydown', event => {
       if (event.key !== 'Escape') return;
       if (sheetOf('#plan-sheet') && !sheetOf('#plan-sheet').hidden) close('#plan-sheet');
-      if (sheetOf('#training-more-sheet') && !sheetOf('#training-more-sheet').hidden) close('#training-more-sheet');
     });
   }
   function installHabitChips() {

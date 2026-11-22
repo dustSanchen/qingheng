@@ -139,5 +139,14 @@ for (const goal of ['gain', 'cut', 'maintain', 'lean']) {
   check(`§7-6 ${goal} 的 RIR 落在 ${rir[0]}~${rir[1]}`, rirOk, [...new Set(rows.map(item => item.rir))].join(','));
 }
 
+// --- 2026-11-23：训练要求（改偏好里的那句话）会改默认生成 --------------------------------
+const reqMinutes = run({split: 'ppl', request: '只有 30 分钟'});
+check('要求里的时长会覆盖分钟数（30 分钟 → 每天 ≤3 个动作）',
+  reqMinutes.days.every(day => day.exercises.length <= 3), reqMinutes.days.map(day => day.exercises.length).join(','));
+const reqNoSquat = run({split: 'ppl', request: '只有 45 分钟，别安排深蹲'});
+const reqNames = reqNoSquat.days.flatMap(day => day.exercises.map(item => item.name));
+check('要求里说「别安排深蹲」时，整周不排深蹲', reqNames.length > 0 && !reqNames.some(name => /深蹲/.test(name)), reqNames.join(','));
+check('排除项不会把一天排空', reqNoSquat.days.every(day => day.exercises.length >= 1), reqNoSquat.days.map(day => day.exercises.length).join(','));
+
 console.log('\nFAIL total: ' + fail);
 process.exitCode = fail ? 1 : 0;

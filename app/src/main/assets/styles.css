@@ -2462,3 +2462,7 @@ html[data-tab="today"] .energy-card .quick-chip:active{background-image:linear-g
 .exercise-name-row:not(.is-locked) .exercise-bodyweight{display:inline-flex;align-items:center}
 .exercise-bodyweight[aria-pressed="true"]{border-color:transparent;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent);font-weight:var(--fw-semibold)}
 .exercise-bodyweight:active{transform:scale(.98)}
+
+/* 训练要求：跟着偏好一起填，textarea 压矮一点，别把偏好面板撑出一条长河。 */
+.plan-prefs textarea{min-height:72px;margin:0}
+.plan-prefs .fine-print{margin:6px 0 0;color:var(--muted)}

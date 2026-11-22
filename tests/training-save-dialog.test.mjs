@@ -26,7 +26,9 @@ check('the overview opens by default', html.includes('<details class="train-over
 check('the plan list is gone; the toolbar and the one primary remain', !html.includes('id="ai-plan-fold"') && !html.includes('id="ai-plan-list"') &&
   html.includes('id="training-toolbar"') && html.includes('id="ai-plan-ask"') &&
   /<div class="log-actions"><button class="button primary" type="submit">保存训练<\/button><\/div>/.test(html));
-check('the toolbar carries AI re-order, add-exercise and more', html.includes('id="training-more"') && app.includes("installTrainingSheets();"));
+check('the toolbar carries AI re-order and add-exercise', html.includes('id="ai-plan-ask"') && html.includes('id="training-add"') && !html.includes('id="training-more"'));
+check('postpone and clear left the more sheet', html.includes('id="ai-plan-postpone"') && html.includes('id="training-clear"') &&
+  !html.includes('id="training-more-sheet"') && html.includes('class="log-tools"'));
 
 // --- 休息倒计时内联 ---------------------------------------------------------------------
 check('the rest strip carries its own countdown', app.includes('data-rest-inline') && app.includes('rest-line-bar'));

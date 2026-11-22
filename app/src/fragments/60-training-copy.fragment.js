@@ -472,7 +472,34 @@
     const split = ['ppl', 'ul', 'fb'].includes(String(src.split)) ? String(src.split) : 'ppl';
     const templates = split === 'ul' ? ['upper', 'lower'] : split === 'fb' ? ['full'] : ['push', 'pull', 'legs'];
     const startAt = Math.max(0, templates.indexOf(String(src.startTemplate || '')));
-    const minutes = Math.max(20, Math.min(120, Number(src.minutes) || 45));
+    // 用户在偏好里写的训练要求（2026-11-23 从「计划说明」搬进改偏好）：本地生成器只做能确定的两件事——
+    // 改这次时长、把明确说「别 / 不要 / 避免」的动作剔除；部位轮换与更复杂的要求交给「重排今天」的 AI。
+    const request = String(src.request || '').slice(0, 200);
+    const requestMinutes = (request.match(/(\d{2,3})\s*分钟/) || [])[1];
+    const minutes = Math.max(20, Math.min(120, Number(requestMinutes) || Number(src.minutes) || 45));
+    const bannedAngles = new Set(), bannedWords = [], bannedNameRe = [];
+    for (const match of request.matchAll(/(?:别|不要|避免|不安排|避开)([^。；，,\n]{1,14})/g)) {
+      const text = match[1];
+      bannedWords.push(text);
+      for (const [re, angles] of [
+        [/过头|肩推|推举|侧平举/, ['vertical-press', 'lateral-raise']],
+        [/卧推|推胸|飞鸟/, ['horizontal-press', 'incline-press']],
+        [/深蹲|蹲|腿举/, ['squat', 'leg-press', 'single-leg']],
+        [/硬拉/, ['hinge']],
+        [/划船/, ['row']],
+        [/引体|下拉/, ['vertical-pull']],
+        [/弯举/, ['biceps']],
+        [/下压|臂屈伸/, ['triceps']],
+        [/卷腹|平板|核心/, ['core']]
+      ]) if (re.test(text)) angles.forEach(angle => bannedAngles.add(angle));
+      // 训练库里的动作 angle 直接用名字，角度表罩不住；按名字里的关键动作再补一层。
+      for (const re of [/深蹲|蹲/, /硬拉/, /卧推|飞鸟/, /肩推|推举|侧平举/, /划船/, /引体|下拉/, /弯举/, /下压|臂屈伸/, /卷腹|平板/]) {
+        if (re.test(text)) bannedNameRe.push(re);
+      }
+    }
+    const excludedMove = item => !!item && (bannedAngles.has(item.angle)
+      || bannedNameRe.some(re => re.test(item.name))
+      || bannedWords.some(word => word && (item.name.includes(word) || word.includes(item.name))));
     const moves = minutes <= 30 ? 3 : minutes <= 45 ? 4 : minutes <= 60 ? 5 : 6;
     const setCap = minutes <= 30 ? 3 : minutes <= 60 ? 4 : 5;
     const budget = Math.max(8, Math.round(minutes / 3.5));
@@ -555,6 +582,9 @@
       }
       const shape = (PLAN_SHAPES[template] || []).slice(0, Math.max(1, moves));
       if (!pool.length || !shape.length) return {exercises: [], suggested: false};
+      // 用户写了「别安排 X」就先把这些动作剔掉；剔完还有动作才生效，避免一句话把整天排空。
+      const allowed = pool.filter(item => !excludedMove(item));
+      if (allowed.length) pool = allowed;
       const taken = new Set(), usedAngles = new Set(), exercises = [];
       for (const slot of shape) {
         const candidates = pool.filter(item => !taken.has(item.name)
@@ -1084,7 +1114,13 @@
     };
     markSaved(planPrefs());
     const summary = $("#plan-prefs-summary"), edit = $("#pref-edit");
-    const regen = $("#pref-regen"), save = $("#pref-save");
+    const regen = $("#pref-regen"), save = $("#pref-save"), requestBox = $("#plan-request");
+    // 训练要求跟着偏好一起存：换手机、切日期都还在；取消编辑时也要还原成已保存的那句。
+    const readRequest = () => String((requestBox && requestBox.value) || "").trim().slice(0, 200);
+    const paintRequest = () => {
+      if (requestBox) requestBox.value = String((planPrefs() || {}).request || "");
+    };
+    paintRequest();
     // 摘要跟着 chips 走：展开改选项时上方摘要也换成新值，收起时才不会「看着没变」。
     const paintSummary = () => {
       const saved = planPrefs();
@@ -1097,9 +1133,10 @@
         minutes: Number(read("minutes")) || saved.minutes
       });
     };
-    /** 收起 = 放弃这次改动：chips 回到已保存的偏好。 */
+    /** 收起 = 放弃这次改动：chips 与要求都回到已保存的偏好。 */
     const restoreSaved = () => {
       markSaved(planPrefs());
+      paintRequest();
       paintSummary();
     };
     for (const name of ["days", "split", "gear", "minutes"]) {
@@ -1155,7 +1192,8 @@
           days: Number(read("days")) || 3,
           split: read("split") || "ppl",
           gear: read("gear") || "mixed",
-          minutes: Number(read("minutes")) || 45
+          minutes: Number(read("minutes")) || 45,
+          request: readRequest()
         });
         // 保存偏好与生成本周安排是同一次动作：以前指纹没变就复用缓存，看起来像「点了没反应」。
         regenerateWeekPlan();
@@ -1182,9 +1220,12 @@
     if (!plan) {
       try {
         const baselines = recentExerciseBaselines(14);
-        const sessions = Math.max(1, Math.min(6, Math.round(number(effectiveProfileForDate(activeDate).training) || 3)));
+        const pref = prefsForPlan() || {};
+        const sessions = Math.max(1, Math.min(6, Math.round(number(pref.days) || number(effectiveProfileForDate(activeDate).training) || 3)));
         const flag = (acwrFromDailyLoads(dailyLoads(28), activeDate) || {}).flag || "ok";
-        plan = generateWeekPlan({startDate: weekStart, sessions, lastByExercise: baselines, acwrFlag: flag, goal: (state.profile || {}).goal});
+        plan = generateWeekPlan({startDate: weekStart, sessions, lastByExercise: baselines, acwrFlag: flag,
+          goal: (state.profile || {}).goal, split: pref.split, gear: pref.gear, minutes: pref.minutes,
+          request: pref.request, startTemplate: typeof nextStartTemplate === "function" ? nextStartTemplate(pref.split) : ""});
         if (plan) writeWeekPlanCache(weekStart, {plan, fingerprint: weekPlanFingerprint(prefsForPlan(), baselines, sessions), savedAt: Date.now()});
       } catch { plan = null; }
     }
@@ -1687,7 +1728,7 @@
     return typeof planPrefs === "function" ? planPrefs() : null;
   }
   function weekPlanFingerprint(prefs, lastByExercise, sessions) {
-    const parts = [sessions, prefs ? prefs.days : "", prefs ? prefs.split : "", prefs ? prefs.gear : "", prefs ? prefs.minutes : ""];
+    const parts = [sessions, prefs ? prefs.days : "", prefs ? prefs.split : "", prefs ? prefs.gear : "", prefs ? prefs.minutes : "", prefs ? prefs.request : ""];
     for (const name of Object.keys(lastByExercise || {}).sort()) {
       const row = lastByExercise[name];
       parts.push(name + ":" + row.sets + "x" + row.reps + "x" + row.weight);
