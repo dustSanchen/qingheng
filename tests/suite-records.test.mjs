@@ -114,10 +114,12 @@ check('the timeline reads weight from the same-day measurement record', app.incl
 check('today and historical meals share one bottom separator per row', /#today-meals \.meal-row,#record-meals \.meal-row\{[^}]*border-top:0;[^}]*border-bottom:1px solid var\(--record-separator\)/s.test(css) &&
   css.includes('#today-meals > :last-child,#record-meals .meal-day > .meal-row:last-child{border-bottom:0}') &&
   css.includes('.day-event{padding:var(--space-2) 0;border:0;border-bottom:1px solid var(--line)}'));
-// 2026-11-22 用户要求「把折叠的日常习惯前置」：小习惯提到「更多」之前，建议仍在主流程。
-check('habits move ahead of the folded more section, advice stays in the main flow', html.indexOf('今天的小习惯') < html.indexOf('id="day-more"') &&
+// 2026-11-23 反转 11-22 的「习惯前置」：首页先看今日记录，小习惯退到第二格；建议仍在主流程。
+check('records lead the fold, habits follow, advice stays in the main flow', html.indexOf('data-fold-tab="records"') < html.indexOf('data-fold-tab="habits"') &&
   html.indexOf('给今天的一点建议') < html.indexOf('id="day-more"') &&
-  html.indexOf('id="today-fold-card"') < html.indexOf('id="day-more"'));
+  html.indexOf('id="today-fold-card"') < html.indexOf('id="day-more"') &&
+  app.includes("saved = localStorage.getItem(TODAY_FOLD_KEY) === 'habits' ? 'habits' : 'records'"));
+check('meal slots are collapsed by default', app.includes('order.length === 1 && list.length === 1') && !app.includes('latestKey'));
 check('quick copy is a quiet text link in the energy heading', app.includes("button.className = 'text-button quick-record-link'") &&
   app.includes('heading.appendChild(button)') && !html.includes('id="energy-actions"'));
 check('quick record meal type is an in-dialog chip row, not a native select', app.includes('id="quick-record-type" role="radiogroup"') &&

@@ -283,8 +283,9 @@
   const mealSlotOpen = new Map();
   /**
    * 今日记录从「一长串行」改成「按餐次折叠」：每格只占一行摘要（餐次 · 餐数 · kcal），
-   * 展开才出逐餐明细。默认只展开当下这一餐——刚记完的那顿不用再点一下才看得到。
-   * 只有一餐时不折（折了也没有收益）。
+   * 展开才出逐餐明细。
+   * 2026-11-23（四模块之二轮）：默认全部收起——首页先给「今天吃了什么」的轮廓，
+   * 只有「一格一餐」这种收起来没有收益的情况才默认展开；用户点过哪格仍按本机记录。
    */
   function renderTodayTimeline(container, meals) {
     if (!container) return;
@@ -307,20 +308,12 @@
       groups.get(key).push({meal, index});
     });
     const order = [...MEAL_SLOT_ORDER, 'untimed'].filter(key => groups.has(key));
-    // 默认展开「最近记的那一格」：今天页打开就该看见刚记下的东西，而不是一排折叠条。
-    const latest = meals.reduce((best, meal, index) => {
-      const time = clockPattern.test(String(meal.mealTime || '')) ? String(meal.mealTime) : '';
-      if (!best) return {key: slotTypeOf(meal), time, index};
-      if (time && (!best.time || time > best.time)) return {key: slotTypeOf(meal), time, index};
-      if (!time && !best.time && index > best.index) return {key: slotTypeOf(meal), time, index};
-      return best;
-    }, null);
-    const latestKey = latest ? latest.key : '';
     container.innerHTML = order.map(key => {
       const list = groups.get(key);
       const kcal = Math.round(totalsFor(list.map(entry => entry.meal)).calories ?? 0);
       const label = MEAL_TYPE_LABEL[key] || '未标餐次';
-      const open = mealSlotOpen.has(key) ? mealSlotOpen.get(key) : (order.length === 1 || key === latestKey);
+      // 收起是默认；只有「这一格本来就只有一餐」时不折——折了也省不出高度，还多一次点击。
+      const open = mealSlotOpen.has(key) ? mealSlotOpen.get(key) : (order.length === 1 && list.length === 1);
       const rows = list
         .sort((a, b) => {
           const ta = clockPattern.test(String(a.meal.mealTime || '')) ? String(a.meal.mealTime) : '';

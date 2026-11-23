@@ -1932,3 +1932,18 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 断言翻转：`suite-today` 两处（`.body-weight` 形态、「it sits between the quick entries and the macros」）、`suite-training` 四处（习惯单行、无 data-adopt-today、整周写入进抽屉、抽屉直接渲染）。
 - 验收：assemble + `node --check` 通过；`test-all` 10/10 全绿；`aesthetic-audit` 无阻塞（字号 12 种）；`entry-budget` 9/9；`dev-loop -Version 1.5.31 -VersionCode 531` 装机，smoke 报 js errors: none。APK 715,997 B（699 KB）。
 - 待办：三远端推送与 Release 1.5.31 资产对齐未做；「写入整周」与习惯行「可拖」按本稿选定（进抽屉 / 放弃拖拽），用户若要回转只改一层。
+
+
+### r226 · 2026-11-23 23:20 · 1.5.32：第二轮四模块（今日记录重新前置 + 餐次默认收起 + 识别/问答去盒）
+
+- 用户发来四模块清单的第二版：明确要求「小习惯归位到下半区、今日记录靠前」，这是对 2026-11-22「把折叠的日常习惯前置」的反转，按最新需求改，旧断言一并翻转。
+- 今天页分段：`.fold-tabs` 顺序改成「今日记录 → 小习惯」，默认选中 records；`installTodayFold` 默认值由 habits 改 records，只保留用户主动点过的偏好（localStorage `qingheng.todayFold`）。
+- 今日记录：餐次格默认全部收起，只有「这一格本来就只有一餐」才默认展开；删掉「默认展开最近那一餐」的 latest/latestKey 逻辑（默认展开会让首页一进就摊开一整串菜品）。
+- 「更多」摘要从「身体近况 · 小习惯」改成「身体近况 · 体重与体脂」——小习惯已经是上方分段，不该在同一屏出现第二次。
+- 身体：识别入口由「描边按钮 + 并排说明」改成账本行（标题即入口、说明降到下一行、发丝线收口）；`.scale-sync` 与两处旧规则合并成一套，删掉 44/40px 的按钮高度覆盖。
+- 身体指标区：`.metric-cards + .metric-more .metric-more-head{border-top:0}` 修掉「指标下一道线 + 更多指标再一道线」的双发丝线。
+- 问答：输入框从 24px 圆角 + `--surface` 底改成 12px + 半纸底 + 12% 墨描边（与账本区同族，不再像浮在纸面上的胶囊）。
+- 断言：`suite-records` 两条（records 在 habits 前 + `saved` 默认值、「餐次默认收起且 latestKey 已删」）；其余套件未动。
+- 验收：assemble + `node --check` 通过；`test-all` 10/10；`aesthetic-audit` 无阻塞；`entry-budget` 9/9；`dev-loop -Version 1.5.32 -VersionCode 532` 装机，smoke 报 js errors: none。
+- 真机证据：`build/v32-today.png`（今日记录在前、三格全收起）、`build/v32-body.png`（识别行 + 三列裸数字 + 页脚保存）、`build/v32-chat.png`（12px 输入框）。
+- 未做：Release 1.5.32 资产与 gh-pages 仍未刷新；「小习惯」里的睡眠与「今日体检」睡眠条仍各出现一次（一处是记录入口、一处是评分口径），暂按不合并处理。

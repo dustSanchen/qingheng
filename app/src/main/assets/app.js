@@ -4061,8 +4061,9 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
   const mealSlotOpen = new Map();
   /**
    * 今日记录从「一长串行」改成「按餐次折叠」：每格只占一行摘要（餐次 · 餐数 · kcal），
-   * 展开才出逐餐明细。默认只展开当下这一餐——刚记完的那顿不用再点一下才看得到。
-   * 只有一餐时不折（折了也没有收益）。
+   * 展开才出逐餐明细。
+   * 2026-11-23（四模块之二轮）：默认全部收起——首页先给「今天吃了什么」的轮廓，
+   * 只有「一格一餐」这种收起来没有收益的情况才默认展开；用户点过哪格仍按本机记录。
    */
   function renderTodayTimeline(container, meals) {
     if (!container) return;
@@ -4085,20 +4086,12 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
       groups.get(key).push({meal, index});
     });
     const order = [...MEAL_SLOT_ORDER, 'untimed'].filter(key => groups.has(key));
-    // 默认展开「最近记的那一格」：今天页打开就该看见刚记下的东西，而不是一排折叠条。
-    const latest = meals.reduce((best, meal, index) => {
-      const time = clockPattern.test(String(meal.mealTime || '')) ? String(meal.mealTime) : '';
-      if (!best) return {key: slotTypeOf(meal), time, index};
-      if (time && (!best.time || time > best.time)) return {key: slotTypeOf(meal), time, index};
-      if (!time && !best.time && index > best.index) return {key: slotTypeOf(meal), time, index};
-      return best;
-    }, null);
-    const latestKey = latest ? latest.key : '';
     container.innerHTML = order.map(key => {
       const list = groups.get(key);
       const kcal = Math.round(totalsFor(list.map(entry => entry.meal)).calories ?? 0);
       const label = MEAL_TYPE_LABEL[key] || '未标餐次';
-      const open = mealSlotOpen.has(key) ? mealSlotOpen.get(key) : (order.length === 1 || key === latestKey);
+      // 收起是默认；只有「这一格本来就只有一餐」时不折——折了也省不出高度，还多一次点击。
+      const open = mealSlotOpen.has(key) ? mealSlotOpen.get(key) : (order.length === 1 && list.length === 1);
       const rows = list
         .sort((a, b) => {
           const ta = clockPattern.test(String(a.meal.mealTime || '')) ? String(a.meal.mealTime) : '';
@@ -8888,7 +8881,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.31';
+  const APP_VERSION = '1.5.32';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -11801,8 +11794,9 @@ feedback(message,'数据已导入。'+report);
   applyTrainingVisibility();
   installCardCollapse(); installTrainingAdvice(); installTrainingSheets(); installTodayAction(); installHabitChips(); installChatChips();
   /**
-   * 今天页「小习惯 / 今日记录」并成一张带标签的卡（2026-11-22 第八轮）：
-   * 默认露习惯，切到记录才展开餐食列表；选择记在本机，换天不重置。
+   * 今天页「今日记录 / 小习惯」分段（2026-11-23 反转 11-22 的「习惯前置」）：
+   * 首页进入先看当天吃了什么——记录是核心板块，小习惯退到第二格。
+   * 用户点过哪一格就记在本机，换天不重置；没点过的一律落在「今日记录」。
    */
   const TODAY_FOLD_KEY = 'qingheng.todayFold';
   function installTodayFold() {
@@ -11816,8 +11810,8 @@ feedback(message,'数据已导入。'+report);
       panels.forEach(panel => { panel.hidden = panel.dataset.foldPanel !== key; });
       tabs.forEach(tab => tab.setAttribute('aria-selected', String(tab.dataset.foldTab === key)));
     };
-    let saved = 'habits';
-    try { saved = localStorage.getItem(TODAY_FOLD_KEY) === 'records' ? 'records' : 'habits'; } catch {}
+    let saved = 'records';
+    try { saved = localStorage.getItem(TODAY_FOLD_KEY) === 'habits' ? 'habits' : 'records'; } catch {}
     paint(saved);
     tabs.forEach(tab => tab.addEventListener('click', () => {
       paint(tab.dataset.foldTab);
