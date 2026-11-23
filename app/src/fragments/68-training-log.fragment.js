@@ -351,8 +351,7 @@
   function renderTrainingLog(rowsOverride = null) {
     const form = $('#training-form');
     if (!form) return;
-    // 强度反馈跟着日期走：换一天要显示那天点过的档位。
-    if (typeof renderTrainingEffort === 'function') renderTrainingEffort();
+    // 强度反馈只在结束训练弹窗里问一次（2026-11-23 删掉卡片底部那一行），这里不再刷新行内档位。
     const row = habitRowFor(activeDate);
     const exercises = exercisesFor(activeDate);
     const box = $('#training-exercises');
@@ -643,17 +642,14 @@
         ...(number(durationMin) > 0 ? {durationMin: Math.round(number(durationMin))} : {})});
       // 疲劳度与日志同一次确认提交：先写日志再补 effort，失败时日志已经落地，不会丢。
       if (chosenEffort && typeof saveTrainingEffort === 'function' && effortFor(activeDate) !== chosenEffort) {
-        try { await saveTrainingEffort(chosenEffort); } catch { notice('训练已保存，疲劳度没记上；可在下面再点一次。', true); }
+        try { await saveTrainingEffort(chosenEffort); } catch { notice('训练已保存，疲劳度没记上；下次保存时再选一次。', true); }
       }
       await loadState({quiet: true});
       clearSessionStart();
       // 真实负重写进本地重量记忆：下一次「用 AI 排今天」按它渐进（不用再靠 14 天窗口撞运气）。
       if (typeof rememberExerciseLogs === 'function') rememberExerciseLogs(exercises, activeDate);
       feedback(message, `已保存：${summary}。`);
-      // 没在弹窗里选疲劳度时兜底问一句：这个答案直接影响下一次排课的组数与重量。
-      if (typeof effortFor === 'function' && !effortFor(activeDate)) {
-        notice('今天练下来感觉如何？在下面点一下「太轻 / 刚好 / 有点累 / 太累」，下次排课会参考。');
-      }
+      // 疲劳度只在结束训练弹窗里问一次（2026-11-23 删掉卡片底部那一行）：没选就不追问，不拿 toast 催。
       forgetTrainingDraft();
       renderTrainingLog();
       renderTrainingSummary(exercises);
@@ -820,11 +816,7 @@
       if (validDate(value)) setActiveDate(value);
       else event.target.value = activeDate;
     });
-    $('#training-effort')?.addEventListener('click', event => {
-      const chip = event.target.closest('[data-effort]');
-      if (!chip) return;
-      saveTrainingEffort(chip.dataset.effort).catch(error => notice(error && error.message ? error.message : '记录训练强度失败'));
-    });
+    // 2026-11-23：卡片底部的「练下来」一整行已删除，体感只留在结束训练弹窗里（保存时一次问清）。
     $('#training-add')?.addEventListener('click', () => {
       // 以前这里手写了一套「组数 / 每组次数 / 负重」旧字段，与逐组模型不兼容——
       // 点「添加动作」加出来的行没有 [data-set-row]，保存时会被判为「每组都要填次数与负重」。

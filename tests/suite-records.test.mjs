@@ -115,9 +115,10 @@ check('today and historical meals share one bottom separator per row', /#today-m
   css.includes('#today-meals > :last-child,#record-meals .meal-day > .meal-row:last-child{border-bottom:0}') &&
   css.includes('.day-event{padding:var(--space-2) 0;border:0;border-bottom:1px solid var(--line)}'));
 // 2026-11-23 反转 11-22 的「习惯前置」：首页先看今日记录，小习惯退到第二格；建议仍在主流程。
+// 同日「更多」折叠整块删除：身体近况只留在记录 → 身体，今天页不再有第二处入口。
 check('records lead the fold, habits follow, advice stays in the main flow', html.indexOf('data-fold-tab="records"') < html.indexOf('data-fold-tab="habits"') &&
-  html.indexOf('给今天的一点建议') < html.indexOf('id="day-more"') &&
-  html.indexOf('id="today-fold-card"') < html.indexOf('id="day-more"') &&
+  html.indexOf('给今天的一点建议') > html.indexOf('id="today-fold-card"') &&
+  !html.includes('id="day-more"') &&
   app.includes("saved = localStorage.getItem(TODAY_FOLD_KEY) === 'habits' ? 'habits' : 'records'"));
 check('meal slots are collapsed by default', app.includes('order.length === 1 && list.length === 1') && !app.includes('latestKey'));
 check('quick copy is a quiet text link in the energy heading', app.includes("button.className = 'text-button quick-record-link'") &&
@@ -207,9 +208,7 @@ check('paper navigation rows use separators while ledger rows keep a frame', css
   css.includes('border-radius:0;background:transparent;color:var(--ink);text-align:left;}') &&
   css.includes('border-radius:var(--shape-row-radius);background:var(--surface);}'));
 check('ledger card headings do not duplicate the outer frame', css.includes('[data-skin="ledger"] .card-heading{padding-bottom:0;border-bottom:0}'));
-check('day disclosures are open sections in both skins', css.includes('.day-more{border-block:1px solid var(--line);background:transparent;padding:var(--space-3) 0}') &&
-  css.includes('.day-more .card{margin:0;padding:var(--space-3) 0;border:0;border-top:1px solid var(--line)') &&
-  css.includes('.day-more .card:first-of-type{border-top:0}'));
+check('the today page no longer nests a folded more section', !html.includes('class="day-more"') && !css.includes('.day-more') && !app.includes("$('#day-more')"));
 check('draft state keeps its dashed boundary after paper cards are opened', css.includes('.training-draft{border:1px dashed var(--accent-line)'));
 const profileMore = app.slice(app.indexOf('function installProfileMore()'), app.indexOf('function installTrendPanels()'));
 check('skin selection leads the appearance sub-page', profileMore.indexOf("$('#skin-card')") >= 0 &&

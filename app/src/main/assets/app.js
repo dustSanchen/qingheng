@@ -2003,7 +2003,9 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     const bodyCells = [['体重', weight?.weight, 'kg', weight?.date, 'weight'], ['BMI', bmi, '', '', null], ['腰围', waist?.waist, 'cm', waist?.date, 'waist'], ['体脂率', bodyFat?.bodyFat, '%', bodyFat?.date, 'bodyFat']];
     const measured = weight?.date || waist?.date || bodyFat?.date || '';
     const ago = measured ? daysBetween(measured, activeDate) : null;
-    $('#latest-measurement').innerHTML = bodyCells.map(([label, value, unit, date, key]) => {
+    // 2026-11-23：今天页的「更多 · 身体近况」整块删除，这里只在该卡存在时渲染（记录页另有完整入口）。
+    const latestBox = $('#latest-measurement');
+    if (latestBox) latestBox.innerHTML = bodyCells.map(([label, value, unit, date, key]) => {
       const delta = key && date ? deltaLine(value, prevField(key, date), unit) : '';
       const shown = value === null || value === undefined ? '—' : fmt(value);
       return `<div class="stat-cell"><span class="stat-label">${label}</span><div class="stat-number${shown === '—' ? ' is-empty' : ''}">${shown}<small>${shown === '—' ? '' : unit}</small></div>${delta ? `<span class="stat-delta">${esc(delta)}</span>` : ''}</div>`;
@@ -6305,8 +6307,9 @@ const values = points.length<=7 ? points.map((item,i) => {
         edit.setAttribute("aria-label", collapsed ? "改训练偏好" : "取消训练偏好编辑，改动不保存");
         edit.setAttribute("title", collapsed ? "改频率 / 分化 / 器械 / 时长" : "取消编辑，改动不保存");
       }
-      // 「换一套」只在收起时出现：展开时它和「保存并重排」太像，会分不清。
-      if (regen) regen.hidden = !has || !collapsed;
+      // 「换一套」只在收起时出现：展开时它和「生成本周计划」太像，会分不清。
+      // 全身模板每天一样，轮换不出新排法，此时干脆不显示这个按钮。
+      if (regen) regen.hidden = !has || !collapsed || String((planPrefs() || {}).split) === "fb";
     };
     setCollapsed(!!planPrefs());
     if (edit && !edit.dataset.wired) {
@@ -6328,8 +6331,10 @@ const values = points.length<=7 ? points.map((item,i) => {
     if (regen && !regen.dataset.wired) {
       regen.dataset.wired = "1";
       regen.addEventListener("click", () => {
-        regenerateWeekPlan();
-        notice("已按当前偏好换了一套本周安排。");
+        regenerateWeekPlan({vary: true});
+        const split = (planPrefs() || {}).split;
+        const label = {push: "推", pull: "拉", legs: "腿", upper: "上肢", lower: "下肢", full: "全身"}[nextStartTemplate(split, weekVariation)] || "";
+        notice("已换一套：本周从「" + label + "日」起排，之后的日期跟着轮换。偏好没变。");
       });
     }
     if (save && !save.dataset.wired) {
@@ -6675,6 +6680,8 @@ const values = points.length<=7 ? points.map((item,i) => {
     try { localStorage.setItem(WEEK_PLAN_KEY(week), JSON.stringify(value)); } catch {}
   }
   let forceWeekPlan = false;
+  /** 「换一套」的轮换量：同偏好再排一版时把起始部位往前推，生成器本身是确定性的。 */
+  let weekVariation = 0;
   /** 七天窗口的起点：就是正在看的这一天，不再跳到下周一。 */
   function planStartDate() {
     return validDate(activeDate) ? activeDate : localDate();
@@ -6700,20 +6707,27 @@ const values = points.length<=7 ? points.map((item,i) => {
     return dayLabel(date) + "按周计划应练：" + label + "日（" + slot.template + "）；动作与建议都围绕这一类。";
   }
   /** 明确「重新生成」：清掉本窗口缓存并强制重算，偏好不变也能换一版。 */
-  /** 起始部位＝接上一次训练的下一个（2026-11-22 用户拍板）。ppl 按推→拉→腿轮转；上下肢按上下交替；全身固定。 */
-  function nextStartTemplate(split) {
+  /** 起始部位＝接上一次训练的下一个（2026-11-22 用户拍板）。ppl 按推→拉→腿轮转；上下肢按上下交替；全身固定。
+   *  extra：用户点「换一套」时往前推一格——同一套偏好下也能拿到不同的排法，否则生成器是确定性的，按了等于没按。 */
+  function nextStartTemplate(split, extra = 0) {
     const key = ['ppl', 'ul', 'fb'].includes(String(split)) ? String(split) : 'ppl';
     const rows = (state.habits || [])
       .filter(row => row && validDate(row.date) && row.date < activeDate && row.template && Array.isArray(row.exercises) && row.exercises.length)
       .sort((a, b) => String(b.date).localeCompare(String(a.date)));
     const last = rows[0] ? String(rows[0].template) : '';
     if (key === 'fb') return 'full';
-    if (key === 'ul') return ['legs', 'lower'].includes(last) ? 'upper' : 'lower';
+    if (key === 'ul') {
+      const base = ['legs', 'lower'].includes(last) ? 0 : 1;
+      return ['upper', 'lower'][(base + extra) % 2];
+    }
     const order = ['push', 'pull', 'legs'];
     const at = order.indexOf(last);
-    return at >= 0 ? order[(at + 1) % 3] : 'push';
+    const base = at >= 0 ? (at + 1) % 3 : 0;
+    return order[(base + extra) % 3];
   }
-  function regenerateWeekPlan() {
+  function regenerateWeekPlan(opts = {}) {
+    // 换一套 = 起始部位往前一格（生成器确定性，不推一格按了等于没按）；保存偏好 = 回到基准起点。
+    weekVariation = opts.vary ? (weekVariation + 1) % 12 : 0;
     const startDate = planStartDate();
     try { localStorage.removeItem(WEEK_PLAN_KEY(startDate)); } catch { }
     lastWeekPlan = null;
@@ -6757,6 +6771,31 @@ const values = points.length<=7 ? points.map((item,i) => {
       button.disabled = false;
     }
   }
+  /**
+   * 生成之后的「这一版长什么样」自检：几练、部位顺序、每次几个动作、周组数是否压在上限内、
+   * 有多少动作的重量是按体重推算的。只报事实，不报耗时——用户要的是排得对，不是排得快。
+   */
+  function planQualityLine(plan) {
+    if (!plan || !Array.isArray(plan.days) || !plan.days.length) return '';
+    const tpl = name => (typeof TRAINING_TEMPLATES === 'object' && TRAINING_TEMPLATES[name]) || name;
+    const labels = plan.days.map(day => tpl(day.template));
+    const counts = plan.days.map(day => (day.exercises || []).length);
+    const span = counts.length && Math.min(...counts) === Math.max(...counts)
+      ? `每次 ${counts[0]} 个动作`
+      : `每次 ${Math.min(...counts)}–${Math.max(...counts)} 个动作`;
+    const cap = plan.days[0]?.weeklySets?.cap || null;
+    const part = family => plan.days.reduce((sum, day) => sum + (day.exercises || [])
+      .filter(item => typeof exerciseBodyPart === 'function' && exerciseBodyPart(item.name) === family)
+      .reduce((inner, item) => inner + (Number(item.sets) || 0), 0), 0);
+    const sets = cap ? ` · 周组数 胸 ${part('push')} / 背 ${part('pull')} / 腿 ${part('legs')}（上限 ${cap}）` : '';
+    // 4 练的推拉腿必然有一类练两次（胸 12 / 背 6 / 腿 6 这种）：把差距说出来，并给出不改动作的解法。
+    const fams = [part('push'), part('pull'), part('legs')];
+    const imbalanced = cap && Math.max(...fams) - Math.min(...fams) >= 4;
+    const approx = plan.days.reduce((n, day) => n + (day.exercises || []).filter(item => item.weightApprox).length, 0);
+    return '<p class="fine-print plan-quality">已生成 ' + plan.days.length + ' 练 · ' + labels.join(' / ') + ' · ' + span + sets
+      + (approx ? ' · ' + approx + ' 个动作按体重推算起步' : '')
+      + (imbalanced ? ' · 想练得更匀，可把每周改成 3 或 6 练' : '') + '</p>';
+  }
   function renderWeekPlan() {
     const box = $('#week-plan'), tag = $('#week-plan-tag');
     if (!box) return;
@@ -6777,7 +6816,7 @@ const values = points.length<=7 ? points.map((item,i) => {
         goal: (state.profile || {}).goal, split: planPref.split, gear: planPref.gear, minutes: planPref.minutes,
         // 训练要求（排除动作 / 改时长）必须一起传：漏传会让「保存并重排」生成的计划完全不执行 excludedMove。
         request: planPref.request,
-        startTemplate: nextStartTemplate(planPref.split)});
+        startTemplate: nextStartTemplate(planPref.split, weekVariation)});
       drifted = !!(cached && cached.plan);
       if (plan) writeWeekPlanCache(startDate, {plan, fingerprint, savedAt: Date.now()});
     }
@@ -6896,7 +6935,7 @@ const values = points.length<=7 ? points.map((item,i) => {
       ? '<p class="fine-print plan-relation">上面按偏好与最近记录排周框架；实际执行顺序以你在训练日志里确认的那份为准，两者不一致时以日志为准。</p>'
       : '';
     // 卡面只剩本周安排与「记录有更新」一行；其余说明一次性渲染进抽屉，不再靠 move 搬家。
-    box.innerHTML = annotateTerms(thisWeekHtml + driftHtml);
+    box.innerHTML = annotateTerms(thisWeekHtml + planQualityLine(plan) + driftHtml);
     const explainHost = $('#plan-explain-body');
     if (explainHost) {
       explainHost.innerHTML = annotateTerms(goalRequirementHtml + relationHtml + whyHtml + acwrHtml + scopeHtml + suggestedNote + scheduleHtml);
@@ -8028,8 +8067,7 @@ function metricIcon(label) {
   function renderTrainingLog(rowsOverride = null) {
     const form = $('#training-form');
     if (!form) return;
-    // 强度反馈跟着日期走：换一天要显示那天点过的档位。
-    if (typeof renderTrainingEffort === 'function') renderTrainingEffort();
+    // 强度反馈只在结束训练弹窗里问一次（2026-11-23 删掉卡片底部那一行），这里不再刷新行内档位。
     const row = habitRowFor(activeDate);
     const exercises = exercisesFor(activeDate);
     const box = $('#training-exercises');
@@ -8320,17 +8358,14 @@ function metricIcon(label) {
         ...(number(durationMin) > 0 ? {durationMin: Math.round(number(durationMin))} : {})});
       // 疲劳度与日志同一次确认提交：先写日志再补 effort，失败时日志已经落地，不会丢。
       if (chosenEffort && typeof saveTrainingEffort === 'function' && effortFor(activeDate) !== chosenEffort) {
-        try { await saveTrainingEffort(chosenEffort); } catch { notice('训练已保存，疲劳度没记上；可在下面再点一次。', true); }
+        try { await saveTrainingEffort(chosenEffort); } catch { notice('训练已保存，疲劳度没记上；下次保存时再选一次。', true); }
       }
       await loadState({quiet: true});
       clearSessionStart();
       // 真实负重写进本地重量记忆：下一次「用 AI 排今天」按它渐进（不用再靠 14 天窗口撞运气）。
       if (typeof rememberExerciseLogs === 'function') rememberExerciseLogs(exercises, activeDate);
       feedback(message, `已保存：${summary}。`);
-      // 没在弹窗里选疲劳度时兜底问一句：这个答案直接影响下一次排课的组数与重量。
-      if (typeof effortFor === 'function' && !effortFor(activeDate)) {
-        notice('今天练下来感觉如何？在下面点一下「太轻 / 刚好 / 有点累 / 太累」，下次排课会参考。');
-      }
+      // 疲劳度只在结束训练弹窗里问一次（2026-11-23 删掉卡片底部那一行）：没选就不追问，不拿 toast 催。
       forgetTrainingDraft();
       renderTrainingLog();
       renderTrainingSummary(exercises);
@@ -8497,11 +8532,7 @@ function metricIcon(label) {
       if (validDate(value)) setActiveDate(value);
       else event.target.value = activeDate;
     });
-    $('#training-effort')?.addEventListener('click', event => {
-      const chip = event.target.closest('[data-effort]');
-      if (!chip) return;
-      saveTrainingEffort(chip.dataset.effort).catch(error => notice(error && error.message ? error.message : '记录训练强度失败'));
-    });
+    // 2026-11-23：卡片底部的「练下来」一整行已删除，体感只留在结束训练弹窗里（保存时一次问清）。
     $('#training-add')?.addEventListener('click', () => {
       // 以前这里手写了一套「组数 / 每组次数 / 负重」旧字段，与逐组模型不兼容——
       // 点「添加动作」加出来的行没有 [data-set-row]，保存时会被判为「每组都要填次数与负重」。
@@ -8881,7 +8912,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.32';
+  const APP_VERSION = '1.5.33';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -9284,20 +9315,12 @@ function metricIcon(label) {
     }
     return plan;
   }
-  function renderTrainingEffort() {
-    const box = $("#training-effort");
-    if (!box) return;
-    const current = effortFor(activeDate);
-    $$("[data-effort]", box).forEach(chip => {
-      chip.setAttribute("aria-pressed", chip.dataset.effort === current ? "true" : "false");
-    });
-  }
+  /** 体感只落在结束训练弹窗里（2026-11-23 删掉卡片底部那一行），这里不再有可刷新的行内 UI。 */
   async function saveTrainingEffort(value) {
     if (!EFFORT_LEVELS.includes(value)) return;
     const existing = (state.habits || []).find(item => item && item.date === activeDate) || {};
     await api("/api/habits", {...existing, date: activeDate, effort: value, effortAt: new Date().toISOString()});
     await loadState({quiet: true});
-    renderTrainingEffort();
     notice("已记下：练下来" + EFFORT_LABELS[value] + "。下次排课会参考。");
   }
   /** 教练说明只留在本机：它解释「为什么没完全照要求办」，不进导出数据。 */
@@ -9318,21 +9341,16 @@ function metricIcon(label) {
     node.hidden = !text;
     node.textContent = text || "";
   }
-  /** 把上一次排课的耗时/失败原因贴在清单上方：toast 只活 10 秒，看完就没了。 */
+  /** 只把「上一次没排成」的原因贴在清单上方：toast 只活 10 秒，失败原因要留得住。
+   *  成功时不报耗时（2026-11-23 用户：不追求生成速度，追求排得对）。 */
   function renderPlanTiming() {
     const node = $("#ai-plan-timing");
     if (!node) return;
     let timing = null;
     try { timing = JSON.parse(localStorage.getItem("qingheng.planTiming." + activeDate) || "null"); } catch { timing = null; }
-    if (!timing || !Number(timing.total)) { node.hidden = true; node.textContent = ""; return; }
-    const seconds = (Number(timing.total) / 1000).toFixed(1);
-    const first = Number(timing.first) > 0 ? "，首条 " + (Number(timing.first) / 1000).toFixed(1) + " 秒" : "";
+    if (!timing || !timing.error) { node.hidden = true; node.textContent = ""; return; }
     node.hidden = false;
-    node.textContent = timing.error
-      ? "上次排课失败（" + seconds + " 秒）：" + timing.error
-      : "上次排课耗时 " + seconds + " 秒" + first + " · " + (Number(timing.rows) || 0) + " 个动作"
-        + (Number(timing.sets) > 0 ? "、" + Number(timing.sets) + " 组" : "")
-        + (Number(timing.minutes) > 0 ? " / 折算 " + Number(timing.minutes) + " 分钟" + (Number(timing.limit) > 0 ? "（上限 " + Number(timing.limit) + "）" : "") : "");
+    node.textContent = "上次没排成：" + timing.error;
   }
   /**
    * 播种行的每组 ○ 反过来决定计划项的 done（2026-11-22）：
@@ -9354,7 +9372,7 @@ function metricIcon(label) {
   }
   /**
    * 今日清单的「控件同步」：清单本体已经播进执行区（2026-11-22），这里只维护
-   * 「重排今天」文案、顺延按钮的显隐，以及教练说明与上次排课耗时两行。
+   * 「重排今天」文案、顺延按钮的显隐，以及教练说明与失败原因两行。
    * 2026-11-23 Phase 2：删掉 #ai-plan-list / #ai-plan-fold / #ai-plan-edit / #ai-plan-all /
    * #ai-plan-clear / #ai-plan-summary 的渲染——这些节点在 index.html 里早已不存在，
    * 相关分支永远不会命中（约 160 行僵尸代码）。

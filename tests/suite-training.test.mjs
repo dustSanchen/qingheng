@@ -86,15 +86,15 @@ const html = fs.readFileSync('app/src/main/assets/index.html', 'utf8');
 const app = fs.readFileSync('app/src/main/assets/app.js', 'utf8');
 const css = fs.readFileSync('app/src/main/assets/styles.css', 'utf8');
 
-// --- 强度反馈的入口 ---------------------------------------------------------------------------------------
-check('the training card asks how the session felt', html.includes('id="training-effort"') && html.includes('aria-label="今天练下来感觉如何"'));
+// --- 强度反馈的入口（2026-11-23：卡片底部那一行删除，体感只在结束训练弹窗里问一次） -----------------------
+check('the dialog builds its effort chips from the one label table', app.includes('data-effort="${level}"') && app.includes('EFFORT_LABELS[level]'));
 for (const [value, label] of [['tooLight', '太轻'], ['justRight', '刚好'], ['tired', '有点累'], ['tooMuch', '太累']]) {
-  check('option: ' + label, html.includes('data-effort="' + value + '"') && html.includes('>' + label + '</button>'));
+  check('option: ' + label, app.includes(value + ': "' + label + '"'));
 }
 check('chips use aria-pressed for the selected state', html.includes('aria-pressed="false"') && css.includes('.effort-chip[aria-pressed="true"]'));
 check('the answer is stored on the day row', app.includes('async function saveTrainingEffort') && /saveTrainingEffort[\s\S]{0,600}api\("\/api\/habits"[\s\S]{0,200}effort: value/.test(app));
-check('the chips follow the active date', app.includes('function renderTrainingEffort') && app.includes('if (typeof renderTrainingEffort === \'function\') renderTrainingEffort();'));
-check('saving a log asks for the missing effort answer', app.includes('今天练下来感觉如何？在下面点一下'));
+check('the effort chips are gone from the card', !app.includes('function renderTrainingEffort') && !app.includes("$('#training-effort')"));
+check('the save dialog is the only place that asks for effort', app.includes('今天练下来感觉如何？') && app.includes('dialog-effort') && !app.includes('在下面点一下「太轻'));
 
 // --- 反馈如何影响排课 -------------------------------------------------------------------------------------
 check('a recent deload signal exists', app.includes('function effortSignal') && app.includes("level: \"deload\""));
@@ -415,7 +415,7 @@ check('每组时间取自 restSecondsFor 而不是固定值',
 check('旧的固定 2.5 分钟/组已移除', !rest.includes('AI_PLAN_MINUTES_PER_SET'));
 check('整份清单用含休息的折算', rest.includes('planMinutes(plan)') && rest.includes('function planItemMinutes(item)'));
 // Phase 2：原来那句「含组间休息约需」挂在已删除的 #ai-plan-summary 上；现役入口是 #ai-plan-timing 的「折算 N 分钟」。
-check('界面写明含组间休息', rest.includes('" / 折算 "') && rest.includes('（上限 '));
+check('生成后写清几练、部位顺序与周组数', app.includes('function planQualityLine') && app.includes('周组数 胸 ') && app.includes('按体重推算起步'));
 check('改时长不再有死按钮（Phase 2 已移除 #ai-plan-summary）', !rest.includes('data-plan-minutes') && !rest.includes('function planMinutesStep'));
 check('有氧按自己的时长算，不套组次', rest.includes('const cardio = number(item && item.durationMin);'));
 
@@ -436,7 +436,7 @@ check('两套清单有了关系说明', training.includes('两者不一致时以
 check('app.js 与片段同步',
   app.includes('function dayTemplateNote(date = activeDate)')
   && app.includes('function planMinutes(items)')
-  && app.includes('上次排课耗时 '));
+  && app.includes('function planQualityLine(plan)'));
 ;return typeof fail === 'number' ? fail : 0;
 });
 
@@ -460,7 +460,7 @@ check('the toast still carries the numbers', app.includes('耗时 ') && app.incl
 check('both numbers come from the same measurement', app.includes('planFirstRowAt') && app.includes('planTotalMs'));
 check('the wait is staged with real numbers', app.includes('已取 " + (planStageInfo.recordDays') && app.includes('正在按你的口径排'));
 check('the streamed rows take over the busy text', app.includes('if (planShownRows > 0) return;'));
-check('the card also reports sets and minutes after the local check', app.includes('Number(timing.sets)') && app.includes('折算 '));
+check('the plan card no longer reports generation speed', !app.includes('上次排课耗时') && app.includes('上次没排成：'));
 ;return typeof fail === 'number' ? fail : 0;
 });
 
@@ -1024,8 +1024,8 @@ check('the two note lines stay in the training log', html.includes('id="ai-plan-
   && !app.includes("for (const id of ['ai-plan-note', 'ai-plan-timing'])"));
 
 // ④ 计划按需要
-check('the generator receives split, gear, minutes and a start template', app.includes('split: planPref.split, gear: planPref.gear, minutes: planPref.minutes') &&
-  app.includes('startTemplate: nextStartTemplate(planPref.split)'));
+check('the generator receives split, gear, minutes and a rotated start template', app.includes('split: planPref.split, gear: planPref.gear, minutes: planPref.minutes') &&
+  app.includes('startTemplate: nextStartTemplate(planPref.split, weekVariation)'));
 check('the weekly sessions come from the preference, not only the profile', training.includes('number(planPref.days) || number(effectiveProfileForDate(activeDate).training)'));
 check('templates follow the split', app.includes("split === 'ul' ? ['upper', 'lower'] : split === 'fb' ? ['full'] : ['push', 'pull', 'legs']"));
 check('gear decides which movement wins a slot', app.includes("const gearKey = String(src.gear || 'mixed');") && app.includes('gearKey === \'mixed\' || item.gear === gearKey'));
@@ -1038,8 +1038,9 @@ check('推算重量一路带到表单项（周计划播种）', app.includes('..
   app.includes('day.exercises.map(item => ({name: item.name, sets: item.sets || 1, reps: item.reps || null, weight: item.weight ?? null,'));
 check('采纳今日清单时也保留 weightApprox', app.includes('...(item.weightApprox ? {weightApprox: true} : {}),\n      reason'));
 check('动作行会显示「约」标记', app.includes('class="exercise-approx"') && app.includes("item.weightApprox ? '<span class=\"exercise-approx\""));
-check('the start template continues after the last session', app.includes('function nextStartTemplate(split)') &&
-  app.includes("return at >= 0 ? order[(at + 1) % 3] : 'push';"));
+check('the start template continues after the last session, and 换一套 rotates it', app.includes('function nextStartTemplate(split, extra = 0)') &&
+  app.includes('const base = at >= 0 ? (at + 1) % 3 : 0;') &&
+  app.includes('return order[(base + extra) % 3];'));
 ;return typeof fail === 'number' ? fail : 0;
 });
 
@@ -1516,7 +1517,7 @@ const prelude = [
   functionSource(domain, 'generateWeekPlan'),
   constSource(domain, 'BODY_PART_RULES'),
   functionSource(domain, 'exerciseBodyPart'),
-  bodyOf('function nextStartTemplate(split) {'),
+  bodyOf('function nextStartTemplate(split, extra = 0) {'),
   ';globalThis.__gen = generateWeekPlan; globalThis.__next = nextStartTemplate; globalThis.__presets = GOAL_PRESETS;'
 ].join('\n');
 vm.runInContext(prelude, sandbox);
@@ -1682,7 +1683,9 @@ check('the merged section is separated by a hairline', css.includes('.energy-che
 
 // --- 训练页顺序与折叠 -------------------------------------------------------------------
 check('the week overview sits above the training card', html.indexOf('id="training-overview"') < html.indexOf('id="training-log"'));
-check('the overview opens by default', html.includes('<details class="train-overview" id="training-overview" open>'));
+// 2026-11-23：概览不再是一个可收起的 details，改成常开 section（用户要求取消默认收起）。
+check('the overview is always expanded, not a collapsible', html.includes('<section class="train-overview" id="training-overview">') &&
+  !html.includes('<details class="train-overview"') && css.includes('.train-overview{margin:var(--space-2) 0 var(--space-3);border-top:1px solid var(--line)}'));
 check('the plan list is gone; the toolbar and the one primary remain', !html.includes('id="ai-plan-fold"') && !html.includes('id="ai-plan-list"') &&
   html.includes('id="training-toolbar"') && html.includes('id="ai-plan-ask"') &&
   /<div class="log-actions"><button class="button primary" type="submit">保存训练<\/button><\/div>/.test(html));

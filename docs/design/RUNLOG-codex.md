@@ -1947,3 +1947,17 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 验收：assemble + `node --check` 通过；`test-all` 10/10；`aesthetic-audit` 无阻塞；`entry-budget` 9/9；`dev-loop -Version 1.5.32 -VersionCode 532` 装机，smoke 报 js errors: none。
 - 真机证据：`build/v32-today.png`（今日记录在前、三格全收起）、`build/v32-body.png`（识别行 + 三列裸数字 + 页脚保存）、`build/v32-chat.png`（12px 输入框）。
 - 未做：Release 1.5.32 资产与 gh-pages 仍未刷新；「小习惯」里的睡眠与「今日体检」睡眠条仍各出现一次（一处是记录入口、一处是评分口径），暂按不合并处理。
+
+
+### r227 · 2026-11-23 23:40 · 1.5.33：删「更多」、让「换一套」真的换、概览常开、生成改看质量
+
+- 用户五条指令：①删今天页「更多」②交代「换一套」有什么用、没用就删或改 ③取消训练概览默认收起 ④「保存并重排」改成「生成本周训练计划」，不追求速度、追求排得对 ⑤删训练最下方「练下来」一行。
+- ① 「更多」整块删除：`#day-more`（含身体近况卡）从今天页移除，身体数据只留记录 → 身体；`#latest-measurement` 渲染加存在性守卫；`.day-more*` 规则与共享选择器里的 `:not(.day-more)` 一并清掉；`.day-more` 相关的两条断言换成「不再有折叠更多」。
+- ② 「换一套」原本**按了等于没按**：生成器是确定性的，`regenerateWeekPlan()` 只清缓存重算，输入不变就输出不变。改为轮换：新增 `weekVariation`，`nextStartTemplate(split, extra)` 把起始部位往前推一格，换一套 +1、保存偏好归零；全身模板每天一样，此时按钮直接隐藏。真机验：腿/推/拉/腿 → 推/拉/腿/推，toast 说清「从推日起排」。
+- ③ 训练概览由 `<details open>` 改为常开 `<section>`（用户要的是「不收起」，不是「还记得展开」）。
+- ④ `#pref-save` 改名「生成本周计划」；新增 `planQualityLine(plan)`：生成后写清「几练 · 部位顺序 · 每次几个动作 · 周组数 胸/背/腿（上限）· 几个动作按体重推算」，胸背腿差 ≥4 组时补一句「想练得更匀可改 3 或 6 练」；删掉 AI 排课的耗时文案（只留失败原因），不再拿秒数说话。
+- ⑤ 「练下来」行删除：`#training-effort` 移除，`renderTrainingEffort` 与行内 click 分支一并删；体感只在结束训练弹窗里问一次，保存失败时不再提示「在下面再点一次」。
+- 断言：suite-records 两条（更多已删 / 记录前置）、suite-food 两条正则（选择器去掉 `:not(.day-more)`）、suite-training 六条（强度行改弹窗、概览 section、质量行替代耗时、startTemplate 带 weekVariation、nextStartTemplate 新签名与沙箱抽取器）。
+- 验收：assemble + `node --check` 通过；`test-all` 10/10；`dev-loop -Version 1.5.33 -VersionCode 533` 装机，smoke js errors: none。
+- 真机证据：`build/v33-today2.png`（今天页底部只剩记录 + 建议）、`build/v33-train2.png`（质量行 + 常开概览 + 无强度行）、`build/v33-regen.png`（换一套前后不同）。
+- 未做：Release 资产与 gh-pages 仍未发；4 练推拉腿必然有一类练两次（胸12/背6/腿6），目前只用一句话提示，没有自动改分化。

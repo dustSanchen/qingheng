@@ -161,7 +161,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.32';
+  const APP_VERSION = '1.5.33';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -564,20 +564,12 @@
     }
     return plan;
   }
-  function renderTrainingEffort() {
-    const box = $("#training-effort");
-    if (!box) return;
-    const current = effortFor(activeDate);
-    $$("[data-effort]", box).forEach(chip => {
-      chip.setAttribute("aria-pressed", chip.dataset.effort === current ? "true" : "false");
-    });
-  }
+  /** 体感只落在结束训练弹窗里（2026-11-23 删掉卡片底部那一行），这里不再有可刷新的行内 UI。 */
   async function saveTrainingEffort(value) {
     if (!EFFORT_LEVELS.includes(value)) return;
     const existing = (state.habits || []).find(item => item && item.date === activeDate) || {};
     await api("/api/habits", {...existing, date: activeDate, effort: value, effortAt: new Date().toISOString()});
     await loadState({quiet: true});
-    renderTrainingEffort();
     notice("已记下：练下来" + EFFORT_LABELS[value] + "。下次排课会参考。");
   }
   /** 教练说明只留在本机：它解释「为什么没完全照要求办」，不进导出数据。 */
@@ -598,21 +590,16 @@
     node.hidden = !text;
     node.textContent = text || "";
   }
-  /** 把上一次排课的耗时/失败原因贴在清单上方：toast 只活 10 秒，看完就没了。 */
+  /** 只把「上一次没排成」的原因贴在清单上方：toast 只活 10 秒，失败原因要留得住。
+   *  成功时不报耗时（2026-11-23 用户：不追求生成速度，追求排得对）。 */
   function renderPlanTiming() {
     const node = $("#ai-plan-timing");
     if (!node) return;
     let timing = null;
     try { timing = JSON.parse(localStorage.getItem("qingheng.planTiming." + activeDate) || "null"); } catch { timing = null; }
-    if (!timing || !Number(timing.total)) { node.hidden = true; node.textContent = ""; return; }
-    const seconds = (Number(timing.total) / 1000).toFixed(1);
-    const first = Number(timing.first) > 0 ? "，首条 " + (Number(timing.first) / 1000).toFixed(1) + " 秒" : "";
+    if (!timing || !timing.error) { node.hidden = true; node.textContent = ""; return; }
     node.hidden = false;
-    node.textContent = timing.error
-      ? "上次排课失败（" + seconds + " 秒）：" + timing.error
-      : "上次排课耗时 " + seconds + " 秒" + first + " · " + (Number(timing.rows) || 0) + " 个动作"
-        + (Number(timing.sets) > 0 ? "、" + Number(timing.sets) + " 组" : "")
-        + (Number(timing.minutes) > 0 ? " / 折算 " + Number(timing.minutes) + " 分钟" + (Number(timing.limit) > 0 ? "（上限 " + Number(timing.limit) + "）" : "") : "");
+    node.textContent = "上次没排成：" + timing.error;
   }
   /**
    * 播种行的每组 ○ 反过来决定计划项的 done（2026-11-22）：
@@ -634,7 +621,7 @@
   }
   /**
    * 今日清单的「控件同步」：清单本体已经播进执行区（2026-11-22），这里只维护
-   * 「重排今天」文案、顺延按钮的显隐，以及教练说明与上次排课耗时两行。
+   * 「重排今天」文案、顺延按钮的显隐，以及教练说明与失败原因两行。
    * 2026-11-23 Phase 2：删掉 #ai-plan-list / #ai-plan-fold / #ai-plan-edit / #ai-plan-all /
    * #ai-plan-clear / #ai-plan-summary 的渲染——这些节点在 index.html 里早已不存在，
    * 相关分支永远不会命中（约 160 行僵尸代码）。

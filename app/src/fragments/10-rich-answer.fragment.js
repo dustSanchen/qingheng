@@ -416,7 +416,9 @@
     const bodyCells = [['体重', weight?.weight, 'kg', weight?.date, 'weight'], ['BMI', bmi, '', '', null], ['腰围', waist?.waist, 'cm', waist?.date, 'waist'], ['体脂率', bodyFat?.bodyFat, '%', bodyFat?.date, 'bodyFat']];
     const measured = weight?.date || waist?.date || bodyFat?.date || '';
     const ago = measured ? daysBetween(measured, activeDate) : null;
-    $('#latest-measurement').innerHTML = bodyCells.map(([label, value, unit, date, key]) => {
+    // 2026-11-23：今天页的「更多 · 身体近况」整块删除，这里只在该卡存在时渲染（记录页另有完整入口）。
+    const latestBox = $('#latest-measurement');
+    if (latestBox) latestBox.innerHTML = bodyCells.map(([label, value, unit, date, key]) => {
       const delta = key && date ? deltaLine(value, prevField(key, date), unit) : '';
       const shown = value === null || value === undefined ? '—' : fmt(value);
       return `<div class="stat-cell"><span class="stat-label">${label}</span><div class="stat-number${shown === '—' ? ' is-empty' : ''}">${shown}<small>${shown === '—' ? '' : unit}</small></div>${delta ? `<span class="stat-delta">${esc(delta)}</span>` : ''}</div>`;

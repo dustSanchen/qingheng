@@ -806,28 +806,14 @@ details[open]{background:var(--surface)}
 .check-item.high{border-color:var(--danger-line);background:var(--danger-soft)}
 .check-item.high .check-dot{background:var(--danger)}
 
-/* 「更多」折叠：把三张低频卡片收成一行，第一屏只留 5 张。 */
-.day-more{margin:0 0 var(--space-3);border:0;border-block:1px solid var(--line);border-radius:0;background:transparent;padding:12px 0}
-.day-more > summary{display:flex;align-items:center;gap:8px;min-height:48px;padding:var(--space-2) 0;list-style:none;cursor:pointer;font-size:var(--text-sm);color:var(--muted)}
-.day-more > summary::-webkit-details-marker{display:none}
-.day-more > summary .more-caret{width:0;height:0;flex:0 0 auto;border-left:5px solid currentColor;border-top:4px solid transparent;border-bottom:4px solid transparent;transition:transform var(--dur-fast) var(--ease-out)}
-.day-more[open] > summary .more-caret{transform:rotate(90deg)}
-.day-more > summary .more-label{color:var(--ink-soft);font-weight:var(--fw-semibold);white-space:nowrap}
-.day-more > summary .more-rest{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.day-more[open] > summary{margin-bottom:var(--space-2)}
-.day-more .card{border:0;padding:var(--space-3) 0;margin:0;border-top:1px solid var(--line);border-radius:0;background:transparent}
-.day-more .card:first-of-type{border-top:0}
-/* ── 身体近况（2026-11-03）：数值 + 变化量，日期只出现一次 ────────────────────────── */
+/* 身体近况（2026-11-03）：数值 + 变化量，日期只出现一次。2026-11-23 起只在「记录 → 身体」出现，
+   今天页的「更多」折叠整块删除。 */
 .stat-cell{display:flex;flex-direction:column;gap:2px;min-width:0}
 .stat-number.is-empty{font-size:var(--text-lg);color:var(--muted);line-height:1.9;letter-spacing:.1em}
 .stat-delta{font-size:var(--text-xs);color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 .stat-delta.is-up{color:var(--warn)}
 .stat-delta.is-down{color:var(--accent)}
 .stat-when{grid-column:1/-1;margin:0;padding-top:6px;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
-/* 折进「更多」以后，建议卡不再用整块浅绿抢注意力，靠分隔线分组。 */
-.day-more .advice-card{background:transparent}
-/* 折叠区里的卡片内容不要贴着侧边（账本原来只留上下发丝线，左右是 0）。 */
-[data-skin="ledger"] .day-more{padding-inline:14px}
 .habit-list{display:block}
 .habit-jump{width:100%;text-align:left}
 /* 折叠区里不要再套框：这一行只保留上下发丝线，箭头负责表达可点。 */
@@ -1057,7 +1043,7 @@ details[open] .preview-panel, .data-preview-panel{border:1px solid var(--line);b
 /* 纸感用留白组织内容；账本用单层外框组织数据。 */
 .card{background:transparent;border:0;border-radius:0;padding:var(--card-pad) 0;margin-bottom:var(--card-gap)}
 [data-skin="ledger"] .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--shape-card-radius);padding:var(--card-pad)}
-.day-more,.card-notes{border-radius:0}
+.card-notes{border-radius:0}
 
 /* 列表行与磁贴 */
 .list-row,.meal-row,.capture-card,.check-item,.photo-add,.segment-bar,.segment{border-radius:var(--shape-row-radius)}
@@ -1209,7 +1195,7 @@ body.no-training #training-advice-order{display:none !important}
 /* ── 统一展开按钮（2026-11-04）：右侧 32×32 圆角方块，展开时箭头旋转 180°，按下轻微下压 ── */
 summary{-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;list-style:none;cursor:pointer}
 summary::-webkit-details-marker{display:none}
-details:not(.day-more)>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px}
+details>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px}
 /* 展开内容也要有过渡：Chrome 131+ 用 ::details-content 做高度动画，老内核退回淡入上移。 */
 /* 展开/收起：grid 行高 0fr→1fr，0.28s。比 ::details-content 兼容性稳。 */
 .disclosure-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .32s cubic-bezier(.4,0,1,1)}
@@ -1220,11 +1206,11 @@ details[open]>.disclosure-body>.disclosure-inner{animation:disclosureIn var(--du
 @media (prefers-reduced-motion: reduce){.disclosure-body{transition:none}details[open]>.disclosure-body>.disclosure-inner{animation:none}}
 
 @media (prefers-reduced-motion: reduce){.disclosure-body{transition:none}}
-details:not(.day-more)>summary::after{content:"\25BE";display:grid;place-items:center;flex:0 0 auto;width:32px;height:32px;border:1px solid var(--line);border-radius:8px;background:var(--accent-soft);color:var(--accent);font-size:17px;line-height:1;transition:transform var(--dur-disclose) cubic-bezier(.22,.8,.3,1),background var(--dur-fast),border-color var(--dur-fast)}
-details:not(.day-more)[open]>summary::after{transform:rotate(180deg)}
-details:not(.day-more)>summary:active::after{background:var(--accent-line);border-color:var(--line-strong);transform:scale(.92)}
-details:not(.day-more)[open]>summary:active::after{transform:rotate(180deg) scale(.92)}
-@media (prefers-reduced-motion: reduce){details:not(.day-more)>summary::after{transition:none}}
+details>summary::after{content:"\25BE";display:grid;place-items:center;flex:0 0 auto;width:32px;height:32px;border:1px solid var(--line);border-radius:8px;background:var(--accent-soft);color:var(--accent);font-size:17px;line-height:1;transition:transform var(--dur-disclose) cubic-bezier(.22,.8,.3,1),background var(--dur-fast),border-color var(--dur-fast)}
+details[open]>summary::after{transform:rotate(180deg)}
+details>summary:active::after{background:var(--accent-line);border-color:var(--line-strong);transform:scale(.92)}
+details[open]>summary:active::after{transform:rotate(180deg) scale(.92)}
+@media (prefers-reduced-motion: reduce){details>summary::after{transition:none}}
 .inline-busy{display:flex;align-items:center;gap:10px;margin:10px 0 0;padding:10px 14px;border-radius:12px;background:var(--surface-soft);border:1px solid var(--line);position:relative;overflow:hidden}
 .inline-busy[hidden]{display:none}
 
@@ -1399,9 +1385,6 @@ textarea{resize:none}
    .subpage 外壳），不再在列表里嵌第二层折叠。下面只留记录页的 .panel-more。 */
 details.panel-more{margin:var(--space-3) 0;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;padding:0}
 details.panel-more[open]{background:transparent}
-.day-more{border-block:1px solid var(--line);background:transparent;padding:var(--space-3) 0}
-.day-more .card{margin:0;padding:var(--space-3) 0;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;}
-.day-more .card:first-of-type{border-top:0}
 .hub-icon img{display:block;width:21px;height:21px}
 .hub-icon svg g{stroke-width:1.5}
 .panel-more>summary{display:flex;align-items:center;min-height:48px;padding:var(--space-2) 0;cursor:pointer;color:var(--muted);font-size:var(--text-sm)}
@@ -1875,8 +1858,6 @@ details.plan-why>summary::after{width:auto;height:auto;border:0;border-radius:0;
 .card-section>.card-heading h2{font-size:var(--text-md);color:var(--ink-soft);letter-spacing:0}
 
 /* 训练强度反馈（1.4.45）：练完点一下，四档落库，下一次排课据此加量或降量 */
-.effort-row{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;margin:var(--space-3) 0 0}
-.effort-label{font-size:var(--text-xs);color:var(--muted);letter-spacing:.04em}
 .effort-chip{min-height:44px;padding:0 var(--space-3);border:1px solid var(--line);border-radius:var(--shape-ctrl-radius);background:transparent;color:var(--ink-soft);font:inherit;font-size:var(--text-sm)}
 .effort-chip[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
 /* 今日顺序卡的「提要求」：折叠成一行，不占首屏；展开后是一个正经输入框 */
@@ -1991,10 +1972,10 @@ details.energy-more p{margin:var(--space-1) 0 var(--space-1);font-size:var(--tex
 
 /* 8. 折叠区默认是一行发丝线，只有「控件组」.advanced 保留虚线框；
       来源、说明、更多数据不再各自套一个盒子。 */
-details:where(:not(.advanced):not(.day-more)){border:0;border-radius:0;background:transparent;padding:0}
-details:where(:not(.advanced):not(.day-more))[open]{background:transparent}
-details:where(:not(.advanced):not(.day-more))>summary{padding:0;color:var(--ink-soft)}
-details:not(.advanced):not(.day-more)>summary::after{width:auto;height:auto;border:0;border-radius:0;background:none;font-size:var(--text-xs);color:var(--muted)}
+details:where(:not(.advanced)){border:0;border-radius:0;background:transparent;padding:0}
+details:where(:not(.advanced))[open]{background:transparent}
+details:where(:not(.advanced))>summary{padding:0;color:var(--ink-soft)}
+details:not(.advanced)>summary::after{width:auto;height:auto;border:0;border-radius:0;background:none;font-size:var(--text-xs);color:var(--muted)}
 
 /* 9. 加载：20px 环、1.2s 匀速；prefers-reduced-motion 下静止（已有规则保留）。 */
 .busy-ring{width:20px;height:20px;border:2px solid var(--accent-soft);border-top-color:var(--accent);border-radius:50%;box-sizing:border-box;transform-origin:50% 50%;animation:busy-spin 1.2s linear infinite;flex:0 0 auto}

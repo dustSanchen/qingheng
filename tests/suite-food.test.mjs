@@ -971,7 +971,7 @@ check('entering a sub-page pushes history for the system back button', app.inclu
 check('restoring the tab ignores the sub-page', /function restoreTab\(\) \{\s*const fromHash = parseHash\(\)\.tab;/.test(app));
 check('hub summaries are refreshed from state', app.includes('function renderHub()') && app.includes('renderHub();'));
 check('the storage panel is driven by the new route', app.includes("api(remirror ? '/api/storage-remirror' : '/api/storage-status'"));
-check('the app version is a single constant', app.includes("const APP_VERSION = '1.5.32'"));
+check('the app version is a single constant', app.includes("const APP_VERSION = '1.5.33'"));
 check('the shown version matches the build script', (() => {
   const shown = /const APP_VERSION = '([0-9.]+)'/.exec(app);
   const built = /\$Version='([0-9.]+)'/.exec(fs.readFileSync('build.ps1', 'utf8'));
@@ -1235,8 +1235,8 @@ assert.match(app, /anchor:'#push-history'/);
 assert.match(app, /anchor:'#export-data'/);
 assert(!/anchor:'#estimate-form'|anchor:'#push-form'/.test(app), 'core meal and push forms are not hidden by default');
 // 箭头统一到通用规则：方块 + 旋转 + 展开内容过渡（2026-11-04）
-assert.match(css, /details:not\(\.day-more\)>summary::after\{[^}]*border-radius:8px/);
-assert.match(css, /details:not\(\.day-more\)\[open\]>summary::after\{transform:rotate\(180deg\)\}/);
+assert.match(css, /details>summary::after\{[^}]*border-radius:8px/);
+assert.match(css, /details\[open\]>summary::after\{transform:rotate\(180deg\)\}/);
 assert.match(css, /\.collapse-toggle/);
 
 // 展开/收起动画：内容包进 grid 容器，0fr→1fr 过渡（2026-11-04）

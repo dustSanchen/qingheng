@@ -556,8 +556,9 @@
         edit.setAttribute("aria-label", collapsed ? "改训练偏好" : "取消训练偏好编辑，改动不保存");
         edit.setAttribute("title", collapsed ? "改频率 / 分化 / 器械 / 时长" : "取消编辑，改动不保存");
       }
-      // 「换一套」只在收起时出现：展开时它和「保存并重排」太像，会分不清。
-      if (regen) regen.hidden = !has || !collapsed;
+      // 「换一套」只在收起时出现：展开时它和「生成本周计划」太像，会分不清。
+      // 全身模板每天一样，轮换不出新排法，此时干脆不显示这个按钮。
+      if (regen) regen.hidden = !has || !collapsed || String((planPrefs() || {}).split) === "fb";
     };
     setCollapsed(!!planPrefs());
     if (edit && !edit.dataset.wired) {
@@ -579,8 +580,10 @@
     if (regen && !regen.dataset.wired) {
       regen.dataset.wired = "1";
       regen.addEventListener("click", () => {
-        regenerateWeekPlan();
-        notice("已按当前偏好换了一套本周安排。");
+        regenerateWeekPlan({vary: true});
+        const split = (planPrefs() || {}).split;
+        const label = {push: "推", pull: "拉", legs: "腿", upper: "上肢", lower: "下肢", full: "全身"}[nextStartTemplate(split, weekVariation)] || "";
+        notice("已换一套：本周从「" + label + "日」起排，之后的日期跟着轮换。偏好没变。");
       });
     }
     if (save && !save.dataset.wired) {
@@ -926,6 +929,8 @@
     try { localStorage.setItem(WEEK_PLAN_KEY(week), JSON.stringify(value)); } catch {}
   }
   let forceWeekPlan = false;
+  /** 「换一套」的轮换量：同偏好再排一版时把起始部位往前推，生成器本身是确定性的。 */
+  let weekVariation = 0;
   /** 七天窗口的起点：就是正在看的这一天，不再跳到下周一。 */
   function planStartDate() {
     return validDate(activeDate) ? activeDate : localDate();
@@ -951,20 +956,27 @@
     return dayLabel(date) + "按周计划应练：" + label + "日（" + slot.template + "）；动作与建议都围绕这一类。";
   }
   /** 明确「重新生成」：清掉本窗口缓存并强制重算，偏好不变也能换一版。 */
-  /** 起始部位＝接上一次训练的下一个（2026-11-22 用户拍板）。ppl 按推→拉→腿轮转；上下肢按上下交替；全身固定。 */
-  function nextStartTemplate(split) {
+  /** 起始部位＝接上一次训练的下一个（2026-11-22 用户拍板）。ppl 按推→拉→腿轮转；上下肢按上下交替；全身固定。
+   *  extra：用户点「换一套」时往前推一格——同一套偏好下也能拿到不同的排法，否则生成器是确定性的，按了等于没按。 */
+  function nextStartTemplate(split, extra = 0) {
     const key = ['ppl', 'ul', 'fb'].includes(String(split)) ? String(split) : 'ppl';
     const rows = (state.habits || [])
       .filter(row => row && validDate(row.date) && row.date < activeDate && row.template && Array.isArray(row.exercises) && row.exercises.length)
       .sort((a, b) => String(b.date).localeCompare(String(a.date)));
     const last = rows[0] ? String(rows[0].template) : '';
     if (key === 'fb') return 'full';
-    if (key === 'ul') return ['legs', 'lower'].includes(last) ? 'upper' : 'lower';
+    if (key === 'ul') {
+      const base = ['legs', 'lower'].includes(last) ? 0 : 1;
+      return ['upper', 'lower'][(base + extra) % 2];
+    }
     const order = ['push', 'pull', 'legs'];
     const at = order.indexOf(last);
-    return at >= 0 ? order[(at + 1) % 3] : 'push';
+    const base = at >= 0 ? (at + 1) % 3 : 0;
+    return order[(base + extra) % 3];
   }
-  function regenerateWeekPlan() {
+  function regenerateWeekPlan(opts = {}) {
+    // 换一套 = 起始部位往前一格（生成器确定性，不推一格按了等于没按）；保存偏好 = 回到基准起点。
+    weekVariation = opts.vary ? (weekVariation + 1) % 12 : 0;
     const startDate = planStartDate();
     try { localStorage.removeItem(WEEK_PLAN_KEY(startDate)); } catch { }
     lastWeekPlan = null;
@@ -1008,6 +1020,31 @@
       button.disabled = false;
     }
   }
+  /**
+   * 生成之后的「这一版长什么样」自检：几练、部位顺序、每次几个动作、周组数是否压在上限内、
+   * 有多少动作的重量是按体重推算的。只报事实，不报耗时——用户要的是排得对，不是排得快。
+   */
+  function planQualityLine(plan) {
+    if (!plan || !Array.isArray(plan.days) || !plan.days.length) return '';
+    const tpl = name => (typeof TRAINING_TEMPLATES === 'object' && TRAINING_TEMPLATES[name]) || name;
+    const labels = plan.days.map(day => tpl(day.template));
+    const counts = plan.days.map(day => (day.exercises || []).length);
+    const span = counts.length && Math.min(...counts) === Math.max(...counts)
+      ? `每次 ${counts[0]} 个动作`
+      : `每次 ${Math.min(...counts)}–${Math.max(...counts)} 个动作`;
+    const cap = plan.days[0]?.weeklySets?.cap || null;
+    const part = family => plan.days.reduce((sum, day) => sum + (day.exercises || [])
+      .filter(item => typeof exerciseBodyPart === 'function' && exerciseBodyPart(item.name) === family)
+      .reduce((inner, item) => inner + (Number(item.sets) || 0), 0), 0);
+    const sets = cap ? ` · 周组数 胸 ${part('push')} / 背 ${part('pull')} / 腿 ${part('legs')}（上限 ${cap}）` : '';
+    // 4 练的推拉腿必然有一类练两次（胸 12 / 背 6 / 腿 6 这种）：把差距说出来，并给出不改动作的解法。
+    const fams = [part('push'), part('pull'), part('legs')];
+    const imbalanced = cap && Math.max(...fams) - Math.min(...fams) >= 4;
+    const approx = plan.days.reduce((n, day) => n + (day.exercises || []).filter(item => item.weightApprox).length, 0);
+    return '<p class="fine-print plan-quality">已生成 ' + plan.days.length + ' 练 · ' + labels.join(' / ') + ' · ' + span + sets
+      + (approx ? ' · ' + approx + ' 个动作按体重推算起步' : '')
+      + (imbalanced ? ' · 想练得更匀，可把每周改成 3 或 6 练' : '') + '</p>';
+  }
   function renderWeekPlan() {
     const box = $('#week-plan'), tag = $('#week-plan-tag');
     if (!box) return;
@@ -1028,7 +1065,7 @@
         goal: (state.profile || {}).goal, split: planPref.split, gear: planPref.gear, minutes: planPref.minutes,
         // 训练要求（排除动作 / 改时长）必须一起传：漏传会让「保存并重排」生成的计划完全不执行 excludedMove。
         request: planPref.request,
-        startTemplate: nextStartTemplate(planPref.split)});
+        startTemplate: nextStartTemplate(planPref.split, weekVariation)});
       drifted = !!(cached && cached.plan);
       if (plan) writeWeekPlanCache(startDate, {plan, fingerprint, savedAt: Date.now()});
     }
@@ -1147,7 +1184,7 @@
       ? '<p class="fine-print plan-relation">上面按偏好与最近记录排周框架；实际执行顺序以你在训练日志里确认的那份为准，两者不一致时以日志为准。</p>'
       : '';
     // 卡面只剩本周安排与「记录有更新」一行；其余说明一次性渲染进抽屉，不再靠 move 搬家。
-    box.innerHTML = annotateTerms(thisWeekHtml + driftHtml);
+    box.innerHTML = annotateTerms(thisWeekHtml + planQualityLine(plan) + driftHtml);
     const explainHost = $('#plan-explain-body');
     if (explainHost) {
       explainHost.innerHTML = annotateTerms(goalRequirementHtml + relationHtml + whyHtml + acwrHtml + scopeHtml + suggestedNote + scheduleHtml);
