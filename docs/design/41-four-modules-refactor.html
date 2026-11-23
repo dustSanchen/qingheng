@@ -1,0 +1,1225 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>轻衡 · 四模块布局与交互重构确认稿（1.5.30 基线）</title>
+<style>
+  :root{
+    --ink:#293c32;--body-text:#3d3d3a;--muted:#667169;--ink-soft:#506053;
+    --line:#e4e9df;--paper:#fffefa;--surface:#fffdf7;--surface-soft:#f3f2ee;
+    --accent:#3f6b4a;--accent-soft:#eef4ea;--on-accent:#fff;
+    --warn:#9e5c29;--warn-soft:#f6efe3;--ok:#4f7a52;--ok-soft:#eef4ea;
+    --tone-water:#3c768e;--tone-sleep:#5c6a9c;--tone-training:#3f6c8a;
+    --radius-sm:8px;--radius-md:12px;
+    --text-xs:11px;--text-sm:12.5px;--text-md:13.5px;--text-lg:15.5px;--text-heading:17px;--text-xl:22px;
+    --font-display:"Iowan Old Style","Palatino Linotype","Songti SC","Noto Serif SC",Georgia,serif;
+    --font-ui:-apple-system,"PingFang SC","Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;
+    --ease-out:cubic-bezier(.22,.8,.3,1);
+    --doc-bg:#f7f5ef;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--doc-bg);color:var(--body-text);font:13px/1.7 var(--font-ui);-webkit-font-smoothing:antialiased}
+  a{color:var(--accent)}
+  .doc{max-width:1360px;margin:0 auto;padding:34px 22px 90px}
+  .masthead{border-bottom:1px solid color-mix(in srgb,var(--ink) 12%,transparent);padding-bottom:18px;margin-bottom:22px}
+  .masthead h1{font:600 27px/1.25 var(--font-display);color:var(--ink);margin:0 0 8px;letter-spacing:.01em}
+  .masthead p{margin:0;max-width:78ch;color:var(--ink-soft);font-size:13.5px}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 0}
+  .chip{display:inline-flex;align-items:center;gap:6px;min-height:26px;padding:0 10px;border-radius:999px;background:var(--paper);border:1px solid color-mix(in srgb,var(--ink) 10%,transparent);font-size:11.5px;color:var(--ink-soft)}
+  .chip b{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+  .chip.ok{background:var(--ok-soft);border-color:color-mix(in srgb,var(--ok) 24%,transparent);color:var(--ok)}
+  .chip.warn{background:var(--warn-soft);border-color:color-mix(in srgb,var(--warn) 26%,transparent);color:var(--warn)}
+  .chip.todo{background:#fdf6ec;border-color:#e8d8bd;color:#8a621f}
+
+  .toolbar{position:sticky;top:0;z-index:20;display:flex;gap:6px;flex-wrap:wrap;align-items:center;
+    padding:10px 0;margin-bottom:6px;background:color-mix(in srgb,var(--doc-bg) 88%,transparent);backdrop-filter:blur(6px)}
+  .tab{min-height:34px;padding:0 13px;border:1px solid color-mix(in srgb,var(--ink) 14%,transparent);border-radius:999px;
+    background:var(--paper);color:var(--ink-soft);font:inherit;font-size:12.5px;cursor:pointer}
+  .tab[aria-selected="true"]{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:600}
+  .toolbar .spacer{flex:1}
+  .toolbar .hint{font-size:11.5px;color:var(--muted)}
+
+  .module{display:none;grid-template-columns:1fr;gap:26px}
+  .module.is-on{display:block}
+  .lede{margin:4px 0 20px;max-width:80ch}
+  .lede h2{font:600 19px/1.4 var(--font-display);color:var(--ink);margin:0 0 6px}
+  .lede p{margin:0;color:var(--ink-soft);font-size:13px}
+
+  .stage{display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap;margin-bottom:26px}
+  .frame{width:390px}
+  .frame > figcaption{display:flex;align-items:center;gap:8px;margin:0 0 9px;font-size:12px;color:var(--muted)}
+  .frame > figcaption b{color:var(--ink);font-weight:600;font-size:12.5px}
+  .frame > figcaption .dot{width:6px;height:6px;border-radius:50%;background:var(--muted)}
+  .frame.after > figcaption .dot{background:var(--accent)}
+  figcaption{margin:0}
+
+  /* ============ 手机框（390×844，按装机版真实值排） ============ */
+  .phone{position:relative;width:390px;height:844px;border-radius:30px;background:var(--paper);overflow:hidden;
+    box-shadow:0 24px 60px -34px rgb(41 60 50/.4),0 0 0 1px color-mix(in srgb,var(--ink) 10%,transparent);color:var(--body-text)}
+  .phone::before{content:"";position:absolute;left:50%;top:7px;transform:translateX(-50%);width:88px;height:5px;border-radius:99px;background:color-mix(in srgb,var(--ink) 16%,transparent);z-index:5}
+  .screen{position:absolute;inset:0;overflow-y:auto;padding:24px 18px 92px;scrollbar-width:none}
+  .screen::-webkit-scrollbar{display:none}
+  .statusbar{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--muted);margin-bottom:10px;font-variant-numeric:tabular-nums}
+  .statusbar .sig{letter-spacing:1px}
+
+  .head{display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
+  .head h1{font:600 25px/1.15 var(--font-display);color:var(--ink);margin:0;letter-spacing:.01em}
+  .epigraph{font:400 12.5px/1.4 var(--font-display);color:color-mix(in srgb,var(--ink) 55%,transparent);padding-bottom:2px}
+  .meta-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:7px 0 14px;font-size:11.5px;color:var(--muted)}
+  .date-pick{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border:1px solid color-mix(in srgb,var(--ink) 12%,transparent);border-radius:999px;font-size:11px}
+
+  /* 概况：改前横滑 / 改后双卡并列 */
+  .peek{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;margin:0 0 14px;padding-bottom:2px}
+  .peek::-webkit-scrollbar{display:none}
+  .peek-card{flex:0 0 78%;scroll-snap-align:start;padding:11px 13px;border-radius:var(--radius-md);
+    background:color-mix(in srgb,var(--surface-soft) 70%,var(--paper));border:1px solid color-mix(in srgb,var(--ink) 7%,transparent)}
+  .peek-card h3{margin:0;font-size:11px;font-weight:500;color:var(--muted);letter-spacing:.02em}
+  .peek-main{display:flex;align-items:baseline;gap:4px;margin-top:3px}
+  .peek-main b{font-size:19px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .peek-main span{font-size:11px;color:var(--muted)}
+  .peek-sub{margin:2px 0 0;font-size:10.5px;color:var(--muted)}
+  .peek-sub em{font-style:normal;color:var(--accent)}
+  .peek-pair{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:0 0 14px}
+
+  /* 能量卡 */
+  .card{padding:15px 0 16px;border-bottom:1px solid color-mix(in srgb,var(--ink) 8%,transparent)}
+  .card:last-of-type{border-bottom:0}
+  .card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+  .card-head h2{margin:0;font:600 12.5px/1.4 var(--font-ui);color:var(--ink);letter-spacing:.02em}
+  .linkbtn{border:0;background:none;padding:0;font:inherit;font-size:11.5px;color:var(--accent);cursor:pointer}
+  .ring-row{display:flex;align-items:center;gap:16px}
+  .ring{--p:77;position:relative;flex:0 0 auto;width:118px;height:118px;border-radius:50%;
+    background:conic-gradient(var(--accent) calc(var(--p)*1%),color-mix(in srgb,var(--ink) 9%,transparent) 0)}
+  .ring>div{position:absolute;inset:7px;border-radius:50%;background:var(--paper);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
+  .ring b{font-size:27px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1}
+  .ring small{font-size:10px;color:var(--muted)}
+  .ring .left{font-size:10.5px;color:var(--warn)}
+  .ring-note p{margin:0 0 5px;font-size:12px;color:var(--ink-soft)}
+  .ring-note p b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+  .ring-note .muted{font-size:11px;color:var(--muted)}
+
+  /* 三入口胶囊：改后独立成丸 */
+  .quick{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0 0}
+  .quick button{display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 8px;border-radius:11px;
+    border:1px solid color-mix(in srgb,var(--accent) 16%,transparent);background:linear-gradient(color-mix(in srgb,var(--accent) 9%,var(--paper)),color-mix(in srgb,var(--accent) 3%,var(--paper)));
+    box-shadow:inset 0 1px 0 #fff;color:var(--ink);font-size:12px;font-weight:600;cursor:pointer}
+  .quick button.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+  .quick i{width:16px;height:16px;border-radius:5px;background:currentColor;opacity:.22;display:block}
+
+  /* 行动行 */
+  .action{display:flex;align-items:center;gap:8px;min-height:44px;margin-top:12px;padding:0 4px 0 12px;
+    border-radius:11px;background:var(--surface-soft)}
+  .action .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex:0 0 auto}
+  .action .txt{flex:1;min-width:0;font-size:12.5px;color:var(--body-text);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .action .count{font-size:11px;color:var(--muted);min-width:40px;text-align:right;font-variant-numeric:tabular-nums}
+  .action.is-warn{background:var(--warn-soft)}
+  .action.is-warn .dot{background:var(--warn)}
+
+  /* 宏量 */
+  .macros{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+  .macro .n{display:flex;align-items:baseline;gap:3px}
+  .macro b{font-size:15px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+  .macro span{font-size:10.5px;color:var(--muted)}
+  .macro .k{font-size:10.5px;color:var(--muted);margin-bottom:3px}
+  .bar{height:3px;border-radius:2px;background:color-mix(in srgb,var(--ink) 8%,transparent);margin-top:5px;overflow:hidden}
+  .bar i{display:block;height:100%;border-radius:2px;background:var(--accent)}
+  .macro.p .bar i{background:#719276}.macro.f .bar i{background:#9e8852}.macro.c .bar i{background:#728f99}
+
+  /* 体检 */
+  .check-tag{font-size:10.5px;color:var(--muted)}
+  .check-rows{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .check-row .k{font-size:10.5px;color:var(--muted)}
+  .check-row .bar{margin-top:4px}
+
+  /* 卡外分段：改前胶囊 / 改后文字分段 */
+  .fold-tabs{display:flex;gap:6px;margin:14px 0 10px}
+  .fold-tab{min-height:32px;padding:0 13px;border-radius:999px;border:1px solid color-mix(in srgb,var(--ink) 12%,transparent);background:transparent;color:var(--muted);font-size:11.5px}
+  .fold-tab.on{background:var(--accent-soft);border-color:transparent;color:var(--ink);font-weight:600}
+  .seg-tabs{display:flex;gap:18px;margin:15px 0 4px;border-bottom:1px solid color-mix(in srgb,var(--ink) 9%,transparent)}
+  .seg-tab{position:relative;border:0;background:none;padding:0 0 9px;font:inherit;font-size:12.5px;color:var(--muted);cursor:pointer}
+  .seg-tab.on{color:var(--ink);font-weight:600}
+  .seg-tab.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;border-radius:2px;background:var(--accent)}
+  .hab-mini{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;padding:11px 0 4px}
+  .hab-mini div{border-left:2px solid color-mix(in srgb,var(--accent) 30%,transparent);padding-left:8px}
+  .hab-mini b{display:block;font-size:15px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+  .hab-mini span{font-size:10.5px;color:var(--muted)}
+  .meals{display:flex;flex-direction:column;gap:7px;padding:10px 0 4px}
+  .meal{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;color:var(--ink-soft);padding-bottom:7px;border-bottom:1px solid color-mix(in srgb,var(--ink) 6%,transparent)}
+  .meal b{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+  .meal-dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--accent);margin-right:7px;vertical-align:2px}
+
+  /* 记录页：身体 */
+  .sub-head{display:flex;align-items:baseline;justify-content:space-between;margin:2px 0 4px}
+  .sub-head h2{margin:0;font:600 12.5px var(--font-ui);color:var(--ink);letter-spacing:.02em}
+  .big-read{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:6px 0 10px;border-bottom:1px solid color-mix(in srgb,var(--ink) 10%,transparent)}
+  .big-read .n{display:flex;align-items:baseline;gap:4px}
+  .big-read b{font-size:31px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1}
+  .big-read .n span{font-size:12px;color:var(--muted)}
+  .big-read .hint{font-size:11px;color:var(--muted);text-align:right;max-width:150px;line-height:1.4}
+  .tag{display:inline-flex;align-items:center;min-height:20px;padding:0 7px;border-radius:999px;font-size:10.5px;background:var(--surface-soft);color:var(--muted)}
+  .tag.ok{background:var(--ok-soft);color:var(--ok)}
+
+  .field-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid color-mix(in srgb,var(--ink) 8%,transparent);font-size:12px;color:var(--ink-soft)}
+  .field-row .v{display:inline-flex;align-items:center;gap:4px;font-variant-numeric:tabular-nums;color:var(--ink);font-weight:600}
+  .field-row .v small{font-weight:400;font-size:11px;color:var(--muted)}
+
+  .scale-row{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;padding:10px 0;border-bottom:1px solid color-mix(in srgb,var(--ink) 8%,transparent)}
+  .scale-row .t{font-size:12.5px;color:var(--ink);font-weight:600}
+  .scale-row .d{grid-column:1/-1;font-size:10.5px;color:var(--muted);line-height:1.5}
+  .scale-row button{min-height:32px;padding:0 11px;border-radius:8px;border:1px solid color-mix(in srgb,var(--ink) 14%,transparent);background:var(--paper);color:var(--accent);font-size:11.5px;font-weight:600}
+  .scale-note{font-size:10.5px;color:var(--accent);background:var(--accent-soft);border-radius:7px;padding:5px 8px;margin:6px 0 0}
+
+  /* 改前：2 列方盒指标 */
+  .metric-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px}
+  .metric-card{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius-md);background:var(--surface)}
+  .metric-card.span2{grid-column:1/-1}
+  .metric-name{font-size:10.5px;color:var(--muted)}
+  .metric-value{display:flex;align-items:baseline;gap:3px}
+  .metric-value b{font-size:19px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+  .metric-value small{font-size:10.5px;color:var(--muted)}
+  .metric-hint{font-size:10px;color:var(--muted)}
+  /* 改后：三列裸数字 + 发丝竖线 */
+  .metric-line{display:grid;grid-template-columns:repeat(3,1fr);padding:4px 0 12px;border-bottom:1px solid color-mix(in srgb,var(--ink) 10%,transparent)}
+  .metric-line > div{position:relative;padding:0 10px}
+  .metric-line > div:first-child{padding-left:0}
+  .metric-line > div + div::before{content:"";position:absolute;left:0;top:3px;bottom:2px;width:1px;background:color-mix(in srgb,var(--ink) 8%,transparent)}
+  .metric-line .k{font-size:10.5px;color:var(--muted)}
+  .metric-line .n{display:flex;align-items:baseline;gap:2px;margin-top:2px}
+  .metric-line .n b{font-size:21px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .metric-line .n small{font-size:10.5px;color:var(--muted)}
+  .metric-line .p{font-size:10px;color:var(--muted);margin-top:1px}
+  .metric-line .p em{font-style:normal;color:var(--accent)}
+
+  .foot-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px}
+  .btn{min-height:42px;padding:0 16px;border-radius:9px;border:1px solid color-mix(in srgb,var(--ink) 14%,transparent);background:var(--paper);color:var(--ink);font:inherit;font-size:12.5px}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}
+  .text-link{border:0;background:none;padding:0;font:inherit;font-size:11.5px;color:var(--muted)}
+
+  /* 习惯：改前三张刻度卡 / 改后三行账本 */
+  .meter{border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:var(--radius-md);
+    background:color-mix(in srgb,var(--accent) 6%,var(--surface));padding:8px 12px;margin-bottom:8px}
+  .meter.w{border-left-color:var(--tone-water);background:color-mix(in srgb,var(--tone-water) 6%,var(--surface))}
+  .meter.s{border-left-color:var(--tone-sleep);background:color-mix(in srgb,var(--tone-sleep) 6%,var(--surface))}
+  .meter-head{display:flex;justify-content:space-between;align-items:baseline;font-size:11.5px;color:var(--muted)}
+  .meter-head b{color:var(--ink);font-weight:600;font-size:12px}
+  .meter-main{display:flex;align-items:center;justify-content:space-between;gap:6px}
+  .meter-main b{font-size:20px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+  .step2{display:flex;gap:4px}
+  .step2 button{width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:var(--paper);color:var(--ink);font-size:14px;line-height:1}
+  .track{position:relative;height:22px;display:flex;align-items:center;margin:1px 0 2px}
+  .track::before{content:"";position:absolute;left:0;right:0;height:3px;border-radius:2px;background:var(--line)}
+  .track i{position:absolute;left:0;height:3px;border-radius:2px;background:var(--accent);width:41%}
+  .meter.w .track i{background:var(--tone-water)}
+  .meter.s .track i{background:var(--tone-sleep)}
+  .track u{position:absolute;left:41%;width:15px;height:15px;margin-left:-7px;border-radius:50%;background:var(--paper);border:2px solid var(--accent);text-decoration:none}
+  .meter.w .track u{border-color:var(--tone-water)}
+  .meter.s .track u{border-color:var(--tone-sleep)}
+  .chips2{display:flex;gap:6px}
+  .chips2 b{display:inline-flex;align-items:center;min-height:24px;padding:0 9px;border-radius:999px;font-size:11px;font-weight:600;
+    background:color-mix(in srgb,var(--accent) 10%,var(--paper));color:var(--accent)}
+
+  .hrows{margin-top:2px}
+  .hrow{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:10px;min-height:44px;
+    border-bottom:1px solid color-mix(in srgb,var(--ink) 8%,transparent)}
+  .hrow .left{display:flex;align-items:baseline;gap:7px;min-width:0}
+  .hrow .name{font-size:11.5px;color:var(--muted)}
+  .hrow .val{display:flex;align-items:baseline;gap:3px}
+  .hrow .val b{font-size:20px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .hrow .val small{font-size:10.5px;color:var(--muted)}
+  .hrow .step2 button{width:26px;height:26px;font-size:13px}
+  .hrow .chips2 b{min-height:26px;padding:0 8px;font-size:10.5px}
+  .hrow.off .val b{color:var(--muted);opacity:.55}
+
+  /* 训练 */
+  .week{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin:8px 0 6px}
+  .wcell{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 0 7px;border-radius:9px;font-size:10px;color:var(--muted)}
+  .wcell b{font-size:11.5px;font-weight:600;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+  .wcell .barline{width:14px;height:2px;border-radius:2px;background:color-mix(in srgb,var(--ink) 12%,transparent)}
+  .wcell.plan .barline{background:var(--accent)}
+  .wcell.done{background:color-mix(in srgb,var(--accent) 7%,var(--paper))}
+  .wcell.today{background:var(--accent-soft);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 22%,transparent)}
+  .wcell.sel{background:var(--accent);color:#fff}
+  .wcell.sel b{color:#fff}.wcell.sel .barline{background:#fff8}
+  .week-detail{margin:2px 0 0;font-size:11px;color:var(--muted)}
+  .toolbar2{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0 4px}
+  .toolbar2 button{min-height:34px;padding:0 11px;border-radius:8px;border:1px solid color-mix(in srgb,var(--ink) 14%,transparent);background:var(--paper);color:var(--ink);font-size:11.5px}
+  .toolbar2 .more{color:var(--muted);border-color:transparent;background:none}
+  .toolbar-line{display:flex;align-items:center;gap:7px;margin:0 0 2px;font-size:10.5px;color:var(--muted)}
+  .toolbar-line button{border:0;background:none;padding:0;font:inherit;font-size:10.5px;color:var(--muted);text-decoration:underline;text-underline-offset:2px;text-decoration-color:color-mix(in srgb,var(--ink) 22%,transparent)}
+  .toolbar-line .right{margin-left:auto;color:var(--accent)}
+  .exhead{display:flex;align-items:center;gap:7px;margin:12px 0 4px}
+  .exhead .no{width:16px;font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .exhead .nm{font-size:13px;font-weight:600;color:var(--ink)}
+  .exhead .q{width:16px;height:16px;border-radius:50%;border:1px solid color-mix(in srgb,var(--ink) 20%,transparent);display:grid;place-items:center;font-size:9.5px;color:var(--muted)}
+  .exhead .ap{margin-left:auto;font-size:10.5px;color:var(--muted);border:1px solid color-mix(in srgb,var(--ink) 12%,transparent);border-radius:999px;padding:1px 7px}
+  .setline{display:grid;grid-template-columns:20px 1fr auto auto;align-items:center;gap:9px;padding:5px 0;font-size:12px}
+  .setline .sn{font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .setline .vals{display:flex;align-items:baseline;gap:4px;color:var(--ink);font-variant-numeric:tabular-nums}
+  .setline .vals b{font-weight:600}
+  .setline .vals small{font-size:10.5px;color:var(--muted);font-weight:400}
+  .setline .check{width:22px;height:22px;border-radius:50%;border:1.5px solid color-mix(in srgb,var(--accent) 34%,transparent);display:grid;place-items:center;color:transparent;font-size:10px}
+  .setline .check.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .setline.done .vals{color:var(--muted)}
+  .setfoot{display:flex;justify-content:space-between;align-items:center;padding:5px 0 2px;font-size:10.5px;color:var(--muted)}
+  .setfoot button{border:0;background:none;padding:0;font:inherit;font-size:11px;color:var(--accent)}
+  .setfoot b{color:var(--ink);font-variant-numeric:tabular-nums}
+  .restline{display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--tone-training);background:color-mix(in srgb,var(--tone-training) 7%,transparent);border-radius:7px;padding:3px 8px;margin:2px 0 0}
+  .plan-extra{display:flex;flex-direction:column;gap:6px;margin-top:9px}
+  .plan-extra .row{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;color:var(--ink-soft);border-top:1px solid color-mix(in srgb,var(--ink) 7%,transparent);padding-top:8px}
+  .plan-extra .row button{min-height:32px;padding:0 11px;border-radius:8px;border:1px solid color-mix(in srgb,var(--ink) 14%,transparent);background:var(--paper);font-size:11px;color:var(--ink)}
+  details.why{border-top:1px solid color-mix(in srgb,var(--ink) 7%,transparent);padding-top:8px;font-size:11.5px;color:var(--muted)}
+  details.why summary{font-size:11.5px;color:var(--accent);cursor:pointer}
+
+  /* 底部导航 */
+  .nav{position:absolute;left:0;right:0;bottom:0;height:62px;display:grid;grid-template-columns:repeat(5,1fr);
+    background:color-mix(in srgb,var(--paper) 92%,transparent);border-top:1px solid color-mix(in srgb,var(--ink) 8%,transparent);backdrop-filter:blur(8px)}
+  .nav div{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:9.5px;color:var(--muted)}
+  .nav div.on{color:var(--accent);font-weight:600}
+  .nav i{width:19px;height:19px;border-radius:5px;border:1.5px solid currentColor;opacity:.85;display:block}
+  .nav div.on i{background:color-mix(in srgb,var(--accent) 18%,transparent)}
+
+  /* 弹窗 */
+  .overlay{position:absolute;inset:0;background:rgb(41 60 50/.42);display:flex;align-items:center;justify-content:center;padding:22px}
+  .dialog{width:100%;background:var(--paper);border-radius:16px;padding:18px 18px 14px;box-shadow:0 20px 50px -24px rgb(41 60 50/.5)}
+  .dialog h3{margin:0 0 4px;font:600 15px/1.4 var(--font-display);color:var(--ink)}
+  .dialog .sum{margin:0 0 10px;font-size:12px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+  .ditems{list-style:none;margin:0 0 8px;padding:0;display:flex;flex-direction:column;gap:1px}
+  .ditems li{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:4px 0;font-size:11.5px;
+    border-bottom:1px solid color-mix(in srgb,var(--ink) 7%,transparent);color:var(--ink-soft)}
+  .ditems b{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+  .compare{margin:0 0 11px;font-size:11px;color:var(--accent);background:var(--accent-soft);border-radius:7px;padding:5px 8px}
+  .dfield{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--ink-soft);margin-bottom:9px}
+  .dfield u{text-decoration:none;min-width:56px;padding:3px 8px;border-radius:7px;background:var(--surface-soft);font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+  .effort{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
+  .effort b{min-height:30px;display:grid;place-items:center;border-radius:7px;border:1px solid color-mix(in srgb,var(--ink) 12%,transparent);font-size:11px;font-weight:500;color:var(--ink-soft)}
+  .effort b.on{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 28%,transparent);color:var(--accent);font-weight:600}
+  .dbtns{display:flex;gap:8px;justify-content:flex-end}
+  .dbtns .btn{min-height:38px;padding:0 14px}
+
+  /* 说明区 */
+  .notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px;margin:6px 0 8px}
+  .note-card{background:var(--paper);border:1px solid color-mix(in srgb,var(--ink) 9%,transparent);border-radius:12px;padding:16px 18px}
+  .note-card h3{margin:0 0 8px;font:600 13px/1.4 var(--font-ui);color:var(--ink);display:flex;align-items:center;gap:7px}
+  .note-card h3 .n{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--accent);color:#fff;font-size:10.5px;font-weight:600}
+  .note-card ol,.note-card ul{margin:0;padding-left:17px}
+  .note-card li{margin:0 0 6px;font-size:12.5px;color:var(--ink-soft);line-height:1.65}
+  .note-card li b{color:var(--ink);font-weight:600}
+  .note-card li code,.code-inline{font:11.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--surface-soft);padding:1px 5px;border-radius:4px;color:#3b5344}
+  .state{margin:0;padding:0;list-style:none;font-size:12px}
+  .state li{padding:6px 0;border-bottom:1px dashed color-mix(in srgb,var(--ink) 10%,transparent);color:var(--ink-soft)}
+  .state li:last-child{border-bottom:0}
+  .state code{font:11.5px ui-monospace,Menlo,Consolas,monospace;color:#33503f}
+
+  /* 对账表 */
+  .audit{margin-top:34px;background:var(--paper);border:1px solid color-mix(in srgb,var(--ink) 9%,transparent);border-radius:12px;padding:18px 20px 8px}
+  .audit h2{margin:0 0 4px;font:600 17px/1.4 var(--font-display);color:var(--ink)}
+  .audit p.lead{margin:0 0 14px;font-size:12.5px;color:var(--ink-soft)}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid color-mix(in srgb,var(--ink) 8%,transparent);vertical-align:top}
+  th{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.02em;background:color-mix(in srgb,var(--ink) 3%,transparent)}
+  td.s{white-space:nowrap;font-weight:600}
+  td.ok{color:var(--ok)}td.warn{color:var(--warn)}td.todo{color:#8a621f}
+  td code{font:11px ui-monospace,Menlo,Consolas,monospace;color:#33503f;background:var(--surface-soft);padding:0 4px;border-radius:4px}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin:10px 0 0;font-size:11.5px;color:var(--muted)}
+
+  /* 代码 */
+  .codeblock{margin-top:30px}
+  .codeblock h2{font:600 17px/1.4 var(--font-display);color:var(--ink);margin:0 0 4px}
+  .codeblock p{margin:0 0 14px;font-size:12.5px;color:var(--ink-soft)}
+  pre{margin:0 0 16px;padding:14px 16px;background:#28352e;color:#e6ece5;border-radius:10px;overflow-x:auto;
+    font:11.5px/1.65 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;tab-size:2}
+  pre .c{color:#8ba08f}
+  pre .k{color:#c9b978}
+  pre .s{color:#a8c79a}
+  pre .t{color:#dba97a}
+  pre .h{display:block;color:#7f9a86;margin:8px 0 4px}
+  .kbd{font:11px ui-monospace,Menlo,Consolas,monospace;background:var(--surface-soft);border:1px solid color-mix(in srgb,var(--ink) 10%,transparent);border-bottom-width:2px;border-radius:5px;padding:0 5px}
+
+  footer.docfoot{margin-top:40px;padding-top:14px;border-top:1px solid color-mix(in srgb,var(--ink) 12%,transparent);font-size:11.5px;color:var(--muted)}
+
+  @media (max-width:880px){
+    .doc{padding:22px 14px 70px}
+    .stage{gap:20px}
+    .phone{zoom:.82}
+    .frame{width:322px}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <header class="masthead">
+    <h1>轻衡 · 四模块布局与交互重构确认稿</h1>
+    <p>基线 <b>1.5.30 / 530</b>（commit <code>603632c</code>，装机已验）。这份稿子只做一件事：把"哪些已经做完、哪些还差、差的怎么改"分开写清楚，避免把已经落地的部分再做一遍。左侧是<b>现状</b>，右侧是<b>改后</b>；每屏下方写改了什么、为什么这么改、状态与组件结构；文末是逐条对账表和可直接落地的代码。</p>
+    <div class="chips">
+      <span class="chip">手机框 <b>390×844</b></span>
+      <span class="chip ok">已落地 10 项</span>
+      <span class="chip warn">仍需改 4 项</span>
+      <span class="chip todo">待拍板 1 项</span>
+      <span class="chip">令牌取自 <b>styles.css</b>，不用稿里的旧色值</span>
+    </div>
+    <div class="chips" style="margin-top:10px">
+      <span class="chip">底色 <b>#fffefa</b>（brief 写的 #FAF9F5 是旧值）</span>
+      <span class="chip">主色 <b>#3f6b4a</b>（brief 写的 #2E5A44 是旧值）</span>
+      <span class="chip">发丝线 <b>#e4e9df</b></span>
+      <span class="chip">圆角 <b>12px</b></span>
+    </div>
+  </header>
+
+  <nav class="toolbar" role="tablist" aria-label="模块">
+    <button class="tab" role="tab" data-m="today" aria-selected="true">① 今天首页</button>
+    <button class="tab" role="tab" data-m="body" aria-selected="false">② 身体页</button>
+    <button class="tab" role="tab" data-m="habit" aria-selected="false">③ 日常习惯</button>
+    <button class="tab" role="tab" data-m="training" aria-selected="false">④ 训练页</button>
+    <button class="tab" role="tab" data-m="dialog" aria-selected="false">⑤ 结束训练弹窗</button>
+    <span class="spacer"></span>
+    <span class="hint">深链：<code>#m-body</code> / <code>#m-habit</code> / <code>#m-training</code> / <code>#m-dialog</code></span>
+  </nav>
+
+  <!-- ═══════════════ ① 今天 ═══════════════ -->
+  <section class="module is-on" id="m-today">
+    <div class="lede">
+      <h2>① 今天首页：一条行动行，读数顺序先于动作</h2>
+      <p>三项里两项已落地（行动行合一、分区切换移出卡片）。剩下两处：能量卡内部读数顺序、概况卡横滑改并列。</p>
+    </div>
+
+    <div class="stage">
+      <figure class="frame before">
+        <figcaption><span class="dot"></span><b>现状 1.5.30</b> · 环 → 胶囊 → 宏量 → 行动 → 体检</figcaption>
+        <div class="phone">
+          <div class="screen">
+            <div class="statusbar"><span>9:41</span><span class="sig">◔ ◍ ▮</span></div>
+            <div class="head"><h1>今天</h1><span class="epigraph">人间有味是清欢</span></div>
+            <div class="meta-row"><span>11 月 23 日 · 周日</span><span class="date-pick">换一天</span></div>
+
+            <div class="peek">
+              <div class="peek-card">
+                <h3>本周训练</h3>
+                <div class="peek-main"><b>2</b><span>/ 4 次</span></div>
+                <p class="peek-sub">容量 6.2 t · 较上周 <em>+8%</em></p>
+              </div>
+              <div class="peek-card">
+                <h3>身体</h3>
+                <div class="peek-main"><b>64.2</b><span>kg</span></div>
+                <p class="peek-sub">距目标 1.7 kg · 7 日 Δ −0.3</p>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head"><h2>今日能量</h2></div>
+              <div class="ring-row">
+                <div class="ring" style="--p:77"><div><b>1 620</b><small>kcal</small><span class="left">还差 480</span></div></div>
+                <div class="ring-note">
+                  <p>每日目标 <b>2 100</b> kcal</p>
+                  <p class="muted">已记 2 餐 · 蛋白还差 24 g</p>
+                </div>
+              </div>
+              <div class="quick"><button class="primary"><i></i>记一餐</button><button><i></i>训练</button><button><i></i>身体</button></div>
+              <div class="macros">
+                <div class="macro p"><div class="k">蛋白</div><div class="n"><b>96</b><span>/120 g</span></div><div class="bar"><i style="width:80%"></i></div></div>
+                <div class="macro f"><div class="k">脂肪</div><div class="n"><b>48</b><span>/70 g</span></div><div class="bar"><i style="width:69%"></i></div></div>
+                <div class="macro c"><div class="k">碳水</div><div class="n"><b>180</b><span>/230 g</span></div><div class="bar"><i style="width:78%"></i></div></div>
+              </div>
+              <div class="action is-warn"><span class="dot"></span><span class="txt">下一步：补记午餐</span><span class="count">1/3 ›</span></div>
+              <div class="card-head" style="margin:14px 0 8px"><h2>今日体检</h2><span class="check-tag">已评 3/4</span></div>
+              <div class="check-rows">
+                <div class="check-row"><div class="k">热量</div><div class="bar"><i style="width:77%"></i></div></div>
+                <div class="check-row"><div class="k">蛋白</div><div class="bar"><i style="width:80%"></i></div></div>
+                <div class="check-row"><div class="k">脂肪</div><div class="bar"><i style="width:69%"></i></div></div>
+                <div class="check-row"><div class="k">睡眠</div><div class="bar"><i style="width:0%"></i></div></div>
+              </div>
+            </div>
+
+            <div class="fold-tabs"><button class="fold-tab on">小习惯</button><button class="fold-tab">今日记录</button></div>
+            <div class="card" style="border-bottom:0">
+              <div class="card-head"><h2>今天的小习惯</h2><span class="linkbtn">编辑习惯 →</span></div>
+              <div class="hab-mini">
+                <div><b>8 240</b><span>步数</span></div>
+                <div><b>1.4</b><span>饮水 L</span></div>
+                <div><b>7.5</b><span>睡眠 h</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="nav"><div class="on"><i></i>今天</div><div><i></i>记录</div><div><i></i>问答</div><div><i></i>趋势</div><div><i></i>我的</div></div>
+        </div>
+      </figure>
+
+      <figure class="frame after">
+        <figcaption><span class="dot"></span><b>改后</b> · 环 → 三入口 → 行动 → 宏量 → 体检，概况双卡并列</figcaption>
+        <div class="phone">
+          <div class="screen">
+            <div class="statusbar"><span>9:41</span><span class="sig">◔ ◍ ▮</span></div>
+            <div class="head"><h1>今天</h1><span class="epigraph">人间有味是清欢</span></div>
+            <div class="meta-row"><span>11 月 23 日 · 周日</span><span class="date-pick">换一天</span></div>
+
+            <div class="peek-pair">
+              <div class="peek-card">
+                <h3>本周训练</h3>
+                <div class="peek-main"><b>2</b><span>/ 4 次</span></div>
+                <p class="peek-sub">6.2 t · 较上周 <em>+8%</em></p>
+              </div>
+              <div class="peek-card">
+                <h3>身体</h3>
+                <div class="peek-main"><b>64.2</b><span>kg</span></div>
+                <p class="peek-sub">距目标 1.7 kg</p>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head"><h2>今日能量</h2></div>
+              <div class="ring-row">
+                <div class="ring" style="--p:77"><div><b>1 620</b><small>kcal</small><span class="left">还差 480</span></div></div>
+                <div class="ring-note">
+                  <p>每日目标 <b>2 100</b> kcal</p>
+                  <p class="muted">已记 2 餐 · 蛋白还差 24 g</p>
+                </div>
+              </div>
+              <div class="quick"><button class="primary"><i></i>记一餐</button><button><i></i>训练</button><button><i></i>身体</button></div>
+              <div class="action is-warn"><span class="dot"></span><span class="txt">下一步：补记午餐</span><span class="count">1/3 ›</span></div>
+              <div class="macros">
+                <div class="macro p"><div class="k">蛋白</div><div class="n"><b>96</b><span>/120 g</span></div><div class="bar"><i style="width:80%"></i></div></div>
+                <div class="macro f"><div class="k">脂肪</div><div class="n"><b>48</b><span>/70 g</span></div><div class="bar"><i style="width:69%"></i></div></div>
+                <div class="macro c"><div class="k">碳水</div><div class="n"><b>180</b><span>/230 g</span></div><div class="bar"><i style="width:78%"></i></div></div>
+              </div>
+              <div class="card-head" style="margin:15px 0 8px"><h2>今日体检</h2><span class="check-tag">已评 3/4</span></div>
+              <div class="check-rows">
+                <div class="check-row"><div class="k">热量</div><div class="bar"><i style="width:77%"></i></div></div>
+                <div class="check-row"><div class="k">蛋白</div><div class="bar"><i style="width:80%"></i></div></div>
+                <div class="check-row"><div class="k">脂肪</div><div class="bar"><i style="width:69%"></i></div></div>
+                <div class="check-row"><div class="k">睡眠</div><div class="bar"><i style="width:0%"></i></div></div>
+              </div>
+            </div>
+
+            <div class="seg-tabs"><button class="seg-tab on">小习惯</button><button class="seg-tab">今日记录</button></div>
+            <div class="card" style="border-top:0;border-bottom:0;padding-top:10px">
+              <div class="hab-mini">
+                <div><b>8 240</b><span>步数</span></div>
+                <div><b>1.4</b><span>饮水 L</span></div>
+                <div><b>7.5</b><span>睡眠 h</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="nav"><div class="on"><i></i>今天</div><div><i></i>记录</div><div><i></i>问答</div><div><i></i>趋势</div><div><i></i>我的</div></div>
+        </div>
+      </figure>
+    </div>
+
+    <div class="notes">
+      <div class="note-card">
+        <h3><span class="n">1</span>行动行上移到宏量之前</h3>
+        <ol>
+          <li><b>改了什么：</b>把 <code>#today-action</code> 从 <code>#macro-summary</code> 之后移到之前，卡内顺序变成「环 → 三入口 → 下一步 → 宏量 → 体检」。</li>
+          <li><b>为什么：</b>这一行回答的是"接下来做什么"，宏量回答的是"现在怎么样"。先读结论再读明细，才不至于一屏都是数字却不知道点哪。</li>
+          <li><b>代价：</b>行动行上移后，宏量三列离体检更近，视觉上会读成一组"数据区"——这正是我们想要的。</li>
+        </ol>
+      </div>
+      <div class="note-card">
+        <h3><span class="n">2</span>概况卡：横滑 → 双卡并列</h3>
+        <ol>
+          <li><b>改了什么：</b><code>.today-peek</code> 从 <code>overflow-x:auto</code> 的横滑条改为 <code>grid-template-columns:1fr 1fr</code>，两卡各 ~168px。</li>
+          <li><b>为什么：</b>横滑藏了第二张卡，首屏只看得见一张半，等于每次都要"发现一次手势"。两卡的信息量本来就各 3 个数字，收窄后仍可读；首屏也因此不再有隐藏内容。</li>
+          <li><b>需要守住：</b>卡片最小宽度 156px，低于这个数「距目标 1.7 kg」会换行到第三行。文案因此压成「6.2 t · 较上周 +8%」这种两段式。</li>
+        </ol>
+      </div>
+      <div class="note-card">
+        <h3><span class="n">3</span>分段切换：胶囊 → 文字分段</h3>
+        <ol>
+          <li><b>已做的：</b><code>.fold-tabs</code> 早在 1.5.25 就移出了卡片，成为下半区统一的分段控制器。</li>
+          <li><b>本次还差的：</b>它仍是两枚带描边的胶囊，和下方卡片同形，读起来像"第二张卡"。改成文字 + 2px 下划线，只在选中项上出现强调色。</li>
+          <li><b>为什么：</b>切换器是标签不是容器。去掉边框之后，"卡外分段"才真的读作分段，而不是"卡上又贴了一个小卡"。</li>
+        </ol>
+      </div>
+      <div class="note-card">
+        <h3>状态与组件结构</h3>
+        <ul class="state">
+          <li>数据源：<code>todayActionItems()</code> → <code>[{label,target,tone}]</code>（agenda.primary + 2 secondary + 缺餐提示），<code>todayActionCursor</code> 管 1/N。</li>
+          <li>渲染：<code>renderTodayAction()</code> 只改 <code>#today-action-text</code> / <code>#today-action-count</code> / <code>bar.dataset.target</code>，不重建 DOM。</li>
+          <li>展开：<code>#today-action-more</code> → <code>#day-brief-sheet</code>（手动翻，不自动轮播）。</li>
+          <li>本次只动<b>顺序</b>与<b>两个选择器</b>，状态机零改动，测试里的 <code>today-action</code> / <code>today-peek</code> 断言不受影响。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ ② 身体 ═══════════════ -->
+  <section class="module" id="m-body">
+    <div class="lede">
+      <h2>② 记录 → 身体：把方框换成发丝线</h2>
+      <p>文案与维度归类已落地（识别按钮已是"识别体脂秤截图 / 照片"，睡眠已归习惯区）。剩下的是<b>形态</b>：三处内嵌盒子还在。</p>
+    </div>
+
+    <div class="stage">
+      <figure class="frame before">
+        <figcaption><span class="dot"></span><b>现状 1.5.30</b> · 内嵌盒 + 2 列卡片网格，卡里套卡</figcaption>
+        <div class="phone">
+          <div class="screen">
+            <div class="statusbar"><span>9:41</span><span class="sig">◔ ◍ ▮</span></div>
+            <div class="head"><h1>记录</h1><span class="epigraph">且将新火试新茶</span></div>
+            <div class="meta-row"><span>11 月 23 日 · 周日</span><span class="date-pick">看趋势 →</span></div>
+
+            <div class="sub-head"><h2>今天体重</h2><span class="tag">待记录</span></div>
+            <div class="card" style="padding-top:8px">
+              <div style="max-width:230px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,#fffdf7 58%,transparent)">
+                <div style="font-size:10.5px;color:var(--muted)">体重 <span style="font-size:9.5px">kg</span></div>
+                <div style="font-size:24px;font-weight:600;color:var(--ink);line-height:1.15">64.2</div>
+                <div style="font-size:10px;color:var(--muted)">已记 11/23 · 点一下可修改</div>
+              </div>
+              <p style="margin:8px 0 0;font-size:10.5px;color:var(--muted)">体重按空腹、同一状态记；同一天再填会更新。</p>
+            </div>
+
+            <div class="sub-head" style="margin-top:12px"><h2>身体数据</h2><span class="tag">选填</span></div>
+            <div class="card" style="padding-top:8px">
+              <div class="field-row" style="border-bottom:1px solid var(--line)"><span>测量日期</span><span class="v">2026-11-23</span></div>
+              <div class="scale-row" style="border-bottom:1px solid var(--line)">
+                <div class="t">识别体脂秤截图 / 照片</div>
+                <button>选图</button>
+                <div class="d">上传体脂秤 App 的结果截图或秤面照片，自动填入体重、体脂率、肌肉量等</div>
+              </div>
+              <div style="font-size:11px;color:var(--muted);margin:10px 0 4px">常用</div>
+              <div class="metric-cards">
+                <div class="metric-card span2"><span class="metric-name">体重</span><span class="metric-value"><b>64.2</b><small>kg</small></span><span class="metric-hint">上次 64.5</span></div>
+                <div class="metric-card"><span class="metric-name">体脂率</span><span class="metric-value"><b>18.4</b><small>%</small></span><span class="metric-hint">上次 18.6</span></div>
+                <div class="metric-card"><span class="metric-name">肌肉量</span><span class="metric-value"><b>31.6</b><small>kg</small></span><span class="metric-hint">上次 31.4</span></div>
+              </div>
+              <div style="margin-top:10px;font-size:11.5px;color:var(--accent)">更多指标 ▸ 腰围 · 内脏脂肪 · 基础代谢</div>
+              <p style="font-size:10.5px;color:var(--muted);margin:10px 0">相近条件下测量；单次读数不代表趋势。</p>
+              <button class="btn" style="width:100%">保存身体记录</button>
+            </div>
+
+            <div class="sub-head" style="margin-top:12px"><h2>日常习惯</h2><span class="linkbtn">自定义快捷值</span></div>
+            <div class="card" style="padding-top:6px">
+              <div class="meter"><div class="meter-head"><b>步数</b><span>步</span></div><div class="meter-main"><b>8 240</b><span class="step2"><button>−</button><button>＋</button></span></div><div class="track"><i></i><u></u></div><div class="chips2"><b>6k</b><b>10k</b></div></div>
+              <div class="meter w"><div class="meter-head"><b>饮水</b><span>毫升</span></div><div class="meter-main"><b>1 400</b><span class="step2"><button>−</button><button>＋</button></span></div><div class="track"><i style="width:56%"></i><u style="left:56%"></u></div><div class="chips2"><b>+250</b><b>+500</b></div></div>
+            </div>
+          </div>
+          <div class="nav"><div><i></i>今天</div><div class="on"><i></i>记录</div><div><i></i>问答</div><div><i></i>趋势</div><div><i></i>我的</div></div>
+        </div>
+      </figure>
+
+      <figure class="frame after">
+        <figcaption><span class="dot"></span><b>改后</b> · 大数字 + 发丝线，身体数据三列裸数字，习惯三行</figcaption>
+        <div class="phone">
+          <div class="screen">
+            <div class="statusbar"><span>9:41</span><span class="sig">◔ ◍ ▮</span></div>
+            <div class="head"><h1>记录</h1><span class="epigraph">且将新火试新茶</span></div>
+            <div class="meta-row"><span>11 月 23 日 · 周日</span><span class="date-pick">看趋势 →</span></div>
+
+            <div class="sub-head"><h2>身体</h2><span class="tag ok">体重已记</span></div>
+            <div class="big-read">
+              <div class="n"><b>64.2</b><span>kg</span></div>
+              <div class="hint">点数字改今天体重<br>上次 64.5 · 7 日 −0.3</div>
+            </div>
+
+            <div class="sub-head" style="margin-top:16px"><h2>身体数据</h2><span class="tag">选填</span></div>
+            <div class="field-row"><span>测量日期</span><span class="v">2026-11-23</span></div>
+            <div class="scale-row">
+              <div class="t">识别体脂秤截图 / 照片</div>
+              <button>选图</button>
+              <div class="d">上传体脂秤 App 的结果截图或秤面照片，自动填入体重、体脂率、肌肉量等</div>
+            </div>
+            <p class="scale-note">已识别：体重 64.2 kg、体脂率 18.4 %、肌肉量 31.6 kg。核对后可改。</p>
+
+            <div class="metric-line" style="margin-top:12px">
+              <div><div class="k">体重</div><div class="n"><b>64.2</b><small>kg</small></div><div class="p">上次 64.5</div></div>
+              <div><div class="k">体脂率</div><div class="n"><b>18.4</b><small>%</small></div><div class="p">上次 18.6</div></div>
+              <div><div class="k">肌肉量</div><div class="n"><b>31.6</b><small>kg</small></div><div class="p">上次 31.4</div></div>
+            </div>
+            <details class="why" style="border-top:0"><summary>更多指标 · 腰围 / 内脏脂肪 / 基础代谢</summary></details>
+            <p style="font-size:10.5px;color:var(--muted);margin:10px 0 0">相近条件下测量；单次读数不代表趋势。</p>
+            <div class="foot-actions" style="justify-content:flex-end;margin-top:10px">
+              <button class="btn primary" style="min-height:38px">保存身体记录</button>
+            </div>
+
+            <div class="sub-head" style="margin-top:20px"><h2>日常习惯</h2><span class="linkbtn">自定义快捷值</span></div>
+            <div class="hrows">
+              <div class="hrow">
+                <div class="left"><span class="name">步数</span><span class="val"><b>8 240</b><small>步</small></span></div>
+                <span class="step2"><button>−</button><button>＋</button></span>
+                <span class="chips2"><b>6k</b><b>10k</b></span>
+              </div>
+              <div class="hrow">
+                <div class="left"><span class="name">饮水</span><span class="val"><b>1 400</b><small>毫升</small></span></div>
+                <span class="step2"><button>−</button><button>＋</button></span>
+                <span class="chips2"><b>+250</b><b>+500</b></span>
+              </div>
+              <div class="hrow off">
+                <div class="left"><span class="name">睡眠</span><span class="val"><b>—</b><small>小时</small></span></div>
+                <span class="step2"><button>−</button><button>＋</button></span>
+                <span class="chips2"><b>7h</b><b>8h</b></span>
+              </div>
+            </div>
+          </div>
+          <div class="nav"><div><i></i>今天</div><div class="on"><i></i>记录</div><div><i></i>问答</div><div><i></i>趋势</div><div><i></i>我的</div></div>
+        </div>
+      </figure>
+    </div>
+
+    <div class="notes">
+      <div class="note-card">
+        <h3><span class="n">1</span>今天体重：内嵌盒 → 大数字</h3>
+        <ol>
+          <li><b>改了什么：</b>删掉 <code>.body-weight</code> 的描边 + 58% 底、24px → 31px，右侧留两行参照（上次 / 7 日 Δ），下方用 1px 发丝线收口。</li>
+          <li><b>为什么：</b>这个卡只有一个数。盒子越大，越像"要填的表单"，而它其实只是一次跳转入口；数字放大后，视线先落在 64.2 而不是边框上。</li>
+        </ol>
+      </div>
+      <div class="note-card">
+        <h3><span class="n">2</span>身体数据：2 列卡片 → 3 列裸数字</h3>
+        <ol>
+          <li><b>改了什么：</b>体重 / 体脂率 / 肌肉量从 <code>.metric-card</code>（1px 边框 + 卡片底）改为一行三等分，竖发丝线分隔，数值 21px 半粗，下划线只在聚焦时出现。</li>
+          <li><b>为什么：</b>这三项是同一维度的三次读数，不是三件独立的事。卡片网格把它们拆成了三个"盒子"，裸数字 + 竖线读作一张体检单；顺带省掉 2×10px 的间距和三圈边框。</li>
+          <li><b>保留：</b><code>is-filled</code> 的识别回填高亮只换成左侧 2px 色条，不再整盒变色——整盒变绿会盖掉"可修改"的语义。</li>
+        </ol>
+      </div>
+      <div class="note-card">
+        <h3><span class="n">3</span>识别入口与保存</h3>
+        <ol>
+          <li><b>已落地：</b>按钮文案、说明文字、"已自动识别，可微调"绿标签都在 1.5.24 上了。</li>
+          <li><b>本次改：</b>识别块从"按钮 + 说明并排"改为"标题行 + 右侧选图 + 说明换行"，保存从卡内满宽方块改为右下角主按钮——避免页面出现两条等宽实心块（保存身体记录 / 保存日常习惯）互相抢注意力。</li>
+        </ol>
+      </div>
+      <div class="note-card">
+        <h3>状态与组件结构</h3>
+        <ul class="state">
+          <li>指标源自 <code>METRICS</code>（key/label/unit/digits/min/max），渲染分两组：常用 3 项、<code>.metric-more</code> 收纳 3 项。</li>
+          <li>识别链路：<code>#scale-photo-input</code> → <code>shrink()</code> → <code>/api/scale-read</code> → <code>normaliseVision(data,'scale')</code> → 逐项写 <code>form.elements[key].value</code>，越界值在 <code>normaliseVision</code> 就被丢掉。</li>
+          <li>回填高亮：<code>.is-filled</code> 1600ms 后自动移除，保留"可改"暗示。</li>
+          <li>本次是纯 CSS + 少量类名替换，<code>#measurement-form</code> 的字段名、校验、<code>bodyOutlierLines</code> 阈值全部不动。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ ③ 习惯 ═══════════════ -->
+  <section class="module" id="m-habit">
+    <div class="lede">
+      <h2>③ 日常习惯：三张刻度卡 → 三行账本</h2>
+      <p>这是四项里唯一还<b>没做</b>的一项。1.5.27 做的是"刻度卡 + 轨道 + 两胶囊"，四层结构；brief 要的是单行。两者冲突，这里按 brief 走，代价写在下面。</p>
+    </div>
+
+    <div class="stage">
+      <figure class="frame before">
+        <figcaption><span class="dot"></span><b>现状 1.5.30</b> · 名称/数字/轨道/胶囊四层，单卡 ~104px</figcaption>
+        <div class="phone">
+          <div class="screen">
+            <div class="statusbar"><span>9:41</span><span class="sig">◔ ◍ ▮</span></div>
+            <div class="head"><h1>记录</h1><span class="epigraph">且将新火试新茶</span></div>
+            <div class="meta-row"><span>11 月 23 日 · 周日</span><span class="date-pick">看趋势 →</span></div>
+            <div class="sub-head"><h2>日常习惯</h2><span class="linkbtn">自定义快捷值</span></div>
+            <div class="card" style="padding-top:6px">
+              <div class="meter"><div class="meter-head"><b>步数</b><span>步</span></div><div class="meter-main"><b>8 240</b><span class="step2"><button>−</button><button>＋</button></span></div><div class="track"><i></i><u></u></div><div class="chips2"><b>6k</b><b>10k</b></div></div>
+              <div class="meter w"><div class="meter-head"><b>饮水</b><span>毫升</span></div><div class="meter-main"><b>1 400</b><span class="step2"><button>−</button><button>＋</button></span></div><div class="track"><i style="width:56%"></i><u style="left:56%"></u></div><div class="chips2"><b>+250</b><b>+500</b></div></div>
+              <div class="meter s"><div class="meter-head"><b>睡眠</b><span>小时</span></div><div class="meter-main"><b>7.5</b><span class="step2"><button>−</button><button>＋</button></span></div><div class="track"><i style="width:31%"></i><u style="left:31%"></u></div><div class="chips2"><b>7h</b><b>8h</b></div></div>
+              <p style="font-size:10.5px;color:var(--muted);margin:8px 0 0">训练日按当天保存的训练动作判断，不用在这里填。</p>
+              <div class="foot-actions"><button class="text-link">沿用昨日数据</button><button class="btn primary">保存日常习惯</button></div>
+            </div>
+          </div>
+          <div class="nav"><div><i></i>今天</div><div class="on"><i></i>记录</div><div><i></i>问答</div><div><i></i>趋势</div><div><i></i>我的</div></div>
+        </div>
+      </figure>
+
+      <figure class="frame after">
+        <figcaption><span class="dot"></span><b>改后</b> · 三行各 44px，省 180px，底栏只留两枚</figcaption>
+        <div class="phone">
+          <div class="screen">
+            <div class="statusbar"><span>9:41</span><span class="sig">◔ ◍ ▮</span></div>
+            <div class="head"><h1>记录</h1><span class="epigraph">且将新火试新茶</span></div>
+            <div class="meta-row"><span>11 月 23 日 · 周日</span><span class="date-pick">看趋势 →</span></div>
+
+            <div class="sub-head"><h2>日常习惯</h2><span class="linkbtn">自定义快捷值</span></div>
+            <div class="hrows">
+              <div class="hrow">
+                <div class="left"><span class="name">步数</span><span class="val"><b>8 240</b><small>步</small></span></div>
+                <span class="step2"><button>−</button><button>＋</button></span>
+                <span class="chips2"><b>6k</b><b>10k</b></span>
+              </div>
+              <div class="hrow">
+                <div class="left"><span class="name">饮水</span><span class="val"><b>1 400</b><small>毫升</small></span></div>
+                <span class="step2"><button>−</button><button>＋</button></span>
+                <span class="chips2"><b>+250</b><b>+500</b></span>
+              </div>
+              <div class="hrow">
+                <div class="left"><span class="name">睡眠</span><span class="val"><b>7.5</b><small>小时</small></span></div>
+                <span class="step2"><button>−</button><button>＋</button></span>
+                <span class="chips2"><b>7h</b><b>8h</b></span>
+              </div>
+            </div>
+            <p style="font-size:10.5px;color:var(--muted);margin:9px 0 0">点数字直接输入；按住 − / ＋ 连加。训练日按当天保存的动作判断。</p>
+            <div class="foot-actions">
+              <button class="text-link">沿用昨日数据</button>
+              <button class="btn primary">保存日常习惯</button>
+            </div>
+
+            <div class="sub-head" style="margin-top:26px"><h2>今日体检</h2><span class="tag">已评 3/4</span></div>
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-top:4px">
+              <div><div style="font-size:10.5px;color:var(--muted)">热量 77%</div><div class="bar"><i style="width:77%"></i></div></div>
+              <div><div style="font-size:10.5px;color:var(--muted)">蛋白 80%</div><div class="bar"><i style="width:80%"></i></div></div>
+              <div><div style="font-size:10.5px;color:var(--muted)">脂肪 69%</div><div class="bar"><i style="width:69%"></i></div></div>
+              <div><div style="font-size:10.5px;color:var(--muted)">睡眠 待填</div><div class="bar"><i style="width:0%"></i></div></div>
+            </div>
+          </div>
+          <div class="nav"><div><i></i>今天</div><div class="on"><i></i>记录</div><div><i></i>问答</div><div><i></i>趋势</div><div><i></i>我的</div></div>
+        </div>
+      </figure>
+    </div>
+
+    <div class="notes">
+      <div class="note-card">
+        <h3><span class="n">1</span>四层压成一行</h3>
+        <ol>
+          <li><b>改了什么：</b><code>.habit-meter</code>（名称行 / 数字行 / 轨道 / 胶囊）→ <code>.habit-row</code>（左：名称 + 20px 值 + 单位；右：−/+ 26px 圆钮 + 最多两枚胶囊），三行各 44px。</li>
+          <li><b>为什么：</b>轨道和胶囊是<b>两种控件表达同一件事</b>。一屏里三层控件（输入、拖拽、快捷）会让人先想"我该用哪个"，而这件事的正确成本是"一眼看到值、一下改成值"。</li>
+          <li><b>代价（必须说清）：</b>拖到任意值的交互没有了。补偿是点数字直接调键盘输入（原本就支持），并且步进器支持 120ms 长按连加——手机上键入比拖拽更准。</li>
+        </ol>
+      </div>
+      <div class="note-card">
+        <h3><span class="n">2</span>与 11-22 的"环形滑块"指令的关系</h3>
+        <ol>
+          <li>11-22 那轮要求"不要表单控件，实现环形滑块"，做成了刻度轨道 + 大数字；本轮 brief 要"轻量账本行"。</li>
+          <li><b>按最新需求走：</b>轨道退场。环形滑块在 390px 宽度下每行至少占 88px 高，三行就吃掉了首屏之外的全部预算。</li>
+          <li>如果之后还要"可拖"，正确形态是<b>点值弹出半屏大刻度</b>，而不是常驻在行内——这一条留作可选，不塞进本轮。</li>
+        </ol>
+      </div>
+      <div class="note-card">
+        <h3><span class="n">3</span>按钮收口</h3>
+        <ol>
+          <li>右上角只留 <code>自定义快捷值</code>（两步 sheet，已有）；底部只留 <code>沿用昨日数据</code> + <code>保存日常习惯</code>。</li>
+          <li>语义不变：步数/睡眠 = 设值，饮水 = 每次再加；胶囊标签按 k / L / h 缩写。</li>
+        </ol>
+      </div>
+      <div class="note-card">
+        <h3>状态与组件结构</h3>
+        <ul class="state">
+          <li><code>HABIT_DIAL</code>：<code>{steps:{step:500,digits:0},water:{step:250},sleep:{step:.5,digits:1}}</code> —— 步进量、小数位、上下限都在这里。</li>
+          <li><code>readHabitQuick()/writeHabitQuick()</code>：只认候选档位的两枚胶囊值；旧版"饮水总量"自动淘汰。</li>
+          <li><code>setMeter(key,value)</code> 夹取 → 写 <code>input.value</code> → <code>paintMeter()</code>（只切 <code>.is-empty</code> 与 aria）；删除时 <code>track/fill/thumb</code> 三个引用一并去掉。</li>
+          <li>数值不落库，保存时走 <code>numericForm(form,['steps','water','sleep'])</code>。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ ④ 训练 ═══════════════ -->
+  <section class="module" id="m-training">
+    <div class="lede">
+      <h2>④ 记录 → 训练：删掉中间步骤</h2>
+      <p>播种、工具栏、计划说明抽屉、每组勾选 + 休息倒计时都已落地。还差的是<b>卡面残留的两个中间按钮</b>：「把今天这节加入今日清单」和「把这周写进训练记录」。</p>
+    </div>
+
+    <div class="stage">
+      <figure class="frame before">
+        <figcaption><span class="dot"></span><b>现状 1.5.30</b> · 计划卡仍带"加入今日清单"与"写入整周"（屏内可滚动，保存训练在清单末尾）</figcaption>
+        <div class="phone">
+          <div class="screen">
+            <div class="statusbar"><span>9:41</span><span class="sig">◔ ◍ ▮</span></div>
+            <div class="head"><h1>记录</h1><span class="epigraph">且将新火试新茶</span></div>
+            <div class="meta-row"><span>11 月 23 日 · 周日</span><span class="date-pick">看趋势 →</span></div>
+
+            <div class="card-head"><h2>训练计划</h2><span class="linkbtn">计划说明 ▾</span></div>
+            <div class="week">
+              <div class="wcell today plan sel"><b>23</b><span>日</span><span class="barline"></span></div>
+              <div class="wcell plan"><b>24</b><span>一</span><span class="barline"></span></div>
+              <div class="wcell"><b>25</b><span>二</span><span class="barline"></span></div>
+              <div class="wcell plan"><b>26</b><span>三</span><span class="barline"></span></div>
+              <div class="wcell"><b>27</b><span>四</span><span class="barline"></span></div>
+              <div class="wcell plan"><b>28</b><span>五</span><span class="barline"></span></div>
+              <div class="wcell"><b>29</b><span>六</span><span class="barline"></span></div>
+            </div>
+            <p class="week-detail">今天 推：深蹲 · 卧推 · 杠铃划船</p>
+            <div class="plan-extra">
+              <div class="row"><span>把这周剩下的 4 次写成记录</span><button>写入 4 次</button></div>
+              <button class="btn primary" style="width:100%;margin-top:2px">把今天这节加入今日清单</button>
+              <p style="font-size:10.5px;color:var(--muted);margin:0">周条只写"练什么"；真正记录的是下面「训练日志」，两者不一致时以日志为准。</p>
+            </div>
+
+            <div class="card-head" style="margin-top:20px"><h2>训练日志</h2><span class="tag">未记录</span></div>
+            <div class="toolbar2"><button>重排今天</button><button>＋ 添加动作</button></div>
+            <div class="exhead"><span class="no">1</span><span class="nm">深蹲</span><span class="q">?</span><span class="ap">改</span></div>
+            <div class="setline"><span class="sn">1</span><span class="vals"><b>8</b><small>次 × 60 kg</small></span><span class="check"></span></div>
+            <div class="setline"><span class="sn">2</span><span class="vals"><b>8</b><small>次 × 60 kg</small></span><span class="check"></span></div>
+            <div class="setline"><span class="sn">3</span><span class="vals"><b>8</b><small>次 × 60 kg</small></span><span class="check"></span></div>
+            <div class="setfoot"><button>＋ 加一组</button><span>容量 <b>—</b></span></div>
+          </div>
+          <div class="nav"><div><i></i>今天</div><div class="on"><i></i>记录</div><div><i></i>问答</div><div><i></i>趋势</div><div><i></i>我的</div></div>
+        </div>
+      </figure>
+
+      <figure class="frame after">
+        <figcaption><span class="dot"></span><b>改后</b> · 计划自动播种，勾选即记录，说明只留一个入口（屏内可滚动，保存训练在清单末尾）</figcaption>
+        <div class="phone">
+          <div class="screen">
+            <div class="statusbar"><span>9:41</span><span class="sig">◔ ◍ ▮</span></div>
+            <div class="head"><h1>记录</h1><span class="epigraph">且将新火试新茶</span></div>
+            <div class="meta-row"><span>11 月 23 日 · 周日</span><span class="date-pick">看趋势 →</span></div>
+
+            <div class="card-head"><h2>训练计划</h2><span class="linkbtn">计划说明 ▾</span></div>
+            <div class="week">
+              <div class="wcell today plan sel"><b>23</b><span>日</span><span class="barline"></span></div>
+              <div class="wcell plan"><b>24</b><span>一</span><span class="barline"></span></div>
+              <div class="wcell"><b>25</b><span>二</span><span class="barline"></span></div>
+              <div class="wcell plan"><b>26</b><span>三</span><span class="barline"></span></div>
+              <div class="wcell"><b>27</b><span>四</span><span class="barline"></span></div>
+              <div class="wcell plan"><b>28</b><span>五</span><span class="barline"></span></div>
+              <div class="wcell"><b>29</b><span>六</span><span class="barline"></span></div>
+            </div>
+            <p class="week-detail">今天 推：深蹲 · 卧推 · 杠铃划船 —— 已放进下面的执行清单</p>
+
+            <div class="card-head" style="margin-top:20px"><h2>训练日志</h2><span class="tag ok">已排入 · 3 个动作</span></div>
+            <div class="toolbar2"><button>重排今天</button><button>＋ 添加动作</button></div>
+            <div class="toolbar-line">
+              <button>顺延到明天</button><span>·</span><button>清空今天的训练</button>
+              <span class="right" id="draft-hint">已暂存</span>
+            </div>
+            <div class="exhead"><span class="no">1</span><span class="nm">深蹲</span><span class="q">?</span><span class="ap">改</span></div>
+            <div class="setline done"><span class="sn">1</span><span class="vals"><b>8</b><small>次 × 60 kg</small></span><span class="check on">✓</span></div>
+            <div class="setline done"><span class="sn">2</span><span class="vals"><b>8</b><small>次 × 60 kg</small></span><span class="check on">✓</span></div>
+            <div class="setline"><span class="sn">3</span><span class="vals"><b>8</b><small>次 × 60 kg</small></span><span class="check"></span></div>
+            <div class="restline"><span>组间休息 1:42</span><span>·</span><span>复合动作 150 秒</span></div>
+            <div class="setfoot"><button>＋ 加一组</button><span>容量 <b>960</b> kg</span></div>
+
+            <div class="exhead"><span class="no">2</span><span class="nm">卧推</span><span class="q">?</span><span class="ap">改</span></div>
+            <div class="setline"><span class="sn">1</span><span class="vals"><b>10</b><small>次 × 40 kg</small></span><span class="check"></span></div>
+            <div class="setline"><span class="sn">2</span><span class="vals"><b>10</b><small>次 × 40 kg</small></span><span class="check"></span></div>
+            <div class="setline"><span class="sn">3</span><span class="vals"><b>10</b><small>次 × 40 kg</small></span><span class="check"></span></div>
+            <div class="setfoot"><button>＋ 加一组</button><span>容量 <b>—</b></span></div>
+
+            <div class="exhead"><span class="no">3</span><span class="nm">杠铃划船</span><span class="q">?</span><span class="ap">改</span></div>
+            <div class="setline"><span class="sn">1</span><span class="vals"><b>10</b><small>次 × 35 kg</small></span><span class="check"></span></div>
+            <div class="setline"><span class="sn">2</span><span class="vals"><b>10</b><small>次 × 35 kg</small></span><span class="check"></span></div>
+            <div class="setline"><span class="sn">3</span><span class="vals"><b>10</b><small>次 × 35 kg</small></span><span class="check"></span></div>
+            <div class="setfoot"><button>＋ 加一组</button><span>容量 <b>—</b></span></div>
+              <div class="foot-actions" style="margin-top:14px"><span style="font-size:10.5px;color:var(--muted)">草稿自动暂存，切页不丢</span><button class="btn primary">保存训练</button></div>
+          </div>
+          <div class="nav"><div><i></i>今天</div><div class="on"><i></i>记录</div><div><i></i>问答</div><div><i></i>趋势</div><div><i></i>我的</div></div>
+        </div>
+      </figure>
+    </div>
+
+    <div class="notes">
+      <div class="note-card">
+        <h3><span class="n">1</span>删两个中间按钮</h3>
+        <ol>
+          <li><b>改了什么：</b><code>renderWeekPlan()</code> 里的 <code>adoptHtml</code>（把今天这节加入今日清单）与 <code>scheduleHtml</code>（把这周写进训练记录）不再进卡面；"写入整周"降级进 <code>#plan-sheet</code>。</li>
+          <li><b>为什么：</b>计划早就会<b>自动播种</b>成日志行（<code>seedExercisesFromPlan</code>，只写 DOM），所以"先点加入、再打勾"是纯多余的一步；留着它还会和自动播种打架——用户点了会以为要多存一份。</li>
+          <li><b>数据安全：</b>播种只在当天日志为空时发生，清空后由 <code>seedMutedFor(planNow)</code> 抑制，不会把清掉的动作再播回来。</li>
+        </ol>
+      </div>
+      <div class="note-card">
+        <h3><span class="n">2</span>说明只留一个入口</h3>
+        <ol>
+          <li><b>已落地：</b>本周要求 / 这周怎么排的 / 训练负荷都 move 进 <code>#plan-explain-body</code>，卡面只剩周条。</li>
+          <li><b>本次补：</b>卡上那句"两者不一致时以日志为准"也搬进抽屉（中间步骤删掉后，这句话就没有解释对象了）；单动作要点继续走动作名旁 <code>?</code>。</li>
+        </ol>
+      </div>
+      <div class="note-card">
+        <h3><span class="n">3</span>勾选即完成（已落地）</h3>
+        <ol>
+          <li>每组右侧 <code>data-set-done</code>：勾上 → <code>markSessionStart()</code> 记起点、<code>startRestTimer(restSecondsFor(name))</code> 起倒计时、<code>syncPlanDoneFromRow()</code> 回写清单 done。</li>
+          <li>全组勾完且不止一个动作时收成一行 <code>✓ 名称 · N 组 · 容量 X kg</code>，只收 CSS，组次仍在 DOM，保存与草稿照常读。</li>
+        </ol>
+      </div>
+      <div class="note-card">
+        <h3><span class="n">4</span>顺手补一个状态口径：播种后别写"未记录"</h3>
+        <ol>
+          <li><b>现状：</b>今天还没有落库记录时，计划会把动作播成可打卡行，但卡头 tag 仍是「未记录」——<code>renderTrainingLog</code> 只数已存动作。三行动作配「未记录」，会让人以为播种失败。</li>
+          <li><b>改法：</b>有播种行、无落库行 → 「已排入 · N 个动作」；已落库 → 「模板 · N 个动作」。</li>
+          <li><b>为什么不说"待保存"：</b>行还没动过，说"待保存"像在催；"已排入"只描述事实，与"勾完才落库"一致。</li>
+        </ol>
+      </div>
+      <div class="note-card">
+        <h3>状态与组件结构</h3>
+        <ul class="state">
+          <li>四层写入边界（已定，不要混）：写库 <code>/api/habits</code>｜只写 <code>aiPlanStore</code>｜只改 DOM｜只动偏好。</li>
+          <li>草稿：<code>trainingDrafts</code>（内存，按日期）→ 切页/切天不丢；<code>form.dataset.templateTouched</code> 决定模板是否被用户手动锁定。</li>
+          <li>播种抑制：<code>seedMutedFor(planNow)</code> 按清单快照持久化，刷新不回填。</li>
+          <li>本次只删两个渲染分支，状态机与保存链路零改动。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ ⑤ 弹窗 ═══════════════ -->
+  <section class="module" id="m-dialog">
+    <div class="lede">
+      <h2>⑤ 结束训练弹窗：已达标，不必重做</h2>
+      <p>逐动作明细、同模板容量对比、耗时、体感评级都在 <code>trainingSaveDialogHtml()</code> 里。这一屏只做确认，不列改动项。</p>
+    </div>
+
+    <div class="stage">
+      <figure class="frame after">
+        <figcaption><span class="dot"></span><b>现状即目标</b> · 1.5.27 落地，1.5.30 未回退</figcaption>
+        <div class="phone">
+          <div class="screen" style="padding-bottom:24px">
+            <div class="statusbar"><span>9:41</span><span class="sig">◔ ◍ ▮</span></div>
+            <div class="head"><h1>记录</h1><span class="epigraph">且将新火试新茶</span></div>
+            <div class="meta-row"><span>11 月 23 日 · 周日</span><span class="date-pick">看趋势 →</span></div>
+            <div class="card-head"><h2>训练日志</h2><span class="tag">推 · 3 个动作</span></div>
+            <div class="exhead"><span class="no">1</span><span class="nm">深蹲</span><span class="ap">改</span></div>
+            <div class="setfoot" style="opacity:.5"><button>＋ 加一组</button><span>容量 <b>1 440</b> kg</span></div>
+          </div>
+          <div class="overlay">
+            <div class="dialog">
+              <h3>结束训练</h3>
+              <p class="sum">3 个动作 · 9 组 · 容量 3 250 kg</p>
+              <ul class="ditems">
+                <li><span>深蹲</span><b>3 组 · 60 kg</b></li>
+                <li><span>卧推</span><b>3 组 · 40 kg</b></li>
+                <li><span>杠铃划船</span><b>3 组 · 35 kg</b></li>
+              </ul>
+              <p class="compare">同模板上次（11/20）容量 3 050 kg · 这次 +200 kg</p>
+              <div class="dfield"><span>耗时</span><u>48</u><span>分钟</span></div>
+              <div class="dfield" style="margin-bottom:6px"><span>今天练下来感觉如何？</span></div>
+              <div class="effort"><b>轻松</b><b class="on">刚好</b><b>吃力</b></div>
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <button class="text-link">先补记录</button>
+                <div class="dbtns"><button class="btn">取消</button><button class="btn primary">确认保存</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </figure>
+
+      <div class="notes" style="flex:1;min-width:320px">
+        <div class="note-card">
+          <h3>为什么这屏不用改</h3>
+          <ol>
+            <li>汇总行：动作数 / 组数 / 容量 / 自重次数 / 有氧 —— 已在 <code>parts</code> 里拼好。</li>
+            <li>逐动作：<code>.dialog-items</code> 每条「动作名 · N 组 · 公斤数」（有氧显示距离/时长）。</li>
+            <li>对比：取<b>同模板</b>上一次训练的总容量，写"这次 ±X kg"；没有可比记录时整行不出现，不编数。</li>
+            <li>耗时默认值来自 <code>sessionMinutesEstimate()</code>（第一组勾选的时间起点），没有起点就留空。</li>
+          </ol>
+        </div>
+        <div class="note-card">
+          <h3>要守住的边界</h3>
+          <ul class="state">
+            <li>对比只比<b>同模板</b>（推/拉/腿/其他），跨模板比容量没有意义。</li>
+            <li>容量口径逐组 <code>reps×weight</code>，自重动作只记次数、不进公斤容量。</li>
+            <li>弹窗里改耗时/体感 → 直接进保存请求，取消则一切不落库。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ 对账表 ═══════════════ -->
+  <section class="audit">
+    <h2>逐条对账：brief 的 14 条 vs 1.5.30 的代码</h2>
+    <p class="lead">下面是这份 brief 拆出来的 14 个子项。凡标"已落地"的都能在仓库里指到行；凡标"仍差"的，就是上面右侧那几屏要改的东西。</p>
+    <table>
+      <thead><tr><th style="width:36px">#</th><th style="width:74px">模块</th><th>brief 要求</th><th style="width:118px">状态</th><th>证据 / 差距</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>今天</td><td>「下一步」与能量建议合并为单行紧凑提示条（1/N › + 展开）</td><td class="s ok">已落地 1.5.27</td><td><code>#today-action</code> + <code>#day-brief-sheet</code>；<code>todayActionItems()</code> 产出 1 primary + 2 secondary；<code>00-head:1279-1324</code></td></tr>
+        <tr><td>2</td><td>今天</td><td>「小习惯 / 今日记录」切换移出大卡，改分区顶部分段</td><td class="s ok">已落地 1.5.25</td><td><code>index.html:22</code> 的 <code>.fold-tabs</code> 在 <code>#today-fold-card</code> 之前</td></tr>
+        <tr><td>3</td><td>今天</td><td>首屏：双卡 → 环 + 三胶囊 → 行动提示 → 宏量</td><td class="s warn">仍差 2 处</td><td>三胶囊 ✅（<code>70-rest:1294</code> 插在 <code>.energy-body</code> 之后）；<b>行动行仍在宏量之后</b>；<b>概况卡仍是横滑</b></td></tr>
+        <tr><td>4</td><td>身体</td><td>去掉今天体重 / 身体数据 / 保存的厚重方框</td><td class="s warn">仍差 3 处</td><td><code>.body-weight</code> 描边盒、<code>.metric-card</code> 2 列网格、保存为卡内满宽方块（<code>styles.css:1691/2165</code>）</td></tr>
+        <tr><td>5</td><td>身体</td><td>按钮改「识别体脂秤截图 / 照片」+ 说明文字</td><td class="s ok">已落地 1.5.24</td><td><code>index.html:43</code> 文案一字不差</td></tr>
+        <tr><td>6</td><td>身体</td><td>识别回填给轻量提示、支持直接改</td><td class="s ok">已落地 1.5.24</td><td><code>70-rest:2570-2573</code>「已自动识别，可微调」+ <code>.is-filled</code> 1600ms</td></tr>
+        <tr><td>7</td><td>身体</td><td>体重/体脂/肌肉归身体数据，睡眠归习惯</td><td class="s ok">已落地 1.5.27</td><td><code>#habit-sleep</code> 在习惯卡；体重唯一可编辑处 <code>#measurement-form[name=weight]</code></td></tr>
+        <tr><td>8</td><td>习惯</td><td>三行一致、单行：左名称+值，右 −/+ 与 ≤2 胶囊</td><td class="s warn">仍差（本轮主项）</td><td>现为四层 <code>.habit-meter</code>（名称/数字/轨道/胶囊），单卡 ~104px</td></tr>
+        <tr><td>9</td><td>习惯</td><td>去掉多余按钮，右上「自定义快捷值」，底部只留两枚</td><td class="s ok">已落地 1.5.27</td><td><code>#habit-quick-edit</code> 两步 sheet；<code>.habit-foot</code> 只有沿用昨日 + 保存</td></tr>
+        <tr><td>10</td><td>训练</td><td>删「今日顺序」勾选 + 「全部加入今天的训练记录」</td><td class="s ok">已落地 1.5.27</td><td><code>#ai-plan-card</code> 整卡删除；改为 <code>seedExercisesFromPlan()</code> 自动播种</td></tr>
+        <tr><td>11</td><td>训练</td><td>生成的动作直接进执行清单，每组勾选即完成 + 倒计时</td><td class="s ok">已落地 1.5.27</td><td><code>68:934-956</code> 勾选 → 起点 / 休息 / done 回写</td></tr>
+        <tr><td>12</td><td>训练</td><td>长说明收进「计划说明 ▾」，单动作要点走 ?</td><td class="s ok">已落地 1.5.27</td><td><code>renderWeekPlan</code> 把 <code>.plan-why/.plan-load/...</code> move 进 <code>#plan-explain-body</code></td></tr>
+        <tr><td>13</td><td>训练</td><td>结束训练弹窗：逐动作明细 + 同模板容量对比</td><td class="s ok">已落地 1.5.27</td><td><code>trainingSaveDialogHtml()</code> <code>.dialog-items</code> + <code>.dialog-compare</code></td></tr>
+        <tr><td>14</td><td>训练</td><td>去掉"先勾选再加入"的中间步骤</td><td class="s warn">仍差 2 个按钮</td><td>卡面仍渲染 <code>data-adopt-today</code>（加入今日清单）与 <code>data-plan-schedule</code>（写入整周）</td></tr>
+      </tbody>
+    </table>
+    <div class="legend">
+      <span>✅ 已落地 = 代码里可指到行，无需重做</span>
+      <span>⚠️ 仍差 = 本稿右侧那几屏</span>
+      <span>❓ 待拍板 = 见文末</span>
+    </div>
+  </section>
+
+  <!-- ═══════════════ 代码 ═══════════════ -->
+  <section class="codeblock">
+    <h2>可直接落地的代码</h2>
+    <p>四段。前两段是纯 DOM/CSS，后两段各删一处渲染分支。改完按仓库规矩跑 <code>assemble-app.ps1</code> + <code>node tools/test-all.mjs</code>，不要动生成物 <code>app.js</code>。</p>
+
+    <pre><span class="c">/* ── ① 今天：把行动行移到宏量之前（index.html，单行内切片替换） ── */</span>
+<span class="c">// 现状：…energy-body… &lt;div class="macro-grid" id="macro-summary"&gt;&lt;/div&gt; &lt;div class="today-action"…&gt;…&lt;/div&gt; &lt;p id="calorie-action"…&gt;</span>
+<span class="c">// 改后：…energy-body… &lt;div class="today-action"…&gt;…&lt;/div&gt; &lt;div class="macro-grid" id="macro-summary"&gt;&lt;/div&gt; &lt;p id="calorie-action"…&gt;</span>
+<span class="k">const</span> actionAt = html.<span class="t">indexOf</span>(<span class="s">'&lt;div class="today-action"'</span>);
+<span class="k">const</span> actionEnd = html.<span class="t">indexOf</span>(<span class="s">'&lt;p class="fine-print" id="calorie-action"'</span>);
+<span class="k">const</span> macroAt = html.<span class="t">indexOf</span>(<span class="s">'&lt;div class="macro-grid" id="macro-summary"&gt;&lt;/div&gt;'</span>);
+<span class="k">const</span> macroEnd = macroAt + <span class="s">'&lt;div class="macro-grid" id="macro-summary"&gt;&lt;/div&gt;'</span>.length;
+<span class="c">// 宏量块在前时把行动块 splice 到 macroAt，再切掉原位 —— 两次切片，别用字符串 replace（$$ 会被吃掉）</span>
+
+<span class="h">/* ── ② 概况卡：横滑 → 双卡并列（styles.css） ── */</span>
+.today-peek{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:9px;
+  margin:2px 0 12px;
+  overflow:visible;              <span class="c">/* 原来 overflow-x:auto + scroll-snap 全部去掉 */</span>
+}
+.today-peek .peek-card{min-width:0;padding:11px 12px}
+.today-peek .peek-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+<span class="h">/* ── ③ 分段控件：胶囊 → 文字分段（styles.css，替换 .fold-tabs/.fold-tab 三条） ── */</span>
+.fold-tabs{display:flex;gap:8px;margin:16px 0 6px;
+  border-bottom:1px solid color-mix(in srgb,var(--ink) 9%,transparent)}
+.fold-tab{position:relative;min-height:34px;padding:0 2px 9px;border:0;background:none;
+  color:var(--muted);font-size:var(--text-sm)}
+.fold-tab[aria-selected="true"]{color:var(--ink);font-weight:var(--fw-semibold)}
+.fold-tab[aria-selected="true"]::after{content:"";position:absolute;left:0;right:0;bottom:-1px;
+  height:2px;border-radius:2px;background:var(--accent)}</pre>
+
+    <pre><span class="h">/* ── ④ 习惯行：三行账本（index.html 结构替换 + styles.css） ── */</span>
+<span class="c">&lt;!-- 每一行替换掉整块 .habit-meter；track 整段删除 --&gt;</span>
+&lt;div class="habit-row" data-habit="steps" style="--meter-color:var(--accent)"&gt;
+  &lt;label class="habit-row-main"&gt;
+    &lt;span class="habit-row-name"&gt;步数&lt;/span&gt;
+    &lt;input class="habit-row-value" id="habit-steps" name="steps" type="number"
+           step="1" min="0" max="200000" inputmode="numeric" placeholder="—" aria-label="步数"&gt;
+    &lt;small class="habit-row-unit"&gt;步&lt;/small&gt;
+  &lt;/label&gt;
+  &lt;span class="habit-row-actions"&gt;
+    &lt;button type="button" class="habit-step" data-habit-step="steps" data-habit-dir="-1" aria-label="步数减 500"&gt;−&lt;/button&gt;
+    &lt;button type="button" class="habit-step" data-habit-step="steps" data-habit-dir="1" aria-label="步数加 500"&gt;＋&lt;/button&gt;
+  &lt;/span&gt;
+  &lt;span class="habit-chips" data-habit-chips="steps" role="group" aria-label="步数快捷值"&gt;&lt;/span&gt;
+&lt;/div&gt;
+
+.habit-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:10px;
+  min-height:44px;border-bottom:1px solid color-mix(in srgb,var(--ink) 8%,transparent)}
+.habit-row-main{display:flex;align-items:baseline;gap:7px;min-width:0}
+.habit-row-name{font-size:var(--text-xs);color:var(--muted)}
+.habit-row-value{width:auto;min-width:2.4em;max-width:5.2em;padding:0;border:0;background:none;
+  font:600 20px/1.2 var(--font-num);font-variant-numeric:tabular-nums;color:var(--ink);text-align:left}
+.habit-row-value:focus{outline:0;box-shadow:inset 0 -1px 0 var(--accent)}
+.habit-row-unit{font-size:var(--text-xs);color:var(--muted)}
+.habit-step{width:26px;height:26px;border-radius:50%;border:1px solid var(--line);
+  background:var(--paper);color:var(--ink);font-size:13px;line-height:1}
+.habit-chips{display:flex;gap:6px}
+.habit-chip{min-height:26px;padding:0 8px;border:0;border-radius:999px;font-size:10.5px;font-weight:600;
+  background:color-mix(in srgb,var(--accent) 10%,var(--paper));color:var(--accent)}
+.habit-chip.is-used{background:var(--accent);color:var(--on-accent)}
+.habit-row.is-empty .habit-row-value{color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.habit-step:active{transform:none}}</pre>
+
+    <pre><span class="h">/* ── ⑤ 习惯 JS：删掉 track 三个引用，其余状态逻辑不动（70-rest.fragment.js） ── */</span>
+<span class="c">// installHabitChips() 里，meters[key] 只留 meter/field/spec：</span>
+meters[key] = {meter, field, spec};
+<span class="c">// paintMeter() 只切类与 aria，不再写 fill/thumb：</span>
+<span class="k">function</span> <span class="t">paintMeter</span>(key){
+  <span class="k">const</span> entry = meters[key]; <span class="k">if</span> (!entry) <span class="k">return</span>;
+  <span class="k">const</span> value = number(entry.field.value) ?? 0;
+  entry.meter.classList.toggle(<span class="s">'is-empty'</span>, value &lt;= 0);
+}
+<span class="c">// 整段删除：track 的 pointerdown / pointermove / stopDrag / keydown(Arrow/Home/End)</span>
+<span class="c">// 键盘可达性补在输入框上：↑↓ ±step，Shift+↑↓ ±4step</span>
+field.addEventListener(<span class="s">'keydown'</span>, event =&gt; {
+  <span class="k">if</span> (event.key !== <span class="s">'ArrowUp'</span> &amp;&amp; event.key !== <span class="s">'ArrowDown'</span>) <span class="k">return</span>;
+  event.preventDefault();
+  <span class="k">const</span> dir = event.key === <span class="s">'ArrowUp'</span> ? 1 : -1;
+  bump(key, dir * (event.shiftKey ? 4 : 1));
+});
+
+<span class="h">/* ── ⑥ 训练：删两个中间按钮（60-training-copy.fragment.js · renderWeekPlan） ── */</span>
+<span class="c">// 删掉 adoptHtml 与 scheduleHtml 两段构造，并从 innerHTML 拼接里去掉；</span>
+<span class="c">// "写入整周"改挂在计划说明抽屉里（唯一保留的入口）：</span>
+box.innerHTML = annotateTerms(thisWeekHtml + whyHtml + driftHtml);
+<span class="k">if</span> (explainHost){
+  explainHost.innerHTML = <span class="s">''</span>;
+  <span class="k">for</span> (<span class="k">const</span> node <span class="k">of</span> [...box.querySelectorAll(<span class="s">'.plan-requirement, .plan-why, .plan-label, .plan-load, .plan-load-note, .drift-line'</span>)])
+    explainHost.appendChild(node);
+  <span class="c">// 追加：本周写入入口（原 scheduleHtml 主体）</span>
+  explainHost.insertAdjacentHTML(<span class="s">'beforeend'</span>, scheduleHtml);
+}
+
+<span class="h">/* ── ⑦ 训练卡头 tag：把「未记录」和播种行分开（68-training-log · renderTrainingLog） ── */</span>
+<span class="k">const</span> seeded = !exercises.length &amp;&amp; seeds.length &gt; 0;
+tag.textContent = exercises.length ? `${TRAINING_TEMPLATES[template]} · ${exercises.length} 个动作`
+  : seeded ? `已排入 · ${seeds.length} 个动作`
+  : restMarked ? <span class="s">'休息日'</span> : <span class="s">'未记录'</span>;</pre>
+
+    <pre><span class="h">/* ── ⑧ 身体：裸数字指标行（styles.css，替换 .metric-cards / .metric-card 两条） ── */</span>
+.metric-line{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  padding:4px 0 12px;border-bottom:1px solid color-mix(in srgb,var(--ink) 10%,transparent)}
+.metric-line > *{position:relative;padding:0 10px;min-width:0}
+.metric-line > *:first-child{padding-left:0}
+.metric-line > * + *::before{content:"";position:absolute;left:0;top:3px;bottom:2px;width:1px;
+  background:color-mix(in srgb,var(--ink) 8%,transparent)}
+.metric-line .metric-value{display:flex;align-items:baseline;gap:2px}
+.metric-line input[type="number"]{field-sizing:content;width:auto;min-width:1.6em;max-width:4.4em;
+  padding:0;border:0;background:none;font:600 21px/1.2 var(--font-num);
+  font-variant-numeric:tabular-nums;color:var(--ink)}
+.metric-line input[type="number"]:focus{outline:0;box-shadow:inset 0 -1px 0 var(--accent)}
+<span class="c">/* 识别回填：整盒变绿 → 左侧 2px 色条，不抢「可修改」的语义 */</span>
+.metric-line .is-filled{box-shadow:inset 2px 0 0 var(--accent)}</pre>
+  </section>
+
+  <!-- ═══════════════ 验收 ═══════════════ -->
+  <section class="audit">
+    <h2>验收清单（改完逐条过）</h2>
+    <table>
+      <thead><tr><th style="width:36px">#</th><th>断言</th><th style="width:190px">怎么验</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>首屏 390×844 内能同时看到：双卡、环、三入口、行动行、宏量三列</td><td>真机截图（不滚动）</td></tr>
+        <tr><td>2</td><td>能量卡 DOM 顺序为 ring → quick → action → macro → check</td><td><code>node tests/suite-today.test.mjs</code> + 断言 indexOf 次序</td></tr>
+        <tr><td>3</td><td>行动行点左半仍跳 <code>data-target</code>，点右半仍开 <code>#day-brief-sheet</code></td><td>真机点两下</td></tr>
+        <tr><td>4</td><td>习惯三行合计高度 ≤ 150px（原 ~320px）</td><td>截图量或 <code>getBoundingClientRect</code></td></tr>
+        <tr><td>5</td><td>习惯：点数字能输入；长按 −/+ 连加；胶囊「饮水 +250」是累加不是定格</td><td>真机三次操作</td></tr>
+        <tr><td>6</td><td>习惯：沿用昨日只填昨天真记过的项；保存后换天再回来数值还在</td><td>真机 + <code>state.json</code> 核对</td></tr>
+        <tr><td>7</td><td>身体：三项可编辑、越界值被 <code>normaliseVision</code> 挡掉、识别后能直接改</td><td>真机 + 单测</td></tr>
+        <tr><td>8</td><td>训练：计划卡不再出现「加入今日清单」与「写入整周」；日志已自动播种</td><td><code>grep data-adopt-today</code> 应为 0</td></tr>
+        <tr><td>9</td><td>训练：勾一组 → 起倒计时、清单 done +1；全勾 → 收成一行；保存后弹窗明细齐全</td><td>真机走一遍</td></tr>
+        <tr><td>10</td><td>全量测试与两个审计全绿，入口预算 ≤2</td><td><code>node tools/test-all.mjs</code> / <code>aesthetic-audit</code> / <code>entry-budget-audit</code></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═══════════════ 待拍板 ═══════════════ -->
+  <section class="audit">
+    <h2>需要你拍板的两件事</h2>
+    <table>
+      <thead><tr><th style="width:210px">事项</th><th>两个选项</th><th style="width:200px">我的建议</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>习惯行要不要保留"可拖"</td>
+          <td><b>A</b> 纯账本行（本稿）：44px，只能输入 / 步进 / 胶囊。<br><b>B</b> 保留轨道：回到 ~104px 四层。</td>
+          <td>A。三行省 180px，把体检与餐食顶上首屏；"拖"在手机上不如键入准。</td>
+        </tr>
+        <tr>
+          <td>「写入整周」放哪</td>
+          <td><b>A</b> 进「计划说明」抽屉（本稿）。<br><b>B</b> 直接删除（只留自动播种）。</td>
+          <td>A。批量补录过去几天仍有人需要，但它是低频动作，抽屉刚好。</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer class="docfoot">
+    轻衡 · 四模块布局与交互重构确认稿 · 基线 1.5.30 / 530（603632c）· 令牌取自 <code>app/src/main/assets/styles.css</code> ·
+    手机框 390×844 按装机版真实排版 · 深链 <code>#m-today</code> / <code>#m-body</code> / <code>#m-habit</code> / <code>#m-training</code> / <code>#m-dialog</code>
+  </footer>
+</div>
+
+<script>
+  (function () {
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+    const tabs = [...document.querySelectorAll('.tab')];
+    const mods = [...document.querySelectorAll('.module')];
+    function show(name) {
+      const id = 'm-' + name;
+      mods.forEach(m => m.classList.toggle('is-on', m.id === id));
+      tabs.forEach(t => t.setAttribute('aria-selected', String(t.dataset.m === name)));
+      if (location.hash !== '#' + id) history.replaceState(null, '', '#' + id);
+      window.scrollTo(0, 0);
+      requestAnimationFrame(() => window.scrollTo(0, 0));
+    }
+    tabs.forEach(t => t.addEventListener('click', () => show(t.dataset.m)));
+    const fromHash = () => {
+      const name = (location.hash || '').replace('#m-', '');
+      if (['today', 'body', 'habit', 'training', 'dialog'].includes(name)) show(name);
+    };
+    // 先按 hash 切模块，再把浏览器那次「跳到锚点」的滚动拉回顶部（否则会停在被隐藏 section 的位置）。
+    fromHash();
+    window.addEventListener('hashchange', fromHash);
+    window.addEventListener('load', () => window.scrollTo(0, 0));
+  }());
+</script>
+</body>
+</html>
