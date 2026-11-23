@@ -1918,3 +1918,17 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 仍差的 4 项：①能量卡内 `#today-action` 仍在宏量之后（应在之前）；②`.today-peek` 仍是横滑单列（应双卡并列）；③身体页三处内嵌盒（`.body-weight` / `.metric-card` 两列网格 / 卡内满宽保存）；④习惯仍是四层 `.habit-meter`（名称/数字/轨道/胶囊，单卡 ~104px），brief 要单行账本行。
 - 顺手发现：播种行已出现在训练日志里，但卡头 tag 仍写「未记录」（`renderTrainingLog` 只数已存动作），建议改为「已排入 · N 个动作」。
 - 未做：本轮不改源码，因此未跑 assemble / test-all / 装机；文档里给的是切片级补丁，落地时先 grep 再改，改完补跑 `test-all` 与两个审计。
+
+
+### r225 · 2026-11-23 23:05 · 1.5.31：按四模块清单落地（今天顺序 / 身体去盒 / 习惯单行 / 训练删中间步骤）
+
+- 用户原话：「根据四个模块清单，按照清单优化app」——即按 41 号确认稿右侧那版实现，不再出方案。
+- 今天页：`#today-action` 移到 `#macro-summary` 之前（环 → 三入口 → 下一步 → 宏量 → 体检）；`.today-peek` 从横滑改 `grid 1fr 1fr`（390px 下两卡并列，第二张不再被裁）；`.fold-tabs/.fold-tab` 从带描边胶囊改成文字 + 2px 下划线（卡外分段不再像第二张卡）。
+- 身体页：`.body-weight` 内嵌盒 → 32px 大数字 + 发丝线（空值走 `.is-empty` 退成 muted 22px，不再把「—」画成黑杠）；`.metric-cards` 从 2 列卡片网格改 3 列裸数字（竖发丝线、聚焦只长下划线、识别回填改左侧 2px 色条）；单位从输入框后面挪进名称（「体重 kg / 体脂率 %」）——老内核没有 `field-sizing`，单位跟在输入框后必然被推出一条空隙；保存从卡内满宽方块改成页脚右对齐主按钮（`.form-foot`）。
+- 习惯：`.habit-meter` 四层刻度卡 → `.habit-row` 单行账本（名称 + 20px 值 + 单位｜−/＋ 26px 圆钮｜两枚胶囊），三行各 44px；删掉轨道/滑块/拖拽与 `role="slider"`，键盘 ↑↓ ±1 档补到输入框上（Shift 四档）；`76-swipe` 的忽略列表由 `.habit-meter-track` 换成 `.habit-row`；饮水胶囊改「+250ml / +500ml」。
+- 训练：`renderWeekPlan` 不再渲染 `data-adopt-today`（加入今日清单）与卡面「把这周写进训练记录」，卡面只剩周条 + 漂移提示；本周要求 / 关系句 / 负荷 / 写成记录统一 `explainHost.innerHTML` 一次渲染进 `#plan-sheet`（不再 move 搬家）；`renderTrainingLog` 卡头新增「已排入 · N 个动作」（播种行 ≠ 未记录）。
+- 顺手修两处空值观感：`.habit-cell-value.is-empty`、`.overview-stat.is-empty`——「—」不再用 20/26px 半粗画成黑杠。
+- 真机验收（1.5.31 / 531，设备 3cba2bdc）：今天页双卡并列 + 行动行在宏量之前；身体三列裸数字与页脚保存；习惯三行（空值「— 步」紧贴、填 500 后「500 步」紧贴）；训练卡无「加入今日清单」、日志头「已排入 · 4 个动作」、概览空值 muted。
+- 断言翻转：`suite-today` 两处（`.body-weight` 形态、「it sits between the quick entries and the macros」）、`suite-training` 四处（习惯单行、无 data-adopt-today、整周写入进抽屉、抽屉直接渲染）。
+- 验收：assemble + `node --check` 通过；`test-all` 10/10 全绿；`aesthetic-audit` 无阻塞（字号 12 种）；`entry-budget` 9/9；`dev-loop -Version 1.5.31 -VersionCode 531` 装机，smoke 报 js errors: none。APK 715,997 B（699 KB）。
+- 待办：三远端推送与 Release 1.5.31 资产对齐未做；「写入整周」与习惯行「可拖」按本稿选定（进抽屉 / 放弃拖拽），用户若要回转只改一层。

@@ -1037,7 +1037,7 @@
     if (!plan) { box.innerHTML = empty('还没有足够的训练记录', '先记两周训练，计划会自动出来。', 'empty'); return; }
     if (tag) tag.textContent = plan.deload ? '减载周' : '负重 +2.5%';
     // "What do I train today": today's planned day, the next one, or what was already logged.
-    const todayPlan = plan.days.find(day => day.date === activeDate);
+    // 2026-11-23 四模块之四：卡面不再提供「把今天这节加入清单」——计划当天已自动播种成日志行。
     // 负荷：标签 + 数值 + 判定，不写成一句话。「急慢性比」第一次看不知道是谁比谁，改成「负荷比」+ 一行口径。
     const acwrHtml = (() => {
       if (!stats || !Number.isFinite(stats.ratio)) return '';
@@ -1085,8 +1085,8 @@
           // 单个动作的要点走动作名旁的 ?（showExerciseGuide），不再占卡面。
           return;
         }
-        const adopt = event.target.closest("[data-adopt-today]");
-        if (adopt) { adoptWeekDay(); return; }
+        // 2026-11-23 四模块之四：卡面上的「加入今日清单」已删除（计划当天自动播种，不需要中间步骤）；
+        // 今日页那份 [data-today-adopt] 入口仍保留，走 adoptWeekDay()。
         // 2026-11-23 Phase 3：把这周的写入也收进同一个委托，#week-plan 上不再有第二个监听器。
         const schedule = event.target.closest("[data-plan-schedule]");
         if (schedule) scheduleWeekPlan(schedule);
@@ -1133,18 +1133,12 @@
         + goalPreset.reps[0] + '~' + goalPreset.reps[1] + ' 次 · RIR '
         + goalPreset.rir[0] + '~' + goalPreset.rir[1]) + '</p>'
       : '';
-    // 采纳入口：今天有安排且今日清单还空着时，一键把它变成今日清单——否则用户要自己把
-    // 数据层里的安排重录一遍。已有 AI 清单时不出现：AI 排的优先级高于周计划。
-    const hasTodayList = (() => { try { const raw = localStorage.getItem(AI_PLAN_KEY(activeDate)); const list = raw ? JSON.parse(raw) : null; return Array.isArray(list) && list.length > 0; } catch { return false; } })();
-    const adoptHtml = (!hasTodayList && todayPlan && todayPlan.exercises.length)
-      ? '<button type="button" class="button primary full-width" data-adopt-today>把 ' + esc(dayLabel(activeDate)) + ' 这节加入' + (activeDate === localDate() ? '今日清单' : '当日清单') + '</button>'
-      : '';
-    // 一键排课：1.3.44 把 7 行表格换成周条时，这个按钮留在了一段死表达式里，handler 一直在、按钮再也
-    // 没渲染出来。2026-11-18 顺手接回来：写入的是「今天起 7 天」，确认框里写清日期。
+    // 一键排课（2026-11-23 四模块之四）：从卡面降级进「计划说明」抽屉——计划当天已自动播种成日志行，
+    // 「先点加入 / 先写入」这种中间步骤不再需要；批量补过去几天仍有人要，留在抽屉里当低频动作。
     const scheduleHtml = plan.days.length
-      ? '<details class="plan-schedule-more" id="plan-schedule-more"><summary>把这周写进训练记录</summary><p class="fine-print">上面的按钮只改今天的安排；这里会把这周剩下的 ' + plan.days.length + ' 次训练写成记录，之后还能在日志里改。</p><button type="button" class="button subtle full-width" data-plan-schedule="1">写入' + esc(dayLabel(activeDate)) + '起 ' + plan.days.length + ' 次训练</button></details>'
+      ? '<details class="plan-schedule-more" id="plan-schedule-more"><summary>把这周写进训练记录</summary><p class="fine-print">今天这节已经在下面的日志里了；这里会把这周剩下的 ' + plan.days.length + ' 次训练直接写成记录，之后还能在日志里改。</p><button type="button" class="button subtle full-width" data-plan-schedule="1">写入' + esc(dayLabel(activeDate)) + '起 ' + plan.days.length + ' 次训练</button></details>'
       : '';
-    // 「计划 vs 日志」是同屏最容易混的一对：卡上只留一句话说清谁写安排、谁写记录。
+    // 「计划 vs 日志」是同屏最容易混的一对：这句话只在抽屉里解释了，卡面不再复述。
     const scopeHtml = plan.days.length
       ? '<p class="fine-print plan-scope">周条只写「练什么」；真正记录的是下面「训练日志」，两者不一致时以日志为准。</p>'
       : '';
@@ -1152,15 +1146,11 @@
     const relationHtml = plan.days.length
       ? '<p class="fine-print plan-relation">上面按偏好与最近记录排周框架；实际执行顺序以你在训练日志里确认的那份为准，两者不一致时以日志为准。</p>'
       : '';
-    box.innerHTML = annotateTerms(thisWeekHtml + goalRequirementHtml + relationHtml + whyHtml + acwrHtml + driftHtml + scopeHtml + adoptHtml + suggestedNote + scheduleHtml);
-    // 计划说明进 sheet：本周要求 / 怎么排的 / 负荷都搬过去，卡面只留本周安排。
+    // 卡面只剩本周安排与「记录有更新」一行；其余说明一次性渲染进抽屉，不再靠 move 搬家。
+    box.innerHTML = annotateTerms(thisWeekHtml + driftHtml);
     const explainHost = $('#plan-explain-body');
     if (explainHost) {
-      explainHost.innerHTML = '';
-      // 用 move 而不是 clone：说明搬进抽屉后，卡面只留本周安排与采纳入口。
-      for (const node of [...box.querySelectorAll('.plan-requirement, .plan-relation, .plan-why, .plan-label, .plan-load, .plan-load-note, .drift-line')]) {
-        explainHost.appendChild(node);
-      }
+      explainHost.innerHTML = annotateTerms(goalRequirementHtml + relationHtml + whyHtml + acwrHtml + scopeHtml + suggestedNote + scheduleHtml);
     }
   }
 
@@ -1190,6 +1180,8 @@
     const measurement = (state.measurements || []).find(row => row && row.date === activeDate) || {};
     const weight = number(measurement.weight);
     const value = $('#body-weight-value'), note = $('#body-weight-hint'), tag = $('#body-quick-tag');
+    // 空值时「—」按小字 muted 排，不要拿 32px 半粗画成一条黑杠。
+    box.classList.toggle('is-empty', weight === null);
     if (value) value.textContent = weight === null ? '—' : fmt(weight, 1);
     if (note) note.textContent = weight === null ? '点一下填今天的体重' : `已记 ${activeDate.slice(5).replace('-', '/')} · 点一下可修改`;
     if (tag) tag.textContent = weight === null ? '待记录' : '已记录';

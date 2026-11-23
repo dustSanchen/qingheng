@@ -56,7 +56,9 @@ check('the native side narrows the prompt for training', main.includes('"trainin
 // 2026-11-22 四模块清单之四：两张刻度卡 → 三张（加睡眠），高频值收进各自卡底两枚胶囊。
 check('each habit metric owns a meter card', ['steps', 'water', 'sleep'].every(key => html.includes(`data-habit="${key}"`)));
 check('quick presets are two per metric and water means "add this much"', rest.includes('HABIT_QUICK_FALLBACK = {steps: [6000, 10000], water: [250, 500]}'));
-check('every meter keeps its slider and steppers', html.includes('habit-meter-track') && html.includes('role="slider"') && rest.includes('[data-habit-step]'));
+check('every habit row is single-line with steppers and two chips', !html.includes('habit-meter-track') && !html.includes('role="slider"') &&
+  html.includes('class="habit-row"') && html.includes('data-habit-step') && html.includes('data-habit-chips') &&
+  rest.includes('HABIT_DIAL'));
 check('a copy-yesterday shortcut exists', rest.includes('data-habit-copy') && rest.includes("shiftDay(localDate(), -1)"));
 check('copying fills only recorded values', rest.includes('if (number(rowData[key]) === null) continue;'));
 
@@ -631,10 +633,10 @@ const check = (label, ok, detail) => {
 const app = fs.readFileSync('app/src/main/assets/app.js', 'utf8');
 const css = fs.readFileSync('app/src/main/assets/styles.css', 'utf8');
 
-check('today adoption is the single visible primary', app.includes('data-adopt-today') && app.includes('把今天加入清单') && app.includes('这节加入'));
+check('the plan card no longer carries an adoption button', !app.includes('data-adopt-today') && app.includes('data-today-adopt'));
 check('the advice page no longer carries a second AI button', !app.includes('改用 AI 排今天'));
-check('the whole-week write is folded as optional', app.includes('id="plan-schedule-more"') && app.includes('把这周写进训练记录') && app.includes('上面的按钮只改今天的安排'));
-check('the whole-week write still uses the existing schedule handler', app.includes('data-plan-schedule="1"') && app.includes('data-adopt-today'));
+check('the whole-week write is folded into the plan sheet', app.includes('id="plan-schedule-more"') && app.includes('把这周写进训练记录') && app.includes('今天这节已经在下面的日志里了'));
+check('the whole-week write still uses the existing schedule handler', app.includes('data-plan-schedule="1"') && app.includes('scheduleWeekPlan(schedule)') && !app.includes('data-adopt-today'));
 check('the optional fold has a clear summary affordance', css.includes('.plan-schedule-more') && css.includes('.plan-schedule-more>summary'));
 
 // --- 1.5.30：AI 排完要能直接保存 -----------------------------------------------------------
@@ -1014,7 +1016,7 @@ check('the draft is dropped after saving and after clearing', onboarding.include
 check('set rows restore their done state', onboarding.includes('set && set.done ? \' is-done\'') && onboarding.includes('done: set.done === true'));
 
 // ③ 计划说明
-check('the sheet move no longer picks the nested lead paragraph', app.includes('.plan-requirement, .plan-relation, .plan-why, .plan-label, .plan-load, .plan-load-note, .drift-line') &&
+check('the plan sheet renders every explanation block', app.includes('explainHost.innerHTML = annotateTerms(goalRequirementHtml + relationHtml + whyHtml + acwrHtml + scopeHtml + suggestedNote + scheduleHtml)') &&
   !app.includes('.plan-why, .plan-why-lead'));
 // 2026-11-23 Phase 3：教练说明与耗时不再搬进计划说明抽屉——它们留在训练日志工具栏下方，
 // 点「重排今天」之后抬头就能看到。

@@ -2022,7 +2022,7 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     $('#habit-summary').innerHTML = habitCells.map(cell =>
       `<button type="button" class="habit-cell" data-habit-jump data-focus="${cell.focus}" aria-label="${cell.label}：${cell.value === '—' ? '未记录' : cell.value + cell.unit}">`
       + `<span class="habit-cell-label">${cell.label}</span>`
-      + `<span class="habit-cell-value">${cell.value === '—' ? '—' : `${cell.value}<small>${cell.unit}</small>`}</span></button>`
+      + `<span class="habit-cell-value${cell.value === '—' ? ' is-empty' : ''}">${cell.value === '—' ? '—' : `${cell.value}<small>${cell.unit}</small>`}</span></button>`
     ).join('');
     const recordMeals=[...state.meals].sort((a,b) => String(b.date).localeCompare(String(a.date)));
     renderTodayTimeline($('#today-meals'), meals);
@@ -6793,7 +6793,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     if (!plan) { box.innerHTML = empty('还没有足够的训练记录', '先记两周训练，计划会自动出来。', 'empty'); return; }
     if (tag) tag.textContent = plan.deload ? '减载周' : '负重 +2.5%';
     // "What do I train today": today's planned day, the next one, or what was already logged.
-    const todayPlan = plan.days.find(day => day.date === activeDate);
+    // 2026-11-23 四模块之四：卡面不再提供「把今天这节加入清单」——计划当天已自动播种成日志行。
     // 负荷：标签 + 数值 + 判定，不写成一句话。「急慢性比」第一次看不知道是谁比谁，改成「负荷比」+ 一行口径。
     const acwrHtml = (() => {
       if (!stats || !Number.isFinite(stats.ratio)) return '';
@@ -6841,8 +6841,8 @@ const values = points.length<=7 ? points.map((item,i) => {
           // 单个动作的要点走动作名旁的 ?（showExerciseGuide），不再占卡面。
           return;
         }
-        const adopt = event.target.closest("[data-adopt-today]");
-        if (adopt) { adoptWeekDay(); return; }
+        // 2026-11-23 四模块之四：卡面上的「加入今日清单」已删除（计划当天自动播种，不需要中间步骤）；
+        // 今日页那份 [data-today-adopt] 入口仍保留，走 adoptWeekDay()。
         // 2026-11-23 Phase 3：把这周的写入也收进同一个委托，#week-plan 上不再有第二个监听器。
         const schedule = event.target.closest("[data-plan-schedule]");
         if (schedule) scheduleWeekPlan(schedule);
@@ -6889,18 +6889,12 @@ const values = points.length<=7 ? points.map((item,i) => {
         + goalPreset.reps[0] + '~' + goalPreset.reps[1] + ' 次 · RIR '
         + goalPreset.rir[0] + '~' + goalPreset.rir[1]) + '</p>'
       : '';
-    // 采纳入口：今天有安排且今日清单还空着时，一键把它变成今日清单——否则用户要自己把
-    // 数据层里的安排重录一遍。已有 AI 清单时不出现：AI 排的优先级高于周计划。
-    const hasTodayList = (() => { try { const raw = localStorage.getItem(AI_PLAN_KEY(activeDate)); const list = raw ? JSON.parse(raw) : null; return Array.isArray(list) && list.length > 0; } catch { return false; } })();
-    const adoptHtml = (!hasTodayList && todayPlan && todayPlan.exercises.length)
-      ? '<button type="button" class="button primary full-width" data-adopt-today>把 ' + esc(dayLabel(activeDate)) + ' 这节加入' + (activeDate === localDate() ? '今日清单' : '当日清单') + '</button>'
-      : '';
-    // 一键排课：1.3.44 把 7 行表格换成周条时，这个按钮留在了一段死表达式里，handler 一直在、按钮再也
-    // 没渲染出来。2026-11-18 顺手接回来：写入的是「今天起 7 天」，确认框里写清日期。
+    // 一键排课（2026-11-23 四模块之四）：从卡面降级进「计划说明」抽屉——计划当天已自动播种成日志行，
+    // 「先点加入 / 先写入」这种中间步骤不再需要；批量补过去几天仍有人要，留在抽屉里当低频动作。
     const scheduleHtml = plan.days.length
-      ? '<details class="plan-schedule-more" id="plan-schedule-more"><summary>把这周写进训练记录</summary><p class="fine-print">上面的按钮只改今天的安排；这里会把这周剩下的 ' + plan.days.length + ' 次训练写成记录，之后还能在日志里改。</p><button type="button" class="button subtle full-width" data-plan-schedule="1">写入' + esc(dayLabel(activeDate)) + '起 ' + plan.days.length + ' 次训练</button></details>'
+      ? '<details class="plan-schedule-more" id="plan-schedule-more"><summary>把这周写进训练记录</summary><p class="fine-print">今天这节已经在下面的日志里了；这里会把这周剩下的 ' + plan.days.length + ' 次训练直接写成记录，之后还能在日志里改。</p><button type="button" class="button subtle full-width" data-plan-schedule="1">写入' + esc(dayLabel(activeDate)) + '起 ' + plan.days.length + ' 次训练</button></details>'
       : '';
-    // 「计划 vs 日志」是同屏最容易混的一对：卡上只留一句话说清谁写安排、谁写记录。
+    // 「计划 vs 日志」是同屏最容易混的一对：这句话只在抽屉里解释了，卡面不再复述。
     const scopeHtml = plan.days.length
       ? '<p class="fine-print plan-scope">周条只写「练什么」；真正记录的是下面「训练日志」，两者不一致时以日志为准。</p>'
       : '';
@@ -6908,15 +6902,11 @@ const values = points.length<=7 ? points.map((item,i) => {
     const relationHtml = plan.days.length
       ? '<p class="fine-print plan-relation">上面按偏好与最近记录排周框架；实际执行顺序以你在训练日志里确认的那份为准，两者不一致时以日志为准。</p>'
       : '';
-    box.innerHTML = annotateTerms(thisWeekHtml + goalRequirementHtml + relationHtml + whyHtml + acwrHtml + driftHtml + scopeHtml + adoptHtml + suggestedNote + scheduleHtml);
-    // 计划说明进 sheet：本周要求 / 怎么排的 / 负荷都搬过去，卡面只留本周安排。
+    // 卡面只剩本周安排与「记录有更新」一行；其余说明一次性渲染进抽屉，不再靠 move 搬家。
+    box.innerHTML = annotateTerms(thisWeekHtml + driftHtml);
     const explainHost = $('#plan-explain-body');
     if (explainHost) {
-      explainHost.innerHTML = '';
-      // 用 move 而不是 clone：说明搬进抽屉后，卡面只留本周安排与采纳入口。
-      for (const node of [...box.querySelectorAll('.plan-requirement, .plan-relation, .plan-why, .plan-label, .plan-load, .plan-load-note, .drift-line')]) {
-        explainHost.appendChild(node);
-      }
+      explainHost.innerHTML = annotateTerms(goalRequirementHtml + relationHtml + whyHtml + acwrHtml + scopeHtml + suggestedNote + scheduleHtml);
     }
   }
 
@@ -6946,6 +6936,8 @@ const values = points.length<=7 ? points.map((item,i) => {
     const measurement = (state.measurements || []).find(row => row && row.date === activeDate) || {};
     const weight = number(measurement.weight);
     const value = $('#body-weight-value'), note = $('#body-weight-hint'), tag = $('#body-quick-tag');
+    // 空值时「—」按小字 muted 排，不要拿 32px 半粗画成一条黑杠。
+    box.classList.toggle('is-empty', weight === null);
     if (value) value.textContent = weight === null ? '—' : fmt(weight, 1);
     if (note) note.textContent = weight === null ? '点一下填今天的体重' : `已记 ${activeDate.slice(5).replace('-', '/')} · 点一下可修改`;
     if (tag) tag.textContent = weight === null ? '待记录' : '已记录';
@@ -8088,7 +8080,13 @@ function metricIcon(label) {
     const tag = $('#training-tag');
     // 训练状态只认动作（2026-11-18）；rest 是用户明确记下的「今天休息」，缺失才是「未记录」。
     const restMarked = !!row && (row.training === false || String(row.training) === 'false') && !exercises.length;
-    if (tag) tag.textContent = exercises.length ? `${TRAINING_TEMPLATES[template]} · ${exercises.length} 个动作` : restMarked ? '休息日' : '未记录';
+    if (tag) {
+      // 播种行（只写 DOM、未落库）与已存记录要分开说：三行动作配「未记录」会让人以为播种失败。
+      const seeded = !exercises.length && seeds.length > 0;
+      tag.textContent = exercises.length ? `${TRAINING_TEMPLATES[template]} · ${exercises.length} 个动作`
+        : seeded ? `已排入 · ${seeds.length} 个动作`
+        : restMarked ? '休息日' : '未记录';
+    }
     const restButton = $('#training-rest');
     if (restButton) {
       restButton.hidden = !trainingEnabled() || exercises.length > 0;
@@ -8414,6 +8412,8 @@ function metricIcon(label) {
     const setStat = (index, value, unit) => {
       const stat = grid.children[index];
       if (!stat) return;
+      // 空值不摆一条 26px 的黑杠：交给 .is-empty 退成 muted 小字。
+      stat.classList.toggle('is-empty', value === null);
       const number = stat.querySelector('b.ov-num'), label = stat.querySelector('[data-unit]');
       if (label) label.textContent = unit || '';
       if (number) number.textContent = value === null ? '—' : fmt(value, 0);
@@ -8888,7 +8888,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.30';
+  const APP_VERSION = '1.5.31';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -11316,9 +11316,9 @@ feedback(message,'数据已导入。'+report);
     });
   }
   /**
-   * 日常习惯（2026-11-22 四模块清单之四）：在原版刻度卡上加一张睡眠卡，并把高频值收进各自卡底。
-   * 每张卡 = 左色条 + 名称/单位 + 可直接输入的大数字 + −/＋ 圆钮 + 刻度轨道 + 两枚快捷胶囊。
-   * 滑块仍管任意值；胶囊只留最常用的两下；改胶囊本身进卡右上「自定义快捷值」，不再占卡面。
+   * 日常习惯（2026-11-23 四模块之四·单行化）：三行账本，名称 + 大数字 + 单位在左，−/＋ 与两枚胶囊在右。
+   * 每行 = 名称 + 可直接输入的大数字 + 单位 + −/＋ 圆钮 + 两枚快捷胶囊；刻度轨道已退场（↑↓ 走键盘调值）。
+   * 胶囊只留最常用的两下；改胶囊本身进卡右上「自定义快捷值」，不再占卡面。
    */
   const HABIT_QUICK_KEY = 'qingheng.habitQuick';
   // 步数/睡眠是「设值」，饮水是「每次再加多少」——两种语义分开，所以饮水这两档是 250/500 而不是总量。
@@ -11347,11 +11347,12 @@ feedback(message,'数据已导入。'+report);
   function writeHabitQuick(next) {
     try { localStorage.setItem(HABIT_QUICK_KEY, JSON.stringify({steps: next.steps, water: next.water})); } catch {}
   }
-  /** 胶囊标签：步数按 k、饮水按 L 缩写，睡眠直接写小时。 */
+  /** 胶囊标签：步数按 k、饮水写毫升、睡眠写小时。 */
   function habitQuickLabel(key, value) {
     if (key === 'sleep') return `${fmt(value, 1)}h`;
     if (key === 'steps') return `${fmt(value / 1000, value % 1000 ? 1 : 0)}k`;
-    return `${fmt(value / 1000, value % 500 ? 2 : 1)}L`;
+    // 饮水是「再加多少」，用毫升写更贴近动作（+250ml 比 +0.25L 好读）。
+    return `${fmt(value, 0)}ml`;
   }
   /**
    * 训练的两张静态 sheet：计划说明放本周要求 / 怎么排的 / 负荷；
@@ -11391,11 +11392,16 @@ feedback(message,'数据已导入。'+report);
       const field = form.elements[key];
       if (!meter || !field) continue;
       const spec = HABIT_DIAL[key];
-      meters[key] = {meter, field, spec, track: $('.habit-meter-track', meter),
-        fill: $('.habit-meter-fill', meter), thumb: $('.habit-meter-thumb', meter)};
+      meters[key] = {meter, field, spec};
       // 输入途中只跟状态、不整形：把「7.」立刻写成「7」会把小数点吃掉。
       field.addEventListener('input', () => paintMeter(key));
       field.addEventListener('change', () => { snapMeter(key); paintMeter(key); });
+      // 刻度轨道退场后的键盘通路：↑↓ 走一档，Shift+↑↓ 走四档（等价于原来的 Home/End 之外的可达值）。
+      field.addEventListener('keydown', event => {
+        if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+        event.preventDefault();
+        bump(key, (event.key === 'ArrowUp' ? 1 : -1) * (event.shiftKey ? 4 : 1));
+      });
     }
     const valueOf = key => meters[key] ? number(meters[key].field.value) : null;
     const specOf = key => HABIT_DIAL[key];
@@ -11403,13 +11409,14 @@ feedback(message,'数据已导入。'+report);
       const entry = meters[key];
       if (!entry) return;
       const value = number(entry.field.value) ?? 0;
-      const ratio = Math.max(0, Math.min(1, value / entry.spec.max));
-      entry.fill.style.width = `${(ratio * 100).toFixed(1)}%`;
-      entry.thumb.style.left = `${(ratio * 100).toFixed(1)}%`;
+      // 单行账本只保留「空 / 非空」这一层视觉；数值本身已是 20px 主数字，不再画刻度。
       entry.meter.classList.toggle('is-empty', value <= 0);
-      entry.track.setAttribute('aria-valuenow', String(value));
-      entry.track.setAttribute('aria-valuetext', value > 0 ? `${fmt(value, entry.spec.digits)} ${entry.spec.unit}` : '未填写');
+      // 老内核没有 field-sizing：按位数给宽度，避免空值或短值在名称与单位之间留一条空隙。
+      const digits = String(entry.field.value || '').length;
+      const width = digits === 0 ? 0.9 : Math.max(2.2, digits * 0.62 + 0.4);
+      entry.field.style.setProperty('--habit-width', `${width.toFixed(2)}em`);
     }
+    for (const key of HABIT_KEYS) paintMeter(key);
     function setMeter(key, value) {
       const entry = meters[key];
       if (!entry) return null;
@@ -11459,51 +11466,6 @@ feedback(message,'数据已导入。'+report);
     });
     window.addEventListener('pointerup', stopRepeat);
     window.addEventListener('pointercancel', stopRepeat);
-    // 刻度轨道：点/拖任意位置即按横向比例改数，起手点就是数值。
-    form.addEventListener('pointerdown', event => {
-      const track = event.target.closest('.habit-meter-track');
-      if (!track) return;
-      const key = track.closest('[data-habit]')?.dataset.habit;
-      if (!meters[key]) return;
-      event.preventDefault();
-      try { track.setPointerCapture(event.pointerId); } catch {}
-      track.dataset.dragging = '1';
-      setMeter(key, fromPointer(key, event));
-    });
-    form.addEventListener('pointermove', event => {
-      const track = event.target.closest?.('.habit-meter-track');
-      if (!track || track.dataset.dragging !== '1') return;
-      const key = track.closest('[data-habit]')?.dataset.habit;
-      if (meters[key]) setMeter(key, fromPointer(key, event));
-    });
-    const stopDrag = event => {
-      const track = event.target.closest?.('.habit-meter-track');
-      if (track) delete track.dataset.dragging;
-    };
-    window.addEventListener('pointerup', stopDrag);
-    window.addEventListener('pointercancel', stopDrag);
-    function fromPointer(key, event) {
-      const entry = meters[key];
-      const box = entry.track.getBoundingClientRect();
-      const ratio = Math.max(0, Math.min(1, (event.clientX - box.left) / Math.max(1, box.width)));
-      return entry.spec.min + ratio * (entry.spec.max - entry.spec.min);
-    }
-    form.addEventListener('keydown', event => {
-      const track = event.target.closest?.('.habit-meter-track');
-      if (!track) return;
-      const key = track.closest('[data-habit]')?.dataset.habit;
-      const entry = meters[key];
-      if (!entry) return;
-      const now = valueOf(key) ?? 0;
-      const jump = event.shiftKey ? entry.spec.step * 4 : entry.spec.step;
-      const handled = ['ArrowRight', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'Home', 'End'].includes(event.key);
-      if (!handled) return;
-      event.preventDefault();
-      if (event.key === 'ArrowRight' || event.key === 'ArrowUp') setMeter(key, now + jump);
-      else if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') setMeter(key, now - jump);
-      else if (event.key === 'Home') setMeter(key, entry.spec.min);
-      else setMeter(key, entry.spec.max);
-    });
     form.addEventListener('click', event => {
       const step = event.target.closest('[data-habit-step]');
       // 键盘回车/空格只派发 click（detail = 0）：补这一下，指针那一路已经在 pointerdown 里做过。
@@ -12046,7 +12008,7 @@ feedback(message,'数据已导入。'+report);
     const SWIPE_RATIO = 1.6;   // 斜着划以纵向滚动为准
     let start = null;
     const blocked = (target) => !!(target && target.closest && target.closest(
-      'input,textarea,select,[contenteditable="true"],.app-dialog,.sheet-panel,.pref-chips,.chips,.segmented,.table-wrap,#chat-chips,.chat-composer,.habit-meter-track,.dial-face,[data-swipe-ignore]'));
+      'input,textarea,select,[contenteditable="true"],.app-dialog,.sheet-panel,.pref-chips,.chips,.segmented,.table-wrap,#chat-chips,.chat-composer,.habit-row,.dial-face,[data-swipe-ignore]'));
     const currentTab = () => document.querySelector('[data-tab][aria-current="page"]')?.dataset.tab || 'today';
     document.addEventListener('touchstart', (event) => {
       if (event.touches.length !== 1) { start = null; return; }

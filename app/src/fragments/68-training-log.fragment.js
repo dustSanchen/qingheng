@@ -396,7 +396,13 @@
     const tag = $('#training-tag');
     // 训练状态只认动作（2026-11-18）；rest 是用户明确记下的「今天休息」，缺失才是「未记录」。
     const restMarked = !!row && (row.training === false || String(row.training) === 'false') && !exercises.length;
-    if (tag) tag.textContent = exercises.length ? `${TRAINING_TEMPLATES[template]} · ${exercises.length} 个动作` : restMarked ? '休息日' : '未记录';
+    if (tag) {
+      // 播种行（只写 DOM、未落库）与已存记录要分开说：三行动作配「未记录」会让人以为播种失败。
+      const seeded = !exercises.length && seeds.length > 0;
+      tag.textContent = exercises.length ? `${TRAINING_TEMPLATES[template]} · ${exercises.length} 个动作`
+        : seeded ? `已排入 · ${seeds.length} 个动作`
+        : restMarked ? '休息日' : '未记录';
+    }
     const restButton = $('#training-rest');
     if (restButton) {
       restButton.hidden = !trainingEnabled() || exercises.length > 0;
@@ -722,6 +728,8 @@
     const setStat = (index, value, unit) => {
       const stat = grid.children[index];
       if (!stat) return;
+      // 空值不摆一条 26px 的黑杠：交给 .is-empty 退成 muted 小字。
+      stat.classList.toggle('is-empty', value === null);
       const number = stat.querySelector('b.ov-num'), label = stat.querySelector('[data-unit]');
       if (label) label.textContent = unit || '';
       if (number) number.textContent = value === null ? '—' : fmt(value, 0);

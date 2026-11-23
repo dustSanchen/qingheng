@@ -161,7 +161,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.30';
+  const APP_VERSION = '1.5.31';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -2589,9 +2589,9 @@ feedback(message,'数据已导入。'+report);
     });
   }
   /**
-   * 日常习惯（2026-11-22 四模块清单之四）：在原版刻度卡上加一张睡眠卡，并把高频值收进各自卡底。
-   * 每张卡 = 左色条 + 名称/单位 + 可直接输入的大数字 + −/＋ 圆钮 + 刻度轨道 + 两枚快捷胶囊。
-   * 滑块仍管任意值；胶囊只留最常用的两下；改胶囊本身进卡右上「自定义快捷值」，不再占卡面。
+   * 日常习惯（2026-11-23 四模块之四·单行化）：三行账本，名称 + 大数字 + 单位在左，−/＋ 与两枚胶囊在右。
+   * 每行 = 名称 + 可直接输入的大数字 + 单位 + −/＋ 圆钮 + 两枚快捷胶囊；刻度轨道已退场（↑↓ 走键盘调值）。
+   * 胶囊只留最常用的两下；改胶囊本身进卡右上「自定义快捷值」，不再占卡面。
    */
   const HABIT_QUICK_KEY = 'qingheng.habitQuick';
   // 步数/睡眠是「设值」，饮水是「每次再加多少」——两种语义分开，所以饮水这两档是 250/500 而不是总量。
@@ -2620,11 +2620,12 @@ feedback(message,'数据已导入。'+report);
   function writeHabitQuick(next) {
     try { localStorage.setItem(HABIT_QUICK_KEY, JSON.stringify({steps: next.steps, water: next.water})); } catch {}
   }
-  /** 胶囊标签：步数按 k、饮水按 L 缩写，睡眠直接写小时。 */
+  /** 胶囊标签：步数按 k、饮水写毫升、睡眠写小时。 */
   function habitQuickLabel(key, value) {
     if (key === 'sleep') return `${fmt(value, 1)}h`;
     if (key === 'steps') return `${fmt(value / 1000, value % 1000 ? 1 : 0)}k`;
-    return `${fmt(value / 1000, value % 500 ? 2 : 1)}L`;
+    // 饮水是「再加多少」，用毫升写更贴近动作（+250ml 比 +0.25L 好读）。
+    return `${fmt(value, 0)}ml`;
   }
   /**
    * 训练的两张静态 sheet：计划说明放本周要求 / 怎么排的 / 负荷；
@@ -2664,11 +2665,16 @@ feedback(message,'数据已导入。'+report);
       const field = form.elements[key];
       if (!meter || !field) continue;
       const spec = HABIT_DIAL[key];
-      meters[key] = {meter, field, spec, track: $('.habit-meter-track', meter),
-        fill: $('.habit-meter-fill', meter), thumb: $('.habit-meter-thumb', meter)};
+      meters[key] = {meter, field, spec};
       // 输入途中只跟状态、不整形：把「7.」立刻写成「7」会把小数点吃掉。
       field.addEventListener('input', () => paintMeter(key));
       field.addEventListener('change', () => { snapMeter(key); paintMeter(key); });
+      // 刻度轨道退场后的键盘通路：↑↓ 走一档，Shift+↑↓ 走四档（等价于原来的 Home/End 之外的可达值）。
+      field.addEventListener('keydown', event => {
+        if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+        event.preventDefault();
+        bump(key, (event.key === 'ArrowUp' ? 1 : -1) * (event.shiftKey ? 4 : 1));
+      });
     }
     const valueOf = key => meters[key] ? number(meters[key].field.value) : null;
     const specOf = key => HABIT_DIAL[key];
@@ -2676,13 +2682,14 @@ feedback(message,'数据已导入。'+report);
       const entry = meters[key];
       if (!entry) return;
       const value = number(entry.field.value) ?? 0;
-      const ratio = Math.max(0, Math.min(1, value / entry.spec.max));
-      entry.fill.style.width = `${(ratio * 100).toFixed(1)}%`;
-      entry.thumb.style.left = `${(ratio * 100).toFixed(1)}%`;
+      // 单行账本只保留「空 / 非空」这一层视觉；数值本身已是 20px 主数字，不再画刻度。
       entry.meter.classList.toggle('is-empty', value <= 0);
-      entry.track.setAttribute('aria-valuenow', String(value));
-      entry.track.setAttribute('aria-valuetext', value > 0 ? `${fmt(value, entry.spec.digits)} ${entry.spec.unit}` : '未填写');
+      // 老内核没有 field-sizing：按位数给宽度，避免空值或短值在名称与单位之间留一条空隙。
+      const digits = String(entry.field.value || '').length;
+      const width = digits === 0 ? 0.9 : Math.max(2.2, digits * 0.62 + 0.4);
+      entry.field.style.setProperty('--habit-width', `${width.toFixed(2)}em`);
     }
+    for (const key of HABIT_KEYS) paintMeter(key);
     function setMeter(key, value) {
       const entry = meters[key];
       if (!entry) return null;
@@ -2732,51 +2739,6 @@ feedback(message,'数据已导入。'+report);
     });
     window.addEventListener('pointerup', stopRepeat);
     window.addEventListener('pointercancel', stopRepeat);
-    // 刻度轨道：点/拖任意位置即按横向比例改数，起手点就是数值。
-    form.addEventListener('pointerdown', event => {
-      const track = event.target.closest('.habit-meter-track');
-      if (!track) return;
-      const key = track.closest('[data-habit]')?.dataset.habit;
-      if (!meters[key]) return;
-      event.preventDefault();
-      try { track.setPointerCapture(event.pointerId); } catch {}
-      track.dataset.dragging = '1';
-      setMeter(key, fromPointer(key, event));
-    });
-    form.addEventListener('pointermove', event => {
-      const track = event.target.closest?.('.habit-meter-track');
-      if (!track || track.dataset.dragging !== '1') return;
-      const key = track.closest('[data-habit]')?.dataset.habit;
-      if (meters[key]) setMeter(key, fromPointer(key, event));
-    });
-    const stopDrag = event => {
-      const track = event.target.closest?.('.habit-meter-track');
-      if (track) delete track.dataset.dragging;
-    };
-    window.addEventListener('pointerup', stopDrag);
-    window.addEventListener('pointercancel', stopDrag);
-    function fromPointer(key, event) {
-      const entry = meters[key];
-      const box = entry.track.getBoundingClientRect();
-      const ratio = Math.max(0, Math.min(1, (event.clientX - box.left) / Math.max(1, box.width)));
-      return entry.spec.min + ratio * (entry.spec.max - entry.spec.min);
-    }
-    form.addEventListener('keydown', event => {
-      const track = event.target.closest?.('.habit-meter-track');
-      if (!track) return;
-      const key = track.closest('[data-habit]')?.dataset.habit;
-      const entry = meters[key];
-      if (!entry) return;
-      const now = valueOf(key) ?? 0;
-      const jump = event.shiftKey ? entry.spec.step * 4 : entry.spec.step;
-      const handled = ['ArrowRight', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'Home', 'End'].includes(event.key);
-      if (!handled) return;
-      event.preventDefault();
-      if (event.key === 'ArrowRight' || event.key === 'ArrowUp') setMeter(key, now + jump);
-      else if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') setMeter(key, now - jump);
-      else if (event.key === 'Home') setMeter(key, entry.spec.min);
-      else setMeter(key, entry.spec.max);
-    });
     form.addEventListener('click', event => {
       const step = event.target.closest('[data-habit-step]');
       // 键盘回车/空格只派发 click（detail = 0）：补这一下，指针那一路已经在 pointerdown 里做过。

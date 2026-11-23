@@ -134,7 +134,7 @@ check('an empty list is explained instead of showing a blank box', app.includes(
 check('the copy list is re-rendered with the records view', app.includes('    renderCopyMeals();'));
 
 // --- styles -------------------------------------------------------------------------------------------
-check('the two-field row leaves no dead style behind', !css.includes('.quick-two') && !css.includes('.quick-capsule') && css.includes('.body-weight{display:flex;flex-direction:column'));
+check('the weight read is one big number, not a nested box', !css.includes('.quick-two') && !css.includes('.quick-capsule') && css.includes('.body-weight{display:flex;align-items:baseline') && css.includes('.body-weight-value{font-size:32px') && !css.includes('.body-weight-name{'));
 check('copy buttons are readable', css.includes('#copy-meal-buttons .button{justify-content:flex-start'));
 ;return typeof fail === 'number' ? fail : 0;
 });
@@ -426,8 +426,9 @@ const css = fs.readFileSync('app/src/main/assets/styles.css', 'utf8');
 // --- 只留一条 ---------------------------------------------------------------------------
 check('the two old surfaces are gone', !html.includes('id="status-strip"') && !html.includes('id="slot-hint"'));
 check('exactly one action line exists', (html.match(/id="today-action"/g) || []).length === 1);
-check('it sits after the macros and before the check', html.indexOf('id="macro-summary"') < html.indexOf('id="today-action"') &&
-  html.indexOf('id="today-action"') < html.indexOf('id="energy-check"'));
+check('it sits between the quick entries and the macros', html.indexOf('class="energy-body"') < html.indexOf('id="today-action"') &&
+  html.indexOf('id="today-action"') < html.indexOf('id="macro-summary"') &&
+  html.indexOf('id="macro-summary"') < html.indexOf('id="energy-check"'));
 check('it starts hidden', /id="today-action"[^>]*hidden/.test(html));
 check('left half executes, right half opens the sheet', html.includes('id="today-action-main"') && html.includes('id="today-action-more"') &&
   app.includes('openRecordTarget(target)') && app.includes('openDayBrief'));

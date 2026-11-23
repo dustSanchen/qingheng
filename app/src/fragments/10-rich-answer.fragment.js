@@ -435,7 +435,7 @@
     $('#habit-summary').innerHTML = habitCells.map(cell =>
       `<button type="button" class="habit-cell" data-habit-jump data-focus="${cell.focus}" aria-label="${cell.label}：${cell.value === '—' ? '未记录' : cell.value + cell.unit}">`
       + `<span class="habit-cell-label">${cell.label}</span>`
-      + `<span class="habit-cell-value">${cell.value === '—' ? '—' : `${cell.value}<small>${cell.unit}</small>`}</span></button>`
+      + `<span class="habit-cell-value${cell.value === '—' ? ' is-empty' : ''}">${cell.value === '—' ? '—' : `${cell.value}<small>${cell.unit}</small>`}</span></button>`
     ).join('');
     const recordMeals=[...state.meals].sort((a,b) => String(b.date).localeCompare(String(a.date)));
     renderTodayTimeline($('#today-meals'), meals);
