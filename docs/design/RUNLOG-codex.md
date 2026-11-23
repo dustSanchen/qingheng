@@ -1961,3 +1961,13 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 验收：assemble + `node --check` 通过；`test-all` 10/10；`dev-loop -Version 1.5.33 -VersionCode 533` 装机，smoke js errors: none。
 - 真机证据：`build/v33-today2.png`（今天页底部只剩记录 + 建议）、`build/v33-train2.png`（质量行 + 常开概览 + 无强度行）、`build/v33-regen.png`（换一套前后不同）。
 - 未做：Release 资产与 gh-pages 仍未发；4 练推拉腿必然有一类练两次（胸12/背6/腿6），目前只用一句话提示，没有自动改分化。
+
+
+### r228 · 2026-11-23 23:45 · 1.5.34：把「重复部位满量练两遍」修成轻量补充日，并发版
+
+- 问题（1.5.33 质量行自己暴露的）：推拉腿 4 练时，第 4 练是同一模板的第二次满量，周组数长期 12 : 6 : 6。
+- 修法：`generateWeekPlan` 里第 2 轮起的同模板日标记 `light`——少一个动作（`moves-1`）、每组压到 2 组（`min(2, setCap)`）；计划卡质量行的部位标签写「（轻）」，不均衡提示的阈值改到 ≥6 组，避免修完还挂着提醒。
+- 真机：4 练推拉腿从「腿 12 / 推 6 / 背 6」变成「腿 10 / 推 6 / 背 6」，第 4 练标「腿（轻）」。
+- 断言：`suite-training` 新增三条行为断言（4 练只有第 4 天是轻量日、轻量日组数严格小于常规日、3 练没有轻量日）。
+- 发版：README 的 version / apksigner 示例 / 当前版本行同步到 1.5.34；`dev-loop -Version 1.5.34 -VersionCode 534` 构建装机（smoke js errors: none）；推 localmirror / source / public；`publish-pages.ps1` 刷 gh-pages；GitHub Release v1.5.34 上传 `dist/qingheng-1.5.34.apk`。
+- 事故记录：用 `Set-Content` 改 README 把整份文件的换行改成 LF（68 行全变更）+ 加了 BOM；已用 `git show HEAD:README.md` 字节还原，再走 edit 工具重改三处——`.md` 也别用 PowerShell 文本管道。

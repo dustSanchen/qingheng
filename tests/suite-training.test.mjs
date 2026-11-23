@@ -1551,6 +1551,19 @@ for (const template of ['push', 'pull', 'legs']) {
   const day = run({split: 'ppl', gear: 'mixed', minutes: 45}).days.find(row => row.template === template);
   check(`§7-1 ppl/${template} 带孤立动作`, day && day.exercises.some(item => item.role === 'isolate'), day && JSON.stringify(day.exercises.map(item => item.role)));
 }
+// --- 2026-11-23：一周次数不是模板数整数倍时，重复的那一天按轻量排（避免 12:6:6） -------------------------
+{
+  const ppl4 = run({split: 'ppl', gear: 'mixed', minutes: 45});
+  const lightDays = ppl4.days.filter(day => day.light);
+  check('ppl 4 练只有第 2 轮那一天是轻量日', lightDays.length === 1 && ppl4.days.findIndex(day => day.light) === 3,
+    String(lightDays.length));
+  const heavy = ppl4.days.filter(day => !day.light);
+  const lightSets = lightDays[0] ? lightDays[0].exercises.reduce((n, item) => n + item.sets, 0) : 0;
+  const heavySets = heavy.length ? Math.min(...heavy.map(day => day.exercises.reduce((n, item) => n + item.sets, 0))) : 0;
+  check('轻量日的组数明显小于常规日', lightSets > 0 && lightSets < heavySets, `${lightSets} vs ${heavySets}`);
+  const ppl3 = run({split: 'ppl', gear: 'mixed', minutes: 45, sessions: 3});
+  check('3 练没有轻量日', ppl3.days.every(day => !day.light));
+}
 const barbell = run({split: 'ppl', gear: 'barbell', minutes: 45});
 const pushDay = barbell.days.find(row => row.template === 'push');
 check('§7-1 器械偏好为杠铃时主复合是杠铃动作', pushDay && pushDay.exercises[0].gear === 'barbell', pushDay && pushDay.exercises[0].name);

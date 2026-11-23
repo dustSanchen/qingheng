@@ -5278,7 +5278,10 @@ const values = points.length<=7 ? points.map((item,i) => {
       return Math.max(2, Math.min(5, base + gain - (deload ? 1 : 0)));
     };
 
-    const pickDay = template => {
+    const pickDay = (template, opts = {}) => {
+      // 2026-11-23：一周次数不是模板数的整数倍时（如推拉腿 4 练），第二次出现的那个部位按轻量排——
+      // 否则同一部位一周被练两遍满量，胸/背/腿就永远 12 : 6 : 6。
+      const light = opts.light === true;
       // 动作来源：训练库（training-principles.js）里有这套模板就用库里的动作，没有才用内置池。
       // 库是「数据库」，生成器不该自己编一份和它对不上的清单。
       let pool = (TRAINING_POOLS[template] || []).slice();
@@ -5297,7 +5300,7 @@ const values = points.length<=7 ? points.map((item,i) => {
           return {name, role: index === 0 ? 'main' : index < 2 ? 'compound' : 'isolate', gear, angle: name, rpe: item.rpe || null};
         }).filter(item => item.name);
       }
-      const shape = (PLAN_SHAPES[template] || []).slice(0, Math.max(1, moves));
+      const shape = (PLAN_SHAPES[template] || []).slice(0, Math.max(1, light ? moves - 1 : moves));
       if (!pool.length || !shape.length) return {exercises: [], suggested: false};
       // 用户写了「别安排 X」就先把这些动作剔掉；剔完还有动作才生效，避免一句话把整天排空。
       const allowed = pool.filter(item => !excludedMove(item));
@@ -5341,7 +5344,10 @@ const values = points.length<=7 ? points.map((item,i) => {
         if (at === undefined) break;
         exercises.splice(at, 1);
       }
-      for (const item of exercises) item.sets = Math.min(setCap, item.sets);
+      for (const item of exercises) {
+        item.sets = Math.min(setCap, item.sets);
+        if (light) item.sets = Math.min(2, item.sets);
+      }
       return {exercises, suggested: !exercises.some(item => history.has(item.name))};
     };
 
@@ -5349,9 +5355,11 @@ const values = points.length<=7 ? points.map((item,i) => {
     rotation(sessions).forEach((template, index) => {
       const date = new Date(start + 'T00:00:00');
       date.setDate(date.getDate() + slots[index]);
-      const picked = pickDay(template);
+      // 第 2 轮起的同模板日 = 轻量补充日（4 练推拉腿、2 练上下肢都会走到这里）。
+      const light = index >= templates.length;
+      const picked = pickDay(template, {light});
       days.push({date: date.getFullYear() + '-' + pad2(date.getMonth() + 1) + '-' + pad2(date.getDate()),
-        template, deload, exercises: picked.exercises, suggested: picked.suggested,
+        template, light, deload, exercises: picked.exercises, suggested: picked.suggested,
         prescription: {reps: repsRange, rir: rirRange}});
     });
     // 38 号 §2 的周组数自检：按「部位」统计一周总组数（不是按训练日），超上限就削。
@@ -6778,7 +6786,7 @@ const values = points.length<=7 ? points.map((item,i) => {
   function planQualityLine(plan) {
     if (!plan || !Array.isArray(plan.days) || !plan.days.length) return '';
     const tpl = name => (typeof TRAINING_TEMPLATES === 'object' && TRAINING_TEMPLATES[name]) || name;
-    const labels = plan.days.map(day => tpl(day.template));
+    const labels = plan.days.map(day => tpl(day.template) + (day.light ? '（轻）' : ''));
     const counts = plan.days.map(day => (day.exercises || []).length);
     const span = counts.length && Math.min(...counts) === Math.max(...counts)
       ? `每次 ${counts[0]} 个动作`
@@ -6790,7 +6798,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     const sets = cap ? ` · 周组数 胸 ${part('push')} / 背 ${part('pull')} / 腿 ${part('legs')}（上限 ${cap}）` : '';
     // 4 练的推拉腿必然有一类练两次（胸 12 / 背 6 / 腿 6 这种）：把差距说出来，并给出不改动作的解法。
     const fams = [part('push'), part('pull'), part('legs')];
-    const imbalanced = cap && Math.max(...fams) - Math.min(...fams) >= 4;
+    const imbalanced = cap && Math.max(...fams) - Math.min(...fams) >= 6;
     const approx = plan.days.reduce((n, day) => n + (day.exercises || []).filter(item => item.weightApprox).length, 0);
     return '<p class="fine-print plan-quality">已生成 ' + plan.days.length + ' 练 · ' + labels.join(' / ') + ' · ' + span + sets
       + (approx ? ' · ' + approx + ' 个动作按体重推算起步' : '')
@@ -8912,7 +8920,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.33';
+  const APP_VERSION = '1.5.34';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}

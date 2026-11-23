@@ -1027,7 +1027,7 @@
   function planQualityLine(plan) {
     if (!plan || !Array.isArray(plan.days) || !plan.days.length) return '';
     const tpl = name => (typeof TRAINING_TEMPLATES === 'object' && TRAINING_TEMPLATES[name]) || name;
-    const labels = plan.days.map(day => tpl(day.template));
+    const labels = plan.days.map(day => tpl(day.template) + (day.light ? '（轻）' : ''));
     const counts = plan.days.map(day => (day.exercises || []).length);
     const span = counts.length && Math.min(...counts) === Math.max(...counts)
       ? `每次 ${counts[0]} 个动作`
@@ -1039,7 +1039,7 @@
     const sets = cap ? ` · 周组数 胸 ${part('push')} / 背 ${part('pull')} / 腿 ${part('legs')}（上限 ${cap}）` : '';
     // 4 练的推拉腿必然有一类练两次（胸 12 / 背 6 / 腿 6 这种）：把差距说出来，并给出不改动作的解法。
     const fams = [part('push'), part('pull'), part('legs')];
-    const imbalanced = cap && Math.max(...fams) - Math.min(...fams) >= 4;
+    const imbalanced = cap && Math.max(...fams) - Math.min(...fams) >= 6;
     const approx = plan.days.reduce((n, day) => n + (day.exercises || []).filter(item => item.weightApprox).length, 0);
     return '<p class="fine-print plan-quality">已生成 ' + plan.days.length + ' 练 · ' + labels.join(' / ') + ' · ' + span + sets
       + (approx ? ' · ' + approx + ' 个动作按体重推算起步' : '')

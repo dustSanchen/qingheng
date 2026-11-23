@@ -800,7 +800,10 @@
       return Math.max(2, Math.min(5, base + gain - (deload ? 1 : 0)));
     };
 
-    const pickDay = template => {
+    const pickDay = (template, opts = {}) => {
+      // 2026-11-23：一周次数不是模板数的整数倍时（如推拉腿 4 练），第二次出现的那个部位按轻量排——
+      // 否则同一部位一周被练两遍满量，胸/背/腿就永远 12 : 6 : 6。
+      const light = opts.light === true;
       // 动作来源：训练库（training-principles.js）里有这套模板就用库里的动作，没有才用内置池。
       // 库是「数据库」，生成器不该自己编一份和它对不上的清单。
       let pool = (TRAINING_POOLS[template] || []).slice();
@@ -819,7 +822,7 @@
           return {name, role: index === 0 ? 'main' : index < 2 ? 'compound' : 'isolate', gear, angle: name, rpe: item.rpe || null};
         }).filter(item => item.name);
       }
-      const shape = (PLAN_SHAPES[template] || []).slice(0, Math.max(1, moves));
+      const shape = (PLAN_SHAPES[template] || []).slice(0, Math.max(1, light ? moves - 1 : moves));
       if (!pool.length || !shape.length) return {exercises: [], suggested: false};
       // 用户写了「别安排 X」就先把这些动作剔掉；剔完还有动作才生效，避免一句话把整天排空。
       const allowed = pool.filter(item => !excludedMove(item));
@@ -863,7 +866,10 @@
         if (at === undefined) break;
         exercises.splice(at, 1);
       }
-      for (const item of exercises) item.sets = Math.min(setCap, item.sets);
+      for (const item of exercises) {
+        item.sets = Math.min(setCap, item.sets);
+        if (light) item.sets = Math.min(2, item.sets);
+      }
       return {exercises, suggested: !exercises.some(item => history.has(item.name))};
     };
 
@@ -871,9 +877,11 @@
     rotation(sessions).forEach((template, index) => {
       const date = new Date(start + 'T00:00:00');
       date.setDate(date.getDate() + slots[index]);
-      const picked = pickDay(template);
+      // 第 2 轮起的同模板日 = 轻量补充日（4 练推拉腿、2 练上下肢都会走到这里）。
+      const light = index >= templates.length;
+      const picked = pickDay(template, {light});
       days.push({date: date.getFullYear() + '-' + pad2(date.getMonth() + 1) + '-' + pad2(date.getDate()),
-        template, deload, exercises: picked.exercises, suggested: picked.suggested,
+        template, light, deload, exercises: picked.exercises, suggested: picked.suggested,
         prescription: {reps: repsRange, rir: rirRange}});
     });
     // 38 号 §2 的周组数自检：按「部位」统计一周总组数（不是按训练日），超上限就削。
