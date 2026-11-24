@@ -1563,6 +1563,11 @@ for (const template of ['push', 'pull', 'legs']) {
   check('轻量日的组数明显小于常规日', lightSets > 0 && lightSets < heavySets, `${lightSets} vs ${heavySets}`);
   const ppl3 = run({split: 'ppl', gear: 'mixed', minutes: 45, sessions: 3});
   check('3 练没有轻量日', ppl3.days.every(day => !day.light));
+  // 2026-11-24：全身模板每天本来就一样，不算「重复」，不能出现 3 个轻量日（真机就是这么翻车的）。
+  const fb4 = run({split: 'fb', gear: 'mixed', minutes: 45, sessions: 4});
+  check('全身 4 练没有轻量日', fb4.days.every(day => !day.light), String(fb4.days.filter(day => day.light).length));
+  const ul4 = run({split: 'ul', gear: 'mixed', minutes: 45, sessions: 4});
+  check('上下肢 4 练有 2 个轻量日', ul4.days.filter(day => day.light).length === 2, String(ul4.days.filter(day => day.light).length));
 }
 const barbell = run({split: 'ppl', gear: 'barbell', minutes: 45});
 const pushDay = barbell.days.find(row => row.template === 'push');
@@ -1995,3 +2000,31 @@ check('没有新增顶栏计时器', !html.includes('id="rest-top"') && !html.in
 });
 console.log('\nFAIL total: ' + __fail);
 process.exitCode = __fail ? 1 : 0;
+
+// --- 计划部位文案（2026-11-24：全身 4 练不该出现「3 个轻量日」，也不该漏翻 full） ---------------------
+await __run("plan-labels", async () => {
+/** 只跑纯函数：planDayLabels 依赖 TRAINING_TEMPLATES 一张表，不需要 DOM。 */
+const { functionSource } = await import('./lib/extract.mjs');
+const source = fs.readFileSync('app/src/fragments/60-training-copy.fragment.js', 'utf8');
+const labels = new Function(
+  'TRAINING_TEMPLATES',
+  functionSource(source, 'planDayLabels') + '; return planDayLabels;'
+)({push: '推', pull: '拉', legs: '腿', upper: '上肢', lower: '下肢', full: '全身', other: '其他'});
+
+let fail = 0;
+const check = (name, ok, detail) => {
+  if (ok) { console.log('PASS  ' + name + (detail ? '  -> ' + detail : '')); return; }
+  fail += 1;
+  console.log('FAIL  ' + name + (detail ? '  -> ' + detail : ''));
+};
+
+check('全身 4 练合并成「全身 ×4」', labels([{template: 'full'}, {template: 'full'}, {template: 'full'}, {template: 'full'}]) === '全身 ×4',
+  labels([{template: 'full'}, {template: 'full'}, {template: 'full'}, {template: 'full'}]));
+check('轻量日单独标出', labels([{template: 'legs'}, {template: 'legs', light: true}]) === '腿 / 腿（轻）');
+check('上肢/下肢有中文名', labels([{template: 'upper'}, {template: 'lower'}]) === '上肢 / 下肢');
+check('未知识别回退原名', labels([{template: 'mystery'}]) === 'mystery');
+check('空数组返回空串', labels([]) === '');
+
+console.log('FAIL total: ' + fail);
+;return typeof fail === 'number' ? fail : 0;
+});

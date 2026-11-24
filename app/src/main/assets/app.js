@@ -4530,7 +4530,7 @@ const values = points.length<=7 ? points.map((item,i) => {
   // 只做纯计算与本地存储读写；不碰 DOM、不发请求。视图与绑定在 60 / 68 / 70。
   // ---------------------------------------------------------------------------------------------
 
-  const TRAINING_TEMPLATES = {push: '推', pull: '拉', legs: '腿', other: '其他'};
+  const TRAINING_TEMPLATES = {push: '推', pull: '拉', legs: '腿', upper: '上肢', lower: '下肢', full: '全身', other: '其他'};
 
   /**
    * 自重动作（2026-11-18）：没有外部配重也能记，负重留空不算缺项。
@@ -5402,8 +5402,8 @@ const values = points.length<=7 ? points.map((item,i) => {
     rotation(sessions).forEach((template, index) => {
       const date = new Date(start + 'T00:00:00');
       date.setDate(date.getDate() + slots[index]);
-      // 第 2 轮起的同模板日 = 轻量补充日（4 练推拉腿、2 练上下肢都会走到这里）。
-      const light = index >= templates.length;
+      // 第 2 轮起的同模板日 = 轻量补充日；全身模板每天本来就一样，不算「重复」，不该有轻量日。
+      const light = templates.length > 1 && index >= templates.length;
       const picked = pickDay(template, {light});
       days.push({date: date.getFullYear() + '-' + pad2(date.getMonth() + 1) + '-' + pad2(date.getDate()),
         template, light, deload, exercises: picked.exercises, suggested: picked.suggested,
@@ -6838,8 +6838,7 @@ const values = points.length<=7 ? points.map((item,i) => {
    */
   function planQualityLine(plan) {
     if (!plan || !Array.isArray(plan.days) || !plan.days.length) return '';
-    const tpl = name => (typeof TRAINING_TEMPLATES === 'object' && TRAINING_TEMPLATES[name]) || name;
-    const labels = plan.days.map(day => tpl(day.template) + (day.light ? '（轻）' : ''));
+    const labels = planDayLabels(plan.days);
     const counts = plan.days.map(day => (day.exercises || []).length);
     const span = counts.length && Math.min(...counts) === Math.max(...counts)
       ? `每次 ${counts[0]} 个动作`
@@ -6853,9 +6852,21 @@ const values = points.length<=7 ? points.map((item,i) => {
     const fams = [part('push'), part('pull'), part('legs')];
     const imbalanced = cap && Math.max(...fams) - Math.min(...fams) >= 6;
     const approx = plan.days.reduce((n, day) => n + (day.exercises || []).filter(item => item.weightApprox).length, 0);
-    return '<p class="fine-print plan-quality">已生成 ' + plan.days.length + ' 练 · ' + labels.join(' / ') + ' · ' + span + sets
+    return '<p class="fine-print plan-quality">已生成 ' + plan.days.length + ' 练 · ' + labels + ' · ' + span + sets
       + (approx ? ' · ' + approx + ' 个动作按体重推算起步' : '')
       + (imbalanced ? ' · 想练得更匀，可把每周改成 3 或 6 练' : '') + '</p>';
+  }
+  /** 一周的部位顺序：连续相同合并成「全身 ×4」，轻量日单独标「（轻）」。 */
+  function planDayLabels(days) {
+    const tpl = name => (typeof TRAINING_TEMPLATES === 'object' && TRAINING_TEMPLATES[name]) || name;
+    const runs = [];
+    for (const day of days || []) {
+      const label = tpl(day.template) + (day.light ? '（轻）' : '');
+      const last = runs[runs.length - 1];
+      if (last && last.label === label) last.count += 1;
+      else runs.push({label, count: 1});
+    }
+    return runs.map(run => run.count > 1 ? `${run.label} ×${run.count}` : run.label).join(' / ');
   }
   /**
    * 「为什么这样排？」：把生成时真正用上的参数摊开——时长上限、动作数、器械、起始部位、
@@ -6886,9 +6897,9 @@ const values = points.length<=7 ? points.map((item,i) => {
     const a = (plan && plan.applied) || {};
     const tpl = n => TRAINING_TEMPLATES[n] || n;
     const days = (plan && plan.days) || [];
-    const labels = days.map(day => tpl(day.template) + (day.light ? '（轻）' : ''));
+    const labels = planDayLabels(days);
     const rows = [];
-    rows.push(`每周 ${prefs.days} 练 → 实际排了 ${days.length} 练：${labels.join(' / ') || '—'}`);
+    rows.push(`每周 ${prefs.days} 练 → 实际排了 ${days.length} 练：${labels || '—'}`);
     rows.push(`单次 ${prefs.minutes} 分钟上限 → 每次 ${a.moves || '—'} 个动作、每组最多 ${a.setCap || '—'} 组`);
     rows.push(`器械：${PLAN_GEAR_LABELS[prefs.gear] || prefs.gear || '综合'}`);
     const request = String(prefs.request || '').trim();
@@ -9038,7 +9049,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.37';
+  const APP_VERSION = '1.5.39';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}

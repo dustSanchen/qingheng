@@ -1029,8 +1029,7 @@
    */
   function planQualityLine(plan) {
     if (!plan || !Array.isArray(plan.days) || !plan.days.length) return '';
-    const tpl = name => (typeof TRAINING_TEMPLATES === 'object' && TRAINING_TEMPLATES[name]) || name;
-    const labels = plan.days.map(day => tpl(day.template) + (day.light ? '（轻）' : ''));
+    const labels = planDayLabels(plan.days);
     const counts = plan.days.map(day => (day.exercises || []).length);
     const span = counts.length && Math.min(...counts) === Math.max(...counts)
       ? `每次 ${counts[0]} 个动作`
@@ -1044,9 +1043,21 @@
     const fams = [part('push'), part('pull'), part('legs')];
     const imbalanced = cap && Math.max(...fams) - Math.min(...fams) >= 6;
     const approx = plan.days.reduce((n, day) => n + (day.exercises || []).filter(item => item.weightApprox).length, 0);
-    return '<p class="fine-print plan-quality">已生成 ' + plan.days.length + ' 练 · ' + labels.join(' / ') + ' · ' + span + sets
+    return '<p class="fine-print plan-quality">已生成 ' + plan.days.length + ' 练 · ' + labels + ' · ' + span + sets
       + (approx ? ' · ' + approx + ' 个动作按体重推算起步' : '')
       + (imbalanced ? ' · 想练得更匀，可把每周改成 3 或 6 练' : '') + '</p>';
+  }
+  /** 一周的部位顺序：连续相同合并成「全身 ×4」，轻量日单独标「（轻）」。 */
+  function planDayLabels(days) {
+    const tpl = name => (typeof TRAINING_TEMPLATES === 'object' && TRAINING_TEMPLATES[name]) || name;
+    const runs = [];
+    for (const day of days || []) {
+      const label = tpl(day.template) + (day.light ? '（轻）' : '');
+      const last = runs[runs.length - 1];
+      if (last && last.label === label) last.count += 1;
+      else runs.push({label, count: 1});
+    }
+    return runs.map(run => run.count > 1 ? `${run.label} ×${run.count}` : run.label).join(' / ');
   }
   /**
    * 「为什么这样排？」：把生成时真正用上的参数摊开——时长上限、动作数、器械、起始部位、
@@ -1077,9 +1088,9 @@
     const a = (plan && plan.applied) || {};
     const tpl = n => TRAINING_TEMPLATES[n] || n;
     const days = (plan && plan.days) || [];
-    const labels = days.map(day => tpl(day.template) + (day.light ? '（轻）' : ''));
+    const labels = planDayLabels(days);
     const rows = [];
-    rows.push(`每周 ${prefs.days} 练 → 实际排了 ${days.length} 练：${labels.join(' / ') || '—'}`);
+    rows.push(`每周 ${prefs.days} 练 → 实际排了 ${days.length} 练：${labels || '—'}`);
     rows.push(`单次 ${prefs.minutes} 分钟上限 → 每次 ${a.moves || '—'} 个动作、每组最多 ${a.setCap || '—'} 组`);
     rows.push(`器械：${PLAN_GEAR_LABELS[prefs.gear] || prefs.gear || '综合'}`);
     const request = String(prefs.request || '').trim();

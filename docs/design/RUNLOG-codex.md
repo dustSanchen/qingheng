@@ -2012,3 +2012,14 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 断言：`suite-records` 里「周计划可显式重排」从 `regenerateWeekPlan();` 改成 `regenerateWeekPlan({`，并新增两条（弹窗文案与徽记）。另外把徽记箭头字号从 10px 改回 `--text-xs`，否则 `suite-training` 的「最小字号可读」会红。
 - 验收：assemble + `node --check` 通过；`test-all` 10/10；`dev-loop -Version 1.5.37 -VersionCode 537` 装机，smoke js errors: none。
 - 真机：`build/v37-badge.png`（计划卡 + 收起的徽记）。生成弹窗**没有**在真机上截到：设备当时停在别的应用（Gemini），按约定不再盲点，留给下一次有人看屏时手验。
+
+
+### r232 · 2026-11-24 13:10 · 1.5.39：修「这周这样排」暴露的三处问题（3 个轻量日 / full 未翻译 / 自己引入的崩溃）
+
+- 用户截图报「无法正常执行」：全身 4 练被排成「full / full（轻）/ full（轻）/ full（轻）」——一是轻量日规则把全身模板当成「重复」，二是部位名漏翻 full。
+- 修①：`generateWeekPlan` 的轻量日判定加 `templates.length > 1`——全身模板每天本来就一样，不算重复；上下肢 4 练仍 2 个轻量日、推拉腿 4 练仍 1 个。
+- 修②：`TRAINING_TEMPLATES` 补 `upper/lower/full` 三条中文名（前两者此前也无翻译），计划标题、质量行、小结弹窗一起恢复正常。
+- 修③：新增 `planDayLabels(days)` 把连续相同部位合并成「全身 ×4」「腿 / 腿（轻）」，弹窗与质量行不再罗列四遍；同时修掉我在 1.5.38 引入的 `labels.join is not a function`（把数组换成字符串后漏改一处 join），1.5.38 一装就整页红灯，1.5.39 已修。
+- 新断言（`tests/suite-training.test.mjs`）：`plan-labels` 组 5 条（全身 ×4 / 轻量标注 / 上下肢中文名 / 未知识别回退 / 空数组）；生成器组补 2 条（全身 4 练 0 轻量日、上下肢 4 练 2 轻量日）。
+- 验收：assemble + `node --check` 通过；`test-all` 10/10；`dev-loop -Version 1.5.39 -VersionCode 539` 装机，smoke js errors: none；`build/v39-check.png` 显示「全身 ×4」且无轻量标注。
+- 未做：Release v1.5.39 未发；弹窗本体仍未在真机上点到（记录页/训练页坐标多次落空，按约定不继续盲点）。

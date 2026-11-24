@@ -5,7 +5,7 @@
   // 只做纯计算与本地存储读写；不碰 DOM、不发请求。视图与绑定在 60 / 68 / 70。
   // ---------------------------------------------------------------------------------------------
 
-  const TRAINING_TEMPLATES = {push: '推', pull: '拉', legs: '腿', other: '其他'};
+  const TRAINING_TEMPLATES = {push: '推', pull: '拉', legs: '腿', upper: '上肢', lower: '下肢', full: '全身', other: '其他'};
 
   /**
    * 自重动作（2026-11-18）：没有外部配重也能记，负重留空不算缺项。
@@ -877,8 +877,8 @@
     rotation(sessions).forEach((template, index) => {
       const date = new Date(start + 'T00:00:00');
       date.setDate(date.getDate() + slots[index]);
-      // 第 2 轮起的同模板日 = 轻量补充日（4 练推拉腿、2 练上下肢都会走到这里）。
-      const light = index >= templates.length;
+      // 第 2 轮起的同模板日 = 轻量补充日；全身模板每天本来就一样，不算「重复」，不该有轻量日。
+      const light = templates.length > 1 && index >= templates.length;
       const picked = pickDay(template, {light});
       days.push({date: date.getFullYear() + '-' + pad2(date.getMonth() + 1) + '-' + pad2(date.getDate()),
         template, light, deload, exercises: picked.exercises, suggested: picked.suggested,
