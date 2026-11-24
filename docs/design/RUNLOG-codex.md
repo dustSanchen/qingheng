@@ -1983,3 +1983,20 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 验收：assemble + `node --check` 通过；`test-all` 10/10；`dev-loop -Version 1.5.35 -VersionCode 535` 装机，smoke js errors: none。
 - 真机：`build/v35-today2.png`（体检 → 今日记录 2 餐收起 → 小习惯三格 → 建议，一列到底）。
 - 未做：Release v1.5.35 与 gh-pages 未发（上一版 v1.5.34 已发）；要发即推三远端 + publish-pages + Release。
+
+
+### r230 · 2026-11-24 12:45 · 1.5.36：按「零容器」约束逐行拆框（纸面全扁平）
+
+- 用户给的是硬约束清单：所有卡片去掉底色/圆角/描边、统一 #FAF9F5 纸面；身体与习惯不要方块输入框；只用留白 + 1px #E5E1D8 分隔；今天页顺序 a–e；训练动作行点整行即完成。
+- 令牌：`--paper` #fffefa→**#faf9f5**、`--surface` #fffdf7→**#faf9f5**、`--line` #e4e9df→**#e5e1d8**（纸感皮肤；ledger 皮肤仍保留自己的框，那是它的定义）。
+- 今天页逐处拆框：
+  - `.peek-card` 去掉 surface 底 + shadow + 16 圆角 + 内边距，两卡变成两段纯文字，下面一条发丝线；
+  - `.check-cap` 去掉 1px 边 + 12 圆角 + 内边距（体检四项只剩名称 + 3px 细条）；
+  - `.today-action` 去掉 surface-soft 底与圆角，改成一行字 + 下划线；warn 态只改文字色；
+  - 三入口从「一条整框分段」拆成三枚独立扁胶囊（无外框、无内部竖分隔线，primary 用 12% accent 底）；
+  - 小习惯从九宫格磁贴改成三行纯文字：名称/值在左、−/＋ 在右（就地加减，350ms 合并后落库），整节移到今天页最底部（建议卡之后）。
+- 记录页：日期/时间输入从「灰底方块」改成下划线（新增两条 id 级选择器压过通用输入框规则），身体与习惯区再无方框。
+- 训练页：`[data-set-row]` 点整行即切换完成（点在 input/button/label 上时让位），仍是圆圈状态而非复选框；计划说明仍在「计划说明 ▾」抽屉里。
+- 断言：`suite-today` 的「三入口是一条整框分段」改成「三枚独立扁胶囊」；其余 9 套件未动，test-all 10/10。
+- 验收：assemble + `node --check` 通过；`dev-loop -Version 1.5.36 -VersionCode 536` 装机，smoke js errors: none；截图 `build/v36-verify.png`（今天页顶）、`build/v36-check.png`（今天页底）、`build/v36-rec-final.png`（记录页）。
+- 已知瑕疵：验证步进器时在真机上误触了「−/＋」，把 11-24 的步数写成了 0 步；记录页表单只提交非空字段，**没法把已填项清回「未记」**——这是既有行为，下一版可加「清空此项」或把 0 当未记。

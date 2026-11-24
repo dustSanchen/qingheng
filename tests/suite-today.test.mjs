@@ -449,9 +449,10 @@ check('press feedback stays at scale .98 on the chips', css.includes('#view-toda
   css.includes('#today-quick-actions .quick-chip:active{transform:scale(.98)}'));
 
 // --- 胶囊与 sheet -------------------------------------------------------------------------
-check('the three entries are one continuous capsule group', css.includes('#view-today #today-quick-actions{grid-template-columns:repeat(3,minmax(0,1fr));gap:0') &&
-  css.includes('background-image:linear-gradient(180deg,color-mix(in srgb,var(--accent) 9%') &&
-  css.includes('#view-today #today-quick-actions .quick-chip+.quick-chip{border-left:1px solid'));
+// 2026-11-24：三入口从「一条整框分段」拆成三枚独立扁胶囊（无外框、无内部竖分隔线）。
+check('the three entries are independent flat capsules', css.includes('#view-today #today-quick-actions{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px') &&
+  !css.includes('#view-today #today-quick-actions .quick-chip+.quick-chip{border-left') &&
+  css.includes('border-radius:999px;background:color-mix(in srgb,var(--ink) 4%,transparent)'));
 check('the brief sheet exists as a half sheet', html.includes('id="day-brief-sheet"') && html.includes('id="brief-strip"') && html.includes('id="brief-list"'));
 ;return typeof fail === 'number' ? fail : 0;
 });

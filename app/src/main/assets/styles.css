@@ -3,10 +3,10 @@
   --ink:#293c32;
   --body-text:#3d3d3a;
   --muted:#667169;
-  --line:#e4e9df;
-  --paper:#fffefa;
+  --line:#e5e1d8;
+  --paper:#faf9f5;
   --surface-soft:#f3f2ee;
-  --surface:#fffdf7;
+  --surface:#faf9f5;
   --accent:#3f6b4a;
   --ring-green:#5f8a68;
   --warn:#9e5c29;
@@ -1356,6 +1356,9 @@ textarea{resize:none}
 /* 记录页字段：纸感用「浅底 + 一圈发丝线」的便笺，不是「三边透明 + 一条粗底边」——
    后者在 12px 圆角上会把底边的两个端头悬在填充外，看起来像两张叠着的纸（2026-11-11 修）。 */
 #view-records input:not([type=checkbox]):not([type=radio]),#view-records select,#view-records textarea{border-color:var(--line);background:var(--surface-soft)}
+#view-records input[type=date],#view-records input[type=time],
+#view-records #measurement-form input[type=date],#view-records #habit-form input[type=date],
+#view-records #training-form input[type=date]{min-height:32px;padding:2px 0;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;box-shadow:none}
 /* 记录页卡片角标一律降为中性：整页的绿色只留给当前态与主行动。 */
 #view-records .tag{background:var(--surface-soft);color:var(--ink-soft)}
 #view-records .mic-button,#view-records .photo-add{border-color:transparent;background:var(--surface-soft)}
@@ -2173,16 +2176,20 @@ details:not(.advanced)>summary::after{width:auto;height:auto;border:0;border-rad
 .metric-more[open] .metric-more-head{border-bottom:1px solid var(--line);margin-bottom:10px}
 /* 2026-11-22 今天页：体检横向胶囊、习惯网格前置、下一步半透明卡、能量更密。 */
 .check-caps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:10px}
-.check-cap{display:flex;flex-direction:column;gap:5px;padding:8px 10px;border:1px solid var(--line);border-radius:12px}
+.check-cap{display:flex;flex-direction:column;gap:5px;padding:0;border:0;border-radius:0}
 .check-cap-name{font-size:var(--text-xs);color:var(--ink);font-weight:var(--fw-semibold)}
 .check-cap-track{display:block;height:3px;border-radius:2px;background:var(--line);overflow:hidden}
 .check-cap-fill{display:block;height:100%;background:var(--accent);border-radius:2px}
 .check-cap.near .check-cap-fill{background:var(--macro-fat)}
 .check-cap.off .check-cap-fill{background:var(--warn)}
 .check-cap.idle .check-cap-fill{background:var(--muted);opacity:.4}
-.habit-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-.habit-cell{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);text-align:left}
-.habit-cell:active{background:var(--accent-soft)}
+.habit-grid{display:block}
+.habit-cell{display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:0;border:0;border-bottom:1px solid var(--line);border-radius:0;background:none;text-align:left}
+.habit-cell-main{flex:1 1 auto;display:flex;align-items:baseline;justify-content:space-between;gap:10px;min-height:44px;padding:9px 0;border:0;background:none;color:inherit;font:inherit;text-align:left}
+.habit-cell-steps{display:flex;gap:4px;flex:0 0 auto}
+.fold-panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.fold-panel-head h2{margin:0;font-size:17px;font-weight:var(--fw-semibold);letter-spacing:var(--tracking-label)}
+.habit-cell:active{opacity:.65}
 .habit-cell-label{font-size:var(--text-xs);color:var(--muted)}
 .habit-cell-value{font-size:20px;font-weight:var(--fw-semibold);font-variant-numeric:tabular-nums}
 .habit-cell-value.is-empty{font-size:var(--text-lg);color:var(--muted);font-weight:var(--fw-regular);letter-spacing:.1em}
@@ -2260,7 +2267,7 @@ html[data-tab="today"] .date-jump:active{color:var(--ink)}
 #view-today .progress-track span{transition:width var(--dur-base) var(--ease-out-soft)}
 @keyframes stripSwap{from{opacity:0;transform:translateY(2px)}to{opacity:1;transform:none}}
 /* 6) 小习惯网格自适应：隐藏某项后剩余格子等分铺满 */
-.habit-grid{grid-template-columns:repeat(auto-fit,minmax(96px,1fr))}
+.habit-grid{display:block}
 @media (prefers-reduced-motion:reduce){
   #view-today .habit-cell:active,#view-today .quick-chip:active{transform:none}
   #view-today .progress-track span{transition:none}
@@ -2277,8 +2284,8 @@ html[data-tab="today"] .energy-card .quick-chip .quick-chip-icon img{width:18px;
 
 /* ── 2026-11-22 第六轮：顶部横滑概况、宏量胶囊、要点按钮 ─────────────────────────── */
 /* 顶部横滑：训练 / 身体各一枚，替代页首留白 */
-.today-peek{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:2px 0 12px}
-.peek-card{display:flex;flex-direction:column;gap:1px;min-width:0;padding:10px 12px;border:0;border-radius:16px;background:var(--surface);box-shadow:var(--shadow-soft);text-align:left;min-height:64px;transition:transform var(--dur-fast) var(--ease-out-soft)}
+.today-peek{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:2px 0 12px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.peek-card{display:flex;flex-direction:column;gap:1px;min-width:0;padding:0;border:0;border-radius:0;background:none;box-shadow:none;text-align:left;min-height:0;transition:opacity var(--dur-fast)}
 .peek-card:active{transform:scale(.98)}
 .peek-label{font-size:var(--text-xs);color:var(--muted)}
 .peek-value{font-size:20px;font-weight:var(--fw-semibold);font-variant-numeric:tabular-nums}
@@ -2352,9 +2359,9 @@ html[data-tab="today"] .energy-card .quick-chip:active{background-image:linear-g
 .sheet-field span{font-size:var(--text-sm);color:var(--ink)}
 .sheet-field textarea{width:100%;min-height:64px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius-md);background:var(--surface-soft);color:var(--ink);font:inherit;font-size:var(--text-sm)}
 
-.today-action{display:flex;align-items:center;gap:8px;min-height:48px;margin-top:16px;padding:0 4px 0 12px;border-radius:var(--radius-md);background:var(--surface-soft)}
+.today-action{display:flex;align-items:center;gap:8px;min-height:48px;margin-top:14px;padding:0 4px 0 0;border-radius:0;border-bottom:1px solid var(--line);background:none}
 .today-action[hidden]{display:none}
-.today-action.is-warn{background:var(--warn-soft);color:var(--warn-ink)}
+.today-action.is-warn{color:var(--warn-ink)}
 .today-action-main{display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:0;min-height:44px;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left}
 .today-action-main:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
 .today-action-dot{flex:0 0 auto;width:6px;height:6px;border-radius:50%;background:var(--accent)}
@@ -2369,9 +2376,9 @@ html[data-tab="today"] .energy-card .quick-chip:active{background-image:linear-g
    材质（accent 微渐变 + 顶部内高光）铺在整条上，三格之间只用发丝线分隔，
    圆角只在外层——不再是三张各自带底、各自带框的小卡。
    主入口只比另两格重一档：accent 9% 底 + accent 字，不做整块深色。 */
-#view-today #today-quick-actions{grid-template-columns:repeat(3,minmax(0,1fr));gap:0;margin:12px 0 0;border:1px solid color-mix(in srgb,var(--ink) 9%,transparent);border-radius:var(--radius-md);overflow:hidden;background-image:linear-gradient(180deg,color-mix(in srgb,var(--accent) 9%,var(--surface)),color-mix(in srgb,var(--accent) 2%,var(--surface)));box-shadow:inset 0 1px 0 color-mix(in srgb,var(--paper) 85%,transparent),inset 0 -1px 0 color-mix(in srgb,var(--accent) 5%,transparent)}
-#view-today #today-quick-actions .quick-chip{flex-direction:row;gap:6px;min-height:48px;padding:0 8px;border:0;border-radius:0;background:transparent;background-image:none;box-shadow:none;font-size:var(--text-sm);color:var(--ink);transition:transform 140ms var(--ease-out-soft),background-color 140ms var(--ease-out-soft)}
-#view-today #today-quick-actions .quick-chip+.quick-chip{border-left:1px solid color-mix(in srgb,var(--ink) 7%,transparent)}
+#view-today #today-quick-actions{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0 0;border:0;border-radius:0;overflow:visible;background:none;box-shadow:none}
+#view-today #today-quick-actions .quick-chip{flex-direction:row;gap:6px;min-height:44px;padding:0 10px;border:0;border-radius:999px;background:color-mix(in srgb,var(--ink) 4%,transparent);background-image:none;box-shadow:none;font-size:var(--text-sm);color:var(--ink);transition:transform 140ms var(--ease-out-soft),background-color 140ms var(--ease-out-soft)}
+#view-today #today-quick-actions .quick-chip.quick-chip-primary{background:color-mix(in srgb,var(--accent) 12%,transparent)}
 #view-today #today-quick-actions .quick-chip .quick-chip-icon{width:20px;height:20px;color:var(--accent)}
 #view-today #today-quick-actions .quick-chip .quick-chip-icon :is(svg,img){width:20px;height:20px}
 #view-today #today-quick-actions .quick-chip.quick-chip-primary{background:color-mix(in srgb,var(--accent) 9%,transparent);color:var(--accent);font-weight:var(--fw-semibold)}

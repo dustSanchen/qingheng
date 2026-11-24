@@ -1790,6 +1790,46 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     if (text) { text.textContent = ''; text.innerHTML = empty('这一屏没能画出来', '点「重新加载」通常就好（记录已保存在本机）。错误：' + (error && error.message ? error.message : '未知错误'), 'error'); }
     if (bar) bar.hidden = false;
   }
+  /** 今天页习惯行的就地步进（2026-11-24）：先改本地数字，350ms 合并连点后再落库；失败提示并刷新回真实值。 */
+  function installHabitBumps(stepOf) {
+    const box = $('#habit-summary');
+    if (!box || box.dataset.bumpWired === '1') return;
+    box.dataset.bumpWired = '1';
+    const pending = new Map();
+    const unitOf = key => key === 'sleep' ? '小时' : key === 'water' ? 'ml' : '步';
+    const write = (key, value) => {
+      const existing = (state.habits || []).find(item => item && item.date === activeDate) || {};
+      api('/api/habits', {...existing, date: activeDate, [key]: value})
+        .then(() => loadState({quiet: true}))
+        .catch(error => {
+          notice((error && error.message) || '这次没记上，请重试。', true);
+          loadState({quiet: true}).catch(() => {});
+        });
+    };
+    box.addEventListener('click', event => {
+      const bump = event.target.closest?.('[data-habit-bump]');
+      if (!bump) return;
+      event.preventDefault();
+      const key = bump.dataset.habitBump;
+      const step = Number(stepOf[key]) || 0;
+      const dir = Number(bump.dataset.dir) || 1;
+      const row = state.habits.find(item => item && item.date === activeDate) || {};
+      const next = Math.max(0, (number(row[key]) ?? 0) + dir * step);
+      row[key] = next;
+      const valueNode = bump.closest('.habit-cell')?.querySelector('.habit-cell-value');
+      if (valueNode) {
+        valueNode.classList.remove('is-empty');
+        valueNode.textContent = key === 'sleep' ? fmt(next, 1) : fmt(next, 0);
+        if (key !== 'sleep') {
+          const small = document.createElement('small');
+          small.textContent = unitOf(key);
+          valueNode.appendChild(small);
+        }
+      }
+      clearTimeout(pending.get(key));
+      pending.set(key, setTimeout(() => write(key, next), 350));
+    });
+  }
   function render() {
     if (!state) return; // nothing to draw yet; loadState() calls render() again
     try { renderBody(); if (typeof renderTrainingOverview === "function") renderTrainingOverview(); } catch (error) { showRenderError(error); }
@@ -2014,18 +2054,25 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     // 训练情况由动作决定（2026-11-18）：不再读手填标记，只报「记了什么」。
     const training = trainedOn(activeDate) ? '已训练' : '未记录';
     // SVG icons instead of ↗ ♧ ☾ ◇: those characters rendered differently on every ROM.
-    // 2026-11-22：从「一行摘要」改成网格——步数/饮水/睡眠各一格，数字即刻可见；
-    // 仍只跳转不录入，进去不弹输入法。
+    // 2026-11-24：格子改成纯文字行 + 步进器（用户要求「simple text rows with stepper controls」）：
+    // 点名称仍跳记录页编辑；−/＋ 就地加减并落库（350ms 合并连点）。
+    const HABIT_STEP = {steps: 500, water: 250, sleep: 0.5};
     const habitCells = [
       {key: 'steps', label: '步数', icon: 'icon-habit-steps.svg', value: number(habit.steps) === null ? '—' : fmt(habit.steps, 0), unit: '步', focus: 'habit-steps'},
       {key: 'water', label: '饮水', icon: 'icon-water.svg', value: number(habit.water) === null ? '—' : fmt(habit.water, 0), unit: 'ml', focus: 'habit-steps'},
       {key: 'sleep', label: '睡眠', icon: 'icon-habit-sleep.svg', value: number(habit.sleep) === null ? '—' : fmt(habit.sleep, 1), unit: '小时', focus: 'habit-sleep'}
     ].filter(cell => (typeof todayMetrics === 'function' ? todayMetrics() : ['steps', 'water', 'sleep']).includes(cell.key));
     $('#habit-summary').innerHTML = habitCells.map(cell =>
-      `<button type="button" class="habit-cell" data-habit-jump data-focus="${cell.focus}" aria-label="${cell.label}：${cell.value === '—' ? '未记录' : cell.value + cell.unit}">`
+      `<div class="habit-cell" data-habit-key="${cell.key}">`
+      + `<button type="button" class="habit-cell-main" data-habit-jump data-focus="${cell.focus}" aria-label="${cell.label}：${cell.value === '—' ? '未记录' : cell.value + cell.unit}，点开编辑">`
       + `<span class="habit-cell-label">${cell.label}</span>`
       + `<span class="habit-cell-value${cell.value === '—' ? ' is-empty' : ''}">${cell.value === '—' ? '—' : `${cell.value}<small>${cell.unit}</small>`}</span></button>`
+      + `<span class="habit-cell-steps">`
+      + `<button type="button" class="habit-step" data-habit-bump="${cell.key}" data-dir="-1" aria-label="${cell.label}减 ${HABIT_STEP[cell.key]}">−</button>`
+      + `<button type="button" class="habit-step" data-habit-bump="${cell.key}" data-dir="1" aria-label="${cell.label}加 ${HABIT_STEP[cell.key]}">＋</button>`
+      + `</span></div>`
     ).join('');
+    installHabitBumps(HABIT_STEP);
     const recordMeals=[...state.meals].sort((a,b) => String(b.date).localeCompare(String(a.date)));
     renderTodayTimeline($('#today-meals'), meals);
     renderRecordMeals(favoriteOnlyMeals ? recordMeals.filter(row => row.favorite === true) : recordMeals);
@@ -8653,6 +8700,14 @@ function metricIcon(label) {
         return;
       }
       const done = event.target.closest?.('[data-set-done]');
+      if (!done) {
+        // 2026-11-24：点整行也能勾——不再要求瞄准那个圆圈；落在输入框/按钮上时让位给它们自己的行为。
+        const rowHit = event.target.closest?.('[data-set-row]');
+        if (rowHit && !event.target.closest('input,select,textarea,button,a,label')) {
+          const toggle = rowHit.querySelector('[data-set-done]');
+          if (toggle) { toggle.click(); return; }
+        }
+      }
       if (done) {
         const set = done.closest('[data-set-row]');
         const on = set.classList.toggle('is-done');
@@ -8917,7 +8972,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.35';
+  const APP_VERSION = '1.5.36';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}

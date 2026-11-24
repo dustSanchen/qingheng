@@ -932,6 +932,14 @@
         return;
       }
       const done = event.target.closest?.('[data-set-done]');
+      if (!done) {
+        // 2026-11-24：点整行也能勾——不再要求瞄准那个圆圈；落在输入框/按钮上时让位给它们自己的行为。
+        const rowHit = event.target.closest?.('[data-set-row]');
+        if (rowHit && !event.target.closest('input,select,textarea,button,a,label')) {
+          const toggle = rowHit.querySelector('[data-set-done]');
+          if (toggle) { toggle.click(); return; }
+        }
+      }
       if (done) {
         const set = done.closest('[data-set-row]');
         const on = set.classList.toggle('is-done');
