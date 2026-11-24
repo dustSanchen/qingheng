@@ -185,7 +185,10 @@ check('plan, today order, then logging', app.includes("headings: ['训练计划'
 check('training overview belongs to the training segment', app.includes('panels.training.insertBefore(overview, logCard)'));
 check('plan preferences can be collapsed again', app.includes('edit.textContent = collapsed ? "改偏好" : "取消"') &&
   app.includes('restoreSaved();') && app.includes('"改训练偏好"'));
-check('entering records from another page opens food first', app.includes("tab === 'records' && currentTab !== 'records' && !sub"));
+// 2026-11-24 用户要求：在训练段跳去问答再回来，仍停在训练——进记录页不再强制落回「饮食」。
+check('entering records keeps the last segment instead of forcing food', !app.includes("tab === 'records' && currentTab !== 'records' && !sub") &&
+  app.includes("localStorage.setItem(RECORD_PANEL_STORAGE, target)") &&
+  app.includes('switchRecordPanel(RECORD_PANELS.some(p => p.key === saved) ? saved : \'food\')'));
 check('training save outranks week planning', html.includes('class="button subtle" id="pref-save"') && html.includes('class="button primary" type="submit">保存训练'));
 check('the installer runs at boot', app.includes('installRecordPanels();'));
 check('segments are buttons with role=tab', app.includes('role="tab" data-records-panel='));

@@ -1113,7 +1113,9 @@
   let lastShownTab = '';
   function switchTab(tab, moveFocus = false, sub = '') {
     const currentTab = $('[data-tab][aria-current="page"]')?.dataset.tab || '';
-    if (tab === 'records' && currentTab !== 'records' && !sub && typeof switchRecordPanel === 'function') switchRecordPanel('food');
+    // 2026-11-24：进入记录页不再强制落回「饮食」——上次停在训练/身体就继续停在那里。
+    // 需要指定分段时由调用方显式 switchRecordPanel(...)（深链、快捷芯片都这么做）。
+    void currentTab;
   document.documentElement.dataset.tab = tab;
   if (typeof applySkin === 'function') applySkin(document.documentElement.dataset.skinChoice || 'paper', false);
     if (!TAB_ORDER.includes(tab)) tab = 'today';

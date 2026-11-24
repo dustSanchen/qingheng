@@ -2023,3 +2023,12 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 新断言（`tests/suite-training.test.mjs`）：`plan-labels` 组 5 条（全身 ×4 / 轻量标注 / 上下肢中文名 / 未知识别回退 / 空数组）；生成器组补 2 条（全身 4 练 0 轻量日、上下肢 4 练 2 轻量日）。
 - 验收：assemble + `node --check` 通过；`test-all` 10/10；`dev-loop -Version 1.5.39 -VersionCode 539` 装机，smoke js errors: none；`build/v39-check.png` 显示「全身 ×4」且无轻量标注。
 - 未做：Release v1.5.39 未发；弹窗本体仍未在真机上点到（记录页/训练页坐标多次落空，按约定不继续盲点）。
+
+
+### r233 · 2026-11-24 13:18 · 1.5.40：记录页分段保持上次选择（训练页不再被重置成饮食）
+
+- 用户原话：「让训练功能里的栏目保持选择，如跳转到其他页面前，我在训练页面，我跳转到问答后，回来仍是训练页面。」
+- 根因：`switchTab()` 里有一句「从别的 tab 进记录页就 `switchRecordPanel('food')`」，把 `qingheng.recordsPanel` 的持久化选择按掉了。
+- 修法：删掉这句强制重置。分段选择只由三处决定——安装时读 `qingheng.recordsPanel`、用户点分段、以及显式深链（`data-focus` / 快捷芯片 / 训练建议里调 `switchRecordPanel('training')`）。顺手把不再使用的 `currentTab` 标成 `void currentTab` 保留变量（后续如要区分来源仍可用）。
+- 断言：`suite-records` 的「进记录页先开饮食」改成「保持上次分段」——断言代码里不再有那句重置、且仍先读 `RECORD_PANEL_STORAGE`。
+- 验收：assemble + `node --check` 通过；`test-all` 10/10；`dev-loop -Version 1.5.40 -VersionCode 540` 装机，smoke js errors: none；真机走「训练 → 问答 → 记录」仍停在训练（`build/v40-keep.png`）。
