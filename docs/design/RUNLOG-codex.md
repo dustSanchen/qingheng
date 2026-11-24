@@ -2032,3 +2032,12 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 修法：删掉这句强制重置。分段选择只由三处决定——安装时读 `qingheng.recordsPanel`、用户点分段、以及显式深链（`data-focus` / 快捷芯片 / 训练建议里调 `switchRecordPanel('training')`）。顺手把不再使用的 `currentTab` 标成 `void currentTab` 保留变量（后续如要区分来源仍可用）。
 - 断言：`suite-records` 的「进记录页先开饮食」改成「保持上次分段」——断言代码里不再有那句重置、且仍先读 `RECORD_PANEL_STORAGE`。
 - 验收：assemble + `node --check` 通过；`test-all` 10/10；`dev-loop -Version 1.5.40 -VersionCode 540` 装机，smoke js errors: none；真机走「训练 → 问答 → 记录」仍停在训练（`build/v40-keep.png`）。
+
+
+### r234 · 2026-11-24 13:25 · 1.5.41：趋势页也记住上次分段，并发 Release
+
+- 用户：「一起改，同时发布 release」——把 1.5.40 的分段保持推广到趋势页（问答页本来就有 `qingheng.chatPanel` 记忆）。
+- 趋势页：新增 `TREND_PANEL_STORAGE = 'qingheng.trendsPanel'`；`switchTrendPanel` 收口成「校验 key → 训练未开启时退回体重 → 写回本机」，安装时按保存值恢复（不再写死 `weight`）。
+- 断言：`suite-trends` 新增 `segment-persistence` 组 6 条（记录页读回/不再被 tab 重置、趋势页读回与写回、训练项退回体重、问答页有自己的记忆）。
+- 验收：assemble + `node --check` 通过；`test-all` 10/10；`dev-loop -Version 1.5.41 -VersionCode 541` 装机，smoke js errors: none；真机确认趋势页「训练」段正常（`build/v41-train-seg.png`），往返验证被设备占用打断（手机当时停在 Gemini），未继续盲点。
+- 发版：推 localmirror / source / public；`publish-pages.ps1 -Message "pages: 1.5.41"`；GitHub Release v1.5.41 上传 `dist/qingheng-1.5.41.apk`。

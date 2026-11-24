@@ -161,7 +161,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.40';
+  const APP_VERSION = '1.5.41';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -1463,23 +1463,28 @@
       if (panel.extra) container.append(dietTrendCard());
       host.append(container);
     }
-    switchTrendPanel('weight');
+    // 2026-11-24：趋势页也记住上次看的那一段（与记录页同一条约定）。
+    const savedTrend = (() => { try { return localStorage.getItem(TREND_PANEL_STORAGE); } catch { return null; } })();
+    switchTrendPanel(['weight', 'diet', 'training'].includes(savedTrend) ? savedTrend : 'weight');
     bar.addEventListener('click', event => {
       const button = event.target.closest('[data-trends-panel]');
       if (button) switchTrendPanel(button.dataset.trendsPanel);
     });
   }
   function switchTrendPanel(key) {
+    const wanted = ['weight', 'diet', 'training'].includes(key) ? key : 'weight';
+    const target = wanted === 'training' && !trainingEnabled() ? 'weight' : wanted;
     for (const panel of ['weight', 'diet', 'training']) {
       const node = $('#trend-panel-' + panel);
-      if (node) node.hidden = panel !== key;
+      if (node) node.hidden = panel !== target;
     }
     for (const button of $$('[data-trends-panel]')) {
-      const active = button.dataset.trendsPanel === key;
+      const active = button.dataset.trendsPanel === target;
       button.setAttribute('aria-selected', active ? 'true' : 'false');
       button.classList.toggle('active', active);
       if (button.dataset.trendsPanel === 'training') button.hidden = !trainingEnabled();
     }
+    try { localStorage.setItem(TREND_PANEL_STORAGE, target); } catch {}
     if ($('#trend-panel-training')?.hidden !== false) { /* no-op, keeps the guard explicit */ }
   }
   /** The diet trend the page was missing: last 7 days of intake against that day's range. */
@@ -1560,6 +1565,7 @@
     {key: 'body', label: '身体', headings: ['今天体重', '身体数据', '日常习惯']}
   ];
   const RECORD_PANEL_STORAGE = 'qingheng.recordsPanel';
+  const TREND_PANEL_STORAGE = 'qingheng.trendsPanel';
   function installRecordPanels() {
     const view = $('#view-records');
     if (!view || $('#records-tabs')) return;

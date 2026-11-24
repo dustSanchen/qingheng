@@ -12,6 +12,23 @@ async function __run(name, fn) {
   catch (error) { console.log('FAIL  [' + name + '] ' + (error && error.message ? error.message : error)); __fail += 1; }
 }
 
+await __run("segment-persistence", async () => {
+/** 2026-11-24：记录 / 趋势 / 问答三处分段都要保持上次选择，进页不得强制落回第一格。 */
+let fail = 0;
+const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + label + (detail === undefined ? '' : '  -> ' + detail)); if (!ok) fail++; };
+const app = fs.readFileSync('app/src/main/assets/app.js', 'utf8');
+
+check('记录页读回上次分段', app.includes("RECORD_PANELS.some(p => p.key === saved) ? saved : 'food'"));
+check('记录页不再被 tab 切换强制重置', !app.includes("tab === 'records' && currentTab !== 'records' && !sub"));
+check('趋势页读回上次分段', app.includes("TREND_PANEL_STORAGE") && app.includes("['weight', 'diet', 'training'].includes(savedTrend)"));
+check('趋势页每次切换都写回', app.includes('localStorage.setItem(TREND_PANEL_STORAGE, target)'));
+check('趋势段训练项在关闭训练时退回体重', app.includes("wanted === 'training' && !trainingEnabled() ? 'weight' : wanted"));
+check('问答页分段有自己的一份记忆', app.includes("'qingheng.chatPanel'") && app.includes('localStorage.setItem(KEY, panel)'));
+
+console.log('FAIL total: ' + fail);
+;return typeof fail === 'number' ? fail : 0;
+});
+
 await __run("goal-requirements", async () => {
 /**
  * 2026-11-18：目标要求表（训练组数/次数/RIR + 饮食速率）与证据文档、提示词的一致性。
