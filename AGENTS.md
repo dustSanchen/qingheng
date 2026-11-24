@@ -28,8 +28,11 @@ node tools/aesthetic-audit.mjs
 # 入口预算审计（同动作可点入口 ≤2、每页卡片 ≤8；只报告不修改，WARN 不阻断）
 node tools/entry-budget-audit.mjs
 
-# 全量测试（10 个套件 / 2,191 条断言，必须全绿）
+# 全量测试（12 个套件 / 2,374 条断言，必须全绿；会先跑架构体检）
 node tools/test-all.mjs
+
+# 架构边境体检（分层编号 / 领域层零 DOM / window.QH 在无 DOM 环境可执行）
+node tools/check-architecture.mjs
 
 # 片段 → app.js
 tools\assemble-app.ps1
@@ -81,6 +84,13 @@ adb shell dumpsys package cn.qingheng.health | Select-String 'versionName'
    「version sync」静默空转（0.0s、无输出）——于是出现「装机 1.3.91 / 关于页 1.3.90」。改 .ps1 后先
    `powershell -NoProfile -Command "[System.Management.Automation.Language.Parser]::ParseFile(...)"` 或直接跑
    `dev-loop -Version X -SkipBuild -SkipInstall -SkipTests`，确认它打印了 `version synced to X/Y`。
+   注：`Edit/Write` 工具会重写字并**丢掉 BOM**，改完 `.ps1` 立刻用
+   `[System.IO.File]::WriteAllText($p,$text,(New-Object System.Text.UTF8Encoding($true)))` 补回，否则一跑就报
+   `Exception calling "IndexOf" ... Parameter name: array` 这类「变量莫名是 null」的错。
+5. **模块越界**（2026-11-24 起）。片段拼进同一个 IIFE 后任何一片都能摸别人的 DOM/state；现在
+   `tools/check-architecture.mjs` 兜底：片段编号必须落在分层带宽、`*-domain.fragment.js` 出现 `document.` /
+   `querySelector` / `innerHTML` 等直接 exit 1、app.js 与片段必须逐字节一致、`window.QH` 必须在无 DOM 的 vm 里
+   跑通。`test-all` 每次先跑它。存量 7 个片段编号与语义层不符，记为 WARN；改名迁移用 `--strict-bands` 验收。
 
 ## 双皮肤约束
 

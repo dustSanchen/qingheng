@@ -655,6 +655,8 @@
       renderTrainingSummary(exercises);
       // 卡片右上角的微反馈：草稿变「已记录」，让人知道这次真的落库了。
       setDraftState('✓ 已记录');
+      // 落库 + 界面刷新之后才广播：订阅方（今天页 / 趋势页 / AI 问答）读到的 state 已是新数据。
+      QH.bus.emit(QH.EVENTS.TRAINING_SAVED, {date: activeDate});
     } catch (error) {feedback(message, error.message, true);}
     finally {button.disabled = false;}
   }
@@ -1041,3 +1043,61 @@
   }
 
   installTrainingLog();
+
+  // ---------------------------------------------------------------------------------------------
+  // 训练模块对外标准契约（QH.training）
+  // 今天页 / AI 问答 / 趋势页从此只调这三个只读查询，不再各自去翻 state.habits 或训练表单的 DOM。
+  // 老全局函数一个都没删：调用点逐处迁移，迁移完一处少一处直接依赖，避免一次大改换掉所有行为。
+  // ---------------------------------------------------------------------------------------------
+  QH.define('training', {
+    /**
+     * 指定日期（默认当前查看的日期）的训练完成状态、总容量、动作数与顶组摘要。
+     * 容量口径与概览卡一致：有 setDetails 用逐组 reps×weight，旧记录退回 sets×reps×weight；
+     * 自重动作只报次数、不拿假想体重冒充 kg。
+     */
+    getTodaySummary(date) {
+      const day = validDate(date) ? date : activeDate;
+      const raw = habitRowFor(day);
+      const items = Array.isArray(raw?.exercises) ? raw.exercises : [];
+      const named = items.filter(item => item && String(item.name || '').trim());
+      const stats = trainingStatsOf(items);
+      // 顶组：先比重量、再比次数；金字塔组取最重那组的次数（和渐进规则同一口径）。
+      const topSet = named
+        .map(item => ({name: String(item.name).trim(), ...topSetSummary(item)}))
+        .filter(set => set.sets > 0 && set.reps !== null)
+        .sort((a, b) => (number(b.weight) ?? -1) - (number(a.weight) ?? -1) || b.reps - a.reps)[0] || null;
+      return {
+        date: day,
+        trained: named.length > 0,
+        exercises: named.length,
+        sets: stats.sets,
+        volume: stats.volume,
+        bodyweightReps: stats.bodyweightReps,
+        distanceKm: items.reduce((sum, item) => sum + (number(item?.distanceKm) || 0), 0),
+        durationMin: items.reduce((sum, item) => sum + (number(item?.durationMin) || 0), 0),
+        template: raw && raw.template ? String(raw.template) : '',
+        topSet
+      };
+    },
+
+    /** 本周（周一起算）训练次数与累计容量；口径复用概览卡，不另造一套算法。 */
+    getWeekStats(date) {
+      const day = validDate(date) ? date : activeDate;
+      const weekStart = shiftDay(day, -weekdayIndex(day));
+      const week = weekTrainingStats(weekStart);
+      return {
+        weekStart,
+        sessions: week.sessions,
+        totalVolume: week.totalVolume,
+        totalBwReps: week.totalBwReps,
+        totalKm: week.totalKm,
+        totalMin: week.totalMin
+      };
+    },
+
+    /** 逐组口径的日负荷（截止当天往前，默认 28 天），直接喂给 acwrFromDailyLoads。 */
+    getDailyLoads(days) {
+      const span = Math.round(number(days) ?? 28);
+      return dailyLoads(Math.max(1, Math.min(180, span)));
+    }
+  });

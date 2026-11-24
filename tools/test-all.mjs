@@ -18,6 +18,7 @@
 import {spawnSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import {checkArchitecture} from './check-architecture.mjs';
 
 const args = process.argv.slice(2);
 const opt = (name, fallback) => {
@@ -29,6 +30,20 @@ const filter = opt('filter', '');
 const testsDir = 'tests';
 const logDir = path.join('build', 'test-logs');
 fs.mkdirSync(logDir, {recursive: true});
+
+// 架构体检先跑：边界破了（领域层摸 DOM、片段编号越层、app.js 与片段漂移），
+// 后面的行为断言再绿也没有意义。逻辑在 tools/check-architecture.mjs，这里只做门禁与一行摘要。
+const architecture = checkArchitecture({quiet: true});
+if (!architecture.ok) {
+  const count = architecture.errors.length;
+  console.log('FAIL    architecture (' + count + ' error' + (count === 1 ? '' : 's') + ')');
+  for (const error of architecture.errors) console.log('        ' + error);
+  console.log('');
+  console.log('architecture check failed: run tools/assemble-app.ps1, then node tools/check-architecture.mjs');
+  process.exit(1);
+}
+const warningCount = architecture.warnings.length;
+console.log('ok      architecture (' + architecture.checks + ' checks, ' + warningCount + ' warning' + (warningCount === 1 ? '' : 's') + ')');
 
 let files = fs.readdirSync(testsDir).filter(name => name.endsWith('.test.mjs')).sort();
 if (filter) files = files.filter(name => name.includes(filter));

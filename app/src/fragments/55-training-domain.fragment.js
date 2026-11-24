@@ -608,12 +608,16 @@
     const out = [];
     for (let offset = 0; offset < days; offset++) {
       const day = shiftDay(activeDate, -offset);
+      // 必须读原始行：exercisesFor 会把 setDetails 抹平成外层三字段，逐组明细一丢，
+      // trainingVolumeOf 就只能按「组数 × 顶组次数 × 顶组重量」估算，ACWR 与减载判定一起被带偏。
+      const raw = habitRowFor(day);
+      const items = Array.isArray(raw && raw.exercises) ? raw.exercises : [];
       let load = 0;
-      for (const item of exercisesFor(day)) {
-        // 逐组口径：金字塔组（10×40 / 8×60 / 5×80）真实 1280 kg，用外层汇总（sets=3、reps=10、weight=80）
-        // 会被算成 2400 kg，把 ACWR 负荷比和减载判定一起带偏。旧记录由 trainingVolumeOf 自己回退。
+      for (const item of items) {
+        // 逐组口径：金字塔组（10×40 / 8×60 / 5×80）真实 1280 kg；只拿外层汇总（组数 × 顶组次数 × 顶组重量）
+        // 估出来是 1200 kg 的近似值，日负荷与 ACWR 会跟着偏。旧记录没有 setDetails，由 trainingVolumeOf 回退。
         load += trainingVolumeOf([item]);
-        const minutes = number(item.durationMin);
+        const minutes = number(item && item.durationMin);
         if (minutes !== null) load += minutes * 6;
       }
       out.push({date: day, load});

@@ -2041,3 +2041,16 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 断言：`suite-trends` 新增 `segment-persistence` 组 6 条（记录页读回/不再被 tab 重置、趋势页读回与写回、训练项退回体重、问答页有自己的记忆）。
 - 验收：assemble + `node --check` 通过；`test-all` 10/10；`dev-loop -Version 1.5.41 -VersionCode 541` 装机，smoke js errors: none；真机确认趋势页「训练」段正常（`build/v41-train-seg.png`），往返验证被设备占用打断（手机当时停在 Gemini），未继续盲点。
 - 发版：推 localmirror / source / public；`publish-pages.ps1 -Message "pages: 1.5.41"`；GitHub Release v1.5.41 上传 `dist/qingheng-1.5.41.apk`。
+
+### r235 · 2026-11-24 13:36 · 1.5.41（未提版本号）：模块化地基落地（window.QH / 架构守卫 / 训练挂牌）
+
+- 用户要求（原话节选）：把轻衡「正式升级为高内聚、低耦合、边境受控的模块化工程架构」；本轮搭命名空间底座、装自动边境守卫、把训练模块挂牌入驻，并保证现有 2,189+ 项测试全绿。
+- 新增 `app/src/fragments/05-core-runtime.fragment.js`（第 2 片，紧跟 00-head）：`QH.define(name, api)`（重复注册 / 保留名 / 暴露可变对象一律抛错，接口浅拷贝后冻结）、`QH.bus`（on/off/emit，单个监听器抛错被隔离，`on` 返回退订句柄）、`QH.EVENTS` 五个领域事件常量、`QH.select`（define/get/snapshot，返回值深克隆后冻结——绝不冻结别人的活 state）、`QH.storage`（键归属 claim/ownerOf/assertWrite）。整片只用 window/console/标准对象，零 DOM 依赖。
+- 新增 `tools/check-architecture.mjs`（`test-all` 每次先跑，也可单独跑）：① 片段编号格式 + 九条分层带宽 + app.js 与片段逐字节一致；② `*-domain.fragment.js` 出现 `document.` / `querySelector` / `getElementById` / `innerHTML` / `window.alert|confirm|prompt` 直接 exit 1；③ 05 必须紧跟 00 且已合入 app.js 头部，再把 05 单独放进无 DOM 的 vm 跑 7 条行为探针（define/bus/select/storage 真能用）。全绿打印 `Architecture check PASSED`。
+- 存量偏差：7 个片段编号与语义层不符（20-permissions-backup / 30-voice / 40-targets / 50-onboarding / 55-usage / 72-chat-panels / 80-boot），记 WARN 不阻断（改名要动 30+ 处测试引用，另起一轮做）；`--strict-bands` 可把它们当失败来验收迁移。
+- 训练挂牌：`68-training-log.fragment.js` 末尾 `QH.define('training', {getTodaySummary, getWeekStats, getDailyLoads})`；`saveTrainingLog` 在落库 + 界面刷新之后 `QH.bus.emit(QH.EVENTS.TRAINING_SAVED, {date})`。老全局函数一个没删，调用点逐处迁移。
+- 顺手修 bug（写契约测试时暴露）：`dailyLoads` 原先走 `exercisesFor`，而它会把 `setDetails` 抹平，于是「逐组口径」名不副实——金字塔组 10×40 / 8×60 / 5×80 被算成 1200 kg（真实 1280），ACWR 与减载判定跟着偏。改成直接读 `habitRowFor` 的原始行后，日负荷 1400（1280 + 20min×6）正确。
+- 断言：新增 `tests/suite-architecture.test.mjs`（11 条，含 7 棵临时坏树 / 桩树，证明守卫真会红）、`tests/suite-modular.test.mjs`（26 条，vm 里真跑 05 + 55 + 注册块：逐组容量 1280 / 顶组 80×5 / 周 2 次 2780 / 日负荷 1400 / ACWR acute 2900 / 事件广播位置）。
+- 流水线：`assemble-app.ps1` 增加「05 必须紧跟 00」断言；`test-all.mjs` 开头跑架构体检，任一错 exit 1 并提示先 assemble；AGENTS.md 命令清单与 tools/README.md 同步。
+- 验收：`assemble-app.ps1` → 17 fragments / 685,284 chars；`check-architecture.mjs` → PASSED（34 checks / 7 warnings）；`test-all.mjs` → 12 run / 0 failed / 6.2s，2,374 条 PASS。
+- 未做：无在线设备，未装机、未提版本号、未推远端 / 未发 Release（用户本轮只要结构与验证）。改 `.ps1` 时 Edit 工具丢 BOM，导致一次 `IndexOf ... Parameter name: array`（变量莫名 null），已补回 BOM 并把这条写进 AGENTS 陷阱 4。
