@@ -2319,10 +2319,9 @@ html[data-tab="today"] .energy-card .quick-chip:active{background-image:linear-g
 
 /* ── 2026-11-22 第八轮：小习惯/今日记录并卡 + 弹窗磨砂 ────────────────────────────── */
 #today-fold-card{padding-top:10px}
-.fold-tabs{display:flex;gap:8px;margin:16px 0 6px;border-bottom:1px solid color-mix(in srgb,var(--ink) 9%,transparent)}
-.fold-tab{position:relative;min-height:34px;padding:0 2px 9px;border:0;background:none;color:var(--muted);font-size:var(--text-sm)}
-.fold-tab[aria-selected="true"]{color:var(--ink);font-weight:var(--fw-semibold)}
-.fold-tab[aria-selected="true"]::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;border-radius:2px;background:var(--accent)}
+/* 2026-11-24：今天页下半区不再分段——记录与习惯上下相接，只有一条发丝线分隔。 */
+.fold-panel{display:block}
+.fold-panel + .fold-panel{margin-top:14px;padding-top:14px;border-top:1px solid color-mix(in srgb,var(--ink) 8%,transparent)}
 #today-fold-card .fold-panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
 #today-fold-card .fold-panel-head h2{margin:0;font-size:17px;font-weight:var(--fw-semibold);letter-spacing:var(--tracking-label)}
 /* 结束训练弹窗：浮层毛玻璃（v2 只允许 Sheet/浮层） */
@@ -2333,7 +2332,7 @@ html[data-tab="today"] .energy-card .quick-chip:active{background-image:linear-g
 /* 2026-11-23：分段控制移到卡片外，作为下半区统一控制器 */
 .today-seg{display:flex;gap:8px;margin:2px 0 10px}
 #today-fold-card{padding-top:10px}
-.fold-tabs{margin:16px 0 6px}
+.fold-panel + .fold-panel{margin-top:14px}
 
 
 

@@ -114,12 +114,12 @@ check('the timeline reads weight from the same-day measurement record', app.incl
 check('today and historical meals share one bottom separator per row', /#today-meals \.meal-row,#record-meals \.meal-row\{[^}]*border-top:0;[^}]*border-bottom:1px solid var\(--record-separator\)/s.test(css) &&
   css.includes('#today-meals > :last-child,#record-meals .meal-day > .meal-row:last-child{border-bottom:0}') &&
   css.includes('.day-event{padding:var(--space-2) 0;border:0;border-bottom:1px solid var(--line)}'));
-// 2026-11-23 反转 11-22 的「习惯前置」：首页先看今日记录，小习惯退到第二格；建议仍在主流程。
-// 同日「更多」折叠整块删除：身体近况只留在记录 → 身体，今天页不再有第二处入口。
-check('records lead the fold, habits follow, advice stays in the main flow', html.indexOf('data-fold-tab="records"') < html.indexOf('data-fold-tab="habits"') &&
+// 2026-11-24：取消「今日记录 / 小习惯」分段，两段上下相接成一个连续流；记录在前、习惯在后，建议仍在主流程。
+check('records and habits form one flow without a second switch', html.indexOf('id="today-records-card"') < html.indexOf('id="today-habits-card"') &&
+  !html.includes('fold-tabs') && !html.includes('data-fold-tab') && !html.includes('data-fold-panel') &&
   html.indexOf('给今天的一点建议') > html.indexOf('id="today-fold-card"') &&
   !html.includes('id="day-more"') &&
-  app.includes("saved = localStorage.getItem(TODAY_FOLD_KEY) === 'habits' ? 'habits' : 'records'"));
+  !app.includes('TODAY_FOLD_KEY'));
 check('meal slots are collapsed by default', app.includes('order.length === 1 && list.length === 1') && !app.includes('latestKey'));
 check('quick copy is a quiet text link in the energy heading', app.includes("button.className = 'text-button quick-record-link'") &&
   app.includes('heading.appendChild(button)') && !html.includes('id="energy-actions"'));

@@ -1971,3 +1971,15 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 断言：`suite-training` 新增三条行为断言（4 练只有第 4 天是轻量日、轻量日组数严格小于常规日、3 练没有轻量日）。
 - 发版：README 的 version / apksigner 示例 / 当前版本行同步到 1.5.34；`dev-loop -Version 1.5.34 -VersionCode 534` 构建装机（smoke js errors: none）；推 localmirror / source / public；`publish-pages.ps1` 刷 gh-pages；GitHub Release v1.5.34 上传 `dist/qingheng-1.5.34.apk`。
 - 事故记录：用 `Set-Content` 改 README 把整份文件的换行改成 LF（68 行全变更）+ 加了 BOM；已用 `git show HEAD:README.md` 字节还原，再走 edit 工具重改三处——`.md` 也别用 PowerShell 文本管道。
+
+
+### r229 · 2026-11-24 12:30 · 1.5.35：今天页下半区合成一条连续流，睡眠入口只留一处
+
+- 用户英文清单第 1 条：「Merge Habits and Today's Records into a single, seamless flow without nested boxed cards or duplicate metrics」。
+- 合并：删掉 `#today-fold-card` 上方的 `.fold-tabs` 分段与整段切换逻辑（`installTodayFold` / `TODAY_FOLD_KEY` / 两个 `data-fold-panel` 的 hidden 互斥）；卡片内改成两段上下相接——「今日记录」在上、「小习惯」在下，中间只一条发丝线（`.fold-panel + .fold-panel`）。DOM 顺序也改成 records 在前，与阅读顺序一致。
+- 睡眠重复：体检里那颗「还差 · 补睡眠」删除——正下方的小习惯格就是同一个跳转，同屏两处入口属于重复；「睡眠未记」由睡眠那根 0% 胶囊说清，评分口径（四项 30/30/20/20、缺数据不进分母）不动。
+- 其余三项已是现状、本轮只做核对：餐次默认收起（一格一餐例外，1.5.32）、习惯三行账本 44px（1.5.31）、训练说明进抽屉与勾选即倒计时（1.5.27/1.5.31）。
+- 断言：`suite-records` 一条改写成「两段一条流、无 tablist/fold-panel、records 在前」；`suite-today` 两条改成「体检不再重复睡眠跳转」「睡眠入口就是习惯格」。
+- 验收：assemble + `node --check` 通过；`test-all` 10/10；`dev-loop -Version 1.5.35 -VersionCode 535` 装机，smoke js errors: none。
+- 真机：`build/v35-today2.png`（体检 → 今日记录 2 餐收起 → 小习惯三格 → 建议，一列到底）。
+- 未做：Release v1.5.35 与 gh-pages 未发（上一版 v1.5.34 已发）；要发即推三远端 + publish-pages + Release。

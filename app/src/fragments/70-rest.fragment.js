@@ -161,7 +161,7 @@
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.34';
+  const APP_VERSION = '1.5.35';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -3061,28 +3061,7 @@ feedback(message,'数据已导入。'+report);
   applyTrainingVisibility();
   installCardCollapse(); installTrainingAdvice(); installTrainingSheets(); installTodayAction(); installHabitChips(); installChatChips();
   /**
-   * 今天页「今日记录 / 小习惯」分段（2026-11-23 反转 11-22 的「习惯前置」）：
-   * 首页进入先看当天吃了什么——记录是核心板块，小习惯退到第二格。
-   * 用户点过哪一格就记在本机，换天不重置；没点过的一律落在「今日记录」。
+   * 今天页下半区（2026-11-24）：取消「今日记录 / 小习惯」分段——两段上下相接、一条发丝线分隔，
+   * 记录在上、习惯在下，只有一个连续的开合动作可做（点餐次），不再有第二次切换。
    */
-  const TODAY_FOLD_KEY = 'qingheng.todayFold';
-  function installTodayFold() {
-    const card = $('#today-fold-card');
-    const tabsRoot = $('.fold-tabs');
-    if (!card || card.dataset.wired === '1') return;
-    card.dataset.wired = '1';
-    const panels = $$('[data-fold-panel]', card);
-    const tabs = $$('[data-fold-tab]', tabsRoot || card);
-    const paint = key => {
-      panels.forEach(panel => { panel.hidden = panel.dataset.foldPanel !== key; });
-      tabs.forEach(tab => tab.setAttribute('aria-selected', String(tab.dataset.foldTab === key)));
-    };
-    let saved = 'records';
-    try { saved = localStorage.getItem(TODAY_FOLD_KEY) === 'habits' ? 'habits' : 'records'; } catch {}
-    paint(saved);
-    tabs.forEach(tab => tab.addEventListener('click', () => {
-      paint(tab.dataset.foldTab);
-      try { localStorage.setItem(TODAY_FOLD_KEY, tab.dataset.foldTab); } catch {}
-    }));
-  }
-  setupCollapsibleSections(); installQuickRecordControls(); installHealthConnectControls(); installBodyDataControls(); installTodayMoreMenu(); installTodayFold(); restoreConsent(); installExternalConsent(); installExactAlarmControl();
+  setupCollapsibleSections(); installQuickRecordControls(); installHealthConnectControls(); installBodyDataControls(); installTodayMoreMenu(); restoreConsent(); installExternalConsent(); installExactAlarmControl();

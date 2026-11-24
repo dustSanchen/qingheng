@@ -366,7 +366,8 @@ check('a past day with records has no live urgency', agenda.primary === null && 
 
 check('the old false "补训练" copy is gone from the bundle', !app.includes('补训练'));
 check('the action line consumes the agenda', app.includes('todayAgendaState') && app.includes('bar.dataset.target = item.target'));
-check('the daily check keeps one sleep jump, not a second action surface', app.includes('href="#records" data-focus="habit-sleep"'));
+// 2026-11-24：体检里的「补睡眠」删除——睡眠入口只留正下方的小习惯格，同一屏不再两处跳转。
+check('the daily check no longer repeats the sleep jump', !app.includes('check-fix-row') && !app.includes("iconMarkup('icon-habit-sleep.svg') + '补睡眠'"));
 check('the sheet consumes the agenda secondaries', app.includes('agenda.secondary') && app.includes('data-brief-index'));
 check('a protein gap becomes the next step instead of a third reminder', app.includes("id: 'protein-gap'") && app.includes('下一餐补蛋白') && app.includes('proteinGap'));
 check('the action line names itself for screen readers', app.includes('`下一步：${item.label}') && app.includes('bar.setAttribute("aria-label"'));
@@ -399,7 +400,7 @@ check('today energy is one paper hero card', css.includes('#view-today .energy-c
 check('ledger keeps its square ledger frame', css.includes('[data-skin="ledger"] #view-today .energy-card{border-radius:0'));
 check('the action line is a single 48px row', css.includes('.today-action{display:flex;align-items:center;gap:8px;min-height:48px'));
 check('no second action surface is left', !html.includes('id="slot-note"') && !html.includes('id="slot-hint"'));
-check('the sleep jump is a single direct link to the existing body field', app.includes('data-focus="habit-sleep"') && app.includes('revealField(button.dataset.focus)'));
+check('the sleep entry is the habit tile itself', app.includes("focus: 'habit-sleep'") && app.includes('data-habit-jump') && app.includes('data-focus="${cell.focus}"'));
 check('the reason moved into the sheet', !html.includes('id="slot-reason"') && app.includes('function openDayBrief()'));
 check('an empty day still shows a calm line', app.includes('今天没有要补的缺口，按计划走就好'));
 

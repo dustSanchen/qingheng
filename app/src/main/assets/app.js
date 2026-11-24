@@ -6213,11 +6213,8 @@ const values = points.length<=7 ? points.map((item,i) => {
     TODAY_SIGNALS.check = check.verdict || '';
     if (typeof renderTodayAction === 'function') renderTodayAction();
     // 首屏只有一条行动行（#today-action）；体检只报状态，不再各给一条「该做什么」。
-    // except for a missing sleep value, which keeps its direct jump.
-    const sleepMissing = number(habit.sleep) === null;
-    if (sleepMissing) {
-      box.innerHTML += '<div class="check-fix-row"><span>还差</span><a class="check-fix" href="#records" data-focus="habit-sleep">' + iconMarkup('icon-habit-sleep.svg') + '补睡眠</a></div>';
-    }
+    // 2026-11-24：删掉体检里那颗「补睡眠」快捷——睡眠在正下方的小习惯格里就是同一个跳转，
+    // 同一屏两处入口属于重复；"睡眠未记" 已经由睡眠那根 0% 的胶囊说清。
     box.querySelectorAll('.check-fix').forEach(button => {
       button.dataset.goBound = '1';
       button.addEventListener('click', () => {
@@ -8920,7 +8917,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.34';
+  const APP_VERSION = '1.5.35';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
@@ -11820,31 +11817,10 @@ feedback(message,'数据已导入。'+report);
   applyTrainingVisibility();
   installCardCollapse(); installTrainingAdvice(); installTrainingSheets(); installTodayAction(); installHabitChips(); installChatChips();
   /**
-   * 今天页「今日记录 / 小习惯」分段（2026-11-23 反转 11-22 的「习惯前置」）：
-   * 首页进入先看当天吃了什么——记录是核心板块，小习惯退到第二格。
-   * 用户点过哪一格就记在本机，换天不重置；没点过的一律落在「今日记录」。
+   * 今天页下半区（2026-11-24）：取消「今日记录 / 小习惯」分段——两段上下相接、一条发丝线分隔，
+   * 记录在上、习惯在下，只有一个连续的开合动作可做（点餐次），不再有第二次切换。
    */
-  const TODAY_FOLD_KEY = 'qingheng.todayFold';
-  function installTodayFold() {
-    const card = $('#today-fold-card');
-    const tabsRoot = $('.fold-tabs');
-    if (!card || card.dataset.wired === '1') return;
-    card.dataset.wired = '1';
-    const panels = $$('[data-fold-panel]', card);
-    const tabs = $$('[data-fold-tab]', tabsRoot || card);
-    const paint = key => {
-      panels.forEach(panel => { panel.hidden = panel.dataset.foldPanel !== key; });
-      tabs.forEach(tab => tab.setAttribute('aria-selected', String(tab.dataset.foldTab === key)));
-    };
-    let saved = 'records';
-    try { saved = localStorage.getItem(TODAY_FOLD_KEY) === 'habits' ? 'habits' : 'records'; } catch {}
-    paint(saved);
-    tabs.forEach(tab => tab.addEventListener('click', () => {
-      paint(tab.dataset.foldTab);
-      try { localStorage.setItem(TODAY_FOLD_KEY, tab.dataset.foldTab); } catch {}
-    }));
-  }
-  setupCollapsibleSections(); installQuickRecordControls(); installHealthConnectControls(); installBodyDataControls(); installTodayMoreMenu(); installTodayFold(); restoreConsent(); installExternalConsent(); installExactAlarmControl();
+  setupCollapsibleSections(); installQuickRecordControls(); installHealthConnectControls(); installBodyDataControls(); installTodayMoreMenu(); restoreConsent(); installExternalConsent(); installExactAlarmControl();
 /* 问答页分段：问答 / 训练建议（2026-11-17：今日训练建议从今天页迁到问答页）。
    面板显隐沿用记录页的 .record-panel[hidden] 约定，选择记在 localStorage。 */
 (function () {
