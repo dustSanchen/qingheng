@@ -2,7 +2,7 @@
 
 **每一天，轻一点。** 一本只存在你手机里的健康账：饮食、训练、身体三栏记在一处，断网也能用，不上传任何记录。
 
-![Version](https://img.shields.io/badge/version-1.5.36-informational) ![Tests](https://img.shields.io/badge/tests-10%20suites%20%2F%202209-green) ![MinSdk](https://img.shields.io/badge/minSdk-26-blue) ![TargetSdk](https://img.shields.io/badge/targetSdk-35-blue) ![APK](https://img.shields.io/badge/APK-699%20KB-lightgrey) ![License](https://img.shields.io/badge/license-%E7%A6%81%E6%AD%A2%E8%BD%AC%E5%94%AE-critical)
+![Version](https://img.shields.io/badge/version-1.5.37-informational) ![Tests](https://img.shields.io/badge/tests-10%20suites%20%2F%202209-green) ![MinSdk](https://img.shields.io/badge/minSdk-26-blue) ![TargetSdk](https://img.shields.io/badge/targetSdk-35-blue) ![APK](https://img.shields.io/badge/APK-699%20KB-lightgrey) ![License](https://img.shields.io/badge/license-%E7%A6%81%E6%AD%A2%E8%BD%AC%E5%94%AE-critical)
 
 [**展示页**](https://dustsanchen.github.io/qingheng/) · [**下载最新安装包**](https://github.com/dustSanchen/qingheng/releases/latest) · [**更新记录**](https://github.com/dustSanchen/qingheng/releases)
 
@@ -51,7 +51,7 @@
 2. 安装前可核对签名：
 
 ```powershell
-apksigner verify --print-certs qingheng-1.5.36.apk
+apksigner verify --print-certs qingheng-1.5.37.apk
 # 期望 SHA-256: b23aba9a2955e620dad5453c15a879ffab3ca4ad90a3e5b1b63beb5f55fab1ac
 ```
 
@@ -59,7 +59,7 @@ apksigner verify --print-certs qingheng-1.5.36.apk
 
 ## 版本与测试
 
-当前 1.5.36（versionCode 536），10 个测试套件 / 2,191 条断言全绿。版本号由 `tools/sync-version.mjs` 一处同步到源码、构建脚本与测试，禁止手改。
+当前 1.5.37（versionCode 537），10 个测试套件 / 2,191 条断言全绿。版本号由 `tools/sync-version.mjs` 一处同步到源码、构建脚本与测试，禁止手改。
 
 ## 许可
 

@@ -915,6 +915,9 @@
       templateId: 'push-day-template'}) : [];
     const approxCount = days.reduce((sum, day) => sum + day.exercises.filter(item => item.weightApprox).length, 0);
     return {startDate: start, sessions, deload, days, reasons, goal: goal || null,
+      // 生成时真正用上的参数：给「这周这样排」弹窗与「为什么这样排」用，避免界面再猜一遍。
+      applied: {minutes, moves, setCap, gear: gearKey, split, startTemplate: templates[startAt] || templates[0],
+        bannedWords: bannedWords.slice(0, 6)},
       prescription: {reps: repsRange, rir: rirRange},
       note: deload
         ? '本周负荷偏高（ACWR > 1.5），按减载周安排：负重 ×0.9、组数 −1。'

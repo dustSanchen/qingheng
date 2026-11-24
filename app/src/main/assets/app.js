@@ -5440,6 +5440,9 @@ const values = points.length<=7 ? points.map((item,i) => {
       templateId: 'push-day-template'}) : [];
     const approxCount = days.reduce((sum, day) => sum + day.exercises.filter(item => item.weightApprox).length, 0);
     return {startDate: start, sessions, deload, days, reasons, goal: goal || null,
+      // 生成时真正用上的参数：给「这周这样排」弹窗与「为什么这样排」用，避免界面再猜一遍。
+      applied: {minutes, moves, setCap, gear: gearKey, split, startTemplate: templates[startAt] || templates[0],
+        bannedWords: bannedWords.slice(0, 6)},
       prescription: {reps: repsRange, rir: rirRange},
       note: deload
         ? '本周负荷偏高（ACWR > 1.5），按减载周安排：负重 ×0.9、组数 −1。'
@@ -6391,18 +6394,21 @@ const values = points.length<=7 ? points.map((item,i) => {
     }
     if (save && !save.dataset.wired) {
       save.dataset.wired = "1";
-      save.addEventListener("click", () => {
-        savePlanPrefs({
+      save.addEventListener("click", async () => {
+        const prefs = {
           days: Number(read("days")) || 3,
           split: read("split") || "ppl",
           gear: read("gear") || "mixed",
           minutes: Number(read("minutes")) || 45,
           request: readRequest()
-        });
+        };
+        savePlanPrefs(prefs);
         // 保存偏好与生成本周安排是同一次动作：以前指纹没变就复用缓存，看起来像「点了没反应」。
-        regenerateWeekPlan();
+        regenerateWeekPlan({fresh: true});
         setCollapsed(true);
-        notice("已保存训练偏好，并按新偏好重排本周安排。");
+        // 2026-11-24：生成不再只弹一句 toast——先给一屏「这周这样排」，把参数怎么落地说清再收工。
+        const more = await showCoachSummary(prefs, lastWeekPlan);
+        if (more) openPlanSheet();
       });
     }
   }
@@ -6734,6 +6740,8 @@ const values = points.length<=7 ? points.map((item,i) => {
   let forceWeekPlan = false;
   /** 「换一套」的轮换量：同偏好再排一版时把起始部位往前推，生成器本身是确定性的。 */
   let weekVariation = 0;
+  /** 这一次重排要不要播「重算完成」的动效（只在用户主动生成/换一套时置位）。 */
+  let planFresh = false;
   /** 七天窗口的起点：就是正在看的这一天，不再跳到下周一。 */
   function planStartDate() {
     return validDate(activeDate) ? activeDate : localDate();
@@ -6780,6 +6788,7 @@ const values = points.length<=7 ? points.map((item,i) => {
   function regenerateWeekPlan(opts = {}) {
     // 换一套 = 起始部位往前一格（生成器确定性，不推一格按了等于没按）；保存偏好 = 回到基准起点。
     weekVariation = opts.vary ? (weekVariation + 1) % 12 : 0;
+    planFresh = opts.fresh === true || opts.vary === true;
     const startDate = planStartDate();
     try { localStorage.removeItem(WEEK_PLAN_KEY(startDate)); } catch { }
     lastWeekPlan = null;
@@ -6847,6 +6856,51 @@ const values = points.length<=7 ? points.map((item,i) => {
     return '<p class="fine-print plan-quality">已生成 ' + plan.days.length + ' 练 · ' + labels.join(' / ') + ' · ' + span + sets
       + (approx ? ' · ' + approx + ' 个动作按体重推算起步' : '')
       + (imbalanced ? ' · 想练得更匀，可把每周改成 3 或 6 练' : '') + '</p>';
+  }
+  /**
+   * 「为什么这样排？」：把生成时真正用上的参数摊开——时长上限、动作数、器械、起始部位、
+   * 被排除的要求、是否减载。默认收起，挂在计划标题下面，不占首屏。
+   */
+  function planWhyBadgeHtml(plan) {
+    const a = (plan && plan.applied) || {};
+    const tpl = n => TRAINING_TEMPLATES[n] || n;
+    const first = plan && plan.days && plan.days[0] ? tpl(plan.days[0].template) : '';
+    const bits = [];
+    if (a.minutes) bits.push(`单次按 ${a.minutes} 分钟排，每次 ${a.moves} 个动作、每组最多 ${a.setCap} 组`);
+    if (a.gear) bits.push(`器械：${PLAN_GEAR_LABELS[a.gear] || a.gear}`);
+    if (first) bits.push(`起始接上一次训练之后：从${first}日开始轮换`);
+    if (Array.isArray(a.bannedWords) && a.bannedWords.length) bits.push(`已按你的要求排除：${a.bannedWords.join('、')}`);
+    if (plan && plan.deload) bits.push('本周判定为减载周：负重 ×0.9、组数 −1');
+    if (!bits.length) return '';
+    return `<details class="plan-why-badge"><summary>为什么这样排？</summary><p>${esc(bits.join('；'))}。</p></details>`;
+  }
+  function openPlanSheet() {
+    const trigger = $("#plan-explain-open");
+    if (trigger) trigger.click();
+  }
+  /**
+   * 「这周这样排」——生成后必须先看的一屏：把这次改的偏好逐条落到结果上（排了几练、时长怎么折算、
+   * 器械、训练要求是否被读取/排除、周组数是否压在上限内）。返回 true 表示用户想去看看详细说明。
+   */
+  function showCoachSummary(prefs, plan) {
+    const a = (plan && plan.applied) || {};
+    const tpl = n => TRAINING_TEMPLATES[n] || n;
+    const days = (plan && plan.days) || [];
+    const labels = days.map(day => tpl(day.template) + (day.light ? '（轻）' : ''));
+    const rows = [];
+    rows.push(`每周 ${prefs.days} 练 → 实际排了 ${days.length} 练：${labels.join(' / ') || '—'}`);
+    rows.push(`单次 ${prefs.minutes} 分钟上限 → 每次 ${a.moves || '—'} 个动作、每组最多 ${a.setCap || '—'} 组`);
+    rows.push(`器械：${PLAN_GEAR_LABELS[prefs.gear] || prefs.gear || '综合'}`);
+    const request = String(prefs.request || '').trim();
+    rows.push(request
+      ? `训练要求：${request}${Array.isArray(a.bannedWords) && a.bannedWords.length ? ` → 已排除：${a.bannedWords.join('、')}` : ' → 已读取，没有命中要排除的动作'}`
+      : '训练要求：未填写');
+    const cap = days[0] && days[0].weeklySets ? days[0].weeklySets.cap : null;
+    if (cap) rows.push(`周组数：压在每部位 ${cap} 组上限内`);
+    if (plan && plan.deload) rows.push('负荷判定偏高 → 按减载周排：负重 ×0.9、组数 −1');
+    const bodyHtml = `<ul class="dialog-items coach-summary">${rows.map(row => `<li><span>${esc(row)}</span></li>`).join('')}</ul>`;
+    return askConfirm('这一版是按你刚改的偏好重排的。', {title: '这周这样排', ok: '知道了', cancel: '看详细说明', bodyHtml})
+      .then(ok => ok === false);
   }
   function renderWeekPlan() {
     const box = $('#week-plan'), tag = $('#week-plan-tag');
@@ -6987,7 +7041,19 @@ const values = points.length<=7 ? points.map((item,i) => {
       ? '<p class="fine-print plan-relation">上面按偏好与最近记录排周框架；实际执行顺序以你在训练日志里确认的那份为准，两者不一致时以日志为准。</p>'
       : '';
     // 卡面只剩本周安排与「记录有更新」一行；其余说明一次性渲染进抽屉，不再靠 move 搬家。
-    box.innerHTML = annotateTerms(thisWeekHtml + planQualityLine(plan) + driftHtml);
+    box.innerHTML = annotateTerms(thisWeekHtml + planQualityLine(plan) + planWhyBadgeHtml(plan) + driftHtml);
+    // 徽记默认收起（重画后显式关一次，避免浏览器把新插入的 details 当展开态）。
+    box.querySelectorAll('details.plan-why-badge').forEach(node => { node.open = false; });
+    // 2026-11-24：刚生成的那一版，标题与说明各播一次 220ms 上浮淡入，再平稳滚到卡头——
+    // 「列表已经按新偏好重算过」这件事要有可见动作，而不只是数字变了。
+    if (planFresh) {
+      planFresh = false;
+      const detail = box.querySelector('#week-detail');
+      const sub = box.querySelector('.plan-sub');
+      if (sub) sub.classList.add('is-fresh');
+      if (detail) detail.classList.add('is-fresh');
+      $('#week-plan-card')?.scrollIntoView({block: 'start', behavior: 'smooth'});
+    }
     const explainHost = $('#plan-explain-body');
     if (explainHost) {
       explainHost.innerHTML = annotateTerms(goalRequirementHtml + relationHtml + whyHtml + acwrHtml + scopeHtml + suggestedNote + scheduleHtml);
@@ -8972,7 +9038,7 @@ function metricIcon(label) {
     panel.addEventListener('toggle', () => {if (panel.open) showContextPreview(kind, $('#' + nodeId), activeDate).catch(() => {});});
   }
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.36';
+  const APP_VERSION = '1.5.37';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}

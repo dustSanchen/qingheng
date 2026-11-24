@@ -2000,3 +2000,15 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 断言：`suite-today` 的「三入口是一条整框分段」改成「三枚独立扁胶囊」；其余 9 套件未动，test-all 10/10。
 - 验收：assemble + `node --check` 通过；`dev-loop -Version 1.5.36 -VersionCode 536` 装机，smoke js errors: none；截图 `build/v36-verify.png`（今天页顶）、`build/v36-check.png`（今天页底）、`build/v36-rec-final.png`（记录页）。
 - 已知瑕疵：验证步进器时在真机上误触了「−/＋」，把 11-24 的步数写成了 0 步；记录页表单只提交非空字段，**没法把已填项清回「未记」**——这是既有行为，下一版可加「清空此项」或把 0 当未记。
+
+
+### r231 · 2026-11-24 13:05 · 1.5.37：生成计划前后给出可见反馈（教练小结 / 标题动效 / 为什么这样排）
+
+- 用户要求：改偏好点「生成计划」后必须先弹一屏「这周这样排」，逐条列出参数怎么落地；计划标题要可见地刷新；标题下加可展开的「为什么这样排」；状态切换要平滑、给"已重算"的确认。
+- 生成器回传参数：`generateWeekPlan` 的返回值新增 `applied:{minutes,moves,setCap,gear,split,startTemplate,bannedWords}`——界面不再自己猜一遍；`bannedWords` 就是用户要求里命中的「别/不要/避免」片段。
+- 「这周这样排」弹窗：`showCoachSummary(prefs, plan)` 用现有 `askConfirm`（bodyHtml 只收本地拼好的 `.coach-summary` 列表）逐条写：每周 N 练 → 实际排了几天与部位顺序；单次时长上限 → 每次动作数与每组上限；器械；训练要求原文 → 是否命中排除项；周组数上限；减载判定。按钮是「知道了 / 看详细说明」，选后者直接打开计划说明抽屉。
+- 标题动效：新增 `planFresh` 标记，生成/换一套时置位，`renderWeekPlan` 给 `.plan-sub` 与 `#week-detail` 加 `.is-fresh`（220ms 上浮淡入，reduced-motion 关闭），并把计划卡 `scrollIntoView` 到顶部——「列表按新偏好重算过」有可见动作。
+- 「为什么这样排？」：`planWhyBadgeHtml(plan)` 渲染成 `<details>`，默认收起（重画后显式 `open=false`，否则浏览器会把新插入的 details 当展开态），内容 = 时长/动作数/组上限、器械、起始轮换部位、被排除项、减载。
+- 断言：`suite-records` 里「周计划可显式重排」从 `regenerateWeekPlan();` 改成 `regenerateWeekPlan({`，并新增两条（弹窗文案与徽记）。另外把徽记箭头字号从 10px 改回 `--text-xs`，否则 `suite-training` 的「最小字号可读」会红。
+- 验收：assemble + `node --check` 通过；`test-all` 10/10；`dev-loop -Version 1.5.37 -VersionCode 537` 装机，smoke js errors: none。
+- 真机：`build/v37-badge.png`（计划卡 + 收起的徽记）。生成弹窗**没有**在真机上截到：设备当时停在别的应用（Gemini），按约定不再盲点，留给下一次有人看屏时手验。

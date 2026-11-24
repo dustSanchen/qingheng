@@ -290,7 +290,12 @@ check('the training overview connects diet and lifting',
 
 check('the week plan can be regenerated explicitly',
   training.includes('function regenerateWeekPlan') && html.includes('id="pref-regen"')
-  && training.includes('regenerateWeekPlan();'));
+  && training.includes('regenerateWeekPlan({'));
+check('生成后先给一屏「这周这样排」，而不是只弹 toast',
+  training.includes('function showCoachSummary') && training.includes("title: '这周这样排'") &&
+  training.includes('看详细说明') && training.includes('已排除：'));
+check('计划标题下有可展开的「为什么这样排」',
+  training.includes('function planWhyBadgeHtml') && training.includes('plan-why-badge') && training.includes('为什么这样排？'));
 check('the fast chat context carries training and meals',
   main.includes('trainingLast7Days') && main.includes('cappedWindow(numericWindow("meals", from, selectedDate), 10)'));
 
