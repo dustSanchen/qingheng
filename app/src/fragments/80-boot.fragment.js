@@ -3,6 +3,8 @@
   installSkinPicker();
   installChatDayFilter();
   installChatFocusReveal();
+  // 问答页外围接线的唯一入口（幂等）：分段、快捷胶囊、上下文预览开关都在 80-ai-chat 里。
+  if (typeof installAiChatModule === 'function') installAiChatModule();
 switchTab(restoreTab());render();connection();syncAnchors().catch(()=>{});
   readPermissionState().then(renderPermissionChecklist).catch(()=>{});
   refreshBackupStatus().then(maybeRemindBackup).catch(()=>{});

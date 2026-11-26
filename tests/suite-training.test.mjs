@@ -28,6 +28,8 @@ const read = path => fs.readFileSync(path, 'utf8');
 const html = read('app/src/main/assets/index.html');
 const app = read('app/src/main/assets/app.js');
 const rest = read('app/src/fragments/68-training-log.fragment.js') + read('app/src/fragments/70-rest.fragment.js');
+// 2026-11-27：问答外围接线（快捷胶囊/分段/上下文预览）收口到 80-ai-chat 专属层。
+const aiChat = read('app/src/fragments/80-ai-chat.fragment.js');
 const head = read('app/src/fragments/00-head.fragment.js');
 const main = read('app/src/main/java/cn/qingheng/health/MainActivity.java');
 const prompts = read('app/src/main/java/cn/qingheng/health/ai/Prompts.java');
@@ -63,8 +65,8 @@ check('a copy-yesterday shortcut exists', rest.includes('data-habit-copy') && re
 check('copying fills only recorded values', rest.includes('if (number(rowData[key]) === null) continue;'));
 
 // --- chat suggestions ---------------------------------------------------------------------------------
-check('chat suggestion chips exist', html.includes('id="chat-chips"') && rest.includes('function installChatChips'));
-check('the suggestions are state questions', rest.includes("'我今天蛋白够吗？'") && rest.includes("'本周体重趋势怎么样？'"));
+check('chat suggestion chips exist', html.includes('id="chat-chips"') && aiChat.includes('function installChatChips'));
+check('the suggestions are state questions', aiChat.includes("'我今天蛋白够吗？'") && aiChat.includes("'本周体重趋势怎么样？'"));
 
 // --- advice wording is still honest about the notification limit ---------------------------------------
 check('the advice prompt still asks for a one-line push body', prompts.includes('通知栏只显示很短的一行'));

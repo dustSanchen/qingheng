@@ -1097,6 +1097,8 @@
     if (!externalConsent()) {feedback(message,'请先到「我的 → 数据与关于」开启外部模型授权。',true); return;}
     if (chatImage && (state.settings.apiConfigured !== true || state.settings.visionEnabled !== true || !state.settings.visionModel)) {feedback(message,'带照片提问需要已启用的视觉模型：DeepSeek 请使用 deepseek-flash，B.AI 请填写其支持图片的模型。',true); return;}
     if (!navigator.onLine) {feedback(message,'当前离线；可先记录数据，联网后再问。',true); return;}
+    // 同一时刻只跑一条 AI 流（见 80-ai-chat 的 claimAiChatStream）：两条会互相覆盖回调。
+    if (typeof claimAiChatStream === 'function' && !claimAiChatStream('chat')) {feedback(message,'另一条 AI 请求还在进行，等它结束后再问。',true); return;}
     syncCalendarDay();
     const submittedImage = chatImage, submittedPhotoMeta = photoMeta(chatPhotoMeta), submittedDate = activeDate;
     button.disabled = true; feedback(message, submittedImage ? '正在上传照片并思考，请稍候…' : '正在思考，请稍候…');
@@ -1146,7 +1148,7 @@
       if (liveStream) endChatStream(liveStream);
       streamExpandedAnswer=null;
       feedback(message,error.message,true);
-    } finally {if(liveStream)endChatStream(liveStream);button.disabled = false;}
+    } finally {if(liveStream)endChatStream(liveStream);if(typeof releaseAiChatStream === 'function')releaseAiChatStream('chat');button.disabled = false;}
   }
   async function savePush(form) {
     const button = $('button[type=submit]',form), message = $('#push-feedback');

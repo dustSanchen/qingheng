@@ -1028,6 +1028,14 @@ assert(adapter.includes('relaxDay:body.relaxDay===true'), 'the bridge forwards r
 assert(adapter.includes('adviceBody.preferences=body.preferences'), 'the bridge forwards preferences to /api/advice');
 assert(!adapter.includes("if(path==='/api/push-history') return {records:[]};"), 'the unreachable push-history branch is gone from the chat paths');
 assert(app.includes('parseDraft(question, activeDate)') && app.includes('parseMealDraft(question, activeDate)'), 'the chat wire uses the shared draft parser');
+
+// --- AI 问答模块收口（2026-11-27 Phase 2a）---------------------------------------------------------
+const fragDir = fs.readdirSync('app/src/fragments');
+assert(fragDir.includes('80-ai-chat.fragment.js'), 'the AI chat module fragment exists in the 80-89 band');
+assert(!fragDir.includes('72-chat-panels.fragment.js'), 'the old chat panels fragment is merged into 80-ai-chat');
+assert(app.includes("QH.define('chat'"), 'the chat module publishes a QH contract');
+assert(app.includes('claimAiChatStream("plan")') && app.includes("claimAiChatStream('chat')") && app.includes("claimAiChatStream('advice')"), 'one AI stream at a time is enforced at all three entry points');
+assert(app.includes('installAiChatModule();'), 'boot initialises the chat module once');
 console.log('PASS Brave removal, targeted chat delete, one-time consent, and push advice history.');
 ;return typeof fail === 'number' ? fail : 0;
 });

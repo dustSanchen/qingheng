@@ -51,7 +51,6 @@ export const LEGACY_BAND_MISMATCH = {
   '40-targets.fragment.js': '目标预设属于 90-99 趋势与设置',
   '50-onboarding.fragment.js': '首次引导属于 20-29 今天页',
   '55-usage.fragment.js': '用量统计属于 90-99 趋势与设置',
-  '72-chat-panels.fragment.js': '聊天面板属于 80-89 AI 问答',
   '80-boot.fragment.js': '启动装配属于 00-09 核心基座'
 };
 
