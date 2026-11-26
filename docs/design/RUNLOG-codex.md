@@ -2072,3 +2072,11 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 测试：`suite-chat` 的流式气泡切片结束标记改到 `renderPush(`、教练组 `rest` 补 80 片段；`suite-records` 新增 `aiChatSrc` 并改两条按文件读取的断言；`suite-training` 四处 `rest` 补 80、`effortSignal` 单独从 80 切（标签仍在 70）。
 - 验收：assemble 17 片段、`node --check` 通过；`check-architecture` 34 checks / 6 warnings PASS；`test-all` 12/12 全绿。
 - 影响：纯移动，无语义变更；`app.js` 体积不变（同一份代码换文件）。问答底稿的行号再次漂移，需下一轮 snapshot→rebase→build（`sel.mjs` 的 10/70 组要改指向 80）。
+
+### r238 · 2026-11-27 01:35 · 1.5.42（versionCode 542）：提版本号并装机
+
+- 用户：「现在做，更新版本与轻衡记忆」。
+- `node tools/sync-version.mjs 1.5.42 542` 一处同步三处（70-rest 的 `APP_VERSION`、build.ps1 默认值、suite-food 字面量）；README 手动跟：version 徽章、tests 徽章（12 suites / 2635）、APK 徽章（711 KB）、apksigner 示例文件名、正文「当前 1.5.42（versionCode 542），12 个测试套件 / 2,635 条断言全绿」。
+- `dev-loop -Version 1.5.42 -SkipBackup`：version sync → assemble + syntax → tests（12/12）→ build + packaging（711 KB，sha256 6ED6A8D0…）→ 装到设备 3cba2bdc（dumpsys 确认 versionName=1.5.42 / versionCode=542）→ smoke `js errors: none`，总 27.7s。
+- 提交 dc40366（5 文件 +7/−7）。
+- 未做：三远端未推、gh-pages 未刷、Release 仍停在 1.5.41 → 装机与发布再次不一致，待发 1.5.42 时一起对齐；问答底稿行号仍待刷新。
