@@ -2144,3 +2144,9 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 另一个坑：`.ps1` 用 write 工具生成后**没有 BOM**，Windows PowerShell 按 GBK 读，here-string 的 `"@` 被中文乱码吞掉行尾，报「string is missing the terminator」；补 BOM 后正常（AGENTS 陷阱 4 的复发）。
 - 验收：assemble 22 片 702,578 bytes；`check-architecture` 43 checks / 6 warnings PASS；`test-all` 12/12 全绿；`dev-loop` 装机 1.5.42，smoke `js errors: none`。
 - 未做：11-28 的「测试 AI 清单」还没到日子；训练/饮食底稿的生成脚本仍在 `.tmp/`（一次性工具，按要求不入库）。
+
+### r244 · 2026-11-27 01:45 · 1.5.42：11-28 AI 验收清单成文
+
+- 待办里的「11-28 测试 AI 清单」落成 `docs/design/41-ai-checklist-20261128.md`：A 问答 7 条、B 训练建议 3 条、C 今天页刷新 4 条、D 休息计时 2 条、E 饮食口径 4 条、F 记录页清空 3 条；每条写「怎么点 / 看什么 / 通过判据」，并规定失败只记截图名 + 版本号 + 控制台首段报错，不写主观描述。
+- 明确降级验法：没有设备或没有 key 时按 `check-architecture` → `test-all` → `dev-loop` smoke 走一遍，点不了的条目记「未验」，不得写成已通过。
+- 未做：清单本身要在 11-28 真机执行；Release v1.5.42 说明仍只列 4 条，问答的 5 条可感知修复待补。
