@@ -2132,3 +2132,15 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 测试：suite-training / suite-trends 的取源补上 25/31/90；新增 delegation-scope 组 8 条（含「70-rest 业务函数回潮为 0」「70-rest < 1500 行」「委托不挂 document」）。
 - 验收：assemble 22 片段 701,963 bytes；check-architecture 43 checks / 6 warnings PASS（体积警告已消失，所有片段 < 1500）；test-all 12/12 全绿。fragment 行数：00-head 1453 / 05 187 / 10 842 / 20 173 / 25 106 / 30 296 / 31 297 / 40 439 / 42 622 / 45 1090 / 50 479 / 55-domain 1097 / 55-usage 113 / 60 1098 / 65 338 / 68 1387 / 70 708 / 75 119 / 76 34 / 80-ai-chat 1107 / 90 401 / 99 22。
 - 未做：装机、提版本、推三远端；饮食底稿仍未按 42/45/31/90 重跑。
+
+### r243 · 2026-11-27 01:30 · 1.5.42：记录页可清回未记 + 两份模块底稿跟到当前版本，并发 Release
+
+- 用户：「实现 p0p1p2」（P0 发布对齐 + 饮食底稿重跑；P1 训练底稿重跑；P2 表单空值缺口）。
+- P2 记录页空值：`readRecordedForm` / `withClearedRecord`（60）——空与 0 都算「未记录」，并把被清空的键从旧行里删掉；测量表单与习惯表单两处保存改用它。此前「只提交非空字段」会让已填项永远清不回未记（1.5.31 误触步进器把步数写成 0 就是撞在这上面）。断言：`suite-records` 新增 `record-clear` 组 8 条（vm 里跑真函数：0/空 → cleared、合并时删键、其余字段保留、两处保存都用同一读取器）；`suite-today` / `suite-training` 里 6 条旧实现字符串断言改为新契约。
+- P0 饮食底稿：快照重拍 → SEL 按 42/45/31/90 自动重定位（`remap.mjs`：函数名与常量锚点在全片段里查找，`until` 失效时就地改指下一个声明）→ `build.mjs` 重建 → `verify-blocks.mjs` 逐字回比。结果 149 段前端 + 25 段原生、174 块全部一致；正文里残留的「旧片段 · 函数」归属与附录行号一并改对（`fixrefs.mjs` + 生成后清理），头部写明快照 075929a 与「取代 Phase 1 版」。
+- P1 训练底稿：原稿是 11-23 Phase 1 快照、行号全失效且不含 55/68。改为按当前快照机械生成 SEL（`gen-sel.mjs`：9 个片段的分组 + 关键常量表按声明锚点整块摘录 + 函数说明取源码注释），`build.mjs` 的 java 段改为按方法名/锚点截取节选、§5 的数字改为实时统计，`verify-blocks.mjs` 回比。结果 200 段、200 块全部一致，doc 从 394 KB 变 306 KB。
+- P0 发布对齐：commit 523ad17 → localmirror / source / public 三推 → `publish-pages.ps1` 刷 gh-pages（f8ce0be）→ Release v1.5.42（id 459721211）上传 `qingheng-1.5.42.apk` 732,384 B。
+- 网络坑（新）：GitHub 走代理时 **schannel 握手必失败**（`schannel: failed to receive handshake`），换 `git -c http.sslBackend=openssl` 即通；本仓已写 `git config --local http.sslBackend openssl`。推送与 gh-pages 各遇到一次 `TLS connect error: unexpected eof`，重试一次即过——发布脚本要按「失败重试」写，不能一次失败就停。
+- 另一个坑：`.ps1` 用 write 工具生成后**没有 BOM**，Windows PowerShell 按 GBK 读，here-string 的 `"@` 被中文乱码吞掉行尾，报「string is missing the terminator」；补 BOM 后正常（AGENTS 陷阱 4 的复发）。
+- 验收：assemble 22 片 702,578 bytes；`check-architecture` 43 checks / 6 warnings PASS；`test-all` 12/12 全绿；`dev-loop` 装机 1.5.42，smoke `js errors: none`。
+- 未做：11-28 的「测试 AI 清单」还没到日子；训练/饮食底稿的生成脚本仍在 `.tmp/`（一次性工具，按要求不入库）。
