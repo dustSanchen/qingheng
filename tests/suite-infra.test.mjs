@@ -203,7 +203,7 @@ const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + 
 
 const app = fs.readFileSync('app/src/main/assets/app.js', 'utf8');
 const lines = app.split('\n');
-const bootLine = lines.find(line => line.includes('setupCollapsibleSections()') && line.includes('installQuickRecordControls()'));
+const bootLine = lines.find(line => line.includes('setupCollapsibleSections()') && line.includes('installDietModule()'));
 check('the boot line is found', Boolean(bootLine), bootLine ? bootLine.trim().slice(0, 80) : 'not found');
 
 const BUILTINS = new Set(['if', 'for', 'while', 'switch', 'catch', 'function', 'return', 'typeof', 'setTimeout', 'setInterval', 'clearTimeout', 'requestAnimationFrame', 'parseInt', 'parseFloat', 'isNaN', 'Number', 'String', 'Boolean', 'Array', 'Object', 'JSON', 'Promise', 'Date', 'Math', 'Map', 'Set', 'encodeURIComponent', 'decodeURIComponent', 'alert']);

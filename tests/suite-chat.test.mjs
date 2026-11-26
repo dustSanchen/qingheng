@@ -421,10 +421,11 @@ function grab(startMarker, endMarkers) {
 const chat60 = fs.readFileSync('app/src/fragments/60-training-copy.fragment.js', 'utf8').replace(/\r\n/g, '\n');
 const domain = fs.readFileSync('app/src/fragments/55-training-domain.fragment.js', 'utf8').replace(/\r\n/g, '\n');
 const targets = fs.readFileSync('app/src/fragments/40-targets.fragment.js', 'utf8').replace(/\r\n/g, '\n');
+const dietDomain = fs.readFileSync('app/src/fragments/42-diet-domain.fragment.js', 'utf8').replace(/\r\n/g, '\n');
 const pureSource = [
   constSource(chat60, 'DRAFT_MOVES'),
   constSource(chat60, 'DRAFT_KINDS'),
-  constSource(chat60, 'DAILY_CHECK_WEIGHTS'),
+  constSource(dietDomain, 'DAILY_CHECK_WEIGHTS'),
   constLine(domain, 'ACWR_HIGH'),
   constLine(domain, 'ACWR_LOW'),
   constLine(chat60, 'PLATEAU_SPAN_KG'),
@@ -436,9 +437,9 @@ const pureSource = [
   functionSource(domain, 'loadableWeightKg'),
   functionSource(chat60, 'parseDraft'),
   functionSource(chat60, 'parseTrainingDraft'),
-  functionSource(chat60, 'parseMealDraft'),
+  functionSource(dietDomain, 'parseMealDraft'),
   functionSource(chat60, 'draftSummary'),
-  functionSource(chat60, 'dailyCheck'),
+  functionSource(dietDomain, 'dailyCheck'),
   functionSource(domain, 'acwrFromDailyLoads'),
   functionSource(chat60, 'plateauFromWeekly'),
   functionSource(domain, 'generateWeekPlan'),

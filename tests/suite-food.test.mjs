@@ -31,6 +31,7 @@ const anchorsSource = fs.readFileSync('app/src/main/assets/anchors.js', 'utf8');
 const app = fs.readFileSync('app/src/main/assets/app.js', 'utf8');
 const training = fs.readFileSync('app/src/fragments/60-training-copy.fragment.js', 'utf8');
 const rest = fs.readFileSync('app/src/fragments/70-rest.fragment.js', 'utf8');
+const diet = fs.readFileSync('app/src/fragments/42-diet-domain.fragment.js', 'utf8') + fs.readFileSync('app/src/fragments/45-diet-ui.fragment.js', 'utf8');
 const html = fs.readFileSync('app/src/main/assets/index.html', 'utf8');
 const main = fs.readFileSync('app/src/main/java/cn/qingheng/health/MainActivity.java', 'utf8');
 const prompts = fs.readFileSync('app/src/main/java/cn/qingheng/health/ai/Prompts.java', 'utf8');
@@ -74,18 +75,18 @@ check('estimator prompt explains why', prompts.includes('两边抵消'));
 check('the estimator names the cooking method instead of oil grams', prompts.includes('每道菜必须给 method') && prompts.includes('不要输出 oilGrams') && main.includes('clean.put("method", method)'));
 check('estimator returns an uncertainty', prompts.includes('\\"uncertaintyPercent\\":15'));
 check('the prompt fixes the cooking-method vocabulary', prompts.includes('炒/爆炒/红烧/干锅/煎/炸/油淋/烤/蒸/煮/炖/凉拌/白灼/生食/其他') && prompts.includes('不要一律写成炒'));
-check('oil is attached to each dish, not edited separately', training.includes('data-oil=') && !training.includes('estimate-oil-input'));
+check('oil is attached to each dish, not edited separately', (training + diet).includes('data-oil=') && !training.includes('estimate-oil-input'));
 check('the estimate contract no longer asks the model for totals', !prompts.includes('\\"totals\\":{') && prompts.includes('不要 totals'));
 check('recalc re-estimates from the edited name and grams', html.includes('id="item-recalc-name"') && app.includes("text:`${name} ${grams} g`") && app.includes('noDraft:true'));
 check('a recalc that only wants numbers leaves no draft behind', main.includes('b.optBoolean("noDraft", false)') && main.includes('drafts.add(id);'));
 check('recalc still offers the manual per-100g path offline', app.includes('离线或未授权外部模型：请填上每 100g 四项数值'));
 check('estimates can stream and the page shows progress', main.includes('/api/estimate/stream') && main.includes('startEstimateStream') && app.includes("api('/api/estimate/stream'") && app.includes('正在识别'));
 check('a streaming estimate still falls back to the buffered route', app.includes("catch(streamError){data=await api('/api/estimate',payload);}"));
-const progressStart = estimatePage.indexOf('  function estimateInputNames(');
-const progressEnd = estimatePage.indexOf('  const estimateRetry=', progressStart);
+const progressStart = diet.indexOf('  function estimateInputNames(');
+const progressEnd = diet.indexOf('  function previewDraft(', progressStart);
 const progressSandbox = {};
 vm.createContext(progressSandbox);
-vm.runInContext(estimatePage.slice(progressStart, progressEnd)
+vm.runInContext(diet.slice(progressStart, progressEnd)
   + '\nthis.inputNames=estimateInputNames;this.streamNames=estimateStreamNames;', progressSandbox);
 check('estimate progress lists the food names supplied by the user',
   JSON.stringify(progressSandbox.inputNames('米饭 100g、鸡胸肉 150克、米饭 50g')) === JSON.stringify(['米饭','鸡胸肉','米饭']));
@@ -93,10 +94,10 @@ check('estimate stream names appear only after a complete JSON name arrives',
   progressSandbox.streamNames('{"items":[{"na').length === 0
     && JSON.stringify(progressSandbox.streamNames('{"items":[{"name":"米饭"},{"name":"鸡胸肉"}]')) === JSON.stringify(['米饭','鸡胸肉']));
 check('estimate progress is painted before the request starts',
-  estimatePage.indexOf('setBusyLine();', estimatePage.indexOf('estimateBusy=true')) < estimatePage.indexOf("api('/api/estimate/stream'"));
-check('estimate failures retain a dedicated retry button', estimatePage.includes("retry.hidden=false;") && estimatePage.includes("requestSubmit()"));
+  diet.indexOf('setBusyLine();', diet.indexOf('estimateBusy=true')) < diet.indexOf("api('/api/estimate/stream'"));
+check('estimate failures retain a dedicated retry button', diet.includes("retry.hidden=false;") && diet.includes("requestSubmit()"));
 check('estimate progress uses actions instead of a seconds ticker',
-  !estimatePage.includes('已等 ${') && !estimatePage.includes('已收到 ${seen.length}'));
+  !diet.includes('已等 ${') && !diet.includes('已收到 ${seen.length}'));
 check('interval bounds are computed for display', main.includes('draft.put(k + "Low"') && main.includes('draft.put(k + "High"'));
 check('an absurd uncertainty falls back to 15', main.includes('if (uncertainty <= 0 || uncertainty > 60) uncertainty = 15;'));
 check('oil is bounded', main.includes('if (topOil > 500) throw fail'));
@@ -350,7 +351,7 @@ await __run("intake-confidence", async () => {
 let fail = 0;
 const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + label + (detail === undefined ? '' : '  -> ' + detail)); if (!ok) fail++; };
 
-const source = fs.readFileSync('app/src/fragments/10-rich-answer.fragment.js', 'utf8').replace(/\r\n/g, '\n');
+const source = fs.readFileSync('app/src/fragments/42-diet-domain.fragment.js', 'utf8').replace(/\r\n/g, '\n');
 const start = source.indexOf('  function intakeConfidence(date = activeDate) {');
 const end = source.indexOf('  function recordIntakeConfidence() {');
 if (start < 0 || end < 0) throw new Error('intakeConfidence slice markers not found');
@@ -426,6 +427,8 @@ const head = fs.readFileSync('app/src/fragments/00-head.fragment.js', 'utf8');
 const rich = fs.readFileSync('app/src/fragments/10-rich-answer.fragment.js', 'utf8');
 const content = fs.readFileSync('app/src/fragments/60-training-copy.fragment.js', 'utf8');
 const targets = fs.readFileSync('app/src/fragments/40-targets.fragment.js', 'utf8');
+const domain = fs.readFileSync('app/src/fragments/42-diet-domain.fragment.js', 'utf8');
+const ui = fs.readFileSync('app/src/fragments/45-diet-ui.fragment.js', 'utf8');
 
 // --- 1. 作用域：四个声明不在 renderBody 里，且在它之前 ---
 const bodyStart = app.indexOf('  function renderBody() {');
@@ -437,8 +440,9 @@ check('confidence helpers are no longer nested inside renderBody',
   !body.includes('function recordIntakeConfidence(') && !body.includes('INTAKE_CONFIDENCE_KEY'),
   'renderBody=' + body.length + ' chars');
 check('confidence helpers sit at module scope before renderBody',
-  rich.indexOf('  function intakeConfidenceLevelFor(') > 0 &&
-  rich.indexOf('  function intakeConfidenceLevelFor(') < rich.indexOf('  function renderBody()'));
+  domain.indexOf('  function intakeConfidenceLevelFor(') > 0 &&
+  !rich.includes('function intakeConfidenceLevelFor(') &&
+  domain.indexOf('  function intakeConfidenceLevelFor(') < domain.indexOf('  function intakeConfidence(') + 100000);
 
 // --- 2. 行为：calibratedTdee 用缓存等级剔除低可信日（真实函数 + vm） ---
 const pick = (name) => {
@@ -499,7 +503,7 @@ check('the meal window is registered for pref sync',
 
 // --- 6. 目标文案统一 + 复制壳 ---
 check('lean label agrees between modules',
-  /function goalLabel\(goal\)[\s\S]{0,240}lean: '薄肌（线条）'/.test(head) && /lean: '薄肌（线条）'/.test(targets));
+  /function goalLabel\(goal\)[\s\S]{0,240}lean: '薄肌（线条）'/.test(domain) && /lean: '薄肌（线条）'/.test(targets));
 check('copy list has no container but keeps compatible names',
   !fs.readFileSync('app/src/main/assets/index.html', 'utf8').includes('id="copy-meal-buttons"')
   && /function copyCandidates\(\)/.test(content) && /function renderCopyMeals\(\)/.test(content) && /async function copyMeal\(/.test(content));
@@ -789,7 +793,8 @@ assert.match(adapter, /estimateDrafts:copy\(data\.estimateDrafts\)/, 'the demo k
 assert.match(adapter, /path==='\/api\/context-preview'\) throw/, 'the demo refuses a preview it cannot build');
 
 // --- Meal time: the photo's own clock first, then the description, then the record moment ------
-const clockBlock = app.slice(app.indexOf('  const clockPattern ='), app.indexOf('  let activeDate = localDate();'));
+const clockBlock = app.slice(app.indexOf('  const clockPattern ='), app.indexOf('  let activeDate = localDate();'))
+  + '\n' + app.slice(app.indexOf('  function clockFromText('), app.indexOf('  function sumMeals('));
 assert(clockBlock.length > 200, 'the meal-time helpers are delimited');
 const clockCtx = {Date};
 clockCtx.globalThis = clockCtx;
@@ -1479,9 +1484,9 @@ await __run("oil-estimation", async () => {
 let fail = 0;
 const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + label + (detail === undefined ? '' : '  -> ' + detail)); if (!ok) fail++; };
 
-const source = fs.readFileSync('app/src/fragments/60-training-copy.fragment.js', 'utf8').replace(/\r\n/g, '\n');
+const source = fs.readFileSync('app/src/fragments/42-diet-domain.fragment.js', 'utf8').replace(/\r\n/g, '\n');
 const start = source.indexOf("  const OIL_METHOD_FACTORS = {");
-const end = source.indexOf('  function renderOilLevel() {');
+const end = source.indexOf('  function oilAdjustedValues(');
 if (start < 0 || end < 0) throw new Error('oil rule slice markers not found');
 
 const sandbox = {

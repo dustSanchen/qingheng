@@ -54,8 +54,9 @@ check('adding a photo still lives on the meal card', html.includes('id="photo-ad
 // --- 3. 体检只有一行点评 -----------------------------------------------------------------------------
 check('the second line is gone', !app.includes('check-action') && !css.includes('.check-action'));
 check('the verdict is one paragraph', app.includes('+ `<p class="check-verdict">${esc(check.verdict)}</p>` + \'</div>\';'));
-const checkSource = grab('const DAILY_CHECK_WEIGHTS', ['function relaxDayInfoFor'])
-  + grab('function dailyCheck(', ['function plateauFromWeekly'])
+const dietDomain = fs.readFileSync('app/src/fragments/42-diet-domain.fragment.js', 'utf8').replace(/\r\n/g, '\n');
+const checkSource = dietDomain.slice(dietDomain.indexOf('const DAILY_CHECK_WEIGHTS'), dietDomain.indexOf('function relaxDayInfoFor'))
+  + dietDomain.slice(dietDomain.indexOf('function dailyCheck('), dietDomain.indexOf('function dietAudit('))
   + 'return {dailyCheck};';
 const { dailyCheck } = new Function(checkSource)();
 const range = { min: 2160, max: 2314 };

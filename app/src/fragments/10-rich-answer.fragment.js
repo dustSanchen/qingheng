@@ -188,15 +188,6 @@
     container.dataset.date = date || '';
     container.dataset.fingerprint = validDate(date) ? mealsFingerprint(date) : '';
   }
-  // Carbohydrate headroom left after protein and fat targets; null when targets are incomplete.
-  function carbCap(p, range) {
-    // calorieTarget can be empty on a temporary-target day; fall back to the day's range max so the
-    // carbohydrate limit still renders instead of showing a dash.
-    const kcal = number(p.calorieTarget) ?? number(range && range.max), protein = number(p.proteinMax), fat = number(p.fatMax);
-    if (kcal === null || kcal <= 0) return null;
-    const rest = kcal - (protein === null ? 0 : protein * 4) - (fat === null ? 0 : fat * 9);
-    return rest > 0 ? Math.round(rest / 4) : null;
-  }
   /** Shows a retryable bar instead of leaving the page half-drawn. */
   function showRenderError(error) {
     const bar = $('#render-error'), text = $('#render-error-text');
@@ -263,51 +254,6 @@
    */
   // 可信度缓存键（只存内部；键名走常量，避免裸字面量散落）
   const INTAKE_CONFIDENCE_KEY = 'qingheng.intakeConfidence';
-  function intakeConfidence(date = activeDate) {
-    const history = Array.isArray(state.meals) ? state.meals : [];
-    const meals = history.filter(row => row && row.date === date && number(row.calories) !== null);
-    if (!meals.length) return {level: 'none', score: 0, reasons: ['今天还没有可用记录'], meals: 0, recordedDays: 0};
-    let score = 100;
-    const reasons = [];
-    if (meals.length < 2) { score -= 25; reasons.push('今天只记了 ' + meals.length + ' 餐'); }
-    const oilTracked = meals.filter(row => number(row.oilGrams) > 0 || row.oilIncluded === true).length;
-    if (oilTracked === 0) { score -= 20; reasons.push('没有一处标了烹调用油'); }
-    else if (oilTracked / meals.length < 0.5) { score -= 20; reasons.push('多数餐没标用油'); }
-    const detailed = meals.filter(row => Array.isArray(row.items) && row.items.length > 0).length;
-    if (detailed / meals.length < 0.5) { score -= 10; reasons.push('有一半餐只有总数、没有逐项'); }
-    let recordedDays = 0;
-    for (let offset = 0; offset < 7; offset++) {
-      const day = typeof shiftDay === 'function' ? shiftDay(date, -offset) : date;
-      if (history.some(row => row && row.date === day && number(row.calories) !== null)) recordedDays += 1;
-    }
-    if (recordedDays <= 2) { score -= 15; reasons.push('近 7 天只记了 ' + recordedDays + ' 天'); }
-    else if (recordedDays <= 4) { score -= 8; reasons.push('近 7 天记了 ' + recordedDays + ' 天'); }
-    score = Math.max(10, Math.min(100, score));
-    // 只记了一餐就没有「一天」可言：无论分数多少都按低可信度处理。
-    const level = meals.length < 2 ? 'low' : score >= 85 ? 'high' : score >= 60 ? 'medium' : 'low';
-    return {level, score, reasons, meals: meals.length, recordedDays};
-  }
-  /** 只写本地缓存，不改界面。上限 60 天，滚动保留。 */
-  function recordIntakeConfidence() {
-    const confidence = intakeConfidence();
-    if (!confidence || confidence.level === 'none') return confidence;
-    try {
-      const map = JSON.parse(localStorage.getItem(INTAKE_CONFIDENCE_KEY) || '{}') || {};
-      map[activeDate] = {level: confidence.level, score: confidence.score, reasons: confidence.reasons.slice(0, 3)};
-      const dates = Object.keys(map).sort();
-      for (const old of dates.slice(0, Math.max(0, dates.length - 60))) delete map[old];
-      localStorage.setItem(INTAKE_CONFIDENCE_KEY, JSON.stringify(map));
-    } catch {}
-    return confidence;
-  }
-  /** 按日期取可信度：当天现算，历史读缓存；取不到时返回 high（不参与扣分）。 */
-  function intakeConfidenceLevelFor(date) {
-    if (date === activeDate) return intakeConfidence(date).level;
-    try {
-      const map = JSON.parse(localStorage.getItem(INTAKE_CONFIDENCE_KEY) || '{}') || {};
-      return (map[date] && map[date].level) || 'high';
-    } catch { return 'high'; }
-  }
   function renderBody() {
     arrangeEnergyCard();
     const count=state.meals.filter(row=>row.date===activeDate).length;
@@ -772,4 +718,5 @@
       return result?.granted === true;
     } catch {return false;}
   }
+
 

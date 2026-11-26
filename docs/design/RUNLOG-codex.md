@@ -2093,3 +2093,15 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 验收：assemble 17 片段 694,984 bytes；`check-architecture` 34 checks / 6 warnings PASS；`test-all` 12/12 全绿。
 - 顺带：本文件历史上有 6 个 NUL 字节（5 处 sha256/编号处、1 处括号处），会让工具把 Runlog 判成二进制，已替换为 `?` 占位；内容含义不变。
 - 未做：未装机、未提版本、未推三远端；饮食底稿需按本轮结构重跑（`renderBody` 起点与四个可信度函数位置已变）。
+
+### r240 · 2026-11-27 01:35 · 1.5.42：饮食模块 Phase 2 分层收口（42 领域层 / 45 UI 层 + QH 契约）
+
+- 用户：「Phase 2：饮食与热量缺口模块分层收口」，要求新建 42/45 两个片段、广播 DIET_SAVED、QH.define('diet')、清理 6 个源文件，并跑 assemble / check-architecture / test-all。
+- 新增 `42-diet-domain.fragment.js`（纯计算，零 DOM）：餐次与区间（mealNames / DEFAULT_MEAL_WINDOW / MEAL_TYPE_LABEL / defaultMealTypeFor / clockFromText / defaultMealTime / mealTimeNote / sumMeals / totalsFor / missingMealSlots / intakeRangeForDate / effectiveProfileForDate / carbCap / goalLabel）、营养与用油（nutritionKeys / nutritionPrecision / carbOfItem / estimateTotals / OIL_METHOD_FACTORS / OIL_LEVELS / PACKAGED_METHODS / PACKAGED_NAME_HINTS / isPackagedFood / oilRuleFor / applyOilToItems / oilAdjustedValues）、体检/放松日/可信度（DAILY_CHECK_WEIGHTS / relaxDayInfoFor / dailyCheck / dietAudit / intakeConfidence / recordIntakeConfidence / intakeConfidenceLevelFor）、校验与周复盘（ESTIMATE_LIMITS / validEstimateItem / mealEditView / parseMealDraft / buildWeeklyReview / weeklyDaySummary）。
+- 新增 `45-diet-ui.fragment.js`（视图与写库）：估算预览与写库（localFoodEstimate / estimateInputNames / estimateStreamNames / previewDraft / renderPreview / scaleEstimateItem / setOilLevel / renderOilLevel / openItemRecalc / closeItemRecalc / confirmDraft / discardDraft / readItems / updatePreviewTotals）、草稿与快捷记录（loadDrafts / renderDraftBox / saveToDraftBox / dropDraft / openMealDraft / installQuickRecordControls / openQuickRecord / submitQuickRecord / maybeOfferTargetAdjustment / undatedMeals / renderUndatedMeals / applyUndatedDate）、列表与趋势（mealRowsHtml / renderTodayTimeline / renderRecordMeals / renderDailyCheck / dietTrendCard / renderDietTrend / renderWeeklyReview / renderMealWindow / installMealWindow / installPhotoEntry）。
+- 两段顶层事件块一并迁入并包成安装器：估算表单（重试/提交/逐项重算/删除/编辑，167 行）→ `installDietEstimateForm()`；「按食品模型校核」（66 行）→ `installDietCalibrate()`。统一入口 `installDietModule()` 用 `document.body.dataset.dietWired` 幂等，70-rest 启动装配行的 `installQuickRecordControls()` 换成它。
+- 事件与契约：`QH.bus.emit(QH.EVENTS.DIET_SAVED, {date})` 加在 confirmDraft 保存后、submitQuickRecord 保存后、删除餐食成功后；文件末尾 `QH.define('diet', {totalsFor, intakeRangeForDate, effectiveProfileForDate, dailyCheck, relaxDayInfoFor, renderDailyCheck, renderDietTrend, openQuickRecord})`。
+- 清理：00/10/20/50/60/70 中已无饮食定义（残留 0）；copy 三函数（copyCandidates/renderCopyMeals/copyMeal）随 UI 层进 45，仍保留实现（suite-today/food 有断言锁定），只标注无 UI 入口。
+- 测试修复 18 处：按旧片段路径或 slice 标记取饮食源码的断言改为读 42/45（suite-chat / suite-food / suite-records / suite-today / suite-training / suite-trends）；suite-infra 的启动行断言改找 `installDietModule()`；两处「索引取自 A 却切 B」的切片一并修正。
+- 验收：assemble 19 片段 697,792 bytes；check-architecture 37 checks / 6 warnings PASS（42 领域层零 DOM）；test-all 12/12 全绿；42/45 在无 DOM 的 vm 里可加载并完成 `QH.define('diet')`；42 之前片段的顶层语句引用被移走的 const = 0（无 TDZ）。
+- 未做：未装机、未提版本、未推三远端；饮食底稿 docs/diet-module-code-extract.md 需按新片段重跑（生成器的 file 映射要改到 42/45，函数集合不变）。

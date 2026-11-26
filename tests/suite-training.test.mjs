@@ -1247,7 +1247,7 @@ check('the card shows the body-part hints', app.includes('function bodyPartHints
 check('day-template cues stay as data, not UI', !app.includes('day.cues.map') && !!lib.dayTemplates
   && Object.values(lib.dayTemplates).some(day => Array.isArray(day.cues) && day.cues.length));
 
-const rich = fs.readFileSync('app/src/fragments/10-rich-answer.fragment.js', 'utf8');
+const rich = fs.readFileSync('app/src/fragments/42-diet-domain.fragment.js', 'utf8');
 const carbStart = rich.indexOf('function carbCap');
 const carbFn = rich.slice(carbStart, rich.indexOf('\n  }', carbStart) + 4);
 check('carbCap falls back to the range max', carbFn.includes('number(range && range.max)'));
@@ -1255,7 +1255,7 @@ const runCarb = new Function('number', carbFn + '\nreturn carbCap;')(v => v === 
 check('carb limit renders without calorieTarget', runCarb({proteinMax: 155, fatMax: 70}, {max: 2314}) === 266, String(runCarb({proteinMax: 155, fatMax: 70}, {max: 2314})));
 check('carb limit uses calorieTarget when present', runCarb({calorieTarget: 2000, proteinMax: 140, fatMax: 60}, {max: 2314}) === 225, String(runCarb({calorieTarget: 2000, proteinMax: 140, fatMax: 60}, {max: 2314})));
 check('the app notes inferred carbs', fs.readFileSync('app/src/main/java/cn/qingheng/health/MainActivity.java', 'utf8').includes('已按剩余热量反推'));
-const rest = fs.readFileSync('app/src/fragments/70-rest.fragment.js', 'utf8');
+const rest = fs.readFileSync('app/src/fragments/42-diet-domain.fragment.js', 'utf8');
 const carbStart2 = rest.indexOf('function carbOfItem');
 const carbEnd2 = rest.indexOf('\n  }', carbStart2) + 4;
 const runItemCarb = new Function('number', rest.slice(carbStart2, carbEnd2) + '\nreturn carbOfItem;')(v => v === null || v === undefined || v === '' ? null : Number(v));

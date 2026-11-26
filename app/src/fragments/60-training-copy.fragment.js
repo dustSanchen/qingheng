@@ -126,205 +126,12 @@
     return draft && draft.kind === 'training' ? draft : null;
   }
 
-  /**
-   * A finished meal sentence becomes a handoff draft, never a stored meal. The existing estimate
-   * form is the only writer, so the user still sees calories, grams and a confirmation step.
-   */
-  function parseMealDraft(text, baseDate) {
-    const raw = String(text || '').trim();
-    if (!raw) return null;
-    // 提问/咨询句不是记录：「今天吃了鸡胸肉，还要补多少蛋白？」曾被误判成餐食草稿。
-    if (/[?？]|吗|什么|怎么|该不该|要不要|建议|打算|计划|准备|还要|多少|够不够|够吗|超没超|行不行|能不能|可以吗/.test(raw)) return null;
-    if (!/(吃了|喝了|吃过|喝过|早餐|早饭|午餐|午饭|晚餐|晚饭|加餐|夜宵|零食)/.test(raw)) return null;
-    if (/(训练|卧推|深蹲|硬拉|跑步|体重|称重|睡眠|步数|饮水|kg|公斤)/.test(raw)) return null;
-    const pad2 = n => String(n).padStart(2, '0');
-    const shift = (day, delta) => {
-      const [y, m, d] = String(day).split('-').map(Number);
-      const date = new Date(y, m - 1, d + delta);
-      return date.getFullYear() + '-' + pad2(date.getMonth() + 1) + '-' + pad2(date.getDate());
-    };
-    const safeBase = /^\d{4}-\d{2}-\d{2}$/.test(String(baseDate || '')) ? baseDate : new Date().toISOString().slice(0, 10);
-    let date = safeBase;
-    const explicit = raw.match(/(\d{4})[\-\/](\d{1,2})[\-\/](\d{1,2})/) || raw.match(/(\d{1,2})月(\d{1,2})[日号]?/);
-    if (explicit) {
-      const year = explicit[3] ? Number(explicit[1]) : Number(safeBase.slice(0, 4));
-      const month = explicit[3] ? Number(explicit[2]) : Number(explicit[1]);
-      const day = explicit[3] ? Number(explicit[3]) : Number(explicit[2]);
-      if (month >= 1 && month <= 12 && day >= 1 && day <= 31) date = year + '-' + pad2(month) + '-' + pad2(day);
-    } else if (/大前天/.test(raw)) date = shift(safeBase, -3);
-    else if (/前天/.test(raw)) date = shift(safeBase, -2);
-    else if (/昨天|昨晚|昨日/.test(raw)) date = shift(safeBase, -1);
-    const mealType = /早餐|早饭/.test(raw) ? 'breakfast'
-      : /午餐|午饭/.test(raw) ? 'lunch'
-        : /晚餐|晚饭/.test(raw) ? 'dinner'
-          : /加餐|夜宵|零食/.test(raw) ? 'snack' : '';
-    return {kind: 'meal', date, rows: [{label: '餐食', value: raw}], missing: [], payload: {text: raw, mealType}};
-  }
 
   function draftSummary(draft) {
     if (!draft) return '';
     return (draft.rows || []).map(row => row.label + ' ' + row.value).join('；');
   }
 
-  /**
-   * 每日体检评分（2026-11-03 重构）：训练不再计分，按证据强度给四项加权。
-   * 热量 30（总摄入是体重管理的主变量）、蛋白质 30（保肌的第一优先级）、
-   * 脂肪 20（最容易超的一项）、睡眠 20（恢复与食欲调节）。
-   * 未记录的项不计入分母——缺数据不等于差，只报「已评 n/4」，避免半天空表也算低分。
-   * Inputs are passed in so the rule engine can be tested without the app.
-   */
-  const DAILY_CHECK_WEIGHTS = {calories: 30, protein: 30, fat: 20, sleep: 20};
-  /**
-   * 放松日判定（不落库，纯推导）：
-   * 热量超区间上限 12% 或脂肪超上限 20%，且当天至少两餐、不是吃太少；
-   * 同一自然周只认一天——更早已经有放松日，今天就算第二次超量，不再享受。
-   */
-  function relaxDayInfoFor(date) {
-    const meals = (state.meals || []).filter(row => row && row.date === date);
-    const range = intakeRangeForDate(date);
-    const profile = effectiveProfileForDate(date);
-    const fatMax = number(profile.fatMax);
-    let calories = 0, fat = 0;
-    for (const meal of meals) {
-      const totals = meal && meal.totals ? meal.totals : meal;
-      calories += Number(totals?.calories ?? 0) || 0;
-      fat += Number(totals?.fat ?? 0) || 0;
-    }
-    const overKcal = range && number(range.max) ? calories - Number(range.max) : 0;
-    const overFat = fatMax ? fat - fatMax : 0;
-    const bigKcal = range && number(range.max) && calories >= Number(range.max) * 1.12;
-    const bigFat = fatMax && fat >= fatMax * 1.2;
-    const qualifies = meals.length >= 2 && !!(bigKcal || bigFat) && !(range && calories < Number(range.min || 0));
-    if (!qualifies) return {relax: false, calories, fat, overKcal: Math.max(0, overKcal), overFat: Math.max(0, overFat)};
-    // 本周（周一~周日）里比这天更早的符合条件日：有则说明本周额度已用掉。
-    const start = shiftDay(date, -((weekdayIndex(date) + 6) % 7));
-    const earlier = [];
-    for (let i = 0; i < 7; i++) {
-      const day = shiftDay(start, i);
-      if (day >= date) break;
-      const rows = (state.meals || []).filter(row => row && row.date === day);
-      if (rows.length < 2) continue;
-      const r = intakeRangeForDate(day);
-      const pf = effectiveProfileForDate(day);
-      const fm = number(pf.fatMax);
-      let c = 0, f = 0;
-      for (const meal of rows) {
-        const t = meal && meal.totals ? meal.totals : meal;
-        c += Number(t?.calories ?? 0) || 0;
-        f += Number(t?.fat ?? 0) || 0;
-      }
-      if (r && number(r.max) && c >= Number(r.max) * 1.12 && c >= Number(r.min || 0)) earlier.push(day);
-      else if (fm && f >= fm * 1.2 && r && number(r.max) && c >= Number(r.min || 0)) earlier.push(day);
-    }
-    const used = earlier.length > 0;
-    return {relax: !used, used, earlier, calories, fat, overKcal: Math.max(0, overKcal), overFat: Math.max(0, overFat)};
-  }
-  function dailyCheck(input) {
-    const src = input || {};
-    const meals = src.meals || [], habit = src.habit || {}, range = src.range || null;
-    const relax = src.relax === true;
-    const sum = meals.reduce((acc, meal) => {
-      const totals = meal && meal.totals ? meal.totals : (meal || {});
-      for (const key of ['calories', 'protein', 'fat', 'carbs']) acc[key] += Number(totals[key] ?? 0) || 0;
-      return acc;
-    }, {calories: 0, protein: 0, fat: 0, carbs: 0});
-    const items = [];
-    const clamp01 = value => Math.max(0, Math.min(1, value));
-    const hasMeals = sum.calories > 0;
-    // 未测算时区块仍有「热量」这一条，但不评分：占位区间不能当成目标（否则只记一餐也会被
-    // 2150~2350 的兜底值判超量/不足）。
-    const rangeKnown = !!(range && !range.unset && Number.isFinite(range.min) && Number.isFinite(range.max));
-    if (range && Number.isFinite(range.min) && Number.isFinite(range.max)) {
-      const distance = sum.calories < range.min ? range.min - sum.calories : sum.calories > range.max ? sum.calories - range.max : 0;
-      // 按偏离目标的百分比给分：≤3% 满分，5% 0.9，10% 0.75，20% 0.5，35% 0.25，再远 0。
-      const reference = Math.max(1, sum.calories > range.max ? range.max : range.min);
-      const deviation = distance / reference;
-      const calScore = deviation === 0 ? 1 : deviation <= 0.03 ? 1 : deviation <= 0.05 ? 0.9 : deviation <= 0.1 ? 0.75 : deviation <= 0.2 ? 0.5 : deviation <= 0.35 ? 0.25 : 0;
-      items.push({key: 'calories', label: '热量', value: Math.round(sum.calories), target: range.min + '~' + range.max,
-        weight: DAILY_CHECK_WEIGHTS.calories, evaluated: hasMeals && rangeKnown,
-        ok: rangeKnown && distance === 0, score: calScore,
-        state: rangeKnown ? (relax || !hasMeals ? 'idle' : (sum.calories < range.min ? 'low' : sum.calories > range.max ? 'high' : undefined)) : 'idle'});
-    }
-    if (Number.isFinite(src.proteinMin) && src.proteinMin > 0) {
-      items.push({key: 'protein', label: '蛋白质', value: Math.round(sum.protein), target: Math.round(src.proteinMin) + 'g 起',
-        weight: DAILY_CHECK_WEIGHTS.protein, evaluated: hasMeals,
-        ok: sum.protein >= src.proteinMin, score: clamp01(sum.protein / src.proteinMin),
-        state: !hasMeals ? 'idle' : (sum.protein < src.proteinMin ? 'low' : undefined)});
-    }
-    if (Number.isFinite(src.fatMin) && Number.isFinite(src.fatMax)) {
-      const distance = sum.fat < src.fatMin ? src.fatMin - sum.fat : sum.fat > src.fatMax ? sum.fat - src.fatMax : 0;
-      const span = sum.fat > src.fatMax ? Math.max(10, src.fatMax) : Math.max(10, src.fatMin || 10);
-      items.push({key: 'fat', label: '脂肪', value: Math.round(sum.fat), target: Math.round(src.fatMin) + '~' + Math.round(src.fatMax) + 'g',
-        weight: DAILY_CHECK_WEIGHTS.fat, evaluated: hasMeals,
-        ok: distance === 0, score: distance === 0 ? 1 : clamp01(1 - distance / span),
-        state: relax || !hasMeals ? 'idle' : (sum.fat > src.fatMax ? 'high' : sum.fat < src.fatMin ? 'low' : undefined)});
-    }
-    // 睡眠：7 小时满档；6–7 线性 0.7→1；4–6 线性 0.25→0.7；4 以下 0.1。未记录不计分。
-    const sleep = Number(habit.sleep);
-    const sleepKnown = Number.isFinite(sleep) && sleep > 0;
-    const sleepScore = !sleepKnown ? 0 : sleep >= 7 ? 1 : sleep >= 6 ? 0.7 + (sleep - 6) * 0.3 : sleep >= 4 ? 0.25 + (sleep - 4) * 0.225 : 0.1;
-    items.push({key: 'sleep', label: '睡眠', value: sleepKnown ? sleep + ' 小时' : '未记录', target: '7 小时起',
-      weight: DAILY_CHECK_WEIGHTS.sleep, evaluated: sleepKnown,
-      ok: sleepKnown && sleep >= 7, score: sleepScore, state: sleepKnown ? undefined : 'idle'});
-
-    const scored = items.filter(item => item.evaluated);
-    const weightSum = scored.reduce((acc, item) => acc + item.weight, 0);
-    const score = weightSum > 0 ? Math.round(scored.reduce((acc, item) => acc + item.score * item.weight, 0) / weightSum * 100) : null;
-    const coverage = Math.round(weightSum / Object.values(DAILY_CHECK_WEIGHTS).reduce((a, b) => a + b, 0) * 100);
-
-    let worst = null, best = null;
-    for (const item of scored) {
-      if (!worst || item.score < worst.score) worst = item;
-      if (!best || item.score > best.score) best = item;
-    }
-    // 一句评价（2026-11-18）：结论 → 差在哪 → 一个动作，合成一句。原来是「评价」一行、
-    // 「今天优先」再一行，两行说同一件事，动作句里的数字还与评价重复。
-    // 用「明显偏了」这类判断词是要避免的；只报数值和动作。
-    const band = score === null ? '' : score >= 85 ? '今天整体到位' : score >= 70 ? '今天整体还不错' : score >= 50 ? '今天有几项没跟上' : '今天缺口比较大';
-    const gapOf = item => {
-      if (item.key === 'calories' && range) return item.value < range.min
-        ? `热量还差 ${Math.round(range.min - item.value)} kcal`
-        : `热量超了 ${Math.round(item.value - range.max)} kcal`;
-      if (item.key === 'protein') return `蛋白还差 ${Math.max(0, Math.round((src.proteinMin || 0) - item.value))} g`;
-      if (item.key === 'fat') return item.value > (src.fatMax || 0)
-        ? `脂肪超了 ${Math.round(item.value - (src.fatMax || 0))} g`
-        : `脂肪少了 ${Math.round((src.fatMin || 0) - item.value)} g`;
-      if (item.key === 'sleep') return `睡眠只有 ${item.value}`;
-      return `${item.label}还差一点`;
-    };
-    const good = scored.filter(item => item.ok).map(item => item.label);
-    const goodPart = good.length ? `${good.slice(0, 2).join('和')}在区间内` : '还没有一项完全在区间内';
-    // 动作按「哪一项 + 偏哪边」取：热量低和热量高要的是相反的动作。
-    const STEP_TEXT = {
-      'calories:high': '晚餐只吃蛋白和蔬菜',
-      'calories:low': '加一份主食配一个蛋白来源',
-      'protein:low': '下一餐先吃一份蛋白质',
-      'fat:high': '之后改白灼或清蒸',
-      'fat:low': '补一点坚果或食用油',
-      'sleep:any': '今天训练别加组'
-    };
-    let action = '今天的记录都在区间内，保持就好。';
-    if (worst) {
-      const proteinGap = Math.max(0, Math.round((src.proteinMin || 0) - sum.protein));
-      if (worst.key === 'calories' && range && sum.calories > range.max) action = '热量超上限 ' + Math.round(sum.calories - range.max) + ' kcal：晚餐只吃蛋白 + 蔬菜，不再加主食。';
-      else if (worst.key === 'calories' && range && sum.calories < range.min) action = '还差 ' + Math.round(range.min - sum.calories) + ' kcal：加一份主食配一个蛋白来源。';
-      else if (worst.key === 'protein') action = '优先补蛋白：还差 ' + proteinGap + ' g，下一餐先吃蛋白质。';
-      else if (worst.key === 'fat' && src.fatMax) action = '脂肪超 ' + Math.round(Math.max(0, sum.fat - src.fatMax)) + ' g：之后改白灼/清蒸，少油。';
-      else if (worst.key === 'sleep') action = '睡眠 ' + (worst.value === '未记录' ? '没记录' : worst.value) + '：今天训练强度降 10%，别加组。';
-    }
-    let verdict;
-    if (relax) {
-      // 放松日的动作单独留给 localCoachLine（问一句时的本地方案），页面上只显示合并后的那一句。
-      action = '明后两天照常吃就行，不要用少吃或加练去「补回来」——那样更容易在周末反弹。';
-      verdict = '今天是本周的放松日：吃多一点属于计划内，明后两天照常吃，不用少吃或加练补回来。';
-    }
-    else if (score === null) verdict = range && range.unset
-      ? '还没有可用的目标区间：到「我的 → 身体档案与目标」补齐性别、身高、体重与年龄。'
-      : '还没有可评的记录：先记一餐和睡眠，我再帮你算。';
-    else if (worst && !worst.ok) verdict = `${band} · ${gapOf(worst)}，${STEP_TEXT[`${worst.key}:${worst.state || 'any'}`] || '先补这一项'}。`;
-    else verdict = `${band} · ${goodPart}，保持就好。`;
-    return {items, worst, best, action, verdict, score, coverage, relax, weights: DAILY_CHECK_WEIGHTS, totals: {calories: Math.round(sum.calories), protein: Math.round(sum.protein), fat: Math.round(sum.fat), carbs: Math.round(sum.carbs)}};
-  }
 
   /**
    * Plateau: three weekly means and the last two barely differ.
@@ -345,40 +152,6 @@
     return check.action || '';
   }
 
-  /** The local library, if present. Everything degrades gracefully without it. */
-  /** Every meal: does its stated kcal match its own macros? Plus the daily averages. */
-  function dietAudit(days) {
-    const rows = [];
-    let meals = 0, mismatched = 0, worstGap = 0;
-    for (const day of days || []) {
-      const list = (state.meals || []).filter(row => row && row.date === day);
-      if (!list.length) continue;
-      let stated = 0, derived = 0;
-      for (const meal of list) {
-        meals++;
-        const p = number(meal.protein) ?? 0, c = number(meal.carbs) ?? 0, f = number(meal.fat) ?? 0;
-        const kcal = number(meal.calories) ?? 0;
-        const fromMacros = p * 4 + c * 4 + f * 9;
-        stated += kcal; derived += fromMacros;
-        const gap = Math.abs(kcal - fromMacros);
-        if (gap > Math.max(30, fromMacros * 0.12)) { mismatched++; worstGap = Math.max(worstGap, gap); }
-      }
-      const totals = totalsFor(list);
-      rows.push({date: day, meals: list.length, kcal: Math.round(totals.calories), protein: Math.round(totals.protein),
-        fat: Math.round(totals.fat), carbs: Math.round(totals.carbs), statedKcal: Math.round(stated), macroKcal: Math.round(derived)});
-    }
-    // Per-meal tolerance (12% / 30 kcal) hides a systematic bias: 25 meals each 15 kcal high is
-    // 375 kcal a week but never trips the per-meal rule. Compare the weekly totals as well.
-    const totalStated = rows.reduce((sum, row) => sum + row.statedKcal, 0);
-    const totalMacro = rows.reduce((sum, row) => sum + row.macroKcal, 0);
-    const totalGap = totalStated - totalMacro;
-    const gapPercent = totalMacro > 0 ? Math.round(totalGap / totalMacro * 1000) / 10 : 0;
-    const biased = totalMacro > 0 && Math.abs(totalGap) > Math.max(80, totalMacro * 0.05);
-    const average = key => rows.length ? Math.round(rows.reduce((sum, row) => sum + row[key], 0) / rows.length) : 0;
-    return {rows, meals, mismatched, worstGap: Math.round(worstGap), days: rows.length,
-      totalStated, totalMacro, totalGap: Math.round(totalGap), gapPercent, biased,
-      avg: {kcal: average('kcal'), protein: average('protein'), fat: average('fat'), carbs: average('carbs')}};
-  }
   /** Weekly mean weights, oldest first, for plateau detection. */
   function weeklyWeightMeans() {
     const byWeek = new Map();
@@ -432,44 +205,6 @@
     return prefix + '休息';
   }
 
-  /** Five-metric check for the selected day, plus the single action to take. */
-  function renderDailyCheck() {
-    const box = $('#daily-check'), tag = $('#daily-check-tag');
-    if (!box) return;
-    const meals = (state.meals || []).filter(row => row && row.date === activeDate);
-    const habit = habitRowFor(activeDate) || {};
-    const profile = effectiveProfileForDate(activeDate);
-    const range = intakeRangeForDate(activeDate);
-    // 放松日是当日免除超标扣分的唯一依据：漏传它会让「本周 1/1 放松日」只在文案里存在。
-    const relaxInfo = typeof relaxDayInfoFor === 'function' ? relaxDayInfoFor(activeDate) : {relax: false};
-    const check = dailyCheck({meals, habit, range, relax: relaxInfo.relax === true,
-      proteinMin: number(profile.proteinMin), proteinMax: number(profile.proteinMax),
-      fatMin: number(profile.fatMin), fatMax: number(profile.fatMax)});
-    if (tag) {
-      tag.textContent = check.relax ? '放松日 · 本周 1/1' : range.unset ? '未测算' : check.score === null ? '待记录' : check.score + ' 分';
-      tag.classList.toggle('is-relax', !!check.relax);
-    }
-    // 2026-11-22：四根竖条改成一行横向胶囊（名称 + 3px 细条），纵向占用约减一半。
-    box.innerHTML = '<div class="check-caps" role="img" aria-label="今日体检四项完成度">' + check.items.map(item => {
-      const level = check.relax ? 'idle' : !item.evaluated ? 'idle' : item.ok || item.score >= 0.95 ? 'ok' : item.score >= 0.6 ? 'near' : 'off';
-      const pct = level === 'idle' ? 0 : Math.max(6, Math.round(Math.max(0, Math.min(1, item.score ?? 0)) * 100));
-      return `<div class="check-cap ${level}"><span class="check-cap-name">${esc(item.label)}</span>`
-        + `<span class="check-cap-track"><span class="check-cap-fill" style="width:${pct}%"></span></span></div>`;
-    }).join('') + '</div>'
-      + '<div hidden>' + `<p class="check-verdict">${esc(check.verdict)}</p>` + '</div>';
-    // 结论不再单独占一行：并进状态胶囊，和热量/宏量提示按优先级轮播。
-    TODAY_SIGNALS.check = check.verdict || '';
-    if (typeof renderTodayAction === 'function') renderTodayAction();
-    // 首屏只有一条行动行（#today-action）；体检只报状态，不再各给一条「该做什么」。
-    // 2026-11-24：删掉体检里那颗「补睡眠」快捷——睡眠在正下方的小习惯格里就是同一个跳转，
-    // 同一屏两处入口属于重复；"睡眠未记" 已经由睡眠那根 0% 的胶囊说清。
-    box.querySelectorAll('.check-fix').forEach(button => {
-      button.dataset.goBound = '1';
-      button.addEventListener('click', () => {
-        if (button.dataset.focus) setTimeout(() => revealField(button.dataset.focus), 160);
-      });
-    });
-  }
 
   /** Two weeks of history -> next week's sessions, with a deload when the load ran hot. */
   const PLAN_PREFS_KEY = "qingheng.planPrefs";
@@ -1424,50 +1159,7 @@
       return canvas.toDataURL('image/jpeg',.82);
     } finally {URL.revokeObjectURL(url);}
   }
-  const nutritionKeys = ['calories','protein','fat','carbs'];
-  const nutritionPrecision = value => Math.max(0, Math.round(Number(value) * 100) / 100);
-  function scaleEstimateItem(row, grams) {
-    const baseGrams = number(row.dataset.baseGrams);
-    if (!(grams > 0) || !(baseGrams > 0)) return;
-    const ratio = grams / baseGrams;
-    for (const key of nutritionKeys) {
-      const input = $(`[data-item-field="${key}"]`, row), base = number(input?.dataset.baseValue);
-      if (input && base !== null) input.value = nutritionPrecision(base * ratio);
-    }
-    // The row's calories/fat were scaled too; keep its oil marker in the same proportion,
-    // otherwise a later "少" subtracts the old (larger) oil and can go negative.
-    const oil = number(row.dataset.oil);
-    if (oil > 0) row.dataset.oil = String(Math.round(oil * ratio * 10) / 10);
-    updatePreviewTotals();
-  }
   let itemRecalcReturnFocus = null;
-  function openItemRecalc(row) {
-    if (!row) return;
-    const root = $('#item-recalc-dialog'), grams = number($('[data-item-field="grams"]', row)?.value), baseGrams = number(row.dataset.baseGrams);
-    if (!(grams > 0) || !(baseGrams > 0)) return;
-    itemRecalcReturnFocus = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
-    $('#item-recalc-summary').textContent = `${$('[data-item-field="name"]', row)?.value || '这项食品'}：当前 ${fmt(grams)}g。`;
-    $('#item-recalc-name').value = $('[data-item-field="name"]', row)?.value || '';
-    $('#item-recalc-grams').value = grams;
-    for (const key of nutritionKeys) {
-      const input = $(`[data-item-field="${key}"]`, row), base = number(input?.dataset.baseValue);
-    // 默认动作是按「名称 + 克重」请模型重算，所以每 100g 一律留空；只有用户主动填四项才走手算。
-      $(`#item-recalc-${key}`).value = '';
-    }
-    $('#item-recalc-feedback').textContent = '';
-    root.dataset.itemIndex = String($$('.estimate-item').indexOf(row));
-    root.hidden = false;
-    $('#item-recalc-name').focus();
-    $('#item-recalc-name').select();
-  }
-  function closeItemRecalc() {
-    const root = $('#item-recalc-dialog');
-    root.hidden = true; delete root.dataset.itemIndex;
-    $('#item-recalc-form').reset();
-    $('#item-recalc-feedback').textContent = '';
-    const returnTo = itemRecalcReturnFocus; itemRecalcReturnFocus = null;
-    if (returnTo && returnTo.isConnected && typeof returnTo.focus === 'function') returnTo.focus({preventScroll: true});
-  }
   /** The user's own anchor table, sent along so the model reuses the same numbers (rules.md 第五节). */
   function anchorSummary() {
     try {return window.QinghengAnchors?.summary?.() || '';} catch {return '';}
@@ -1482,158 +1174,9 @@
       await api('/api/anchors', {summary});
     } catch { /* Anchors are an optimisation; never block the app on them. */ }
   }
-  /**
-   * 烹调用油（1.4.59）：按「烹饪方式 × 食材重量」在本地算，不再让模型自由给克数。
-   * 基线取自 302 道中式菜实测：每 100 g 食材 8.1 g 油（IJERPH 2019），再按烹饪方式分档。
-   * 整餐三档（少/一般/多）只乘一次；旧草稿若已带油（oilIncluded）保持原样，不重复加。
-   */
-  const OIL_METHOD_FACTORS = {炒: 8.1, 爆炒: 11, 红烧: 12, 干锅: 14, 煎: 9, 炸: 14, 油淋: 12, 烤: 6, 蒸: 0, 煮: 1, 炖: 2, 凉拌: 4, 白灼: 0, 生食: 0, 其他: 6};
-  const OIL_LEVELS = {low: {ratio: 0.6, label: '少'}, normal: {ratio: 1, label: '一般'}, high: {ratio: 1.5, label: '多'}};
-  /**
-   * 包装/成品（薯片、饼干、坚果、酸奶、饮料…）的营养表里已经含了本身那份脂肪，
-   * 再按「烹调用油」加一遍就是重复计算。只有明确写了炒/炸这类烹饪方式时才照常算油
-   * （「炸薯条」确实吸油，但「薯片」不是我们炸的）。
-   */
-  const PACKAGED_METHODS = ['包装', '即食', '零食', '成品', '预包装'];
-  const PACKAGED_NAME_HINTS = /薯片|薯条|饼干|曲奇|巧克力|面包|蛋糕|吐司|坚果|花生|核桃|腰果|瓜子|酸奶|牛奶|豆奶|奶酪|芝士|饮料|可乐|雪碧|果汁|咖啡|奶茶|蛋白棒|能量棒|糖果|果冻|冰淇淋|雪糕|布丁|香肠|火腿肠|培根|罐头|方便面|泡面|麦片|谷物|代餐|蛋白粉|乳清蛋白|奶昔/;
-  function isPackagedFood(item) {
-    if (!item) return false;
-    if (item.packaged === true) return true;
-    const method = String(item.method || '').trim();
-    if (PACKAGED_METHODS.includes(method)) return true;
-    if (method && Object.prototype.hasOwnProperty.call(OIL_METHOD_FACTORS, method) && method !== '其他') return false;
-    return PACKAGED_NAME_HINTS.test(String(item.name || ''));
-  }
   let estimateOilLevel = 'normal';
   let estimateRawItems = [];
   let estimateView = null;
-  function oilRuleFor(method, grams) {
-    const key = String(method || '').trim();
-    const factor = Object.prototype.hasOwnProperty.call(OIL_METHOD_FACTORS, key) ? OIL_METHOD_FACTORS[key] : OIL_METHOD_FACTORS['其他'];
-    const g = number(grams);
-    if (!(g > 0)) return 0;
-    return Math.round((g / 100 * factor) * 10) / 10;
-  }
-  function applyOilToItems(items, level = 'normal') {
-    const ratio = (OIL_LEVELS[level] || OIL_LEVELS.normal).ratio;
-    return (Array.isArray(items) ? items : []).map(item => {
-      const next = {...item};
-      // A dish that already includes its cooking oil must stay untouched even when its oilGrams is 0.
-      if (next.oilIncluded === true) return next;
-      if (isPackagedFood(next)) return next;
-      const oil = Math.round(oilRuleFor(next.method, next.grams) * ratio * 10) / 10;
-      if (!(oil > 0)) return next;
-      next.oilGrams = oil;
-      next.oilMethod = String(next.method || '其他');
-      next.calories = (number(next.calories) || 0) + Math.round(oil * 9);
-      next.fat = Math.round(((number(next.fat) || 0) + oil) * 10) / 10;
-      next.oilIncluded = true;
-      return next;
-    });
-  }
-  function renderOilLevel() {
-    const box = $('#estimate-oil-level');
-    if (!box) return;
-    $$('[data-oil-level]', box).forEach(btn => btn.setAttribute('aria-pressed', btn.dataset.oilLevel === estimateOilLevel ? 'true' : 'false'));
-  }
-  /** Remove the oil already present in a row, then add the newly selected oil. Never return negative nutrition. */
-  function oilAdjustedValues(calories, fat, oldOil, newOil) {
-    const cal = number(calories), f = number(fat);
-    const old = Math.max(0, number(oldOil) ?? 0), next = Math.max(0, number(newOil) ?? 0);
-    const baseCal = Math.max(0, (cal ?? 0) - old * 9);
-    const baseFat = Math.max(0, (f ?? 0) - old);
-    return {
-      calories: Math.round(baseCal + next * 9),
-      fat: Math.round((baseFat + next) * 10) / 10
-    };
-  }
-  /** 只调整油量差额，保留用户改过的克重与热量。 */
-  function setOilLevel(level) {
-    if (!OIL_LEVELS[level] || !estimateView) return;
-    const ratioTo = OIL_LEVELS[level].ratio;
-    $$('.estimate-item').forEach((row, index) => {
-      const raw = estimateRawItems[index] || {};
-      const gramsField = $('[data-item-field="grams"]', row);
-      const grams = number(gramsField && gramsField.value) ?? number(raw.grams);
-      const nameField = $('[data-item-field="name"]', row);
-      if (isPackagedFood({...raw, name: (nameField && nameField.value) || raw.name})) return;
-      // A saved/mixed dish already carries its own oil; changing the meal-level level would
-      // subtract oil that is not independently represented in the row.
-      if (raw.oilIncluded === true) return;
-      const base = oilRuleFor(raw.method, grams);
-      if (!(base > 0)) return;
-      const oldOil = Math.max(0, number(row.dataset.oil) ?? number(raw.oilGrams) ?? 0);
-      const newOil = Math.round(base * ratioTo * 10) / 10;
-      const cal = $('[data-item-field="calories"]', row);
-      const fat = $('[data-item-field="fat"]', row);
-      const adjusted = oilAdjustedValues(cal && cal.value, fat && fat.value, oldOil, newOil);
-      if (cal) cal.value = adjusted.calories;
-      if (fat) fat.value = adjusted.fat;
-      row.dataset.oil = String(newOil);
-    });
-    estimateOilLevel = level;
-    renderOilLevel();
-    updatePreviewTotals();
-  }
-  const ESTIMATE_LIMITS = Object.freeze({items: 24, name: 120, grams: 20000, calories: 100000, macros: 1000, notes: 6, note: 160, draftId: 120});
-  /** Reject malformed model rows before they can reach the preview or a write. */
-  function validEstimateItem(item) {
-    if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
-    const name = typeof item.name === 'string' ? item.name.trim() : '';
-    if (!name || name.length > ESTIMATE_LIMITS.name) return false;
-    if (item.method != null && (typeof item.method !== 'string' || item.method.length > 20)) return false;
-    const numeric = [
-      ['grams', ESTIMATE_LIMITS.grams],
-      ['calories', ESTIMATE_LIMITS.calories],
-      ['protein', ESTIMATE_LIMITS.macros],
-      ['fat', ESTIMATE_LIMITS.macros],
-      ['carbs', ESTIMATE_LIMITS.macros]
-    ];
-    return numeric.every(([key, max]) => {
-      const value = number(item[key]);
-      return value !== null && value >= 0 && value <= max;
-    });
-  }
-  function previewDraft(data, form) {
-    if (!data || typeof data.draftId !== 'string' || !data.draftId || data.draftId.length > ESTIMATE_LIMITS.draftId
-      || !Array.isArray(data.items) || !data.items.length || data.items.length > ESTIMATE_LIMITS.items
-      || !['api','local'].includes(data.source)) throw new Error('未返回有效估算预览，请重试。');
-    if (!data.items.every(validEstimateItem)) throw new Error('估算明细格式不对，请重新生成。');
-    const suggested = defaultMealTime(form.photo, form.text, form.elements.mealType.value);
-    const notes = Array.isArray(data.notes)
-      ? data.notes.filter(note => typeof note === 'string' && note.length > 0 && note.length <= ESTIMATE_LIMITS.note).slice(0, ESTIMATE_LIMITS.notes)
-      : [];
-    const view = {id:data.draftId,date:form.elements.date.value,mealType:form.elements.mealType.value,source:data.source,
-      localFoodModel:data.localFoodModel === true,
-      confidence:data.confidence,notes:notes,items:data.items,name:'',
-      oilGrams:number(data.oilGrams) ?? 0,uncertaintyPercent:number(data.uncertaintyPercent) ?? 15,
-      ...photoMeta(form.photo), mealTime:suggested.mealTime, mealTimeSource:suggested.mealTimeSource};
-    renderPreview(view, false);
-    saveToDraftBox(view);
-  }
-  /** Build the preview view from a saved meal without touching its id or nutrition values. */
-  function mealEditView(record) {
-    if (!record || record.id === undefined || record.id === null) return null;
-    const items = Array.isArray(record.items) ? record.items.map(item => ({...item})) : [];
-    if (!items.length) return null;
-    const oil = Number(record.oilGrams);
-    const uncertainty = Number(record.uncertaintyPercent);
-    return {
-      id: record.id,
-      editingId: record.id,
-      date: record.date,
-      mealType: record.mealType || 'lunch',
-      source: record.source || 'manual',
-      mealTime: record.mealTime,
-      mealTimeSource: record.mealTimeSource || 'manual',
-      items,
-      name: record.name || '',
-      oilGrams: Number.isFinite(oil) ? oil : 0,
-      uncertaintyPercent: Number.isFinite(uncertainty) ? uncertainty : 15,
-      photoTakenAt: record.photoTakenAt || null,
-      photoTimeSource: record.photoTimeSource || 'unknown'
-    };
-  }
   function beginMealEdit(record) {
     const view = mealEditView(record);
     if (!view) {notice('这条餐食没有可编辑的明细，请先重新估算。', true); return;}
@@ -1642,52 +1185,6 @@
     setTimeout(() => {
       try {renderPreview(view, true);} catch (error) {notice(error.message, true);}
     }, 60);
-  }
-  /** Renders a stored or fresh estimate preview; a restored draft is labelled as such. */
-  function renderPreview(view, restored) {
-    estimateView = view;
-    estimateRawItems = (view && Array.isArray(view.items) ? view.items : []).map(item => ({...item}));
-    if (!view?.id || !Array.isArray(view.items) || !view.items.length) throw new Error('这份草稿不完整，请重新估算。');
-    const mealTime = clockPattern.test(String(view.mealTime||'')) ? view.mealTime : nowClock();
-    const source = ['photo','text','now','manual','typical'].includes(view.mealTimeSource) ? view.mealTimeSource : 'now';
-    draft={id:view.id,editingId:view.editingId || '',date:view.date,mealType:view.mealType,source:view.source,mealTime,mealTimeSource:source,...photoMeta(view)};
-    $('#estimate-date').value=draft.date; $('#estimate-meal-type').value=draft.mealType;
-    $('#estimate-meal-time').value=mealTime;
-    $('#estimate-meal-time-note').textContent=mealTimeNote(draft);
-    $('#estimate-photo-time').textContent=photoTimeLabel(draft);
-    const fields=[['grams','克重 · g'],['calories','热量 · kcal'],['protein','蛋白质 · g'],['fat','脂肪 · g'],['carbs','碳水 · g']];
-    const modelNote = item => {
-      const model = item?.model, per100 = model?.per100;
-      if (!model || !per100 || number(per100.calories) === null) return '';
-      const basis = ({raw:'生重',cooked:'熟重',as_served:'食用状态'})[model.basis] || model.basis || '口径未标注';
-      const range = Array.isArray(model.calorieRangePer100) && model.calorieRangePer100.length === 2 && number(item.grams) !== null
-        ? ` · 此配方热量约 ${fmt(model.calorieRangePer100[0]*item.grams/100,0)}–${fmt(model.calorieRangePer100[1]*item.grams/100,0)} kcal` : '';
-      return `<p class="fine-print">本地参考：${fmt(per100.calories,0)} kcal/100g · ${esc(basis)}${range}。${esc(model.note || '')}</p>`;
-    };
-    // Each row keeps its original estimate as a ratio baseline, so repeated gram edits never accumulate rounding drift.
-    // Editing a saved meal keeps its stored nutrition: applying oil again would double-count it.
-    const oiledItems = view.editingId ? estimateRawItems : applyOilToItems(estimateRawItems, estimateOilLevel);
-    $('#estimate-items').innerHTML=oiledItems.map(item => `<div class="estimate-item" data-base-grams="${Number(item.grams)}" data-oil="${Number(item.oilGrams)||0}" data-method="${esc(item.oilMethod||item.method||'')}"${item.oilIncluded===true?' data-oil-included="1"':''}><div class="estimate-item-head"><label>食物名称<input data-item-field="name" value="${esc(item.name)}" maxlength="120" required></label><div class="estimate-item-actions"><button type="button" class="recalc-item" title="按克重和每 100g 数据重算" aria-label="按克重重算${esc(item.name)}"><span class="inline-icon" aria-hidden="true"><img src="./icon-refresh.svg" alt="" width="17" height="17"></span></button><button type="button" class="remove-item" title="移除这项" aria-label="移除${esc(item.name)}">×</button></div></div>${modelNote(item)}${number(item.oilGrams)>0?`<p class="fine-print estimate-item-oil">${esc(item.oilMethod||item.method||'按克重')} · 用油 ${fmt(item.oilGrams,0)} g，已含在热量与脂肪里。</p>`:''}<div class="form-grid">${fields.map(([key,label]) => `<label>${label}<input data-item-field="${key}" type="number" value="${Number(item[key])}" ${key === 'grams' ? '' : `data-base-value="${Number(item[key])}"`} min="0" max="20000" step="0.01" required></label>`).join('')}</div></div>`).join('');
-    $('#estimate-source').textContent=view.editingId?'编辑已保存餐食':`${view.source==='api'?'外部模型':view.localFoodModel?'本地食品库':'本地估算'} · ${view.confidence==='medium'?'中等':'低'}置信度${restored?' · 已恢复未确认草稿':''}`;
-    const uncertainty=number(view.uncertaintyPercent) ?? 15;
-    draft.uncertaintyPercent=uncertainty; draft.oilGrams=number(view.oilGrams) ?? 0;
-    // 用油按菜归属：模型的每道菜自己带 oilGrams，且已算进那道菜的热量；顶层数只用于展示。
-    const itemsOil=(oiledItems||[]).reduce((sum,item)=>sum+(number(item.oilGrams)||0),0);
-    const totalCalories=totalsFor(oiledItems).calories;
-    const interval=`估算区间：约 ${fmt(totalCalories*(1-uncertainty/100),0)}–${fmt(totalCalories*(1+uncertainty/100),0)} kcal（±${fmt(uncertainty,0)}%）`;
-    const oilNote=itemsOil>0
-      ? `用油按菜式与克重估算：共 ${fmt(itemsOil,0)} g（约 ${fmt(itemsOil*9,0)} kcal），已含在各菜的热量与脂肪里；整餐可调「少 / 一般 / 多」`
-      : draft.oilGrams>0
-        ? `已计入烹调用油 ${fmt(draft.oilGrams,0)} g（约 ${fmt(draft.oilGrams*9,0)} kcal）`
-        : '这几道菜按清蒸/白灼/生食这类方式算，不计烹调用油；如果实际有油，把「整餐用油」调到一般或多';
-    const lowNote='识别结果可能有偏差，请核对份量与克重；不确定的项按常见份量取中位值即可，不必刻意往高报。';
-    $('#estimate-notes').innerHTML=[interval,oilNote,lowNote].concat(Array.isArray(view.notes)?view.notes:[]).map(note=>`<li>${esc(note)}</li>`).join('');
-    $('#estimate-name').value=view.name || view.items.map(item=>item.name).join('、').slice(0,120);
-    $('#estimate-preview').hidden=false;
-    feedback($('#preview-feedback'), view.editingId ? '正在编辑已保存餐食；保存后会更新原记录，不会新增一条。' : restored?'已恢复未确认的估算，请核对日期与克重后确认保存。':'请检查数据后确认保存。');
-    renderOilLevel();
-    updatePreviewTotals();
-    $('#estimate-preview').scrollIntoView({block:'nearest',behavior:'auto'});
   }
 
 /**
@@ -1708,3 +1205,4 @@ function metricIcon(label) {
   const markup = glyphs[label];
   return markup ? `<span class="metric-glyph">${markup}</span>` : '';
 }
+

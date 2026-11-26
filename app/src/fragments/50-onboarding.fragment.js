@@ -254,126 +254,15 @@
     const spoons = number(meal?.oilSpoons);
     return `<span>用油 <b>${spoons !== null ? fmt(spoons, 1) + ' 勺/' : ''}${fmt(grams, 0)} g</b></span>`;
   }
-  /** Row markup for one meal; split out so day-grouped lists can reuse it. */
-  function mealRowsHtml(meals, showDate) {
-    return meals.map(meal => {
-      const type = esc(mealNames[meal.mealType] || meal.mealType || '餐食');
-      const clock = clockPattern.test(String(meal.mealTime||'')) ? esc(meal.mealTime) : '';
-      const source = ({manual:'手动',local:'本地估算',api:'模型估算','quick-copy':'复制','import':'导入'})[meal.source] || '';
-      const items = Array.isArray(meal.items) && meal.items.length ? `共 ${meal.items.length} 项` : '';
-      const photo = meal.photoTakenAt ? '有照片' : '';
-      return `<div class="meal-row list-row" role="listitem" data-long-press="meal:${esc(meal.id ?? '')}"><div class="row-body"><div class="row-head"><strong>${esc(stripQuickTag(meal.name) || '未命名餐食')}</strong>`
-        + `${meal.favorite === true ? `<span class="fav-badge" aria-label="已收藏"><span class="inline-icon" aria-hidden="true">${SVG_ICONS['icon-bookmark.svg']}</span></span>` : ''}`
-        + `${type ? `<span class="row-tag">${type}</span>` : ''}`
-        + `${source ? `<span class="row-tag subtle-tag">${esc(source)}</span>` : ''}`
-        + `${items ? `<span class="row-tag subtle-tag">${esc(items)}</span>` : ''}`
-        + `${showDate ? `<span class="row-date">${esc(meal.date)}</span>` : ''}`
-        + `${meal.id !== undefined ? `<span class="row-actions"><button type="button" class="icon-button row-edit" data-edit-meal="${esc(meal.id)}" aria-label="编辑${esc(meal.name || '餐食')}">改</button><button type="button" class="icon-button danger row-delete" data-delete-meal="${esc(meal.id)}" aria-label="删除${esc(meal.name || '餐食')}" title="删除这条餐食"><span class="inline-icon" aria-hidden="true">${SVG_ICONS['icon-trash.svg']}</span></button></span>` : ''}</div>`
-        + `${Array.isArray(meal.items) && meal.items.length ? `<div class="meal-items-wrap"><button type="button" class="meal-items-toggle" data-meal-items="${esc(meal.id ?? '')}" aria-expanded="false">共 ${meal.items.length} 项 · 查看每项热量</button><div class="meal-items" hidden>${[...meal.items].sort((a, b) => (number(b.calories) ?? 0) - (number(a.calories) ?? 0)).map(item => `<div class="meal-item"><span>${esc(item.name || '未命名')}</span><b>${number(item.grams) !== null ? `${fmt(item.grams, 0)} g · ` : ''}${fmt(number(item.calories) ?? 0, 0)} kcal</b></div>`).join('')}</div></div>` : ''}`
-        + `<div class="meal-numbers" aria-label="营养数值">`
-        + `<span><small>蛋白</small><b>${fmt(meal.protein)} g</b></span><span><small>脂肪</small><b>${fmt(meal.fat)} g</b></span><span><small>碳水</small><b>${fmt(meal.carbs)} g</b></span></div>`
-        + `<div class="row-meta">${clock ? `<span>${clock}</span>` : ''}`
-        + `${oilLabel(meal)}`
-        + `${photo ? `<span>${photo}</span>` : ''}</div></div>`
-        + `<div class="row-side"><span class="row-kcal">${fmt(meal.calories,0)} <small>kcal</small></span></div></div>`;
-    }).join('');
-  }
   const MEAL_SLOT_ORDER = ['breakfast', 'lunch', 'dinner', 'snack'];
   /** 用户手动开合过哪一格就记下来：重画不该把他刚展开的那一段收回去。 */
   const mealSlotOpen = new Map();
-  /**
-   * 今日记录从「一长串行」改成「按餐次折叠」：每格只占一行摘要（餐次 · 餐数 · kcal），
-   * 展开才出逐餐明细。
-   * 2026-11-23（四模块之二轮）：默认全部收起——首页先给「今天吃了什么」的轮廓，
-   * 只有「一格一餐」这种收起来没有收益的情况才默认展开；用户点过哪格仍按本机记录。
-   */
-  function renderTodayTimeline(container, meals) {
-    if (!container) return;
-    // 只列餐食。睡眠/体重/训练曾经被当成「事件」塞在末尾，看起来像误记进今日记录；
-    // 它们在「今日三样」的摘要和「身体近况」里各自有位置，这里不再重复。
-    $('#today-record-count').textContent = meals.length ? `${meals.length} 餐` : '暂无';
-    if (!meals.length) {
-      container.innerHTML = stateBlock({kind: 'empty', title: '今天还没有记录', body: '记一餐，时间轴就会出现在这里；上方「记一餐」直接开始。'});
-      return;
-    }
-    const slotTypeOf = meal => {
-      if (MEAL_SLOT_ORDER.includes(meal.mealType)) return meal.mealType;
-      const time = String(meal.mealTime || '');
-      return clockPattern.test(time) ? defaultMealTypeFor(time) : 'untimed';
-    };
-    const groups = new Map();
-    meals.forEach((meal, index) => {
-      const key = slotTypeOf(meal);
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push({meal, index});
-    });
-    const order = [...MEAL_SLOT_ORDER, 'untimed'].filter(key => groups.has(key));
-    container.innerHTML = order.map(key => {
-      const list = groups.get(key);
-      const kcal = Math.round(totalsFor(list.map(entry => entry.meal)).calories ?? 0);
-      const label = MEAL_TYPE_LABEL[key] || '未标餐次';
-      // 收起是默认；只有「这一格本来就只有一餐」时不折——折了也省不出高度，还多一次点击。
-      const open = mealSlotOpen.has(key) ? mealSlotOpen.get(key) : (order.length === 1 && list.length === 1);
-      const rows = list
-        .sort((a, b) => {
-          const ta = clockPattern.test(String(a.meal.mealTime || '')) ? String(a.meal.mealTime) : '';
-          const tb = clockPattern.test(String(b.meal.mealTime || '')) ? String(b.meal.mealTime) : '';
-          return (ta && tb ? ta.localeCompare(tb) : 0) || a.index - b.index;
-        })
-        .map(entry => entry.meal)
-        .map(meal => mealRowsHtml([meal], false))
-        .join('');
-      return `<div class="meal-slot${open ? ' is-open' : ''}" data-meal-slot="${key}">`
-        + `<button type="button" class="meal-slot-head" aria-expanded="${open}" aria-controls="today-slot-${key}">`
-        + `<span class="meal-slot-name">${label}</span>`
-        + `<span class="meal-slot-meta">${list.length} 餐 · ${fmt(kcal, 0)} kcal</span>`
-        + `<span class="meal-slot-caret" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.4 6.2 15.2 12l-5.8 5.8"/></svg></span>`
-        + `</button>`
-        + `<div class="meal-slot-body" id="today-slot-${key}" role="list"${open ? '' : ' hidden'}>${rows}</div></div>`;
-    }).join('');
-    if (!container.dataset.slotWired) {
-      container.dataset.slotWired = '1';
-      container.addEventListener('click', event => {
-        const head = event.target.closest?.('.meal-slot-head');
-        if (!head) return;
-        const slot = head.closest('.meal-slot');
-        const body = slot?.querySelector('.meal-slot-body');
-        if (!slot || !body) return;
-        const open = head.getAttribute('aria-expanded') !== 'true';
-        head.setAttribute('aria-expanded', String(open));
-        slot.classList.toggle('is-open', open);
-        body.hidden = !open;
-        mealSlotOpen.set(slot.dataset.mealSlot, open);
-      });
-    }
-  }
   /**
    * The record list is grouped by day (the way 薄荷健康 shows 按天卡片) and capped at five meals until
    * the user asks for everything. Both keep the page short without hiding data.
    */
   const RECORD_MEALS_COLLAPSED = 5;
   let recordMealsExpanded = false;
-  function renderRecordMeals(rows) {
-    const container = $('#record-meals');
-    if (!container) return;
-    if (!rows.length) { container.innerHTML = stateBlock({kind: 'empty', title: '还没有餐食记录', body: '记下第一餐，从了解自己开始。'}); return; }
-    const shown = recordMealsExpanded ? rows : rows.slice(0, RECORD_MEALS_COLLAPSED);
-    const groups = new Map();
-    for (const row of shown) {
-      const day = String(row.date || '');
-      if (!groups.has(day)) groups.set(day, []);
-      groups.get(day).push(row);
-    }
-    const html = [...groups].map(([day, list]) => {
-      const kcal = Math.round(totalsFor(list).calories ?? 0);
-      return `<div class="meal-day"><div class="meal-day-head"><strong>${esc(mealDayLabel(day))}</strong><span>${list.length} 餐 · ${fmt(kcal, 0)} kcal</span></div>${mealRowsHtml(list, false)}</div>`;
-    }).join('');
-    const toggle = rows.length > RECORD_MEALS_COLLAPSED
-      ? `<button type="button" class="button subtle" id="record-meals-toggle">${recordMealsExpanded ? '收起' : `显示全部 ${rows.length} 条`}</button>`
-      : '';
-    container.innerHTML = html + toggle;
-    $('#record-meals-toggle')?.addEventListener('click', () => {recordMealsExpanded = !recordMealsExpanded; renderRecordMeals(rows);});
-  }
   /** 10-18 for this year, 2025-10-18 otherwise. */
   function mealDayLabel(day) {
     if (!validDate(day)) return '未标日期';
@@ -446,114 +335,6 @@
     day.setDate(day.getDate() - day.getDay());
     const pad = part => String(part).padStart(2, '0');
     return `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`;
-  }
-  /**
-   * Pure weekly review: current/previous seven-day summaries in, honest comparison out.
-   * It never reads the network, never invents a score, and omits training for a no-training profile.
-   */
-  function buildWeeklyReview(input) {
-    const src = input || {};
-    const current = Array.isArray(src.currentDays) ? src.currentDays.slice(0, 7) : [];
-    const previous = Array.isArray(src.previousDays) ? src.previousDays.slice(0, 7) : [];
-    const weightOf = day => {
-      const value = Number(day && day.weight);
-      return Number.isFinite(value) && value > 0 ? value : null;
-    };
-    const numberOrNull = value => value === null || value === undefined || value === '' ? null : Number(value);
-    const average = days => {
-      const values = days.map(weightOf).filter(value => value !== null);
-      return {count: values.length, mean: values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length * 10) / 10 : null};
-    };
-    const currentWeight = average(current), previousWeight = average(previous);
-    const currentHasRecord = day => day && (day.hasMeal === true || weightOf(day) !== null || day.hasExercise === true || day.hasRecord === true);
-    const recordedDays = current.filter(currentHasRecord).length;
-    const mealDays = current.filter(day => day && day.hasMeal === true).length;
-    const targetKnownDays = current.filter(day => {
-      const min = numberOrNull(day && day.min), max = numberOrNull(day && day.max), calories = numberOrNull(day && day.calories);
-      return Number.isFinite(min) && Number.isFinite(max) && Number.isFinite(calories);
-    }).length;
-    const targetDays = current.filter(day => {
-      const min = numberOrNull(day && day.min), max = numberOrNull(day && day.max), calories = numberOrNull(day && day.calories);
-      return Number.isFinite(min) && Number.isFinite(max) && Number.isFinite(calories) && calories >= min && calories <= max;
-    }).length;
-    const trainingDays = current.filter(day => day && day.hasExercise === true).length;
-    const training = src.trainingEnabled === false ? null : {days: trainingDays};
-    const comparable = currentWeight.count >= 2 && previousWeight.count >= 2;
-    let action = '保持现在的记录节奏，下周同一时间再看。';
-    if (!recordedDays) action = '上周还没有记录；下周先记两天，回看才有内容。';
-    else if (currentWeight.count < 2) action = '固定两天早上称重，周均值才有参考。';
-    else if (training && trainingDays === 0) action = '下周安排一次能完成的训练，不用补课。';
-    else if (mealDays < 4) action = '下周先记满四天餐食，再看摄入和体重的关系。';
-    else if (comparable) {
-      const delta = Math.round((currentWeight.mean - previousWeight.mean) * 10) / 10;
-      if (Math.abs(delta) >= 0.1) action = `体重周均值变化 ${delta >= 0 ? '+' : ''}${delta} kg；先保持现在的节奏。`;
-    }
-    return {
-      enough: recordedDays > 0,
-      rangeLabel: src.weekStart && src.weekEnd ? `${String(src.weekStart).slice(5)}–${String(src.weekEnd).slice(5)}` : '',
-      recordedDays, mealDays, targetDays, targetKnownDays,
-      weight: {
-        currentMean: currentWeight.mean,
-        previousMean: previousWeight.mean,
-        currentCount: currentWeight.count,
-        previousCount: previousWeight.count,
-        comparable,
-        delta: comparable ? Math.round((currentWeight.mean - previousWeight.mean) * 10) / 10 : null
-      },
-      training,
-      action
-    };
-  }
-  function weeklyDaySummary(date) {
-    const meals = (state.meals || []).filter(row => row && row.date === date);
-    const habit = habitRowFor(date) || {};
-    const measurement = measurementRowFor(date) || {};
-    const exercises = exercisesFor(date);
-    const range = intakeRangeForDate(date);
-    const calories = meals.length ? totalsFor(meals).calories : null;
-    return {
-      date,
-      weight: number(measurement.weight),
-      hasMeal: meals.length > 0,
-      calories,
-      min: range && !range.unset ? number(range.min) : null,
-      max: range && !range.unset ? number(range.max) : null,
-      hasExercise: exercises.some(item => item && String(item.name || '').trim()),
-      hasRecord: meals.length > 0 || number(measurement.weight) !== null || number(habit.sleep) !== null ||
-        number(habit.steps) !== null || number(habit.water) !== null || exercises.length > 0
-    };
-  }
-  function renderWeeklyReview() {
-    const body = $('#weekly-review-body'), range = $('#weekly-review-range');
-    if (!body) return;
-    const weekEnd = completedWeekEnd(activeDate);
-    const weekStart = shiftDate(weekEnd, -6);
-    const previousEnd = shiftDate(weekEnd, -7);
-    const previousStart = shiftDate(weekEnd, -13);
-    const currentDays = [], previousDays = [];
-    for (let offset = 0; offset < 7; offset++) currentDays.push(weeklyDaySummary(shiftDate(weekStart, offset)));
-    for (let offset = 0; offset < 7; offset++) previousDays.push(weeklyDaySummary(shiftDate(previousStart, offset)));
-    const data = buildWeeklyReview({weekStart, weekEnd, currentDays, previousDays, trainingEnabled: trainingEnabled()});
-    if (range) range.textContent = data.rangeLabel || '—';
-    if (!data.enough) {
-      body.innerHTML = '<p class="muted">这一周记录不足，暂时不能比较。</p><p class="fine-print">' + esc(data.action) + '</p>';
-      return;
-    }
-    const weightText = data.weight.currentMean === null ? '—' : fmt(data.weight.currentMean) + ' kg';
-    const compareText = data.weight.comparable
-      ? `较前一周 ${data.weight.delta >= 0 ? '+' : ''}${fmt(data.weight.delta)} kg`
-      : data.weight.currentCount < 2 ? '称重不足两次' : '前一周数据不足';
-    const training = data.training
-      ? `<div class="weekly-review-metric"><small>训练</small><strong>${data.training.days} <span>天</span></strong><span>按实际动作计</span></div>`
-      : '';
-    const targetText = data.targetKnownDays
-      ? `有 ${data.targetKnownDays} 天能核对热量，其中 ${data.targetDays} 天在区间内`
-      : '目标尚未测算';
-    body.innerHTML = `<div class="weekly-review-grid${data.training ? '' : ' two'}">`
-      + `<div class="weekly-review-metric"><small>体重周均值</small><strong>${weightText}</strong><span>${compareText}</span></div>`
-      + `<div class="weekly-review-metric"><small>餐食记录</small><strong>${data.mealDays} <span>天</span></strong><span>有记录才计数</span></div>`
-      + training
-      + `</div><p class="fine-print">${targetText}；未记录不代表没做。</p><p class="weekly-review-action">${esc(data.action)}</p>`;
   }
   /** Optional target-weight band; no fields means no band, not an inferred target. */
   function trendTargetBand(profile, y, left, right, topLimit, bottomLimit) {
@@ -696,3 +477,4 @@ const values = points.length<=7 ? points.map((item,i) => {
     if (rows.length <= 1) return rows[0] || null;
     return rows.slice().sort((a, b) => JSON.stringify(b).length - JSON.stringify(a).length)[0];
   }
+

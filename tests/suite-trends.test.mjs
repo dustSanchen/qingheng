@@ -185,9 +185,9 @@ let fail = 0;
 const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + label + (detail === undefined ? '' : '  -> ' + detail)); if (!ok) fail++; };
 const read = path => fs.readFileSync(path, 'utf8');
 
-const head = read('app/src/fragments/00-head.fragment.js');
-const targetOffer = read('app/src/fragments/20-permissions-backup.fragment.js');
-const rest = read('app/src/fragments/70-rest.fragment.js');
+const head = read('app/src/fragments/00-head.fragment.js') + read('app/src/fragments/42-diet-domain.fragment.js');
+const targetOffer = read('app/src/fragments/20-permissions-backup.fragment.js') + read('app/src/fragments/45-diet-ui.fragment.js');
+const rest = read('app/src/fragments/70-rest.fragment.js') + read('app/src/fragments/45-diet-ui.fragment.js');
 const main = read('app/src/main/java/cn/qingheng/health/MainActivity.java');
 
 const effective = head.slice(head.indexOf('function effectiveProfileForDate'), head.indexOf('function effectiveProfileForDate') + 1800);

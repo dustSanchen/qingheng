@@ -20,7 +20,6 @@
   const dayTime = value => validDate(value) ? Date.parse(`${value}T00:00:00Z`) : NaN;
   /** Calendar-day shift used by the copy-a-meal and daily-three helpers. */
   const shiftDay = (value, days) => {const date = new Date(`${value}T12:00:00`); date.setDate(date.getDate() + days); return localDate(date);};
-  const mealNames = {breakfast:'早餐',lunch:'午餐',dinner:'晚餐',snack:'加餐'};
   /**
    * 快速记录以前把「（快速记录）」写进餐名，复制一餐就再叠一层（见到过两层）。
    * 行里本来就有「复制」标签，名称不再带后缀；老记录在显示时一并清掉。
@@ -182,8 +181,6 @@
       return true;
     } catch {return false;}
   }
-  const DEFAULT_MEAL_WINDOW = {lunchFrom:'11:20', dinnerFrom:'16:30', snackFrom:'22:00'};
-  const MEAL_TYPE_LABEL = {breakfast:'早餐', lunch:'午餐', dinner:'晚餐', snack:'加餐'};
   function readMealWindow() {
     let raw = {};
     try { raw = JSON.parse(localStorage.getItem(MEAL_WINDOW_KEY) || '{}') || {}; } catch { raw = {}; }
@@ -203,15 +200,6 @@
     // 跟着备份走：换机后三餐划分不回到默认值（CONFIG_REGISTRY 里登记了 mealWindow）。
     if (typeof schedulePrefsSync === 'function') { try { schedulePrefsSync({mealWindow: next}); } catch {} }
     return next;
-  }
-  /** `clock` defaults to now. Both thresholds are inclusive lower bounds. */
-  function defaultMealTypeFor(clock) {
-    const value = clockPattern.test(clock) ? clock : nowClock();
-    const {lunchFrom, dinnerFrom, snackFrom} = readMealWindow();
-    if (value >= snackFrom) return 'snack';
-    if (value >= dinnerFrom) return 'dinner';
-    if (value >= lunchFrom) return 'lunch';
-    return 'breakfast';
   }
   const nowClock = () => {const d = new Date(); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;};
   // 浏览器/WebView 有 rAF；node 里的片段测试没有，退回 setTimeout 才跑得起来。
@@ -242,49 +230,6 @@
     if (/下午|晚上|傍晚|夜/.test(before) && hour < 12) return hour + 12;
     if (/凌晨/.test(before) && hour === 12) return 0;
     return hour;
-  }
-  /** A time the user wrote in the description, e.g. "12:30 吃了…", "早上七点", "晚上". */
-  function clockFromText(text) {
-    const value = String(text || '');
-    const explicit = value.match(/(\d{1,2})\s*[:：点时]\s*(\d{1,2})?/);
-    if (explicit) {
-      const before = value.slice(Math.max(0, explicit.index - 4), explicit.index);
-      const hour = adjustHour(Number(explicit[1]), before);
-      const minute = explicit[2] === undefined || explicit[2] === '' ? 0 : Number(explicit[2]);
-      if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) return `${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}`;
-    }
-    const spoken = value.match(/([一二两三四五六七八九十]{1,3})\s*[点时]/);
-    if (spoken) {
-      const before = value.slice(Math.max(0, spoken.index - 4), spoken.index);
-      const hour = chineseHour(spoken[1]);
-      if (hour !== null && hour <= 23) {
-        const adjusted = adjustHour(hour, before);
-        if (adjusted >= 0 && adjusted <= 23) return `${String(adjusted).padStart(2,'0')}:00`;
-      }
-    }
-    if (/凌晨/.test(value)) return '05:00';
-    if (/早上|早晨|早餐/.test(value)) return '07:30';
-    if (/上午/.test(value)) return '10:00';
-    if (/中午|午餐|午饭/.test(value)) return '12:30';
-    if (/下午/.test(value)) return '15:30';
-    if (/夜宵|宵夜|深夜/.test(value)) return '22:00';
-    if (/晚上|晚餐|晚饭|傍晚/.test(value)) return '18:30';
-    return null;
-  }
-  function defaultMealTime(photo, text, mealType) {
-    const fromPhoto = photoWallClock(photo);
-    if (fromPhoto) return {mealTime:fromPhoto, mealTimeSource:'photo'};
-    const fromText = clockFromText(text);
-    if (fromText) return {mealTime:fromText, mealTimeSource:'text'};
-    return {mealTime:nowClock(), mealTimeSource:'now', typical:mealSlotClock[mealType] || null};
-  }
-  function mealTimeNote(meal) {
-    const source = meal?.mealTimeSource;
-    if (source === 'photo') return '默认取照片的拍摄时刻；如果实际进餐时间不同，请在这里改。';
-    if (source === 'text') return '按描述里提到的时间填写；如果不对，请在这里改。';
-    if (source === 'manual') return '已手动确认的进餐时间。';
-    if (source === 'typical') return '没有拍摄时间，先按常见餐次时段填写；请确认真实时间。';
-    return '没有拍摄/描述时间，先按记录时刻填写；请确认后保存。';
   }
 
   let activeDate = localDate();
@@ -920,72 +865,6 @@
     } catch (error) {box.textContent = error.message;}
     finally {button.disabled = false;}
   });
-  $('#calibrate-foods').addEventListener('click',()=>{
-    if (!window.QinghengFoods) return;
-    try {
-      const data = window.QinghengFoods.calibrateDraft({items:readItems(true),notes:[]});
-      let restoredOil = 0, keptMethod = 0;
-      data.items.forEach((item,i)=>{
-        const row = $$('.estimate-item')[i];
-        if (!row) return;
-        // 校核只替换「食材本身的营养」，不接管这一行的烹饪方式与用油：
-        // 1.5.41 之前这里直接覆盖 calories/fat，导致已算进去的烹调用油被清零（油量还挂在 data-oil 上）。
-        const method = String(row.dataset.method || '').slice(0, 8);
-        const wasOilIncluded = row.dataset.oilIncluded === '1';
-        const previousOil = number(row.dataset.oil) || 0;
-        let next = {...item};
-        if (method) { next.method = method; keptMethod += 1; }
-        const matched = !!(item.model && typeof item.model === 'object');
-        if (!matched) {
-          // 没匹配到本地库：营养与油都原样保留，不重算也不清零。
-          next.oilGrams = previousOil;
-          if (wasOilIncluded) next.oilIncluded = true; else delete next.oilIncluded;
-          delete next.oilMethod;
-        } else if (item.model.includesOil === true) {
-          // 混合菜基准里已经含了烹调油：保持「已含油」，不重复加。
-          next.oilGrams = 0;
-          next.oilIncluded = true;
-          delete next.oilMethod;
-        } else if (method) {
-          // 食材行：按当前整餐用油档位补回烹调用油（1 g 油 = 9 kcal，同时计入脂肪）。
-          next.oilGrams = 0;
-          next.oilIncluded = false;
-          delete next.oilMethod;
-          if (typeof applyOilToItems === 'function') {
-            const [oiled] = applyOilToItems([next], typeof estimateOilLevel === 'string' ? estimateOilLevel : 'normal');
-            if (oiled) next = oiled;
-          }
-          if (number(next.oilGrams) > 0) restoredOil += Number(next.oilGrams);
-        } else if (previousOil > 0) {
-          // 食材行但没有烹饪方式：把原来那份额度的油加回被替换掉的营养里，避免「有油标记、热量却没算油」。
-          next.oilGrams = previousOil;
-          next.oilIncluded = true;
-          next.calories = Math.round((number(next.calories) || 0) + previousOil * 9);
-          next.fat = Math.round((((number(next.fat) || 0) + previousOil)) * 10) / 10;
-          restoredOil += previousOil;
-        }
-        for(const key of ['calories','protein','fat','carbs']) {
-          const input = $('[data-item-field="'+key+'"]',row);
-          if (input) input.value = number(next[key]) ?? input.value;
-        }
-        const gramsInput = $('[data-item-field="grams"]', row);
-        if (gramsInput && number(next.grams) !== null) gramsInput.value = number(next.grams);
-        row.dataset.baseGrams = number(next.grams) ?? number(gramsInput?.value);
-        row.dataset.method = method;
-        row.dataset.oil = String(number(next.oilGrams) || 0);
-        if (next.oilIncluded === true) row.dataset.oilIncluded = '1'; else delete row.dataset.oilIncluded;
-        for(const key of nutritionKeys) {
-          const input = $('[data-item-field="'+key+'"]', row);
-          if (input) input.dataset.baseValue = number(input.value);
-        }
-      });
-      const oilNote = restoredOil > 0
-        ? `已按当前用油档位补回烹调用油 ${fmt(restoredOil,0)} g（已含在热量与脂肪里）。`
-        : keptMethod > 0 ? '已保留每行的烹饪方式；这些做法不计或已含烹调油。' : '';
-      $('#estimate-notes').innerHTML = (oilNote ? `<li>${esc(oilNote)}</li>` : '') + data.notes.map(note=>`<li>${esc(note)}</li>`).join('');
-      updatePreviewTotals(); feedback($('#preview-feedback'),'已按本地模型校核。菜品配方、油量和图片估计克重仍需人工确认。');
-    } catch(error){feedback($('#preview-feedback'),error.message,true);}
-  });
   function setDefaultDates() { $$('[data-default-date]').forEach(input => input.value = activeDate); }
   // 这三个键也跟随备份走（换手机零丢失）；localStorage 只作为即时缓存。
   const CHAT_UNHELPFUL_KEY = 'qingheng.chat.unhelpful';
@@ -1207,8 +1086,6 @@
     try {const saved = localStorage.getItem('qingheng.tab') || ''; if (['today','records','chat','trends','profile'].includes(saved)) return saved;} catch {}
     return 'today';
   }
-  function sumMeals(meals, key) {return meals.length && meals.every(meal => number(meal[key]) !== null) ? meals.reduce((sum, meal) => sum + Number(meal[key]),0) : null;}
-  function totalsFor(meals) {return Object.fromEntries(['calories','protein','fat','carbs'].map(key => [key,sumMeals(meals,key)]));}
   // 未迁移（保留 empty()）：餐食列表 renderMeals、搜索无结果、生活建议与推送建议空态、通知权限 denied。新的空态请用 stateBlock()。
   function empty(text, hint = "", kind = "empty") {
     // 三态空状态：empty=还没有数据 / denied=没有权限 / error=加载失败；图标与语气随状态变化。
@@ -1322,20 +1199,6 @@
     if (hour >= 14 && hour < 17) return {key: "afternoon", label: "下午", hint: "有加餐或训练就记一笔，晚上会轻松很多"};
     if (hour >= 17 && hour < 22) return {key: "evening", label: "晚上", hint: "记晚餐 + 训练，再看一眼今天还差多少"};
     return {key: "night", label: "夜里", hint: "只补记录，不追额度；睡够比凑数字重要"};
-  }
-  /** 17 点后没记午餐、21 点后没记晚餐 —— 提示「补一下」，并允许一键跳去记录。 */
-  function missingMealSlots(date, now = new Date()) {
-    const rows = (Array.isArray(state.meals) ? state.meals : []).filter(row => row && row.date === date);
-    const minutes = row => {
-      const m = /^(\d{1,2}):(\d{2})$/.exec(String(row.mealTime || ""));
-      return m ? Number(m[1]) * 60 + Number(m[2]) : null;
-    };
-    const inWindow = (from, to) => rows.some(row => { const m = minutes(row); return m !== null && m >= from && m < to; });
-    const hour = now.getHours();
-    const missing = [];
-    if (hour >= 17 && !inWindow(630, 900)) missing.push({key: "lunch", label: "午餐"});
-    if (hour >= 21 && !inWindow(1020, 1380)) missing.push({key: "dinner", label: "晚餐"});
-    return missing;
   }
   /** 今天的状况条目（只读）：体检结论 + 能量/宏量信号。 */
   let todayActionCursor = 0;
@@ -1589,68 +1452,4 @@ function applyTrainingVisibility() {
       if (prefs) prefs.hidden = true;
     }
   }
-  function goalLabel(goal) {
-    // 与 40-targets 的 goalLabelOf / GOAL_LABEL 保持同一套文案：同一目标在能量卡与目标状态区不能出现两种写法。
-    const map = {gain: '增肌', cut: '减脂', recomp: '增肌同时减脂', lean: '薄肌（线条）', maintain: '保持身材'};
-    return map[String(goal || 'recomp')] || '饮食';
-  }
-function intakeRangeForDate(date = activeDate, profileOverride = null) {
-    const profile = profileOverride || state?.profile || {}, rules = targetRules(profile);
-    // 训练日只看动作（2026-11-18）：当天保存过训练动作就是训练日，不再读手填的训练情况。
-    const trained = typeof trainedOn === 'function' ? !!trainedOn(date) : false;
-    const useTraining = trained;
-    const plan = computeTargets({
-          sex: profile.sex,
-          weight: number(profile.weight) ?? latestWeight(date),
-          height: profile.height,
-          age: profile.age,
-          goal: profile.goal,
-          applyGoalPresets: true,
-          training: plannedSessions(),
-          rules: profile
-        });
-    const active = plan && !plan.incomplete ? plan : null;
-    const unset = !active;
-    const trainingDay = active ? active.trainingDay : {min: rules.trainingDayMin, max: rules.trainingDayMax};
-    const restDay = active ? active.restDay : {min: rules.restDayMin, max: rules.restDayMax};
-    const basis = active
-      ? `${goalLabel(profile.goal)}（按维持 ${active.tdee}${active.leanPlan ? ' 与有效缺口 ' + active.leanPlan.effectivePercent + '%' : ''}）`
-      : '未测算：到「我的 → 身体档案与目标」补齐性别、身高、体重与年龄';
-    return {
-      min: useTraining ? trainingDay.min : restDay.min,
-      max: useTraining ? trainingDay.max : restDay.max,
-      trained,
-      basis,
-      unset,
-      trainingDay,
-      restDay,
-      expectedWeeklyKg: active && Number.isFinite(active.expectedWeeklyKg) ? active.expectedWeeklyKg : null
-    };
-  }
-  /**
-   * Profile for a given date with the day's own budget applied: a training day uses the training-day
-   * ceiling, a rest day (or an unrecorded day) uses the rest-day ceiling. The 口径 range is never
-   * replaced by a single number — `intakeRange` is carried along for the UI to show.
-   */
-  function effectiveProfileForDate(date = activeDate) {
-    const profile = {...(state?.profile || {})}, adjustment = targetAdjustmentForDate(date);
-    // 临时目标要先并进 profile 再算区间：区间是最终口径，只改 calorieTarget 会被区间覆盖掉，
-    // 「弹窗说调低了、第二天却没变」就是这么来的。
-    if (adjustment) Object.assign(profile, adjustment.temporary);
-    const baseRange = intakeRangeForDate(date, profile);
-    // 覆盖逻辑放在 calc.js（可单测）；没有该文件时退回原区间。
-    const range = adjustment && window.QinghengCalc && typeof window.QinghengCalc.applyTemporaryRange === 'function'
-      ? window.QinghengCalc.applyTemporaryRange(baseRange, adjustment.temporary)
-      : baseRange;
-    // 区间与当日上限都以目标预设算出的结果为准，手填字段不再参与。
-    // 未测算时不给占位数字当目标：calorieTarget 置空，页面显示「未测算」而不是 2150 这类假区间。
-    profile.calorieTarget = range.unset ? null : range.max;
-    profile.trainingDayMin = range.trainingDay.min;
-    profile.trainingDayMax = range.trainingDay.max;
-    profile.restDayMin = range.restDay.min;
-    profile.restDayMax = range.restDay.max;
-    // trained 一起带出去：页面上「按训练日 / 按休息日」只该看这个布尔值，
-    // 不该去 basis 文本里找「训练」二字（有目标预设时 basis 讲的是口径，不写训练/休息）。
-    profile.intakeRange = {min: range.min, max: range.max, basis: range.basis, trained: !!range.trained, unset: !!range.unset};
-    return profile;
-  }
+

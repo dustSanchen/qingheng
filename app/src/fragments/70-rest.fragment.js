@@ -18,128 +18,11 @@
   bindFavoriteFilter('chat-favorites-only', value => {favoriteOnlyChats = value; resetChatPaging(); renderChat();});
   bindFavoriteFilter('meal-favorites-only', value => {favoriteOnlyMeals = value; render();});
   let storedDrafts = [];
-  async function loadDrafts() {
-    try {const data = await api('/api/drafts'); storedDrafts = Array.isArray(data?.drafts) ? data.drafts : [];}
-    catch {storedDrafts = [];}
-    renderDraftBox();
-  }
-  function renderDraftBox() {
-    const box = $('#draft-box'); if (!box) return;
-    box.hidden = !storedDrafts.length;
-    if (!storedDrafts.length) {const list = $('#draft-list'); if (list) list.replaceChildren(); return;}
-    $('#draft-box-text').textContent = `有 ${storedDrafts.length} 份未确认的估算，确认前不会计入当天。`;
-    const list = $('#draft-list');
-    if (!list) return;
-    list.innerHTML = storedDrafts.map(row => {
-      const when = number(row.savedAt) !== null ? new Date(Number(row.savedAt)).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '时间未知';
-      const count = Array.isArray(row.items) ? row.items.length : 0;
-      const clock = clockPattern.test(String(row.mealTime||'')) ? row.mealTime : '时间未定';
-      return `<div class="list-row" role="listitem"><div class="list-main"><p class="list-title">${esc(row.name || '未命名估算')}</p>`
-        + `<p class="list-meta">${esc(row.date || '日期未知')} · ${esc(mealNames[row.mealType] || row.mealType || '餐食')} · ${esc(clock)} · ${count} 项食品 · ${esc(when)}</p></div>`
-        + `<div class="list-actions"><button type="button" class="button subtle" data-draft-restore="${esc(row.id)}">恢复</button>`
-        + `<button type="button" class="text-button danger-text" data-draft-drop="${esc(row.id)}" aria-label="丢弃这份估算草稿">丢弃</button></div></div>`;
-    }).join('');
-  }
-  async function saveToDraftBox(view) {
-    const stored = {id:view.id,date:view.date,mealType:view.mealType,source:view.source,confidence:view.confidence,
-      notes:view.notes,items:view.items,name:view.name,mealTime:view.mealTime,mealTimeSource:view.mealTimeSource,...photoMeta(view)};
-    try {await api('/api/drafts',{draft:stored}); await loadDrafts();} catch {/* the preview still works without the draft box */}
-  }
-  async function dropDraft(id) {
-    if (!id) return;
-    try {await api(`/api/drafts/${encodeURIComponent(id)}`,undefined,'DELETE');} catch {}
-    await loadDrafts();
-  }
-  function readItems(validate=false) {
-    const rows=$$('.estimate-item'); if(!rows.length) {if(validate) throw new Error('请至少保留一项食物。');return [];}
-    return rows.map(row => {const item={};$$('[data-item-field]',row).forEach(input=>{if(validate && !input.reportValidity()) throw new Error('请补全食物名称并填写有效的非负数值。');item[input.dataset.itemField]=input.dataset.itemField==='name'?input.value.trim():number(input.value);});const oil=number(row.dataset.oil);if(oil>0)item.oilGrams=oil;if(validate && !item.name) {markFieldInvalid($('[data-item-field="name"]', row), '请填写食物名称。'); throw new Error('请填写食物名称。');}return item;});
-  }
-  /** Canonical totals for the draft: line items plus the cooking oil that was estimated separately. */
-  /** Carbs a row does not state but its calories imply; mirrors NutritionMath.inferredCarbs on the client. */
-  function carbOfItem(item) {
-    const carbs = number(item.carbs);
-    if (carbs !== null && carbs > 0) return carbs;
-    const kcal = number(item.calories), protein = number(item.protein) ?? 0, fat = number(item.fat) ?? 0;
-    if (kcal === null) return carbs ?? 0;
-    const rest = kcal - protein * 4 - fat * 9;
-    return rest > 60 ? Math.round(rest / 4 * 10) / 10 : (carbs ?? 0);
-  }
-  function estimateTotals(items) {
-    // A row can arrive with calories, protein and fat but no carbs; the preview must not show 0 carbs
-    // for a 261 kcal bowl of rice. The saved record applies the same rule server-side.
-    const patched = (items || []).map(item => ({...item, carbs: carbOfItem(item)}));
-    const totals = totalsFor(patched);
-    // 用油按菜归属后，油已经算在各菜的 calories/fat 里；只有旧草稿（菜里没有 oilGrams）才把整餐油再加一次。
-    const itemsOil = (patched || []).reduce((sum, item) => sum + (number(item.oilGrams) || 0), 0);
-    const oil = itemsOil > 0 ? 0 : (number(draft?.oilGrams) ?? 0);
-    if (oil > 0) {
-      totals.calories = (totals.calories ?? 0) + oil * 9;
-      totals.fat = (totals.fat ?? 0) + oil;
-    }
-    return totals;
-  }
-  function updatePreviewTotals() {const totals=estimateTotals(readItems());$('#estimate-totals').textContent=`合计：${fmt(totals.calories)} kcal · 蛋白质 ${fmt(totals.protein)}g · 脂肪 ${fmt(totals.fat)}g · 碳水 ${fmt(totals.carbs)}g`;}
-  function discardDraft() {if(savingDraft) return;const id=draft?.id, editing=!!draft?.editingId;draft=null;$('#estimate-preview').hidden=true;$('#estimate-items').replaceChildren();if(!editing)dropDraft(id);}
-  async function confirmDraft() {
-    if(!draft || savingDraft) return;
-    const button=$('#confirm-estimate'),message=$('#preview-feedback');
-    try {
-      const items=readItems(true),name=$('#estimate-name').value.trim(); if(!name || !$('#estimate-name').reportValidity()) {if(!name) markFieldInvalid($('#estimate-name'), '请填写餐食名称。'); throw new Error('请填写餐食名称。');}
-      const totals=estimateTotals(items);if(Object.values(totals).some(value=>value===null || !Number.isFinite(value))) throw new Error('请填写全部营养数值。');
-      const date=$('#estimate-date').value, mealType=$('#estimate-meal-type').value, mealTime=$('#estimate-meal-time').value;
-      if(!validDate(date) || !$('#estimate-date').reportValidity()) {if(!validDate(date)) markFieldInvalid($('#estimate-date'), '请核对有效的饮食日期。'); throw new Error('请核对有效的饮食日期。');}
-      if(!clockPattern.test(mealTime) || !$('#estimate-meal-time').reportValidity()) {if(!clockPattern.test(mealTime)) markFieldInvalid($('#estimate-meal-time'), '请填写有效的进餐时间（HH:mm）。'); throw new Error('请填写有效的进餐时间（HH:mm）。');}
-      draft.date=date; draft.mealType=mealType;
-      // The user just confirmed it, so it is no longer a guess.
-      draft.mealTime=mealTime; draft.mealTimeSource='manual';
-      const editing = draft.editingId ? (state.meals || []).find(row => row && String(row.id) === String(draft.editingId)) : null;
-      if (draft.editingId && !editing) throw new Error('原餐食记录已不存在，请重新打开这条记录。');
-      const wasEditing = !!editing;
-      const values = {date:draft.date,mealType:draft.mealType,mealTime:draft.mealTime,name,source:draft.source,...photoMeta(draft),items,...totals,totals,
-        // The oil amount the estimate already counted stays on the record, so the numbers remain explainable.
-        ...(number(draft.oilGrams)>0?{oilGrams:number(draft.oilGrams),oilIncluded:true}:{}),
-        ...(number(draft.uncertaintyPercent)!==null?{uncertaintyPercent:number(draft.uncertaintyPercent)}:{})};
-      savingDraft=true;button.disabled=true;$('#cancel-estimate').disabled=true;feedback(message,wasEditing?'正在更新已保存餐食…':'正在保存确认后的餐食…');
-      if (editing) await api('/api/meals',{...editing,id:editing.id,...values});
-      else await api('/api/meals',{estimateId:draft.id,...values});
-      // Keep draftId on failures so native idempotency prevents duplicate confirmations.
-      const savedDate=draft.date; activeDate=savedDate; $('#active-date').value=savedDate; syncActiveDateLabel();
-       draft=null;$('#estimate-preview').hidden=true;$('#estimate-form').reset();setDefaultDates();clearImage();feedback($('#estimate-feedback'),wasEditing?`餐食已更新到 ${savedDate}。`:`餐食已确认保存到 ${savedDate}，已切换到该日汇总。`);
-      try {await loadState({quiet:true});} catch {feedback($('#estimate-feedback'),'已保存，但刷新失败。请重新加载检查记录，不要再次估算保存。',true);}
-      loadDrafts().catch(() => {});
-    } catch(error) {feedback(message,error.message,true);} finally {savingDraft=false;button.disabled=false;$('#cancel-estimate').disabled=false;}
-  }
   function setActiveDate(value) {
     if(!validDate(value)) return false;
     activeDate=value; $('#active-date').value=value; syncActiveDateLabel(); setDefaultDates(); render();
     const content=$('#advice-content'); content.textContent=''; content.removeAttribute('data-date');
     return true;
-  }
-  // ---- Meals that carry no usable date ----------------------------------------------------------
-  // They belong to no day, so they are invisible in every day view, in the advice and in the chat
-  // context. Rather than guessing, the app says how many there are and asks for the date.
-  function undatedMeals() {return (state.meals || []).filter(row => row && (row.needsDate === true || !validDate(row.date)));}
-  function renderUndatedMeals() {
-    const box = $('#undated-meals'); if (!box) return;
-    const rows = undatedMeals();
-    box.hidden = !rows.length;
-    if (!rows.length) return;
-    $('#undated-meals-text').textContent = `有 ${rows.length} 条餐食缺少日期，不会出现在任何一天或进入分析。请选择日期。`;
-    const input = $('#undated-meals-date');
-    if (input && !input.value) input.value = activeDate;
-  }
-  async function applyUndatedDate() {
-    const rows = undatedMeals(), input = $('#undated-meals-date'), value = input ? input.value : '';
-    if (!rows.length) return;
-    if (!validDate(value)) {notice('请先选择有效日期。', true); return;}
-    const button = $('#undated-meals-apply');
-    if (button) button.disabled = true;
-    try {
-      for (const row of rows) {const {needsDate, ...rest} = row; await api('/api/meals', {...rest, date:value});}
-      await loadState({quiet:true});
-      notice(`已把 ${rows.length} 条记录归入 ${value}。`);
-    } catch (error) {notice(error.message, true);}
-    finally {if (button) button.disabled = false;}
   }
   // ---- What would be sent, shown before anything is sent ----------------------------------------
 
@@ -239,42 +122,6 @@
       return '<p class="part-title">' + esc(part.label) + '</p>' + items;
     }).join('');
     return rows ? '<details class="body-parts"><summary>按部位查解剖要点</summary>' + rows + '</details>' : '';
-  }
-  /**
-   * 拍照与相册收进一个入口：页面只占一行，选择放进底部弹层。
-   * 弹层里的「拍照」「从相册选」是 <label for>，由浏览器原生打开文件选择器；
-   * 这里不给 label 绑 input.click()（会弹两次），只负责开合、焦点与键盘。
-   */
-  function installPhotoEntry() {
-    const open = $("#photo-add"), sheet = $("#photo-sheet");
-    if (!open || !sheet || sheet.dataset.wired) return;
-    sheet.dataset.wired = "1";
-    const addIcon = open.querySelector(".photo-add-icon");
-    if (addIcon) addIcon.setAttribute("src", "./icon-glyph-camera.svg");
-    const takeIcon = $("#photo-take img", sheet);
-    if (takeIcon) takeIcon.setAttribute("src", "./icon-glyph-camera.svg");
-    const hide = restoreFocus => {
-      sheet.hidden = true;
-      open.setAttribute("aria-expanded", "false");
-      if (restoreFocus) open.focus();
-    };
-    open.addEventListener("click", () => {
-      sheet.hidden = false;
-      open.setAttribute("aria-expanded", "true");
-      const first = $("#photo-take");
-      if (first) first.focus();
-    });
-    const close = $("#photo-close");
-    if (close) close.addEventListener("click", () => hide(true));
-    sheet.addEventListener("click", event => {
-      if (event.target === sheet) hide(true);
-      else if (event.target.closest(".sheet-option")) hide(false); // 选择器由 label 原生打开，这里只收起弹层
-    });
-    sheet.addEventListener("keydown", event => {
-      if (event.key === "Escape") { hide(true); return; }
-      const option = event.target.closest && event.target.closest(".sheet-option");
-      if (option && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); option.click(); }
-    });
   }
 
   /** 等待动画：任何需要等模型的地方都复用它。 */
@@ -897,19 +744,6 @@
   function mealWindowSummaryText(spec) {
     return `早于 ${spec.lunchFrom} 记早餐，${spec.lunchFrom} 起记午餐，${spec.dinnerFrom} 起记晚餐，${spec.snackFrom} 起记加餐。`;
   }
-  function renderMealWindow() {
-    const spec = readMealWindow();
-    const lunch = $('#meal-window-lunch'), dinner = $('#meal-window-dinner'), snack = $('#meal-window-snack');
-    if (lunch) lunch.value = spec.lunchFrom;
-    if (dinner) dinner.value = spec.dinnerFrom;
-    if (snack) snack.value = spec.snackFrom;
-    const summary = $('#meal-window-summary');
-    if (summary) summary.textContent = mealWindowSummaryText(spec);
-    const tag = $('#meal-window-tag');
-    if (tag) tag.textContent = `现在默认${MEAL_TYPE_LABEL[defaultMealTypeFor(nowClock())] || '加餐'}`;
-    const hubSummary = $('#hub-summary-appearance');
-    if (hubSummary) hubSummary.textContent = `${spec.lunchFrom} 午餐 · ${spec.dinnerFrom} 晚餐 · ${spec.snackFrom} 加餐`;
-  }
   let mealTypeTouched = false;
   /** The estimate form starts on the slot the clock implies, unless the user already picked one. */
   function applyMealTypeDefault() {
@@ -917,32 +751,6 @@
     if (!form || mealTypeTouched) return;
     const select = form.querySelector('select[name="mealType"]');
     if (select) select.value = defaultMealTypeFor(nowClock());
-  }
-  function installMealWindow() {
-    const card = $('#meal-window-card');
-    if (!card || card.dataset.bound) return;
-    card.dataset.bound = '1';
-    renderMealWindow();
-    $('#meal-window-save').addEventListener('click', () => {
-      const feedback = $('#meal-window-feedback');
-      const lunch = $('#meal-window-lunch').value, dinner = $('#meal-window-dinner').value, snack = $('#meal-window-snack').value;
-      if (!clockPattern.test(lunch) || !clockPattern.test(dinner) || !clockPattern.test(snack)) {feedback.textContent = '请填写 24 小时制的时间。'; return;}
-      if (!(lunch < dinner && dinner < snack)) {feedback.textContent = '午餐起、晚餐起、加餐起要依次更晚。'; return;}
-      feedback.textContent = '';
-      saveMealWindow({lunchFrom:lunch, dinnerFrom:dinner, snackFrom:snack});
-      renderMealWindow();
-      applyMealTypeDefault();
-      notice('默认餐次已更新。');
-    });
-    $('#meal-window-reset').addEventListener('click', () => {
-      saveMealWindow(DEFAULT_MEAL_WINDOW);
-      renderMealWindow();
-      applyMealTypeDefault();
-      $('#meal-window-feedback').textContent = '';
-      notice('已恢复 11:20 / 16:30 / 22:00。');
-    });
-    $('#estimate-form select[name="mealType"]')?.addEventListener('change', () => {mealTypeTouched = true;});
-    applyMealTypeDefault();
   }
   /**
    * Trends also grew into one long column. Same segmented treatment, plus a diet card that the page
@@ -1018,69 +826,6 @@
     }
     try { localStorage.setItem(TREND_PANEL_STORAGE, target); } catch {}
     if ($('#trend-panel-training')?.hidden !== false) { /* no-op, keeps the guard explicit */ }
-  }
-  /** The diet trend the page was missing: last 7 days of intake against that day's range. */
-  function dietTrendCard() {
-    const card = document.createElement('article');
-    card.className = 'card';
-    card.id = 'diet-trend-card';
-    card.innerHTML = '<div class="card-heading"><h2>饮食趋势</h2><span class="tag">近 7 天</span></div><p class="muted">每根条相对当天的目标区间；超出上限会标红。</p><div class="diet-bars"></div>';
-    return card;
-  }
-  /**
-   * Fills the card from whatever state is current. It used to be rendered once at boot, while state was
-   * still an empty skeleton, so it always claimed "0/7 days" no matter how much was recorded.
-   */
-  function renderDietTrend() {
-    const card = $('#diet-trend-card');
-    if (!card) return;
-    const days = [];
-    for (let offset = 6; offset >= 0; offset--) days.push(shiftDate(activeDate, -offset));
-    const rows = days.map(day => {
-      const meals = (state.meals || []).filter(row => row.date === day);
-      const totals = totalsFor(meals);
-      const range = intakeRangeForDate(day);
-      const kcal = Math.round(totals.calories ?? 0);
-      const recorded = meals.length > 0;
-      // 未测算时没有真实区间：条形只表达「记了多少」，不画目标带、不做达标判断。
-      const unset = !!range.unset;
-      const scaleMax = Math.max((unset ? Math.max(kcal, 1) : range.max) * 1.08, 1);
-      const percent = !recorded ? 0 : unset ? 100 : Math.max(4, Math.min(100, Math.round((kcal / scaleMax) * 100)));
-      const bandLeft = unset ? 0 : Math.max(0, Math.min(100, (range.min / scaleMax) * 100));
-      const bandWidth = unset ? 0 : Math.max(2, Math.min(100 - bandLeft, ((range.max - range.min) / scaleMax) * 100));
-      const stateKey = unset ? 'empty' : !recorded ? 'empty' : kcal > range.max ? 'over' : kcal < range.min ? 'low' : 'in';
-      // Inside the range stays green; below turns amber, above turns red as it passes the cap.
-      const barColor = recorded && !unset ? dietBarColor(kcal, range.min, range.max) : 'transparent';
-      const label = unset
-        ? (recorded ? `${kcal} kcal，目标未测算` : '未记录，目标未测算')
-        : recorded
-        ? `${kcal} kcal，占上限 ${percent}%，目标区间 ${range.min}~${range.max} kcal（${{in: '区间内', low: '不足', over: '超上限'}[stateKey]}）`
-        : `未记录，目标 ${range.min}~${range.max} kcal`;
-      return `<div class="diet-day"><span class="diet-day-label">${day.slice(5)}</span><span class="diet-bar" role="img" aria-label="${label}"><span class="diet-band" style="left:${bandLeft.toFixed(1)}%;width:${bandWidth.toFixed(1)}%"></span><i class="${stateKey}" style="width:${percent}%;background:${barColor}"></i></span><span class="diet-day-value">${recorded ? `${kcal} kcal` : '—'}</span></div>`;
-    }).join('');
-    const logged = days.filter(day => (state.meals || []).some(row => row.date === day)).length;
-    const audit = dietAudit(days);
-    const profileForAudit = effectiveProfileForDate(activeDate);
-    const proteinTarget = number(profileForAudit.proteinMin);
-    const fatTarget = number(profileForAudit.fatMax);
-    const auditLines = [];
-    if (audit.days) {
-      auditLines.push('记录 ' + audit.days + '/7 天 · ' + audit.meals + ' 餐');
-      auditLines.push(audit.mismatched
-        ? audit.mismatched + ' 餐的热量与三大营养素对不上（最大差 ' + audit.worstGap + ' kcal），已按 4/4/9 校正'
-        : '所有餐次的热量与 4/4/9 推算一致');
-      if (audit.biased) {
-        auditLines.push('7 天合计热量 ' + audit.totalStated + ' · 宏量推算 ' + audit.totalMacro + '（差 ' + (audit.totalGap > 0 ? '+' : '') + audit.totalGap + ' kcal，' + (audit.gapPercent > 0 ? '+' : '') + audit.gapPercent + '%）→ 热量被系统性' + (audit.totalGap > 0 ? '高估' : '低估') + '，以宏量为准');
-      } else {
-        auditLines.push('7 天合计热量与宏量推算相差 ' + (audit.totalGap > 0 ? '+' : '') + audit.totalGap + ' kcal，在容差内');
-      }
-      auditLines.push('日均 蛋白 ' + audit.avg.protein + (proteinTarget ? ' / 目标 ' + proteinTarget : '') + ' g · 脂肪 ' + audit.avg.fat + (fatTarget ? ' / 上限 ' + Math.round(fatTarget) : '') + ' g · 碳水 ' + audit.avg.carbs + ' g');
-    } else {
-      auditLines.push('这 7 天还没有记录，先记一餐再看检查结果');
-    }
-    card.innerHTML = `<div class="diet-audit">${auditLines.map(line => '<p>' + esc(line) + '</p>').join('')}</div>` + `<div class="card-heading"><h2>饮食趋势</h2><span class="tag">近 7 天 · 有记录 ${logged}/7</span></div>`
-      + `<p class="muted">条形长度 = 占当天目标上限的百分比 · 浅绿带 = 当天目标区间 · <span class="diet-key in">区间内</span> <span class="diet-key low">不足</span> <span class="diet-key over">超上限</span></p>`
-      + `<div class="diet-bars">${rows}</div>`;
   }
   /**
    * The records page had eight cards in one column — a very long scroll where the primary action
@@ -1546,243 +1291,6 @@
   $('#settings-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/settings',form=>{const provider=form.elements.provider.value,baseUrl=form.elements.baseUrl.value.trim(),model=form.elements.model.value.trim(),visionModel=form.elements.visionModel.value.trim(),visionEnabled=form.elements.visionEnabled.checked,key=form.elements.apiKey.value.trim(),clear=form.elements.clearKey.checked;if(key && clear)throw new Error('请不要同时填写新密钥并清除密钥。');if(key && !window.QinghengAdapter.hasNative()){form.elements.apiKey.value='';throw new Error('浏览器演示不保存 API Key；请在 APK 中配置。');}if(!/^https:\/\//i.test(baseUrl))throw new Error('API 地址必须使用 https://。');if(visionEnabled && !visionModel)throw new Error('启用图片需要填写已验证支持图片的视觉模型。');return {provider,baseUrl,model,visionModel,visionEnabled,allowExternal:form.elements.allowExternal.checked,...(key?{apiKey:key}:{}),...(clear?{clearKey:true}:{})};});});
   $('#meal-image').addEventListener('change',async event=>{const file=event.target.files[0];if(!file){feedback($('#estimate-feedback'),'没有选择照片，原来的内容没动。');return;}const revision=++imageVersion;imageData=null;imageBusy=true;feedback($('#estimate-feedback'),'正在本地压缩图片…');try{const result=await compressImage(file);if(revision!==imageVersion)return;imageData=result;mealPhotoMeta=photoMeta(null);showPhotoTime('meal',mealPhotoMeta);$('#meal-image-preview').src=result;$('#image-preview').hidden=false;feedback($('#estimate-feedback'),'图片已压缩为 JPEG，原始元数据不会上传。');}catch(error){if(revision===imageVersion){clearImage();feedback($('#estimate-feedback'),error.message,true);}}finally{if(revision===imageVersion)imageBusy=false;}});
   $('#remove-image').addEventListener('click',clearImage);
-  function estimateInputNames(value) {
-    return String(value||'').split(/[，,、；;\n+]+/).map(part=>part.trim()).filter(Boolean).map(part=>part
-      .replace(/(?:约|大约)?\s*\d+(?:\.\d+)?\s*(?:千克|公斤|kg|克|g|毫升|ml|个|碗|份|片|根|块|勺|杯)\s*$/i,'')
-      .replace(/^\d+(?:\.\d+)?\s*(?:千克|公斤|kg|克|g|毫升|ml|个|碗|份|片|根|块|勺|杯)\s*/i,'')
-      .replace(/^(?:吃了|还有|另外|加了)\s*/,'').trim())
-      .filter(name=>name && name.length<=48);
-  }
-  /**
-   * Exact local-food pre-pass. Only consumes lines that name a USDA-backed entry and an explicit
-   * gram/kg amount; any unknown item returns null so the existing AI/local fallback still owns it.
-   * This is a matcher, not a second nutrition algorithm: macros come from FoodModels.estimate().
-   */
-  function localFoodEstimate(value) {
-    const foods = window.QinghengFoods;
-    if (!foods || typeof foods.find !== 'function' || typeof foods.estimate !== 'function') return null;
-    const parts = String(value || '').split(/[，,、；;\n+]+/).map(part => part.trim()).filter(Boolean);
-    if (!parts.length) return null;
-    const items = [];
-    let rangeNote = '';
-    const cnNumbers = {'一': 1, '二': 2, '两': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9, '十': 10};
-    for (const part of parts) {
-      let normalizedPart = part
-        .replace(/([一二两三四五六七八九十])(个|碗|份|片|根|块|勺|杯)半/g, (_, n, unit) => `${cnNumbers[n] + 0.5}${unit}`)
-        .replace(/半(个|碗|份|片|根|块|勺|杯)/g, '0.5$1')
-        .replace(/([一二两三四五六七八九十])(?=(个|碗|份|片|根|块|勺|杯))/g, (_, n) => String(cnNumbers[n]));
-      // "200克米饭" is as common as "米饭200克"; normalize the leading amount before parsing.
-      const leading = normalizedPart.match(/^(\d+(?:\.\d+)?)\s*(千克|公斤|kg|克|g|毫升|ml|个|碗|份|片|根|块|勺|杯)\s*(.+)$/i);
-      if (leading) normalizedPart = `${leading[3].trim()} ${leading[1]}${leading[2]}`;
-      const match = normalizedPart.match(/^(.*?)\s*(\d+(?:\.\d+)?)\s*(?:[-~至]\s*(\d+(?:\.\d+)?))?\s*(千克|公斤|kg|克|g|毫升|ml|个|碗|份|片|根|块|勺|杯)\s*$/i);
-      if (!match) return null;
-      const namePart = match[1].replace(/[（(].*?[)）]/g, '').trim();
-      const start = Number(match[2]);
-      const end = match[3] === undefined ? start : Number(match[3]);
-      if (!(start > 0) || !(end >= start)) return null;
-      const amount = (start + end) / 2;
-      if (match[3] !== undefined) rangeNote = '部分是区间，按区间中值估算；';
-      const unit = match[4].toLowerCase();
-      const methodHit = namePart.match(/^(爆炒|红烧|干锅|油淋|清蒸|白灼|凉拌|煎|炸|炒|烤|蒸|煮|炖)/);
-      const method = methodHit ? methodHit[1] : '蒸';
-      const foodName = methodHit ? namePart.slice(methodHit[1].length).trim() : namePart;
-      const entry = foods.find(foodName);
-      if (!entry) return null;
-      let grams = amount;
-      if (unit === '千克' || unit === '公斤' || unit === 'kg') grams = amount * 1000;
-      else if (!['克', 'g', '毫升', 'ml'].includes(unit)) {
-        // Common portions are explicit data in the USDA catalogue, not a guessed conversion.
-        if (!(Number(entry.portionGrams) > 0)) return null;
-        grams = amount * Number(entry.portionGrams);
-      }
-      if (!(grams > 0) || !(grams <= 20000)) return null;
-      const item = foods.estimate(entry.name, grams);
-      items.push({...item, method, ...(entry.includesOil === true ? {oilIncluded: true} : {})});
-    }
-    return {
-      draftId: 'local-food-' + Date.now(),
-      source: 'local',
-      localFoodModel: true,
-      confidence: 'medium',
-      uncertaintyPercent: 8,
-      items,
-      notes: [rangeNote + '按本地食品库精确匹配，未调用外部模型；份量与烹饪油仍需在预览里确认。']
-    };
-  }
-  function estimateStreamNames(value) {
-    const names=[];
-    for(const match of String(value||'').matchAll(/"name"\s*:\s*"((?:\\.|[^"\\]){1,240})"/g)){
-      try{const name=JSON.parse(`"${match[1]}"`).trim();if(name)names.push(name);}catch{}
-    }
-    return names;
-  }
-  const estimateRetry=document.createElement('button');
-  estimateRetry.id='estimate-retry';estimateRetry.type='button';estimateRetry.className='button subtle full-width';
-  estimateRetry.textContent='重试估算';estimateRetry.hidden=true;
-  $('#estimate-feedback').after(estimateRetry);
-  estimateRetry.addEventListener('click',()=>$('#estimate-form').requestSubmit());
-  $('#estimate-form').addEventListener('input',()=>{estimateRetry.hidden=true;});
-  $('#estimate-form').addEventListener('submit',async event=>{
-    event.preventDefault();const form=event.currentTarget,button=$('button[type=submit]',form),message=$('#estimate-feedback');if(estimateBusy || savingDraft || !form.reportValidity())return;
-    if(imageBusy){feedback(message,'图片仍在压缩，请稍等。',true);return;}
-    if(!loaded || !settingsKnown){feedback(message,'尚未加载手机模型配置，请重新打开应用后再估算。',true);return;}
-    if(imageData && (!state.settings.apiConfigured || !state.settings.visionEnabled || !state.settings.visionModel)){feedback(message,'照片需要已启用的视觉模型：请到「我的 → AI 模型与密钥」填写并启用。',true);return;}
-    if(imageData && !externalConsent()){feedback(message,'照片估算需要外部模型：请到「我的 → 数据与关于」开启授权。',true);return;}
-    if(imageData && !navigator.onLine){feedback(message,'当前离线，照片无法识别；请移除照片，改用文字估算。',true);return;}
-    const text=form.elements.text.value.trim();if(!text && !imageData){feedback(message,'请描述餐食或添加一张图片。',true);return;}
-    if(draft && !await askConfirm('新估算会替换当前未保存的预览，继续吗？', {title:'替换预览'}))return;
-    const submittedForm={elements:{date:{value:form.elements.date.value},mealType:{value:form.elements.mealType.value}},
-      text, photo:photoMeta(imageData?mealPhotoMeta:null)};
-    // Exact USDA/local entries can finish instantly and offline; unknown or estimated portions
-    // still go through the existing model/local adapter, never through a second nutrition formula.
-    if (!imageData) {
-      const local = localFoodEstimate(text);
-      if (local) {
-        try {
-          previewDraft(local, submittedForm);
-          feedback(message, '本地食品库已匹配；请核对克重与用油后确认。');
-        } catch (error) { feedback(message, error.message, true); }
-        return;
-      }
-    }
-    estimateBusy=true;button.disabled=true;feedback(message,'正在准备估算…');
-    const payload={text,allowExternal:externalConsent() && navigator.onLine,anchors:anchorSummary(),preferences:readPreferences(),...(imageData?{image:imageData}:{})};
-    // Render the first useful frame before settings, transport, or model latency can delay it.
-    const busy=$('#estimate-busy'),busyText=$('.inline-busy-text',busy);
-    const retry=$('#estimate-retry');retry.hidden=true;
-    busy.hidden=false;busy.classList.add('estimate-progress');
-    let progressList=$('.estimate-progress-list',busy);
-    if(!progressList){
-      progressList=document.createElement('div');progressList.className='estimate-progress-list';
-      for(let i=0;i<3;i++){
-        const row=document.createElement('div');row.className='estimate-progress-row';
-        const name=document.createElement('span');name.className='estimate-progress-name';
-        const skeleton=document.createElement('span');skeleton.className='estimate-progress-skeleton';
-        row.append(name,skeleton);progressList.appendChild(row);
-      }
-      busy.appendChild(progressList);
-    }
-    const paintProgress=(names,index)=>{
-      const visible=Math.max(3,Math.min(names.length,4));
-      while(progressList.children.length<visible){
-        const row=document.createElement('div');row.className='estimate-progress-row';
-        const name=document.createElement('span');name.className='estimate-progress-name';
-        const skeleton=document.createElement('span');skeleton.className='estimate-progress-skeleton';
-        row.append(name,skeleton);progressList.appendChild(row);
-      }
-      Array.from(progressList.children).forEach((row,i)=>{
-        row.hidden=i>=visible;
-        row.classList.toggle('is-active',i===index);
-        $('.estimate-progress-name',row).textContent=names[i]||'';
-      });
-    };
-    let progressNames=estimateInputNames(text);
-    // 状态只写「正在 + 动词 + 名词」，不显示模型的信息流正文：用户要的是进度，不是推理草稿。
-    const setBusyLine=()=>{
-      busyText.textContent='正在分析食品营养…';
-      paintProgress(progressNames,-1);
-    };
-    setBusyLine();
-    let seen='';
-    window.QinghengEstimateStream={
-      onThink:()=>{ busyText.textContent='正在分析食品营养…'; },
-      onDelta:chunk=>{
-        seen+=String(chunk||'');
-        const names=estimateStreamNames(seen);
-        if(names.length>progressNames.length){
-          progressNames=names;
-          paintProgress(progressNames,-1);
-          busyText.textContent='正在核算份量与热量…';
-        }
-      }
-    };
-    try {
-      let data;
-      try {data=await api('/api/estimate/stream',payload);}
-      catch(streamError){data=await api('/api/estimate',payload);}
-      // 视觉识读走同一份契约：只用来统计被丢弃的异常项，不改变“先确认再保存”的流程。
-      const vision = normaliseVision(data, 'meal');
-      previewDraft(data,submittedForm);
-      feedback(message, vision.rejected.length
-        ? `估算完成，有 ${vision.rejected.length} 项读数异常已跳过。请在下方修改并确认，才会保存。`
-        : '估算完成。请在下方修改并确认，才会保存。');
-    }
-    catch(error){feedback(message,error.message,true);retry.hidden=false;}
-    finally{window.QinghengEstimateStream=null;busy.hidden=true;busy.classList.remove('estimate-progress');estimateBusy=false;button.disabled=false;}
-  });
-  $('#estimate-items').addEventListener('input',event=>{
-    const input=event.target.closest('[data-item-field]');if(!input)return;
-    if(input.dataset.itemField==='grams'){const grams=number(input.value);if(grams>0)scaleEstimateItem(input.closest('.estimate-item'),grams);}
-    updatePreviewTotals();
-  });
-  $('#estimate-oil-level')?.addEventListener('click', event => {
-    const button = event.target.closest('[data-oil-level]');
-    if (!button) return;
-    event.preventDefault();
-    if (typeof setOilLevel === 'function') setOilLevel(button.dataset.oilLevel);
-  });
-  $('#estimate-items').addEventListener('click',event=>{
-    const recalc=event.target.closest('.recalc-item');
-    if(recalc && !savingDraft){openItemRecalc(recalc.closest('.estimate-item'));return;}
-    const button=event.target.closest('.remove-item');
-    if(button && !savingDraft){button.closest('.estimate-item').remove();updatePreviewTotals();}
-  });
-  $('#item-recalc-cancel').addEventListener('click',closeItemRecalc);
-  $('#item-recalc-dialog').addEventListener('click',event=>{if(event.target.id==='item-recalc-dialog')closeItemRecalc();});
-  $('#item-recalc-form').addEventListener('submit',async event=>{
-    event.preventDefault();
-    const root=$('#item-recalc-dialog'),rows=$$('.estimate-item'),row=rows[Number(root.dataset.itemIndex)],message=$('#item-recalc-feedback');
-    const button=event.currentTarget.querySelector('button[type=submit]');
-    if(!row){message.textContent='找不到对应食品，请关闭后重试。';return;}
-    const name=$('#item-recalc-name').value.trim();
-    if(!name){message.textContent='请填写食品名称。';return;}
-    const grams=number($('#item-recalc-grams').value);
-    if(grams===null||grams<=0){message.textContent='请输入大于 0 的克重。';return;}
-    const per100=Object.fromEntries(nutritionKeys.map(key=>[key,number($(`#item-recalc-${key}`).value)]));
-    const filled=nutritionKeys.filter(key=>per100[key]!==null);
-    if(filled.length && filled.length!==nutritionKeys.length){message.textContent='每 100g 的热量、蛋白质、脂肪和碳水要一起填写，或全部留空。';return;}
-    if(filled.some(key=>per100[key]<0)){message.textContent='每 100g 营养值不能为负数。';return;}
-    $('[data-item-field="name"]',row).value=name;
-    $('[data-item-field="grams"]',row).value=grams;
-    const apply=values=>{
-      for(const key of nutritionKeys){$(`[data-item-field="${key}"]`,row).value=values[key];}
-      row.dataset.baseGrams=grams;
-      for(const key of nutritionKeys){const input=$(`[data-item-field="${key}"]`,row);input.dataset.baseValue=number(input.value);}
-      updatePreviewTotals();
-    };
-    if(filled.length===nutritionKeys.length){
-      apply(Object.fromEntries(nutritionKeys.map(key=>[key,nutritionPrecision(per100[key]*grams/100)])));
-      feedback(message,'已按补充的每 100g 数值换算。');
-      setTimeout(closeItemRecalc,350);
-      return;
-    }
-    // 没填每 100g：按「名称 + 克重」让模型重算这一项，而不是拿旧比例缩放。
-    if(!externalConsent() || !navigator.onLine){
-      message.textContent='离线或未授权外部模型：请填上每 100g 四项数值，或保留原值。';
-      return;
-    }
-    if(button) button.disabled=true;
-    feedback(message,'正在按名称与克重重算这一项…');
-    try {
-      const data=await api('/api/estimate',{text:`${name} ${grams} g`,allowExternal:true,anchors:anchorSummary(),noDraft:true,preferences:readPreferences()});
-      const item=(Array.isArray(data?.items)?data.items:[])[0];
-      if(!item) throw new Error('模型没有返回这一项的数据，请稍后再试。');
-      const returned=number(item.grams);
-      const ratio=returned>0?grams/returned:1;
-      apply(Object.fromEntries(nutritionKeys.map(key=>[key,nutritionPrecision((number(item[key])||0)*ratio)])));
-      feedback(message,'已按名称与克重重算，核对后再保存。');
-      setTimeout(closeItemRecalc,450);
-    } catch(error) { message.textContent=error.message; }
-    finally { if(button) button.disabled=false; }
-  });
-  $('#confirm-estimate').addEventListener('click',confirmDraft);$('#cancel-estimate').addEventListener('click',discardDraft);
-  document.addEventListener('click',async event=>{const button=event.target.closest('[data-delete-meal]');if(!button || button.disabled)return;if(!await askConfirm('确定删除这条餐食记录吗？此操作无法撤销。',{title:'删除餐食',ok:'删除',danger:true}))return;button.disabled=true;try{await api(`/api/meals/${encodeURIComponent(button.dataset.deleteMeal)}`,undefined,'DELETE');try{await loadState({quiet:true});notice('餐食已删除。');}catch{notice('删除成功，但刷新失败。请重新加载检查记录。',true);}}catch(error){notice(error.message,true);button.disabled=false;}});
-  document.addEventListener('click', event => {
-    const button = event.target.closest('[data-edit-meal]');
-    if (!button) return;
-    const record = (state.meals || []).find(row => row && String(row.id) === String(button.dataset.editMeal));
-    if (record) beginMealEdit(record);
-  });
   // ---- 迁移到新手机：导出附带计数与校验和，导入时自动核对 ---------------------------------------
   /** Key-sorted JSON，校验和不受 org.json 与 JS 之间键序差异影响。 */
   function stableStringify(value) {
@@ -2226,24 +1734,6 @@ feedback(message,'数据已导入。'+report);
     pendingDraft = draft;
     renderTrainingDraft(draft);
   }
-  /** Meal drafts only hand the sentence to the existing estimate form; no record is written. */
-  function openMealDraft(draft) {
-    const payload = draft && draft.payload || {};
-    const text = String(payload.text || '').trim();
-    if (!text) {notice('这条餐食草稿没有可带入的描述。', true); return;}
-    if (validDate(draft.date)) setActiveDate(draft.date);
-    switchTab('records', true);
-    if (typeof switchRecordPanel === 'function') switchRecordPanel('food');
-    const form = $('#estimate-form'), field = $('#meal-text');
-    if (!form || !field) {notice('餐食表单没有加载，请回到记录页重试。', true); return;}
-    if (validDate(draft.date)) form.elements.date.value = draft.date;
-    const slot = ['breakfast', 'lunch', 'dinner', 'snack'].includes(payload.mealType) ? payload.mealType : '';
-    if (slot) form.elements.mealType.value = slot;
-    field.value = text;
-    field.dispatchEvent(new Event('input', {bubbles: true}));
-    notice('已带入餐食描述；生成估算预览并确认后才会保存。');
-    revealField('meal-text', {focus: false, block: 'start'});
-  }
   /**
    * Applies one confirmed draft. Training merges into the day's exercise list; the simple metrics
    * merge into the same habit row; weight goes to measurements. Returns what undo has to restore.
@@ -2472,4 +1962,5 @@ feedback(message,'数据已导入。'+report);
    * 今天页下半区（2026-11-24）：取消「今日记录 / 小习惯」分段——两段上下相接、一条发丝线分隔，
    * 记录在上、习惯在下，只有一个连续的开合动作可做（点餐次），不再有第二次切换。
    */
-  setupCollapsibleSections(); installQuickRecordControls(); installHealthConnectControls(); installBodyDataControls(); installTodayMoreMenu(); restoreConsent(); installExternalConsent(); installExactAlarmControl();
+  setupCollapsibleSections(); installDietModule(); installHealthConnectControls(); installBodyDataControls(); installTodayMoreMenu(); restoreConsent(); installExternalConsent(); installExactAlarmControl();
+
