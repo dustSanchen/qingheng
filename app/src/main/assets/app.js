@@ -8935,7 +8935,7 @@ function metricIcon(label) {
 
 
   // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.41';
+  const APP_VERSION = '1.5.42';
   document.addEventListener('click', event => {
     const entry = event.target.closest('[data-subpage-open]');
     if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
