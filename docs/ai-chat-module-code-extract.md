@@ -2,13 +2,14 @@
 
 > 用途：给外部评审用的**完整代码底稿**。本文档只做提取与索引，不做重构判断，也不改任何源码。
 >
-> - 仓库：`D:\AI\health-android`；app `cn.qingheng.health`，版本 **1.5.30 / 530**；构建时 HEAD `4f068e7`
-> - 快照：`2026-11-23 02:05:43`（北京时间），源文件先逐字复制到 `.tmp/ai-chat-extract/snapshot/` 再截取；20 个文件，指纹 `672f0b0b26d88f8f`
-> - 为什么要快照：提取期间另一会话正在改 `50-onboarding` / `60-training-copy` / `70-rest`（训练 Phase 2 抽领域层），逐次直接读工作区会让同一份文档里的行号前后漂移；快照保证这份底稿内部自洽。
+> - 仓库：`D:\AI\health-android`；app `cn.qingheng.health`，版本 **1.5.41 / 541**；构建时 HEAD `53800eb`
+> - 快照：`2026-11-27 00:26:57`（北京时间），源文件先逐字复制到 `.tmp/ai-chat-extract/snapshot/` 再截取；20 个文件，指纹 `df27137c5439213a`
+> - 为什么要快照：同一工作区常有多个会话并行改代码（本次提取时就发生过行号十分钟内漂移），直接读工作区会让同一份文档里的行号前后不一致；快照保证这份底稿内部自洽。
+> - 版本关系：**本版对 1.5.41 当前树刷新**（含 AI 问答 Phase 1 的 5 项修复与 Phase 2a 的 80-ai-chat 挂牌、72 合并），取代 2026-11-23 的 1.5.30 快照版与 11-27 早些时候的 1.5.41 中间版。
 > - 快照与当前工作区：无漂移（构建时 20 个源文件的 sha256 与快照逐个一致）。
 > - 生成方式：脚本按「函数名 + 行区间」逐字截取（行尾 CRLF 统一为 LF）；每个 JS 片段都用 `new Function()` 验证能独立编译，每个区间的标签标识符必须出现在截出来的代码里，找不到就报错，不静默省略
 > - 未包含：`assets/app.js`（由 fragments 拼装生成，禁止手改）、`styles.css`（约 200 KB，未贴选择器）、`assets/food-models.js`（数据表）、`assets/training-principles.js`（知识库数据）
-> - 一共 **227** 段代码、**6273** 行；索引在 §0，调用链在 §1
+> - 一共 **231** 段代码、**6375** 行；索引在 §0，调用链在 §1
 
 ## 0. AI 问答模块文件与函数索引表
 
@@ -22,10 +23,10 @@
 | 逻辑 | `app/src/fragments/00-head.fragment.js` | 请求出口 `api()`、外发授权、模型配置、偏好存储、行动条 | 17 |
 | 逻辑 | `app/src/fragments/10-rich-answer.fragment.js` | 富文本渲染、流式回答、问答历史、`sendChat` | 48 |
 | 逻辑 | `app/src/fragments/55-training-domain.fragment.js` | 本地建议库：注入 Prompt 的规则与动作库 | 16 |
-| 逻辑 | `app/src/fragments/60-training-copy.fragment.js` | 本地草稿解析、离线建议、整日安排、可勾选清单 | 18 |
+| 逻辑 | `app/src/fragments/60-training-copy.fragment.js` | 本地草稿解析、离线建议、整日安排、可勾选清单 | 22 |
 | 逻辑 | `app/src/fragments/65-exercise-guide.fragment.js` | 动作要点（本地讲解） | 5 |
-| 逻辑 | `app/src/fragments/70-rest.fragment.js` | 上下文预览、AI 排今天、训练建议窗口、快捷提问、偏好写回 | 33 |
-| 逻辑 | `app/src/fragments/72-chat-panels.fragment.js` | 问答页分段控制器 | 1 |
+| 逻辑 | `app/src/fragments/70-rest.fragment.js` | 上下文预览、AI 排今天、训练建议窗口、快捷提问、偏好写回 | 27 |
+| 逻辑 | `app/src/fragments/80-ai-chat.fragment.js` | 问答模块：分段控制、快捷胶囊、上下文预览、QH(chat) 契约 | 7 |
 | 桥接 | `app/src/main/assets/native-adapter.js` | `/api/*` 的字段白名单、流式事件、演示/离线分支 | 7 |
 | 原生 | `app/src/main/java/cn/qingheng/health/AlarmReceiver.java` | 后台每日建议（推送） | 9 |
 | 原生 | `app/src/main/java/cn/qingheng/health/ChatCompletion.java` | 唯一 HTTPS 出口与 SSE 解析 | 1 |
@@ -36,7 +37,7 @@
 | 原生 | `app/src/main/java/cn/qingheng/health/SecretStore.java` | 密钥加解密与清洗 | 1 |
 | 原生 | `app/src/main/java/cn/qingheng/health/WebSearch.java` | 通用多引擎检索 | 1 |
 | 原生 | `app/src/main/java/cn/qingheng/health/ai/Prompts.java` | 全部提示词 | 1 |
-| 测试 | `tests/suite-chat.test.mjs` | 12 个分组 / 299 处 check + 22 处 assert（见 §5） | — |
+| 测试 | `tests/suite-chat.test.mjs` | 12 个分组 / 301 处 check + 31 处 assert（见 §5） | — |
 
 ### 0.2 富文本回答：把模型纯文本渲染成卡片/表格（10-rich-answer）
 
@@ -62,74 +63,74 @@
 
 | 函数 / 代码段 | 位置（行） | 行数 | 层 | 一句话说明 |
 |---|---|---|---|---|
-| `beginChatStream` | `10-rich-answer.fragment.js:531–560` | 30 | 视图 | 先插一条「正在回答」实时行（含照片标记），4 秒未开始则改文案「推理模型正在整理思路」。 |
-| `streamBlockKind` | `10-rich-answer.fragment.js:561–567` | 7 | 视图 | 判断当前流式块是表格 / 标题 / 列表 / 文本。 |
-| `renderStreamBlock` | `10-rich-answer.fragment.js:568–603` | 36 | 视图 | 未完成时画骨架（表格 3 行、列表最多 8 行），完成后一次 `answerHtml` 落地并释放块。 |
-| `flushChatStream` | `10-rich-answer.fragment.js:604–615` | 12 | 视图 | 按空行边界把已到达文本切成完整块渲染，末尾块按 `complete` 决定是否落地。 |
-| `pushChatStream` | `10-rich-answer.fragment.js:616–637` | 22 | 视图 | 累积增量、合批到一帧只写一次 DOM（防 WebView 抖动），首次增量收起「正在思考」。 |
-| `pushChatThinking` | `10-rich-answer.fragment.js:639–645` | 7 | 视图 | 推理模型的思考片段单独显示（只留尾部 600 字），绝不并入回答。 |
-| `endChatStream` | `10-rich-answer.fragment.js:646–651` | 6 | 视图 | 流失败时移除未采纳的实时行与日期行，避免留下空壳。 |
-| `finishChatStream` | `10-rich-answer.fragment.js:652–675` | 24 | 视图 | 对齐最终回答与流式文本：前缀不一致按后缀补块，无法对齐则抛「流式内容与最终回答不一致」。 |
-| `streamInto` | `10-rich-answer.fragment.js:680–716` | 37 | 数据 | 把流写进任意容器（今天页训练建议卡共用）；不支持流式时抛错，交调用方退回一次性接口。 |
-| `streamChat` | `10-rich-answer.fragment.js:718–733` | 16 | 数据 | 问答页专用：起实时行 → `api('/api/chat/stream')` → 校验并收尾。 |
+| `beginChatStream` | `10-rich-answer.fragment.js:580–609` | 30 | 视图 | 先插一条「正在回答」实时行（含照片标记），4 秒未开始则改文案「推理模型正在整理思路」。 |
+| `streamBlockKind` | `10-rich-answer.fragment.js:610–616` | 7 | 视图 | 判断当前流式块是表格 / 标题 / 列表 / 文本。 |
+| `renderStreamBlock` | `10-rich-answer.fragment.js:617–652` | 36 | 视图 | 未完成时画骨架（表格 3 行、列表最多 8 行），完成后一次 `answerHtml` 落地并释放块。 |
+| `flushChatStream` | `10-rich-answer.fragment.js:653–664` | 12 | 视图 | 按空行边界把已到达文本切成完整块渲染，末尾块按 `complete` 决定是否落地。 |
+| `pushChatStream` | `10-rich-answer.fragment.js:665–686` | 22 | 视图 | 累积增量、合批到一帧只写一次 DOM（防 WebView 抖动），首次增量收起「正在思考」。 |
+| `pushChatThinking` | `10-rich-answer.fragment.js:688–694` | 7 | 视图 | 推理模型的思考片段单独显示（只留尾部 600 字），绝不并入回答。 |
+| `endChatStream` | `10-rich-answer.fragment.js:695–700` | 6 | 视图 | 流失败时移除未采纳的实时行与日期行，避免留下空壳。 |
+| `finishChatStream` | `10-rich-answer.fragment.js:701–724` | 24 | 视图 | 对齐最终回答与流式文本：前缀不一致按后缀补块，无法对齐则抛「流式内容与最终回答不一致」。 |
+| `streamInto` | `10-rich-answer.fragment.js:729–765` | 37 | 数据 | 把流写进任意容器（今天页训练建议卡共用）；不支持流式时抛错，交调用方退回一次性接口。 |
+| `streamChat` | `10-rich-answer.fragment.js:767–782` | 16 | 数据 | 问答页专用：起实时行 → `api('/api/chat/stream')` → 校验并收尾。 |
 
 ### 0.4 问答历史：分页、按天、收藏、无用标记与重问（10-rich-answer）
 
 | 函数 / 代码段 | 位置（行） | 行数 | 层 | 一句话说明 |
 |---|---|---|---|---|
-| `citationBlock` | `10-rich-answer.fragment.js:735–740` | 6 | 视图 | 只放 `https://` 来源，折叠成 `<details>`，标题截 90 字。 |
-| `unhelpfulChats` 集合 | `10-rich-answer.fragment.js:741–744` | 4 | 数据 | 启动时从 localStorage 读「无用回答」id 集合，解析失败退空集。 |
-| `markUnhelpful` | `10-rich-answer.fragment.js:745–751` | 7 | 数据 | 标记无用：写 localStorage 并 `schedulePrefsSync` 同步进 `state.prefs`，然后重绘。 |
-| `regenerateChat` | `10-rich-answer.fragment.js:753–761` | 9 | 数据 | 把历史问题填回输入框；已开外发授权则直接重问，否则提示去「我的」开启。 |
-| `chatQuery` 搜索词 | `10-rich-answer.fragment.js:762–762` | 1 | 数据 | 问答搜索框的当前关键词（模块级状态）。 |
-| `groupChatsByDate` | `10-rich-answer.fragment.js:764–773` | 10 | 视图 | 按日期分组，组内保持「最新在前」。 |
-| `chatMatches` | `10-rich-answer.fragment.js:774–778` | 5 | 视图 | 问题 + 回答的全文包含匹配（大小写不敏感）。 |
-| 分页常量与流式占位变量 | `10-rich-answer.fragment.js:779–784` | 6 | 数据 | 每页 30 条；`streamExpandedAnswer` 用于把流式气泡原地接管成历史行。 |
-| `chatRowsInScope` | `10-rich-answer.fragment.js:789–793` | 5 | 视图 | 一级集合：收藏筛选 + 搜索词过滤后的记录。 |
-| `chatDates` | `10-rich-answer.fragment.js:795–802` | 8 | 视图 | 有记录的日期列表，从新到旧（箭头只在有记录的日子之间走）。 |
-| `setChatDayFilter` | `10-rich-answer.fragment.js:803–803` | 1 | 视图 | 按天筛选并重置分页后重绘。 |
-| `stepChatDay` | `10-rich-answer.fragment.js:805–814` | 10 | 视图 | 按天前后翻：到最新一天再往后就回到「全部日期」。 |
-| `renderChatDayBar` | `10-rich-answer.fragment.js:815–826` | 12 | 视图 | 更新按天条的文案、aria 与两端箭头禁用态。 |
-| `adoptStreamChatRow` | `10-rich-answer.fragment.js:827–862` | 36 | 视图 | 把流式实时行原地改造成历史行（标签/收藏/展开全文/来源），避免整页重绘闪烁。 |
-| `renderChat` | `10-rich-answer.fragment.js:863–920` | 58 | 视图 | 问答历史主渲染：30 条分页、「更早的记录」按钮、纯 null 回答修复文案、`#chat-mode` 模型状态说明。 |
+| `citationBlock` | `10-rich-answer.fragment.js:784–789` | 6 | 视图 | 只放 `https://` 来源，折叠成 `<details>`，标题截 90 字。 |
+| `unhelpfulChats` 集合 | `10-rich-answer.fragment.js:790–793` | 4 | 数据 | 启动时从 localStorage 读「无用回答」id 集合，解析失败退空集。 |
+| `markUnhelpful` | `10-rich-answer.fragment.js:794–800` | 7 | 数据 | 标记无用：写 localStorage 并 `schedulePrefsSync` 同步进 `state.prefs`，然后重绘。 |
+| `regenerateChat` | `10-rich-answer.fragment.js:802–810` | 9 | 数据 | 把历史问题填回输入框；已开外发授权则直接重问，否则提示去「我的」开启。 |
+| `chatQuery` 搜索词 | `10-rich-answer.fragment.js:811–811` | 1 | 数据 | 问答搜索框的当前关键词（模块级状态）。 |
+| `groupChatsByDate` | `10-rich-answer.fragment.js:813–822` | 10 | 视图 | 按日期分组，组内保持「最新在前」。 |
+| `chatMatches` | `10-rich-answer.fragment.js:823–827` | 5 | 视图 | 问题 + 回答的全文包含匹配（大小写不敏感）。 |
+| 分页常量与流式占位变量 | `10-rich-answer.fragment.js:828–833` | 6 | 数据 | 每页 30 条；`streamExpandedAnswer` 用于把流式气泡原地接管成历史行。 |
+| `chatRowsInScope` | `10-rich-answer.fragment.js:838–842` | 5 | 视图 | 一级集合：收藏筛选 + 搜索词过滤后的记录。 |
+| `chatDates` | `10-rich-answer.fragment.js:844–851` | 8 | 视图 | 有记录的日期列表，从新到旧（箭头只在有记录的日子之间走）。 |
+| `setChatDayFilter` | `10-rich-answer.fragment.js:852–852` | 1 | 视图 | 按天筛选并重置分页后重绘。 |
+| `stepChatDay` | `10-rich-answer.fragment.js:854–863` | 10 | 视图 | 按天前后翻：到最新一天再往后就回到「全部日期」。 |
+| `renderChatDayBar` | `10-rich-answer.fragment.js:864–875` | 12 | 视图 | 更新按天条的文案、aria 与两端箭头禁用态。 |
+| `adoptStreamChatRow` | `10-rich-answer.fragment.js:876–911` | 36 | 视图 | 把流式实时行原地改造成历史行（标签/收藏/展开全文/来源），避免整页重绘闪烁。 |
+| `renderChat` | `10-rich-answer.fragment.js:912–969` | 58 | 视图 | 问答历史主渲染：30 条分页、「更早的记录」按钮、纯 null 回答修复文案、`#chat-mode` 模型状态说明。 |
 
 ### 0.5 提问入口：图片 → 授权 → 档位路由 → 流式/一次性兜底（10-rich-answer）
 
 | 函数 / 代码段 | 位置（行） | 行数 | 层 | 一句话说明 |
 |---|---|---|---|---|
-| 上次训练建议的本机缓存键 | `10-rich-answer.fragment.js:921–924` | 4 | 数据 | 训练问答故意不写全局历史（`logToHistory:false`），单独存一份供训练卡回看。 |
-| `readLastTrainingAdvice` | `10-rich-answer.fragment.js:925–931` | 7 | 数据 | 读本机缓存的「上次训练建议」，坏数据返回 null。 |
-| `saveLastTrainingAdvice` | `10-rich-answer.fragment.js:932–940` | 9 | 数据 | 回答成功后落一份（问题 200 字、回答 8000 字上限）。 |
-| `renderLastChat` | `10-rich-answer.fragment.js:942–954` | 13 | 视图 | 填「上次训练建议」行；没有记录时整行隐藏。 |
-| 「上次训练建议」展开事件 | `10-rich-answer.fragment.js:955–962` | 8 | 绑定 | 点开把缓存回答用 `answerHtml` 渲染进训练建议卡并滚动到位。 |
-| 问答图片选择与移除 | `10-rich-answer.fragment.js:986–1006` | 21 | 绑定 | `compressImage` 本地压缩成 JPEG、原地预览，只保留 dataURL；版本号防竞态。 |
-| 拍照回填桥（`__qinghengPendingImage` / `__qinghengImageError`） | `10-rich-answer.fragment.js:1007–1033` | 27 | 绑定 | 页面在相机打开期间被重载时，原生侧把照片交回问答或饮食入口；`lastCaptureId` 去重。 |
-| `sendChat` | `10-rich-answer.fragment.js:1034–1095` | 62 | 数据 | 问答主入口：空值/长度/图片压缩中/授权/在线/视觉模型逐条校验 → 本地草稿识别 → 快档或深档 → 优先流式、失败退 `/api/chat` → 成功后清空输入并 `loadState` 落库。 |
+| 上次训练建议的本机缓存键 | `10-rich-answer.fragment.js:970–973` | 4 | 数据 | 训练问答故意不写全局历史（`logToHistory:false`），单独存一份供训练卡回看。 |
+| `readLastTrainingAdvice` | `10-rich-answer.fragment.js:974–980` | 7 | 数据 | 读本机缓存的「上次训练建议」，坏数据返回 null。 |
+| `saveLastTrainingAdvice` | `10-rich-answer.fragment.js:981–989` | 9 | 数据 | 回答成功后落一份（问题 200 字、回答 8000 字上限）。 |
+| `renderLastChat` | `10-rich-answer.fragment.js:991–1003` | 13 | 视图 | 填「上次训练建议」行；没有记录时整行隐藏。 |
+| 「上次训练建议」展开事件 | `10-rich-answer.fragment.js:1004–1011` | 8 | 绑定 | 点开把缓存回答用 `answerHtml` 渲染进训练建议卡并滚动到位。 |
+| 问答图片选择与移除 | `10-rich-answer.fragment.js:1035–1055` | 21 | 绑定 | `compressImage` 本地压缩成 JPEG、原地预览，只保留 dataURL；版本号防竞态。 |
+| 拍照回填桥（`__qinghengPendingImage` / `__qinghengImageError`） | `10-rich-answer.fragment.js:1056–1082` | 27 | 绑定 | 页面在相机打开期间被重载时，原生侧把照片交回问答或饮食入口；`lastCaptureId` 去重。 |
+| `sendChat` | `10-rich-answer.fragment.js:1083–1152` | 70 | 数据 | 问答主入口：空值/长度/图片压缩中/授权/在线/视觉模型逐条校验 → 本地草稿识别 → 快档或深档 → 优先流式、失败退 `/api/chat` → 成功后清空输入并 `loadState` 落库。 |
 
-### 0.6 问答页分段控制器：问答 / 训练建议（72-chat-panels，全文）
+### 0.6 问答页分段控制器（原 72-chat-panels，2026-11-27 并入 80-ai-chat）
 
 | 函数 / 代码段 | 位置（行） | 行数 | 层 | 一句话说明 |
 |---|---|---|---|---|
-| 整个片段（`installChatPanels` + `apply`） | `72-chat-panels.fragment.js:1–35` | 35 | 绑定 | 问答页两个分段用 `.record-panel[hidden]` 显隐，选择记在 localStorage；切到训练建议时调 `renderTrainingInsights()`。 |
+| 分段控制器（`installChatPanels` + `apply`） | `80-ai-chat.fragment.js:9–42` | 34 | 绑定 | 问答页两个分段用 `.record-panel[hidden]` 显隐，选择记在 localStorage；切到训练建议时调 `renderTrainingInsights()`。 |
 
 ### 0.7 今天页行动罗盘：行动条与整日简报（00-head）
 
 | 函数 / 代码段 | 位置（行） | 行数 | 层 | 一句话说明 |
 |---|---|---|---|---|
-| `daySlot` | `00-head.fragment.js:1250–1257` | 8 | 计算 | 当前时刻落在哪一餐时段（读 `qingheng.mealWindow`）。 |
-| `missingMealSlots` | `00-head.fragment.js:1259–1271` | 13 | 计算 | 今天已过时段里还没记录的那几餐。 |
-| `todayActionItems` | `00-head.fragment.js:1279–1292` | 14 | 数据 | 行动条数据源：把训练、饮食与补齐三餐收成 1 条 primary + N 条次要。 |
-| `renderTodayAction` | `00-head.fragment.js:1293–1324` | 32 | 视图 | 渲染 48px 行动条：左侧主行动、右侧 `1/N ›` 打开简报。 |
-| `openDayBrief` | `00-head.fragment.js:1326–1374` | 49 | 视图 | 打开整日简报 sheet：把两侧数据拼成完整清单。 |
-| `closeDayBrief` | `00-head.fragment.js:1375–1379` | 5 | 视图 | 关闭简报并归还焦点。 |
-| `installTodayAction` | `00-head.fragment.js:1381–1399` | 19 | 绑定 | 行动条与简报的一次性事件绑定（`dataset.wired` 幂等）。 |
+| `daySlot` | `00-head.fragment.js:1252–1259` | 8 | 计算 | 当前时刻落在哪一餐时段（读 `qingheng.mealWindow`）。 |
+| `missingMealSlots` | `00-head.fragment.js:1261–1273` | 13 | 计算 | 今天已过时段里还没记录的那几餐。 |
+| `todayActionItems` | `00-head.fragment.js:1281–1294` | 14 | 数据 | 行动条数据源：把训练、饮食与补齐三餐收成 1 条 primary + N 条次要。 |
+| `renderTodayAction` | `00-head.fragment.js:1295–1326` | 32 | 视图 | 渲染 48px 行动条：左侧主行动、右侧 `1/N ›` 打开简报。 |
+| `openDayBrief` | `00-head.fragment.js:1328–1376` | 49 | 视图 | 打开整日简报 sheet：把两侧数据拼成完整清单。 |
+| `closeDayBrief` | `00-head.fragment.js:1377–1381` | 5 | 视图 | 关闭简报并归还焦点。 |
+| `installTodayAction` | `00-head.fragment.js:1383–1401` | 19 | 绑定 | 行动条与简报的一次性事件绑定（`dataset.wired` 幂等）。 |
 
 ### 0.8 今天页行动条的数据层：1 primary + 2 secondary（60-training-copy）
 
 | 函数 / 代码段 | 位置（行） | 行数 | 层 | 一句话说明 |
 |---|---|---|---|---|
-| `buildTodayAgenda` | `60-training-copy.fragment.js:645–721` | 77 | 计算 | 纯函数：只读周计划缓存与今日记录，产出 1 条 primary + 2 条 secondary 的今日安排。 |
-| `todayAgendaState` | `60-training-copy.fragment.js:723–755` | 33 | 计算 | 按「训练状态 × 计划 × 记录」决定行动条的状态文案与跳转目标。 |
+| `buildTodayAgenda` | `60-training-copy.fragment.js:653–729` | 77 | 计算 | 纯函数：只读周计划缓存与今日记录，产出 1 条 primary + 2 条 secondary 的今日安排。 |
+| `todayAgendaState` | `60-training-copy.fragment.js:731–763` | 33 | 计算 | 按「训练状态 × 计划 × 记录」决定行动条的状态文案与跳转目标。 |
 
 ### 0.9 外发授权、模型配置与偏好进 Prompt（00-head）
 
@@ -146,122 +147,136 @@
 | `CONFIG_REGISTRY` + `verifyConfigSync` | `00-head.fragment.js:1006–1027` | 22 | 数据 | localStorage 缓存 ↔ `state.prefs` 的唯一映射表；启动时按本地为准回写漂移项。 |
 | `cleanupPlanChatEntries` | `00-head.fragment.js:1032–1047` | 16 | 数据 | 一次性清理旧版把「AI 排今天」的机器提示误存进问答历史的记录（只删固定开头的那类）。 |
 
-### 0.10 上下文预览：把「将要发送的内容」原样摊开（70-rest）
+### 0.10 上下文预览：把「将要发送的内容」原样摊开（80-ai-chat）
 
 | 函数 / 代码段 | 位置（行） | 行数 | 层 | 一句话说明 |
 |---|---|---|---|---|
-| `showContextPreview` / `installContextPreview` | `70-rest.fragment.js:144–162` | 19 | 视图 | 展开 details 时调 `/api/context-preview`，把系统提示词与本次数据 JSON 原样打印；同一日期只取一次。 |
+| `showContextPreview` / `installContextPreview` | `80-ai-chat.fragment.js:44–62` | 19 | 视图 | 展开 details 时调 `/api/context-preview`，把系统提示词与本次数据 JSON 原样打印；同一日期只取一次。 |
 
 ### 0.11 本地规则引擎 ①：一句话识别成草稿卡（60-training-copy）
 
 | 函数 / 代码段 | 位置（行） | 行数 | 层 | 一句话说明 |
 |---|---|---|---|---|
-| `renderTrainingDraft` | `60-training-copy.fragment.js:9–24` | 16 | 视图 | 渲染「这句话像是要记训练」的草稿卡（含确认按钮）。 |
-| `parseDraft` | `60-training-copy.fragment.js:34–117` | 84 | 规则 | 本地解析：从一句话里抽出动作名、组、次、重量/距离/时长等，不联网、不需要授权。 |
-| `parseTrainingDraft` | `60-training-copy.fragment.js:120–123` | 4 | 规则 | 训练草稿入口：`parseDraft` 命中训练形状才返回。 |
-| `parseMealDraft` | `60-training-copy.fragment.js:129–157` | 29 | 规则 | 饮食草稿入口：命中餐食形状才返回，交给估算表单。 |
-| `draftSummary` | `60-training-copy.fragment.js:159–162` | 4 | 文案 | 草稿卡的一行摘要。 |
+| `renderTrainingDraft` | `60-training-copy.fragment.js:9–28` | 20 | 视图 | 渲染「这句话像是要记训练」的草稿卡（含确认按钮）。 |
+| `parseDraft` | `60-training-copy.fragment.js:38–121` | 84 | 规则 | 本地解析：从一句话里抽出动作名、组、次、重量/距离/时长等，不联网、不需要授权。 |
+| `parseTrainingDraft` | `60-training-copy.fragment.js:124–127` | 4 | 规则 | 训练草稿入口：`parseDraft` 命中训练形状才返回。 |
+| `parseMealDraft` | `60-training-copy.fragment.js:133–162` | 30 | 规则 | 饮食草稿入口：命中餐食形状才返回，交给估算表单。 |
+| `draftSummary` | `60-training-copy.fragment.js:164–167` | 4 | 文案 | 草稿卡的一行摘要。 |
 
 ### 0.12 本地规则引擎 ②：草稿确认后写库（70-rest）
 
 | 函数 / 代码段 | 位置（行） | 行数 | 层 | 一句话说明 |
 |---|---|---|---|---|
-| `pendingDraft` / `draftUndo` 状态 | `70-rest.fragment.js:2866–2867` | 2 | 数据 | 草稿是「先给人看、确认后才写」的两步结构，撤销句柄也在这里。 |
-| `showTrainingDraft` | `70-rest.fragment.js:2868–2871` | 4 | 视图 | 把解析结果摆成草稿卡（问答页 `#chat-training-draft`）。 |
-| `openMealDraft` | `70-rest.fragment.js:2873–2889` | 17 | 视图 | 饮食草稿跳到估算表单，仍需预览 + 确认才落库。 |
-| `applyDraft` | `70-rest.fragment.js:2894–2913` | 20 | 数据 | 确认后写入训练或饮食记录，并保留一次撤销。 |
+| `pendingDraft` / `draftUndo` 状态 | `70-rest.fragment.js:2775–2776` | 2 | 数据 | 草稿是「先给人看、确认后才写」的两步结构，撤销句柄也在这里。 |
+| `showTrainingDraft` | `70-rest.fragment.js:2777–2780` | 4 | 视图 | 把解析结果摆成草稿卡（问答页 `#chat-training-draft`）。 |
+| `openMealDraft` | `70-rest.fragment.js:2782–2798` | 17 | 视图 | 饮食草稿跳到估算表单，仍需预览 + 确认才落库。 |
+| `applyDraft` | `70-rest.fragment.js:2803–2822` | 20 | 数据 | 确认后写入训练或饮食记录，并保留一次撤销。 |
 
 ### 0.13 本地规则引擎 ③：离线建议与体检（60-training-copy）
 
 | 函数 / 代码段 | 位置（行） | 行数 | 层 | 一句话说明 |
 |---|---|---|---|---|
-| `relaxDayInfoFor` | `60-training-copy.fragment.js:177–216` | 40 | 规则 | 判定当天是不是「放松日」（本周 1/1，标签 + 不补救）。 |
-| `dailyCheck` | `60-training-copy.fragment.js:217–322` | 106 | 计算 | 本地每日体检：热量/蛋白/脂肪/睡眠四格 + 缺口方向。 |
-| `plateauFromWeekly` | `60-training-copy.fragment.js:328–335` | 8 | 计算 | 从周均体重判断平台期。 |
-| `localCoachLine` | `60-training-copy.fragment.js:338–341` | 4 | 文案 | 不调模型时的一句话教练提示。 |
-| `dietAudit` | `60-training-copy.fragment.js:345–376` | 32 | 计算 | 饮食结构审计（不点名食材，只给类别与方向）。 |
-| `weeklyWeightMeans` | `60-training-copy.fragment.js:378–396` | 19 | 计算 | 按 ISO 周算体重均值，供趋势与建议引用。 |
-| `weekDetailHtml` | `60-training-copy.fragment.js:409–428` | 20 | 视图 | 体检卡的明细展开内容。 |
-| `renderDailyCheck` | `60-training-copy.fragment.js:431–468` | 38 | 视图 | 渲染今日体检四格与标签。 |
-| `adviceBusy` | `60-training-copy.fragment.js:1263–1268` | 6 | 视图 | 建议卡的等待态：环形加载 + 「已带上 N 条偏好」。 |
-| `refreshAdvice` | `60-training-copy.fragment.js:1269–1292` | 24 | 数据 | 刷新今天页建议：有外发授权走 `/api/advice(useAI)`，失败退回本地建议并标注「模型暂时不可用」。 |
+| `relaxDayInfoFor` | `60-training-copy.fragment.js:182–221` | 40 | 规则 | 判定当天是不是「放松日」（本周 1/1，标签 + 不补救）。 |
+| `dailyCheck` | `60-training-copy.fragment.js:222–327` | 106 | 计算 | 本地每日体检：热量/蛋白/脂肪/睡眠四格 + 缺口方向。 |
+| `plateauFromWeekly` | `60-training-copy.fragment.js:333–340` | 8 | 计算 | 从周均体重判断平台期。 |
+| `localCoachLine` | `60-training-copy.fragment.js:343–346` | 4 | 文案 | 不调模型时的一句话教练提示。 |
+| `dietAudit` | `60-training-copy.fragment.js:350–381` | 32 | 计算 | 饮食结构审计（不点名食材，只给类别与方向）。 |
+| `weeklyWeightMeans` | `60-training-copy.fragment.js:383–401` | 19 | 计算 | 按 ISO 周算体重均值，供趋势与建议引用。 |
+| `weekDetailHtml` | `60-training-copy.fragment.js:414–433` | 20 | 视图 | 体检卡的明细展开内容。 |
+| `renderDailyCheck` | `60-training-copy.fragment.js:436–470` | 35 | 视图 | 渲染今日体检四格与标签。 |
+| `adviceBusy` | `60-training-copy.fragment.js:1369–1374` | 6 | 视图 | 建议卡的等待态：环形加载 + 「已带上 N 条偏好」。 |
+| `refreshAdvice` | `60-training-copy.fragment.js:1375–1398` | 24 | 数据 | 刷新今天页建议：有外发授权走 `/api/advice(useAI)`，失败退回本地建议并标注「模型暂时不可用」。 |
 
 ### 0.14 本地规则引擎 ④：餐食估算（70-rest）
 
 | 函数 / 代码段 | 位置（行） | 行数 | 层 | 一句话说明 |
 |---|---|---|---|---|
-| `estimateInputNames` | `70-rest.fragment.js:2024–2030` | 7 | 规则 | 从输入文本里拆出食物名候选。 |
-| `localFoodEstimate` | `70-rest.fragment.js:2036–2086` | 51 | 计算 | 不联网的 USDA 优先估算（前置/标准/中文/区间/混合菜），油按烹饪方式本地算。 |
+| `estimateInputNames` | `70-rest.fragment.js:1992–1998` | 7 | 规则 | 从输入文本里拆出食物名候选。 |
+| `localFoodEstimate` | `70-rest.fragment.js:2004–2054` | 51 | 计算 | 不联网的 USDA 优先估算（前置/标准/中文/区间/混合菜），油按烹饪方式本地算。 |
 
 ### 0.15 智能教练 ①：AI 排今天（70-rest）
 
 | 函数 / 代码段 | 位置（行） | 行数 | 层 | 一句话说明 |
 |---|---|---|---|---|
-| `aiPlanStore` | `70-rest.fragment.js:330–337` | 8 | 数据 | 按日期的「今日 AI 清单」读写（localStorage + `state.prefs.aiPlans`）。 |
-| `aiPlanSets` | `70-rest.fragment.js:339–344` | 6 | 计算 | 清单的组数汇总（用于入口文案）。 |
-| `planItemMinutes` | `70-rest.fragment.js:351–359` | 9 | 计算 | 单个动作的耗时估算。 |
-| `planMinutes` | `70-rest.fragment.js:361–364` | 4 | 计算 | 整份清单的耗时估算（排课预算与裁剪共用）。 |
-| `effortSignal` | `70-rest.fragment.js:530–546` | 17 | 规则 | 把用户点的疲劳度翻成「加量 / 保持 / 降载」信号。 |
-| `planWeightFor` | `70-rest.fragment.js:669–684` | 16 | 规则 | 按动作给建议重量（清单里已有值优先）。 |
-| `planItemFromRow` | `70-rest.fragment.js:685–700` | 16 | 数据 | 把一行（DOM 或 JSON）规整成清单项。 |
-| `partialPlanRows` | `70-rest.fragment.js:702–730` | 29 | 规则 | 流式期间从半截 JSON 里捞出已完整的动作行，先画出来。 |
-| `parseAiPlanReply` | `70-rest.fragment.js:732–756` | 25 | 规则 | 解析模型返回的 JSON 数组：去掉代码围栏、按括号配对截取、丢弃无名字的行、最多 12 条。 |
-| `compilePlanContext` | `70-rest.fragment.js:761–795` | 35 | 计算 | 把规则与数据在本地编译成一张上下文卡（目标/体重/记录天数/基线/时长/组数），提示词不再贴原始记录。 |
-| `validatePlanAgainstContext` | `70-rest.fragment.js:800–821` | 22 | 校验 | 本地兜底：重量落到可装档位、组数 1~5、超时长从末尾动作减组（至少留第一个）。 |
-| `askAiPlan` | `70-rest.fragment.js:822–978` | 157 | 数据 | AI 排今天主流程：同意校验 → 编上下文 → 流式请求（`focus:"plan"`）→ 边流边画 → 失败退一次性接口 → 校验 → 写清单。 |
-| `installAiPlan` | `70-rest.fragment.js:979–1001` | 23 | 绑定 | 训练页 AI 清单区的事件绑定（排今天/加入/顺延/重排等入口）。 |
-| `renderAiPlan` | `70-rest.fragment.js:656–658` | 3 | 视图 | 更新 AI 清单入口文案、计数与汇总（清单本体已播进执行区）。 |
-| `syncAiPlanControls` | `70-rest.fragment.js:642–654` | 13 | 视图 | 按「有没有清单、有没有未完成项」切换按钮文案与禁用态。 |
+| `aiPlanStore` | `70-rest.fragment.js:314–321` | 8 | 数据 | 按日期的「今日 AI 清单」读写（localStorage + `state.prefs.aiPlans`）。 |
+| `aiPlanSets` | `70-rest.fragment.js:323–328` | 6 | 计算 | 清单的组数汇总（用于入口文案）。 |
+| `planItemMinutes` | `70-rest.fragment.js:335–343` | 9 | 计算 | 单个动作的耗时估算。 |
+| `planMinutes` | `70-rest.fragment.js:345–348` | 4 | 计算 | 整份清单的耗时估算（排课预算与裁剪共用）。 |
+| `effortSignal` | `70-rest.fragment.js:514–530` | 17 | 规则 | 把用户点的疲劳度翻成「加量 / 保持 / 降载」信号。 |
+| `planWeightFor` | `70-rest.fragment.js:640–655` | 16 | 规则 | 按动作给建议重量（清单里已有值优先）。 |
+| `planItemFromRow` | `70-rest.fragment.js:656–672` | 17 | 数据 | 把一行（DOM 或 JSON）规整成清单项。 |
+| `partialPlanRows` | `70-rest.fragment.js:674–702` | 29 | 规则 | 流式期间从半截 JSON 里捞出已完整的动作行，先画出来。 |
+| `parseAiPlanReply` | `70-rest.fragment.js:704–728` | 25 | 规则 | 解析模型返回的 JSON 数组：去掉代码围栏、按括号配对截取、丢弃无名字的行、最多 12 条。 |
+| `compilePlanContext` | `70-rest.fragment.js:733–767` | 35 | 计算 | 把规则与数据在本地编译成一张上下文卡（目标/体重/记录天数/基线/时长/组数），提示词不再贴原始记录。 |
+| `validatePlanAgainstContext` | `70-rest.fragment.js:772–793` | 22 | 校验 | 本地兜底：重量落到可装档位、组数 1~5、超时长从末尾动作减组（至少留第一个）。 |
+| `askAiPlan` | `70-rest.fragment.js:794–975` | 182 | 数据 | AI 排今天主流程：同意校验 → 编上下文 → 流式请求（`focus:"plan"`）→ 边流边画 → 失败退一次性接口 → 校验 → 写清单。 |
+| `installAiPlan` | `70-rest.fragment.js:976–998` | 23 | 绑定 | 训练页 AI 清单区的事件绑定（排今天/加入/顺延/重排等入口）。 |
+| `renderAiPlan` | `70-rest.fragment.js:627–629` | 3 | 视图 | 更新 AI 清单入口文案、计数与汇总（清单本体已播进执行区）。 |
+| `syncAiPlanControls` | `70-rest.fragment.js:613–625` | 13 | 视图 | 按「有没有清单、有没有未完成项」切换按钮文案与禁用态。 |
 
 ### 0.16 智能教练 ②：训练建议窗口（问答页第二分段，70-rest）
 
 | 函数 / 代码段 | 位置（行） | 行数 | 层 | 一句话说明 |
 |---|---|---|---|---|
-| `loadTodayAdvice` | `70-rest.fragment.js:2318–2336` | 19 | 数据 | 把今天已生成的推送建议按「白天/餐后/晚间/周报」顺序读出来（`/api/push-history`）。 |
-| `trainingInsights` | `70-rest.fragment.js:2342–2366` | 25 | 计算 | 不调模型就能说的三件事：哪个动作停了、换什么、本周是否该减载（复用 `acwrFromDailyLoads` / `weeklyVolume`）。 |
-| `renderTrainingInsights` | `70-rest.fragment.js:2368–2374` | 7 | 视图 | 把上面三条渲染进训练建议卡。 |
-| `installTrainingAdvice` | `70-rest.fragment.js:2377–2444` | 68 | 绑定 | 训练建议窗口：预设问题胶囊 → 流式回答 → 「把动作加入今天」按钮（先弹确认再写库）→ 落「上次建议」缓存。 |
+| `loadTodayAdvice` | `70-rest.fragment.js:2286–2304` | 19 | 数据 | 把今天已生成的推送建议按「白天/餐后/晚间/周报」顺序读出来（`/api/push-history`）。 |
+| `trainingInsights` | `70-rest.fragment.js:2310–2334` | 25 | 计算 | 不调模型就能说的三件事：哪个动作停了、换什么、本周是否该减载（复用 `acwrFromDailyLoads` / `weeklyVolume`）。 |
+| `renderTrainingInsights` | `70-rest.fragment.js:2336–2342` | 7 | 视图 | 把上面三条渲染进训练建议卡。 |
+| `installTrainingAdvice` | `70-rest.fragment.js:2345–2414` | 70 | 绑定 | 训练建议窗口：预设问题胶囊 → 流式回答 → 「把动作加入今天」按钮（先弹确认再写库）→ 落「上次建议」缓存。 |
 
 ### 0.17 智能教练 ③：训练建议里的可勾选执行清单（60-training-copy）
 
 | 函数 / 代码段 | 位置（行） | 行数 | 层 | 一句话说明 |
 |---|---|---|---|---|
-| `renderAdviceOrder` | `60-training-copy.fragment.js:784–898` | 115 | 视图 | 在训练建议区渲染一份可勾选的今日清单，勾满回写 `aiPlanStore.done`。 |
+| `renderAdviceOrder` | `60-training-copy.fragment.js:792–907` | 116 | 视图 | 在训练建议区渲染一份可勾选的今日清单，勾满回写 `aiPlanStore.done`。 |
 
-### 0.18 问答页外围：快捷提问、联网开关、偏好写回（70-rest）
-
-| 函数 / 代码段 | 位置（行） | 行数 | 层 | 一句话说明 |
-|---|---|---|---|---|
-| `installChatChips` | `70-rest.fragment.js:2836–2848` | 13 | 绑定 | 快捷提问胶囊（蛋白质够不够 / 训练日怎么吃 / 体重趋势），点了只填输入框不自动发。 |
-| 联网检索开关 `#chat-web` | `70-rest.fragment.js:2855–2865` | 11 | 绑定 | 开关状态存 `qingheng.chat.web` 并同步进 `state.prefs.chatWeb`；回答里由 `sendChat` 决定是否 `webSearch`。 |
-| `installChatFocusReveal` | `70-rest.fragment.js:1078–1089` | 12 | 绑定 | 深链带 `focus` 时把对应字段滚进视野（今天页跳问答用）。 |
-| `installChatDayFilter` | `70-rest.fragment.js:1091–1107` | 17 | 绑定 | 按天条的点击/滑动绑定（历史按天查看）。 |
-| `installChatTaskOrder` | `70-rest.fragment.js:1323–1331` | 9 | 绑定 | 问答页卡片的顺序调整（把高频区块前置）。 |
-| 偏好编辑器（`preferenceMetaText` … `installPreferences`） | `70-rest.fragment.js:2972–3063` | 92 | 绑定 | 「我的 → 偏好与记忆」的增删改与展示，最多 20 条；偏好是 Prompt 的一部分。 |
-| `addPreferenceFromChat` | `70-rest.fragment.js:3064–3075` | 12 | 数据 | 把问答里的一句话存成长期偏好（去重后写 localStorage 并同步 state）。 |
-
-### 0.19 本地建议库：注入 Prompt 的知识层（55-training-domain）
+### 0.18 智能教练 ④：周计划生成后的「教练小结」（1.5.37，60-training-copy）
 
 | 函数 / 代码段 | 位置（行） | 行数 | 层 | 一句话说明 |
 |---|---|---|---|---|
-| `trainingLibrary` | `55-training-domain.fragment.js:862–865` | 4 | 数据 | 训练知识库读取入口（dayTemplates / moves / rules）。 |
-| `libraryRule` | `55-training-domain.fragment.js:867–870` | 4 | 数据 | 取某条库规则原文。 |
-| `libraryDayTemplate` | `55-training-domain.fragment.js:872–876` | 5 | 数据 | 取某分化模板的动作清单。 |
-| `libraryMoves` | `55-training-domain.fragment.js:878–881` | 4 | 数据 | 取动作库（名字/器械/部位 tag）。 |
-| `librarySourceLabel` | `55-training-domain.fragment.js:883–887` | 5 | 文案 | 库条目的来源标签（P1~P5 分级）。 |
-| `planWhy` | `55-training-domain.fragment.js:890–904` | 15 | 文案 | 把规则译成一句「为什么这样排」。 |
-| `libraryLookup` | `55-training-domain.fragment.js:906–924` | 19 | 计算 | 按问题检索库条目，产出给 Prompt 的摘要（`sendChat` 用 8 条）。 |
-| `libraryCues` | `55-training-domain.fragment.js:927–939` | 13 | 计算 | 某个动作的要点集合。 |
-| `exerciseCore` | `55-training-domain.fragment.js:942–947` | 6 | 规则 | 动作名归一（去掉器械/角度修饰）。 |
-| `cueTokens` | `55-training-domain.fragment.js:951–964` | 14 | 规则 | 要点分词，用于匹配。 |
-| `trimCue` | `55-training-domain.fragment.js:967–972` | 6 | 计算 | 要点截断到可显示长度。 |
-| `pickCueClause` | `55-training-domain.fragment.js:975–983` | 9 | 计算 | 从要点里选最相关的一句。 |
-| `cueForExercise` | `55-training-domain.fragment.js:993–1053` | 61 | 计算 | 给一个动作配 1~2 条要点（动作要点半屏与问答共用）。 |
-| `libraryCuesFor` | `55-training-domain.fragment.js:1056–1077` | 22 | 计算 | 按动作名取要点（含内置兜底）。 |
-| `libraryRuleForMetric` | `55-training-domain.fragment.js:1080–1084` | 5 | 计算 | 按指标名取对应规则。 |
-| `librarySummary` | `55-training-domain.fragment.js:1087–1102` | 16 | 计算 | 生成库摘要（`askAiPlan` 用 2 条、`sendChat` 兜底用 6 条）。 |
+| `planDayLabels` | `60-training-copy.fragment.js:1057–1067` | 11 | 视图 | 把一周的分化序列压成「全身 ×4 / 推 / 拉」式标签，减载/轻量日单独标「（轻）」。 |
+| `planQualityLine` | `60-training-copy.fragment.js:1036–1055` | 20 | 视图 | 生成后的自检句：排了几练、部位顺序、每次动作数、周组数是否压在每部位上限内、多少动作按体重推算——只报事实不报耗时。 |
+| `planWhyBadgeHtml` | `60-training-copy.fragment.js:1072–1084` | 13 | 视图 | 「为什么这样排？」折叠：把生成时真正用上的参数摊开（时长/动作数、器械、起始部位、被排除的要求、是否减载），默认收起不占首屏。 |
+| `showCoachSummary` | `60-training-copy.fragment.js:1093–1112` | 20 | 交互 | 生成后的「这周这样排」弹窗：把刚改的偏好逐条落到结果上（练数、时长折算、器械、训练要求是否被读取/排除、周组数上限、减载），点「看详细说明」返回 false 交给调用方打开计划说明。 |
 
-### 0.20 动作要点：本地讲解（65-exercise-guide）
+### 0.19 问答页外围：快捷提问、联网开关、按天/焦点（80-ai-chat）
+
+| 函数 / 代码段 | 位置（行） | 行数 | 层 | 一句话说明 |
+|---|---|---|---|---|
+| `installChatChips` | `80-ai-chat.fragment.js:105–117` | 13 | 绑定 | 快捷提问胶囊（蛋白质够不够 / 训练日怎么吃 / 体重趋势），点了只填输入框不自动发。 |
+| 联网检索开关 `#chat-web` | `80-ai-chat.fragment.js:119–129` | 11 | 绑定 | 开关状态存 `qingheng.chat.web` 并同步进 `state.prefs.chatWeb`；回答里由 `sendChat` 决定是否 `webSearch`。 |
+| `installChatFocusReveal` | `80-ai-chat.fragment.js:64–75` | 12 | 绑定 | 深链带 `focus` 时把对应字段滚进视野（今天页跳问答用）。 |
+| `installChatDayFilter` | `80-ai-chat.fragment.js:77–93` | 17 | 绑定 | 按天条的点击/滑动绑定（历史按天查看）。 |
+| `installChatTaskOrder` | `80-ai-chat.fragment.js:95–103` | 9 | 绑定 | 问答页卡片的顺序调整（把高频区块前置）。 |
+
+### 0.20 偏好写回：问答里的一句话变成长期偏好（70-rest）
+
+| 函数 / 代码段 | 位置（行） | 行数 | 层 | 一句话说明 |
+|---|---|---|---|---|
+| 偏好编辑器（`preferenceMetaText` … `installPreferences`） | `70-rest.fragment.js:2881–2972` | 92 | 绑定 | 「我的 → 偏好与记忆」的增删改与展示，最多 20 条；偏好是 Prompt 的一部分。 |
+| `addPreferenceFromChat` | `70-rest.fragment.js:2973–2984` | 12 | 数据 | 把问答里的一句话存成长期偏好（去重后写 localStorage 并同步 state）。 |
+
+### 0.21 本地建议库：注入 Prompt 的知识层（55-training-domain）
+
+| 函数 / 代码段 | 位置（行） | 行数 | 层 | 一句话说明 |
+|---|---|---|---|---|
+| `trainingLibrary` | `55-training-domain.fragment.js:932–935` | 4 | 数据 | 训练知识库读取入口（dayTemplates / moves / rules）。 |
+| `libraryRule` | `55-training-domain.fragment.js:937–940` | 4 | 数据 | 取某条库规则原文。 |
+| `libraryDayTemplate` | `55-training-domain.fragment.js:942–946` | 5 | 数据 | 取某分化模板的动作清单。 |
+| `libraryMoves` | `55-training-domain.fragment.js:948–951` | 4 | 数据 | 取动作库（名字/器械/部位 tag）。 |
+| `librarySourceLabel` | `55-training-domain.fragment.js:953–957` | 5 | 文案 | 库条目的来源标签（P1~P5 分级）。 |
+| `planWhy` | `55-training-domain.fragment.js:960–974` | 15 | 文案 | 把规则译成一句「为什么这样排」。 |
+| `libraryLookup` | `55-training-domain.fragment.js:976–994` | 19 | 计算 | 按问题检索库条目，产出给 Prompt 的摘要（`sendChat` 用 8 条）。 |
+| `libraryCues` | `55-training-domain.fragment.js:997–1009` | 13 | 计算 | 某个动作的要点集合。 |
+| `exerciseCore` | `55-training-domain.fragment.js:1012–1017` | 6 | 规则 | 动作名归一（去掉器械/角度修饰）。 |
+| `cueTokens` | `55-training-domain.fragment.js:1021–1034` | 14 | 规则 | 要点分词，用于匹配。 |
+| `trimCue` | `55-training-domain.fragment.js:1037–1042` | 6 | 计算 | 要点截断到可显示长度。 |
+| `pickCueClause` | `55-training-domain.fragment.js:1045–1053` | 9 | 计算 | 从要点里选最相关的一句。 |
+| `cueForExercise` | `55-training-domain.fragment.js:1063–1123` | 61 | 计算 | 给一个动作配 1~2 条要点（动作要点半屏与问答共用）。 |
+| `libraryCuesFor` | `55-training-domain.fragment.js:1126–1147` | 22 | 计算 | 按动作名取要点（含内置兜底）。 |
+| `libraryRuleForMetric` | `55-training-domain.fragment.js:1150–1154` | 5 | 计算 | 按指标名取对应规则。 |
+| `librarySummary` | `55-training-domain.fragment.js:1157–1172` | 16 | 计算 | 生成库摘要（`askAiPlan` 用 2 条、`sendChat` 兜底用 6 条）。 |
+
+### 0.22 动作要点：本地讲解（65-exercise-guide）
 
 | 函数 / 代码段 | 位置（行） | 行数 | 层 | 一句话说明 |
 |---|---|---|---|---|
@@ -271,21 +286,21 @@
 | `showExerciseGuide` | `65-exercise-guide.fragment.js:319–333` | 15 | 视图 | 打开动作要点半屏（`?` 按钮的落点）。 |
 | `installExerciseGuide` | `65-exercise-guide.fragment.js:334–344` | 11 | 绑定 | 动作名与 `?` 按钮的事件绑定。 |
 
-### 0.21 结构层：index.html
+### 0.23 结构层：index.html
 
 | 结构 | 源文件行 | 说明 |
 |---|---|---|
 | 今天页行动罗盘（原 `#slot-hint`）—— `#today-action` | `index.html:19` | 说明：2026-11-22 起「下一步」（`#slot-hint`）与状态轮播（`#status-strip`）合并成这一条 48px 行动条，`#slot-hint` 已不存在（全仓 grep 仅剩一条注释）。 |
-| 今天页「建议」卡 —— `#advice-content` + 上下文预览面板 | `index.html:25` | 卡内含「本次会发送哪些数据」的折叠面板（`#advice-data-context` / `#advice-data-preview-panel`）与过期提示（`#advice-stale`）。 |
-| 问答页 —— `#view-chat`（分段控制器 / 上下文预览 / 快捷胶囊 / 输入框 / 历史） | `index.html:49` | 整页结构：`#chat-tabs` 分段 → 数据上下文折叠 → 收藏/按天/联网开关 → `#chat-chips` 快捷提问 → 照片 + 输入 + 提交 → `#chat-training-draft` 草稿位 → `#chat-log` 历史。 |
-| 问答页「训练建议」分段 —— `#training-advice` | `index.html:50` | 含今日清单挂载点、三条洞察、快捷提问胶囊、输入框、回答区与「上次训练建议」入口。 |
-| 训练页 AI 快捷入口 —— `#training-toolbar`（`#ai-plan-ask` 等） | `index.html:38` | AI 排今天/重排今天按钮就挂在这条工具栏上。 |
-| 饮食页 AI 快捷入口 —— `#estimate-form`（照片识别 / 一句话估算） | `index.html:39` | `#photo-add` / `#meal-image` / `#meal-gallery` / `#estimate-mode` / `#estimate-busy`；照片与文字都先出预览再确认。 |
-| 身体页识别入口 —— `#scale-photo`（体脂秤截图 / 照片） | `index.html:43` | 对应 `/api/scale-read`，只认图上有的数，缺的给 null。 |
-| 「AI 模型与密钥」子页 —— `#subpage-model` | `index.html:53` | 服务商切换、baseUrl/模型/视觉模型、密钥（永不回传）、连接检查、用量与余额。 |
-| 外发授权开关 —— `#external-consent-row` / `#settings-consent` | `index.html:54` | 外发授权只留这一个开关（加向导里的 `#ob-allow`），其余三处一次性同意只作为首次授权。 |
+| 今天页「建议」卡 —— `#advice-content` + 上下文预览面板 | `index.html:24` | 卡内含「本次会发送哪些数据」的折叠面板（`#advice-data-context` / `#advice-data-preview-panel`）与过期提示（`#advice-stale`）。 |
+| 问答页 —— `#view-chat`（分段控制器 / 上下文预览 / 快捷胶囊 / 输入框 / 历史） | `index.html:59` | 整页结构：`#chat-tabs` 分段 → 数据上下文折叠 → 收藏/按天/联网开关 → `#chat-chips` 快捷提问 → 照片 + 输入 + 提交 → `#chat-training-draft` 草稿位 → `#chat-log` 历史。 |
+| 问答页「训练建议」分段 —— `#training-advice` | `index.html:60` | 含今日清单挂载点、三条洞察、快捷提问胶囊、输入框、回答区与「上次训练建议」入口。 |
+| 训练页 AI 快捷入口 —— `#training-toolbar`（`#ai-plan-ask` 等） | `index.html:36` | AI 排今天/重排今天按钮就挂在这条工具栏上。 |
+| 饮食页 AI 快捷入口 —— `#estimate-form`（照片识别 / 一句话估算） | `index.html:37` | `#photo-add` / `#meal-image` / `#meal-gallery` / `#estimate-mode` / `#estimate-busy`；照片与文字都先出预览再确认。 |
+| 身体页识别入口 —— `#scale-photo`（体脂秤截图 / 照片） | `index.html:41` | 对应 `/api/scale-read`，只认图上有的数，缺的给 null。 |
+| 「AI 模型与密钥」子页 —— `#subpage-model` | `index.html:63` | 服务商切换、baseUrl/模型/视觉模型、密钥（永不回传）、连接检查、用量与余额。 |
+| 外发授权开关 —— `#external-consent-row` / `#settings-consent` | `index.html:64` | 外发授权只留这一个开关（加向导里的 `#ob-allow`），其余三处一次性同意只作为首次授权。 |
 
-### 0.22 原生层：Java
+### 0.24 原生层：Java
 
 | 方法 / 文件 | 位置（行） | 行数 | 一句话说明 |
 |---|---|---|---|
@@ -370,22 +385,22 @@
 | 内部类 `DatedData` —— 推送用的数据整形 | `AlarmReceiver.java:335–551` | 217 | 从 state 里取当天/近 N 天餐食、训练标记、周均值、达标天数、目标与锚点，全部只出数字。 |
 | `PushService.java`（全文）—— 通知渠道与正文落地 | `PushService.java:1–91` | 91 | 渠道创建、正文截断、点击打开应用。 |
 
-### 0.23 测试基线
+### 0.25 测试基线
 
 | 分组 | 行 | check | assert |
 |---|---|---|---|
 | `advice-actions` | 16–112 | 19 | 0 |
 | `advice-contract` | 113–139 | 10 | 0 |
 | `advice-targets` | 140–261 | 0 | 9 |
-| `ai-plan-focus` | 262–327 | 28 | 0 |
-| `ai-upgrade` | 328–398 | 35 | 0 |
-| `analysis-layer` | 399–546 | 50 | 0 |
-| `answer-table` | 547–621 | 9 | 0 |
-| `chat-compose` | 622–649 | 9 | 0 |
-| `chat-quality` | 650–781 | 77 | 0 |
-| `chat-streaming` | 782–847 | 38 | 0 |
-| `stream-bubble` | 848–998 | 24 | 0 |
-| `web-search` | 999–1024 | 0 | 13 |
+| `ai-plan-focus` | 262–326 | 28 | 0 |
+| `ai-upgrade` | 327–397 | 35 | 0 |
+| `analysis-layer` | 398–552 | 52 | 0 |
+| `answer-table` | 553–627 | 9 | 0 |
+| `chat-compose` | 628–655 | 9 | 0 |
+| `chat-quality` | 656–787 | 77 | 0 |
+| `chat-streaming` | 788–853 | 38 | 0 |
+| `stream-bubble` | 854–1004 | 24 | 0 |
+| `web-search` | 1005–1044 | 0 | 22 |
 
 ## 1. 调用链与数据流
 
@@ -393,12 +408,12 @@
 
 ```mermaid
 flowchart TD
-  Q["用户输入 / 照片<br/>chat-question + chat-image"] --> S["sendChat()<br/>10-rich-answer:1034"]
-  S -->|本地识别，不需要授权| D["parseTrainingDraft / parseMealDraft<br/>60-training-copy:120 / 129"]
+  Q["用户输入 / 照片<br/>chat-question + chat-image"] --> S["sendChat()<br/>10-rich-answer:1083"]
+  S -->|本地识别，不需要授权| D["parseTrainingDraft / parseMealDraft<br/>60-training-copy:124 / 133"]
   D --> DC["草稿卡 chat-training-draft"]
   S -->|外发授权 externalConsent()| T["档位路由 tier<br/>短句且无检索意图 = fast，其余 deep"]
   T --> P["payload<br/>question/history(近5轮)/anchors/date/tier/library/webSearch"]
-  P --> SC["streamChat()<br/>10-rich-answer:718"]
+  P --> SC["streamChat()<br/>10-rich-answer:767"]
   SC --> NA["native-adapter: chatNativeBody 白名单<br/>POST /api/chat/stream"]
   NA --> J["MainActivity.startChatStream<br/>2344 → 线程里跑 chatReply(3/3):2433"]
   J --> CTX["chatDataContext / chatDataContextCompact<br/>近 14 天记录 + 目标 + 锚点 + 训练 + 身体"]
@@ -418,19 +433,19 @@ flowchart TD
 
 **关键分支（都在 `sendChat` 一处收口）**：
 
-1. **空问题 + 无照片** → 只提示并聚焦输入框，不发请求（`10-rich-answer:1038`）。
-2. **照片还在压缩** → 拒绝发送（`1037`）；照片/视觉模型未启用 → 明确指向「我的 → AI 模型与密钥」（`1049`）。
-3. **没有外发授权** → 停在本地，先提示开授权（`1048`）。离线时同理（`1050`）。
-4. **档位**：`!image && !deepIntent && 问题 ≤ 24 字` 才走 `fast`（不联网、只带 3 天上下文、最多 3 句），否则 `deep`（`1058–1059`）。
-5. **流式优先**：`/api/chat/stream` 失败（无 SSE / 代理缓冲 / 中途报错）自动退 `/api/chat`，两者都失败才报错，且错误里同时带两条路径的原因（`1062–1075`）。
+1. **空问题 + 无照片** → 只提示并聚焦输入框，不发请求（`10-rich-answer:1087`）。
+2. **照片还在压缩** → 拒绝发送（`1086`）；照片/视觉模型未启用 → 明确指向「我的 → AI 模型与密钥」（`1098`）。
+3. **没有外发授权** → 停在本地，先提示开授权（`1097`）。离线时同理（`1099`）。
+4. **档位**：`!image && !deepIntent && 问题 ≤ 24 字` 才走 `fast`（不联网、只带 3 天上下文、最多 3 句），否则 `deep`（`1107–1108`）。
+5. **流式优先**：`/api/chat/stream` 失败（无 SSE / 代理缓冲 / 中途报错）自动退 `/api/chat`，两者都失败才报错，且错误里同时带两条路径的原因（`1111–1124`）。
 6. **回答为空**（只吐了思考过程）→ 抛「模型没有返回可读取的回答」，不写库、不显示空泡。
-7. **落库失败**：`loadState` 抛错时把回答临时塞进 `state.chats` 并提示「回答已显示，但保存到手机失败，请勿重复提问」（`1088`）。
+7. **落库失败**：`loadState` 抛错时把回答临时塞进 `state.chats` 并提示「回答已显示，但保存到手机失败，请勿重复提问」（`1137`）。
 
 ### 1.2 今天页建议（两条路：本地 / 外发）
 
 ```mermaid
 flowchart LR
-  R["refresh-advice / 页面加载"] --> RA["refreshAdvice()<br/>60-training-copy:1269"]
+  R["refresh-advice / 页面加载"] --> RA["refreshAdvice()<br/>60-training-copy:1375"]
   RA -->|externalConsent()==true| AI["/api/advice {useAI:true,allowExternal:true}<br/>带 preferences"]
   RA -->|失败或未授权| LOC["/api/advice {date}<br/>adapter → localAdvice() 规则引擎"]
   AI --> JB["advice() → adviceInput + adviceBody<br/>→ chat(CAP_ADVICE, 显式关思考)"]
@@ -444,7 +459,7 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-  A["ai-plan-ask 点击"] --> A1["askAiPlan()<br/>70-rest:822"]
+  A["ai-plan-ask 点击"] --> A1["askAiPlan()<br/>70-rest:794"]
   A1 --> C["compilePlanContext(date)<br/>目标/体重/基线/时长/组数 → 一张卡"]
   C --> PR["提示词：轮换 + 规则库 + 疲劳信号 + 用户要求 + 负重规则"]
   PR --> PL["payload：focus=plan、不设 tier、logToHistory=false"]
@@ -454,6 +469,8 @@ flowchart TD
   V --> S["aiPlanStore(date, plan) → renderAiPlan()"]
   S --> SEED["seedExercisesFromPlan()<br/>每组 ○ 全亮回写 done"]
 ```
+
+> 另一条教练链路是**周计划生成**（1.5.30 起）：`保存并重排` → `generateWeekPlan`（55 领域层）→ `renderWeekPlan`。1.5.37 起生成后先弹 `showCoachSummary`「这周这样排」（把改过的偏好逐条落到结果上），卡面再用 `planQualityLine` 给一行自检，`planWhyBadgeHtml` 提供「为什么这样排？」折叠——这三段见 §3 智能教练 ④。
 
 ### 1.4 上下文预览（不花 token 也能看到「将要发送什么」）
 
@@ -491,7 +508,7 @@ app/src/fragments/00-head.fragment.js:1277
 
 说明：2026-11-22 起「下一步」（`#slot-hint`）与状态轮播（`#status-strip`）合并成这一条 48px 行动条，`#slot-hint` 已不存在（全仓 grep 仅剩一条注释）。
 
-源文件行：`app/src/main/assets/index.html:19`（整行）；快照 sha256 `bf6a624e2919d701`
+源文件行：`app/src/main/assets/index.html:19`（整行）；快照 sha256 `f6d7787812efe958`
 
 ```html
 <article class="card energy-card">
@@ -514,8 +531,6 @@ app/src/fragments/00-head.fragment.js:1277
 <p class="muted" id="calorie-caption">记录一餐，让今天更清晰。</p>
 </div>
 </div>
-<div class="macro-grid" id="macro-summary">
-</div>
 <div class="today-action" id="today-action" hidden>
 <button type="button" class="today-action-main" id="today-action-main">
 <span class="today-action-dot" aria-hidden="true">
@@ -526,6 +541,8 @@ app/src/fragments/00-head.fragment.js:1277
 <span id="today-action-count">
 </span>
 </button>
+</div>
+<div class="macro-grid" id="macro-summary">
 </div>
 <p class="fine-print" id="calorie-action" hidden>
 </p>
@@ -545,7 +562,7 @@ app/src/fragments/00-head.fragment.js:1277
 
 卡内含「本次会发送哪些数据」的折叠面板（`#advice-data-context` / `#advice-data-preview-panel`）与过期提示（`#advice-stale`）。
 
-源文件行：`app/src/main/assets/index.html:25`（整行）；快照 sha256 `bf6a624e2919d701`
+源文件行：`app/src/main/assets/index.html:24`（整行）；快照 sha256 `f6d7787812efe958`
 
 ```html
 <article class="card advice-card">
@@ -574,7 +591,7 @@ app/src/fragments/00-head.fragment.js:1277
 
 整页结构：`#chat-tabs` 分段 → 数据上下文折叠 → 收藏/按天/联网开关 → `#chat-chips` 快捷提问 → 照片 + 输入 + 提交 → `#chat-training-draft` 草稿位 → `#chat-log` 历史。
 
-源文件行：`app/src/main/assets/index.html:49`（整行）；快照 sha256 `bf6a624e2919d701`
+源文件行：`app/src/main/assets/index.html:59`（整行）；快照 sha256 `f6d7787812efe958`
 
 ```html
 <section id="view-chat" class="view" aria-labelledby="chat-title" hidden>
@@ -719,7 +736,7 @@ app/src/fragments/00-head.fragment.js:1277
 
 含今日清单挂载点、三条洞察、快捷提问胶囊、输入框、回答区与「上次训练建议」入口。
 
-源文件行：`app/src/main/assets/index.html:50`（整行）；快照 sha256 `bf6a624e2919d701`
+源文件行：`app/src/main/assets/index.html:60`（整行）；快照 sha256 `f6d7787812efe958`
 
 ```html
 <article class="card" id="training-advice">
@@ -764,7 +781,7 @@ app/src/fragments/00-head.fragment.js:1277
 
 AI 排今天/重排今天按钮就挂在这条工具栏上。
 
-源文件行：`app/src/main/assets/index.html:38`（整行）；快照 sha256 `bf6a624e2919d701`
+源文件行：`app/src/main/assets/index.html:36`（整行）；快照 sha256 `f6d7787812efe958`
 
 ```html
 <div class="training-toolbar" id="training-toolbar">
@@ -777,7 +794,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
 
 `#photo-add` / `#meal-image` / `#meal-gallery` / `#estimate-mode` / `#estimate-busy`；照片与文字都先出预览再确认。
 
-源文件行：`app/src/main/assets/index.html:39`（整行）；快照 sha256 `bf6a624e2919d701`
+源文件行：`app/src/main/assets/index.html:37`（整行）；快照 sha256 `f6d7787812efe958`
 
 ```html
 <form id="estimate-form">
@@ -834,7 +851,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
 
 对应 `/api/scale-read`，只认图上有的数，缺的给 null。
 
-源文件行：`app/src/main/assets/index.html:43`（整行）；快照 sha256 `bf6a624e2919d701`
+源文件行：`app/src/main/assets/index.html:41`（整行）；快照 sha256 `f6d7787812efe958`
 
 ```html
 <button type="button" class="button subtle" id="scale-photo">识别体脂秤截图 / 照片</button>
@@ -844,7 +861,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
 
 服务商切换、baseUrl/模型/视觉模型、密钥（永不回传）、连接检查、用量与余额。
 
-源文件行：`app/src/main/assets/index.html:53`（整行）；快照 sha256 `bf6a624e2919d701`
+源文件行：`app/src/main/assets/index.html:63`（整行）；快照 sha256 `f6d7787812efe958`
 
 ```html
 <div class="subpage" id="subpage-model" hidden>
@@ -1023,7 +1040,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
 
 外发授权只留这一个开关（加向导里的 `#ob-allow`），其余三处一次性同意只作为首次授权。
 
-源文件行：`app/src/main/assets/index.html:54`（整行）；快照 sha256 `bf6a624e2919d701`
+源文件行：`app/src/main/assets/index.html:64`（整行）；快照 sha256 `f6d7787812efe958`
 
 ```html
 <label class="check-label" id="external-consent-row">
@@ -1289,7 +1306,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
 
 ### 3.2 流式回答引擎：逐块落地、增量合批、失败回退（10-rich-answer）
 
-#### `beginChatStream` — `10-rich-answer.fragment.js:531–560`（30 行，视图）
+#### `beginChatStream` — `10-rich-answer.fragment.js:580–609`（30 行，视图）
 
 ```js
   function beginChatStream(question, hasImage, date) {
@@ -1324,7 +1341,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `streamBlockKind` — `10-rich-answer.fragment.js:561–567`（7 行，视图）
+#### `streamBlockKind` — `10-rich-answer.fragment.js:610–616`（7 行，视图）
 
 ```js
   function streamBlockKind(value) {
@@ -1336,7 +1353,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `renderStreamBlock` — `10-rich-answer.fragment.js:568–603`（36 行，视图）
+#### `renderStreamBlock` — `10-rich-answer.fragment.js:617–652`（36 行，视图）
 
 ```js
   function renderStreamBlock(box, value, complete) {
@@ -1377,7 +1394,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `flushChatStream` — `10-rich-answer.fragment.js:604–615`（12 行，视图）
+#### `flushChatStream` — `10-rich-answer.fragment.js:653–664`（12 行，视图）
 
 ```js
   function flushChatStream(box, complete = false) {
@@ -1394,7 +1411,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `pushChatStream` — `10-rich-answer.fragment.js:616–637`（22 行，视图）
+#### `pushChatStream` — `10-rich-answer.fragment.js:665–686`（22 行，视图）
 
 ```js
   function pushChatStream(box, chunk) {
@@ -1421,7 +1438,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `pushChatThinking` — `10-rich-answer.fragment.js:639–645`（7 行，视图）
+#### `pushChatThinking` — `10-rich-answer.fragment.js:688–694`（7 行，视图）
 
 ```js
   function pushChatThinking(box, chunk) {
@@ -1433,7 +1450,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `endChatStream` — `10-rich-answer.fragment.js:646–651`（6 行，视图）
+#### `endChatStream` — `10-rich-answer.fragment.js:695–700`（6 行，视图）
 
 ```js
   function endChatStream(box) {
@@ -1444,7 +1461,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `finishChatStream` — `10-rich-answer.fragment.js:652–675`（24 行，视图）
+#### `finishChatStream` — `10-rich-answer.fragment.js:701–724`（24 行，视图）
 
 ```js
   function finishChatStream(box, answer) {
@@ -1473,7 +1490,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `streamInto` — `10-rich-answer.fragment.js:680–716`（37 行，数据）
+#### `streamInto` — `10-rich-answer.fragment.js:729–765`（37 行，数据）
 
 ```js
   async function streamInto(container, payload, placeholder = '模型正在思考…') {
@@ -1515,7 +1532,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `streamChat` — `10-rich-answer.fragment.js:718–733`（16 行，数据）
+#### `streamChat` — `10-rich-answer.fragment.js:767–782`（16 行，数据）
 
 ```js
   async function streamChat(payload) {
@@ -1538,7 +1555,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
 
 ### 3.3 问答历史：分页、按天、收藏、无用标记与重问（10-rich-answer）
 
-#### `citationBlock` — `10-rich-answer.fragment.js:735–740`（6 行，视图）
+#### `citationBlock` — `10-rich-answer.fragment.js:784–789`（6 行，视图）
 
 ```js
   function citationBlock(row) {
@@ -1549,7 +1566,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `unhelpfulChats 集合` — `10-rich-answer.fragment.js:741–744`（4 行，数据）
+#### `unhelpfulChats 集合` — `10-rich-answer.fragment.js:790–793`（4 行，数据）
 
 ```js
   /** Rows the user marked as unhelpful; mirrored into /api/prefs so a new phone keeps them. */
@@ -1558,7 +1575,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   })();
 ```
 
-#### `markUnhelpful` — `10-rich-answer.fragment.js:745–751`（7 行，数据）
+#### `markUnhelpful` — `10-rich-answer.fragment.js:794–800`（7 行，数据）
 
 ```js
   function markUnhelpful(id) {
@@ -1570,7 +1587,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `regenerateChat` — `10-rich-answer.fragment.js:753–761`（9 行，数据）
+#### `regenerateChat` — `10-rich-answer.fragment.js:802–810`（9 行，数据）
 
 ```js
   async function regenerateChat(id) {
@@ -1584,13 +1601,13 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `chatQuery 搜索词` — `10-rich-answer.fragment.js:762–762`（1 行，数据）
+#### `chatQuery 搜索词` — `10-rich-answer.fragment.js:811–811`（1 行，数据）
 
 ```js
   let chatQuery = "";
 ```
 
-#### `groupChatsByDate` — `10-rich-answer.fragment.js:764–773`（10 行，视图）
+#### `groupChatsByDate` — `10-rich-answer.fragment.js:813–822`（10 行，视图）
 
 ```js
   function groupChatsByDate(rows) {
@@ -1605,7 +1622,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `chatMatches` — `10-rich-answer.fragment.js:774–778`（5 行，视图）
+#### `chatMatches` — `10-rich-answer.fragment.js:823–827`（5 行，视图）
 
 ```js
   function chatMatches(row, query) {
@@ -1615,7 +1632,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `分页常量与流式占位变量` — `10-rich-answer.fragment.js:779–784`（6 行，数据）
+#### `分页常量与流式占位变量` — `10-rich-answer.fragment.js:828–833`（6 行，数据）
 
 ```js
   /** 问答记录分页：默认只渲染最新 30 条，历史长了也不卡。 */
@@ -1626,7 +1643,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   function showEarlierChats() { chatShownCount += CHAT_PAGE_SIZE; renderChat(); }
 ```
 
-#### `chatRowsInScope` — `10-rich-answer.fragment.js:789–793`（5 行，视图）
+#### `chatRowsInScope` — `10-rich-answer.fragment.js:838–842`（5 行，视图）
 
 ```js
   function chatRowsInScope() {
@@ -1636,7 +1653,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `chatDates` — `10-rich-answer.fragment.js:795–802`（8 行，视图）
+#### `chatDates` — `10-rich-answer.fragment.js:844–851`（8 行，视图）
 
 ```js
   function chatDates() {
@@ -1649,13 +1666,13 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `setChatDayFilter` — `10-rich-answer.fragment.js:803–803`（1 行，视图）
+#### `setChatDayFilter` — `10-rich-answer.fragment.js:852–852`（1 行，视图）
 
 ```js
   function setChatDayFilter(date) {chatDayFilter = date || ''; resetChatPaging(); renderChat();}
 ```
 
-#### `stepChatDay` — `10-rich-answer.fragment.js:805–814`（10 行，视图）
+#### `stepChatDay` — `10-rich-answer.fragment.js:854–863`（10 行，视图）
 
 ```js
   function stepChatDay(dir) {
@@ -1670,7 +1687,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `renderChatDayBar` — `10-rich-answer.fragment.js:815–826`（12 行，视图）
+#### `renderChatDayBar` — `10-rich-answer.fragment.js:864–875`（12 行，视图）
 
 ```js
   function renderChatDayBar() {
@@ -1687,7 +1704,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `adoptStreamChatRow` — `10-rich-answer.fragment.js:827–862`（36 行，视图）
+#### `adoptStreamChatRow` — `10-rich-answer.fragment.js:876–911`（36 行，视图）
 
 ```js
   function adoptStreamChatRow(stream, row) {
@@ -1728,7 +1745,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `renderChat` — `10-rich-answer.fragment.js:863–920`（58 行，视图）
+#### `renderChat` — `10-rich-answer.fragment.js:912–969`（58 行，视图）
 
 ```js
   function renderChat() {
@@ -1793,7 +1810,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
 
 ### 3.4 提问入口：图片 → 授权 → 档位路由 → 流式/一次性兜底（10-rich-answer）
 
-#### `上次训练建议的本机缓存键` — `10-rich-answer.fragment.js:921–924`（4 行，数据）
+#### `上次训练建议的本机缓存键` — `10-rich-answer.fragment.js:970–973`（4 行，数据）
 
 ```js
   // ---- 上次训练建议（今天页训练卡的入口行）--------------------------------------------------------
@@ -1802,7 +1819,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   const LAST_TRAINING_KEY = 'qingheng.lastTrainingAdvice';
 ```
 
-#### `readLastTrainingAdvice` — `10-rich-answer.fragment.js:925–931`（7 行，数据）
+#### `readLastTrainingAdvice` — `10-rich-answer.fragment.js:974–980`（7 行，数据）
 
 ```js
   function readLastTrainingAdvice() {
@@ -1814,7 +1831,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `saveLastTrainingAdvice` — `10-rich-answer.fragment.js:932–940`（9 行，数据）
+#### `saveLastTrainingAdvice` — `10-rich-answer.fragment.js:981–989`（9 行，数据）
 
 ```js
   function saveLastTrainingAdvice(question, answer) {
@@ -1828,7 +1845,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `renderLastChat` — `10-rich-answer.fragment.js:942–954`（13 行，视图）
+#### `renderLastChat` — `10-rich-answer.fragment.js:991–1003`（13 行，视图）
 
 ```js
   function renderLastChat() {
@@ -1846,7 +1863,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `「上次训练建议」展开事件` — `10-rich-answer.fragment.js:955–962`（8 行，绑定）
+#### `「上次训练建议」展开事件` — `10-rich-answer.fragment.js:1004–1011`（8 行，绑定）
 
 ```js
   $('#last-chat-open')?.addEventListener('click', () => {
@@ -1859,7 +1876,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   });
 ```
 
-#### `问答图片选择与移除` — `10-rich-answer.fragment.js:986–1006`（21 行，绑定）
+#### `问答图片选择与移除` — `10-rich-answer.fragment.js:1035–1055`（21 行，绑定）
 
 ```js
   }
@@ -1885,7 +1902,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   $('#chat-image-remove').addEventListener('click',()=>{clearChatImage();feedback($('#chat-feedback'),'已移除照片。');});
 ```
 
-#### `拍照回填桥（__qinghengPendingImage / __qinghengImageError）` — `10-rich-answer.fragment.js:1007–1033`（27 行，绑定）
+#### `拍照回填桥（__qinghengPendingImage / __qinghengImageError）` — `10-rich-answer.fragment.js:1056–1082`（27 行，绑定）
 
 ```js
   // Tell the native layer which field opened the camera, so a recovered capture lands in the right place.
@@ -1917,7 +1934,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   window.__qinghengImageError = message => notice(String(message), true);
 ```
 
-#### `sendChat` — `10-rich-answer.fragment.js:1034–1095`（62 行，数据）
+#### `sendChat` — `10-rich-answer.fragment.js:1083–1152`（70 行，数据）
 
 ```js
   async function sendChat() {
@@ -1927,16 +1944,18 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
     if (!question && !chatImage) {feedback(message,'请先写下你的问题，或拍一张照片。',true); $('#chat-question').focus(); return;}
     if (question.length > 2000) {feedback(message,'问题请控制在 2000 字以内。',true); return;}
     // A finished sentence becomes a draft card; local recognition must not require external consent.
-    // Training writes after confirmation, food hands off to the existing estimate form and still
-    // needs a preview + confirmation before writing.
-    if (typeof parseTrainingDraft === 'function') {
-      let draft = parseTrainingDraft(question, activeDate);
+    // parseDraft 覆盖体重/睡眠/步数/饮水/训练五类；餐食用 parseMealDraft 单独兜底。两者都只出草稿，
+    // 写入仍要用户点确认（餐食则走估算预览）。
+    if (typeof parseDraft === 'function' || typeof parseTrainingDraft === 'function') {
+      let draft = typeof parseDraft === 'function' ? parseDraft(question, activeDate) : parseTrainingDraft(question, activeDate);
       if (!draft && typeof parseMealDraft === 'function') draft = parseMealDraft(question, activeDate);
       if (draft) showTrainingDraft(draft); else renderTrainingDraft(null);
     }
     if (!externalConsent()) {feedback(message,'请先到「我的 → 数据与关于」开启外部模型授权。',true); return;}
     if (chatImage && (state.settings.apiConfigured !== true || state.settings.visionEnabled !== true || !state.settings.visionModel)) {feedback(message,'带照片提问需要已启用的视觉模型：DeepSeek 请使用 deepseek-flash，B.AI 请填写其支持图片的模型。',true); return;}
     if (!navigator.onLine) {feedback(message,'当前离线；可先记录数据，联网后再问。',true); return;}
+    // 同一时刻只跑一条 AI 流（见 80-ai-chat 的 claimAiChatStream）：两条会互相覆盖回调。
+    if (typeof claimAiChatStream === 'function' && !claimAiChatStream('chat')) {feedback(message,'另一条 AI 请求还在进行，等它结束后再问。',true); return;}
     syncCalendarDay();
     const submittedImage = chatImage, submittedPhotoMeta = photoMeta(chatPhotoMeta), submittedDate = activeDate;
     button.disabled = true; feedback(message, submittedImage ? '正在上传照片并思考，请稍候…' : '正在思考，请稍候…');
@@ -1974,61 +1993,66 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
       feedback(message, receivedMessage);
       $('#chat-question').value = ''; acceptConsent('chat'); clearChatImage();
       if (liveStream) streamExpandedAnswer={question:stored,answer:withSources,box:liveStream};
-      try {await loadState({quiet:true});} catch {state.chats = [...(Array.isArray(state.chats) ? state.chats : []),{date:localDate(),question:stored,answer:withSources}]; renderChat(); notice('回答已显示，但保存到手机失败，请勿重复提问。',true);}
+      try {await loadState({quiet:true});} catch {
+        // 落库失败也不能让刚显示出来的气泡消失：把它原地接管成历史行，再补一条内存记录。
+        const localRow = {id: 'local-' + Date.now(), date: localDate(), question: stored, answer: withSources};
+        state.chats = [...(Array.isArray(state.chats) ? state.chats : []), localRow];
+        if (liveStream) { try { adoptStreamChatRow(liveStream, localRow); } catch {} liveStream.adopted = true; }
+        notice('回答已显示，但保存到手机失败，请勿重复提问。', true);
+      }
       if (streamExpandedAnswer) streamExpandedAnswer=null;
     } catch (error) {
       if (liveStream) endChatStream(liveStream);
       streamExpandedAnswer=null;
       feedback(message,error.message,true);
-    } finally {if(liveStream)endChatStream(liveStream);button.disabled = false;}
+    } finally {if(liveStream)endChatStream(liveStream);if(typeof releaseAiChatStream === 'function')releaseAiChatStream('chat');button.disabled = false;}
   }
 ```
 
-### 3.5 问答页分段控制器：问答 / 训练建议（72-chat-panels，全文）
+### 3.5 问答页分段控制器（原 72-chat-panels，2026-11-27 并入 80-ai-chat）
 
-#### `整个片段（installChatPanels + apply）` — `72-chat-panels.fragment.js:1–35`（35 行，绑定）
+#### `分段控制器（installChatPanels + apply）` — `80-ai-chat.fragment.js:9–42`（34 行，绑定）
 
 ```js
-/* 问答页分段：问答 / 训练建议（2026-11-17：今日训练建议从今天页迁到问答页）。
-   面板显隐沿用记录页的 .record-panel[hidden] 约定，选择记在 localStorage。 */
-(function () {
-  const KEY = 'qingheng.chatPanel';
-  const panels = () => [...document.querySelectorAll('#view-chat [data-chat-panel].record-panel')];
-  const buttons = () => [...document.querySelectorAll('#chat-tabs [data-chat-panel]')];
-  function apply(panel) {
-    const want = panel === 'training' ? 'training' : 'chat';
-    for (const node of panels()) node.hidden = node.dataset.chatPanel !== want;
-    for (const button of buttons()) {
-      const on = button.dataset.chatPanel === want;
-      button.setAttribute('aria-selected', on ? 'true' : 'false');
-      if (on) button.setAttribute('aria-current', 'page'); else button.removeAttribute('aria-current');
+  /* 问答页分段：问答 / 训练建议（2026-11-17：今日训练建议从今天页迁到问答页）。
+     面板显隐沿用记录页的 .record-panel[hidden] 约定，选择记在 localStorage。 */
+  (function () {
+    const KEY = 'qingheng.chatPanel';
+    const panels = () => [...document.querySelectorAll('#view-chat [data-chat-panel].record-panel')];
+    const buttons = () => [...document.querySelectorAll('#chat-tabs [data-chat-panel]')];
+    function apply(panel) {
+      const want = panel === 'training' ? 'training' : 'chat';
+      for (const node of panels()) node.hidden = node.dataset.chatPanel !== want;
+      for (const button of buttons()) {
+        const on = button.dataset.chatPanel === want;
+        button.setAttribute('aria-selected', on ? 'true' : 'false');
+        if (on) button.setAttribute('aria-current', 'page'); else button.removeAttribute('aria-current');
+      }
     }
-  }
-  function installChatPanels() {
-    const bar = document.querySelector('#chat-tabs');
-    if (!bar || bar.dataset.wired === '1') return;
-    bar.dataset.wired = '1';
-    let saved = 'chat';
-    try { saved = localStorage.getItem(KEY) || 'chat'; } catch (error) { saved = 'chat'; }
-    apply(saved);
-    bar.addEventListener('click', event => {
-      const button = event.target.closest('[data-chat-panel]');
-      if (!button) return;
-      const panel = button.dataset.chatPanel;
-      apply(panel);
-      try { localStorage.setItem(KEY, panel); } catch (error) { /* 隐私模式写不进去就算了 */ }
-      if (panel === 'training' && typeof renderTrainingInsights === 'function') renderTrainingInsights();
-    });
-  }
-  if (typeof window !== 'undefined') window.installChatPanels = installChatPanels;
-  installChatPanels();
-})();
-
+    function installChatPanels() {
+      const bar = document.querySelector('#chat-tabs');
+      if (!bar || bar.dataset.wired === '1') return;
+      bar.dataset.wired = '1';
+      let saved = 'chat';
+      try { saved = localStorage.getItem(KEY) || 'chat'; } catch (error) { saved = 'chat'; }
+      apply(saved);
+      bar.addEventListener('click', event => {
+        const button = event.target.closest('[data-chat-panel]');
+        if (!button) return;
+        const panel = button.dataset.chatPanel;
+        apply(panel);
+        try { localStorage.setItem(KEY, panel); } catch (error) { /* 隐私模式写不进去就算了 */ }
+        if (panel === 'training' && typeof renderTrainingInsights === 'function') renderTrainingInsights();
+      });
+    }
+    if (typeof window !== 'undefined') window.installChatPanels = installChatPanels;
+    installChatPanels();
+  })();
 ```
 
 ### 3.6 今天页行动罗盘：行动条与整日简报（00-head）
 
-#### `daySlot` — `00-head.fragment.js:1250–1257`（8 行，计算）
+#### `daySlot` — `00-head.fragment.js:1252–1259`（8 行，计算）
 
 ```js
   function daySlot(now = new Date()) {
@@ -2041,7 +2065,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `missingMealSlots` — `00-head.fragment.js:1259–1271`（13 行，计算）
+#### `missingMealSlots` — `00-head.fragment.js:1261–1273`（13 行，计算）
 
 ```js
   function missingMealSlots(date, now = new Date()) {
@@ -2059,7 +2083,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `todayActionItems` — `00-head.fragment.js:1279–1292`（14 行，数据）
+#### `todayActionItems` — `00-head.fragment.js:1281–1294`（14 行，数据）
 
 ```js
   function todayActionItems() {
@@ -2078,7 +2102,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `renderTodayAction` — `00-head.fragment.js:1293–1324`（32 行，视图）
+#### `renderTodayAction` — `00-head.fragment.js:1295–1326`（32 行，视图）
 
 ```js
   function renderTodayAction() {
@@ -2115,7 +2139,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `openDayBrief` — `00-head.fragment.js:1326–1374`（49 行，视图）
+#### `openDayBrief` — `00-head.fragment.js:1328–1376`（49 行，视图）
 
 ```js
   function openDayBrief() {
@@ -2169,7 +2193,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `closeDayBrief` — `00-head.fragment.js:1375–1379`（5 行，视图）
+#### `closeDayBrief` — `00-head.fragment.js:1377–1381`（5 行，视图）
 
 ```js
   function closeDayBrief() {
@@ -2179,7 +2203,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `installTodayAction` — `00-head.fragment.js:1381–1399`（19 行，绑定）
+#### `installTodayAction` — `00-head.fragment.js:1383–1401`（19 行，绑定）
 
 ```js
   function installTodayAction() {
@@ -2205,7 +2229,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
 
 ### 3.7 今天页行动条的数据层：1 primary + 2 secondary（60-training-copy）
 
-#### `buildTodayAgenda` — `60-training-copy.fragment.js:645–721`（77 行，计算）
+#### `buildTodayAgenda` — `60-training-copy.fragment.js:653–729`（77 行，计算）
 
 ```js
   function buildTodayAgenda(input) {
@@ -2287,7 +2311,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `todayAgendaState` — `60-training-copy.fragment.js:723–755`（33 行，计算）
+#### `todayAgendaState` — `60-training-copy.fragment.js:731–763`（33 行，计算）
 
 ```js
   function todayAgendaState() {
@@ -2667,12 +2691,11 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-### 3.9 上下文预览：把「将要发送的内容」原样摊开（70-rest）
+### 3.9 上下文预览：把「将要发送的内容」原样摊开（80-ai-chat）
 
-#### `showContextPreview / installContextPreview` — `70-rest.fragment.js:144–162`（19 行，视图）
+#### `showContextPreview / installContextPreview` — `80-ai-chat.fragment.js:44–62`（19 行，视图）
 
 ```js
-  // ---- What would be sent, shown before anything is sent ----------------------------------------
   async function showContextPreview(kind, node, date) {
     if (!node) return;
     if (!window.QinghengAdapter.hasNative()) {node.textContent = '浏览器演示不发送数据到外部模型，因此这里没有可预览的内容。'; return;}
@@ -2686,6 +2709,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
       node.dataset.loaded = date;
     } catch (error) {node.textContent = error.message;}
   }
+
   function installContextPreview(panelId, nodeId, kind) {
     const panel = $('#' + panelId);
     if (!panel) return;
@@ -2695,7 +2719,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
 
 ### 3.10 本地规则引擎 ①：一句话识别成草稿卡（60-training-copy）
 
-#### `renderTrainingDraft` — `60-training-copy.fragment.js:9–24`（16 行，视图）
+#### `renderTrainingDraft` — `60-training-copy.fragment.js:9–28`（20 行，视图）
 
 ```js
   function renderTrainingDraft(draft) {
@@ -2703,20 +2727,24 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
     if (!box) return;
     if (!draft) { box.hidden = true; box.innerHTML = ''; return; }
     const isMeal = draft.kind === 'meal';
+    // 问答框里的一句话可能落在六类记录上，标题跟着品类走（写入仍由 applyDraft 按 kind 分流）。
+    const title = '识别到' + (DRAFT_KINDS[draft.kind] || '记录') + (isMeal || draft.kind === 'training' ? '草稿' : '记录');
     const missing = isMeal
       ? '<p class="fine-print">会带入现有餐食表单；生成估算预览并确认后才会写入，不会直接落库。</p>'
-      : draft.missing.length
-        ? '<p class="fine-print">还缺：' + esc(draft.missing.join('、')) + '。可以先写入，稍后在训练日志里补；也可以点「补充信息」再改这句描述。</p>'
-        : '<p class="fine-print">信息齐全，确认后会写入当天的训练记录。</p>';
+      : draft.kind === 'training'
+        ? draft.missing.length
+          ? '<p class="fine-print">还缺：' + esc(draft.missing.join('、')) + '。可以先写入，稍后在训练日志里补；也可以点「补充信息」再改这句描述。</p>'
+          : '<p class="fine-print">信息齐全，确认后会写入当天的训练记录。</p>'
+        : '<p class="fine-print">确认后会写入当天的记录；写错了可以在卡片上撤销。</p>';
     box.hidden = false;
-    box.innerHTML = `<div class="card training-draft"><div class="card-heading"><h2>${isMeal ? '识别到餐食草稿' : '识别到训练草稿'}</h2><span class="tag">待确认</span></div>`
+    box.innerHTML = `<div class="card training-draft"><div class="card-heading"><h2>${title}</h2><span class="tag">待确认</span></div>`
       + `<p><strong>${esc(draft.date)}</strong> · ${esc(draftSummary(draft))}</p>` + missing
       + `<div class="button-row"><button type="button" class="button primary" data-draft-confirm="1">${isMeal ? '去确认餐食' : '写入记录'}</button>`
       + `<button type="button" class="button subtle" data-draft-cancel="1">取消</button></div></div>`;
   }
 ```
 
-#### `parseDraft` — `60-training-copy.fragment.js:34–117`（84 行，规则）
+#### `parseDraft` — `60-training-copy.fragment.js:38–121`（84 行，规则）
 
 ```js
   function parseDraft(text, baseDate) {
@@ -2805,7 +2833,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `parseTrainingDraft` — `60-training-copy.fragment.js:120–123`（4 行，规则）
+#### `parseTrainingDraft` — `60-training-copy.fragment.js:124–127`（4 行，规则）
 
 ```js
   function parseTrainingDraft(text, baseDate) {
@@ -2814,13 +2842,14 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `parseMealDraft` — `60-training-copy.fragment.js:129–157`（29 行，规则）
+#### `parseMealDraft` — `60-training-copy.fragment.js:133–162`（30 行，规则）
 
 ```js
   function parseMealDraft(text, baseDate) {
     const raw = String(text || '').trim();
     if (!raw) return null;
-    if (/[?？]|吗|什么|怎么|该不该|要不要|建议|打算|计划|准备/.test(raw)) return null;
+    // 提问/咨询句不是记录：「今天吃了鸡胸肉，还要补多少蛋白？」曾被误判成餐食草稿。
+    if (/[?？]|吗|什么|怎么|该不该|要不要|建议|打算|计划|准备|还要|多少|够不够|够吗|超没超|行不行|能不能|可以吗/.test(raw)) return null;
     if (!/(吃了|喝了|吃过|喝过|早餐|早饭|午餐|午饭|晚餐|晚饭|加餐|夜宵|零食)/.test(raw)) return null;
     if (/(训练|卧推|深蹲|硬拉|跑步|体重|称重|睡眠|步数|饮水|kg|公斤)/.test(raw)) return null;
     const pad2 = n => String(n).padStart(2, '0');
@@ -2848,7 +2877,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `draftSummary` — `60-training-copy.fragment.js:159–162`（4 行，文案）
+#### `draftSummary` — `60-training-copy.fragment.js:164–167`（4 行，文案）
 
 ```js
   function draftSummary(draft) {
@@ -2859,14 +2888,14 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
 
 ### 3.11 本地规则引擎 ②：草稿确认后写库（70-rest）
 
-#### `pendingDraft / draftUndo 状态` — `70-rest.fragment.js:2866–2867`（2 行，数据）
+#### `pendingDraft / draftUndo 状态` — `70-rest.fragment.js:2775–2776`（2 行，数据）
 
 ```js
   // ---- Generic draft: recognise -> confirm -> write -> undo ----------------------------------------
   let pendingDraft = null, draftUndo = null;
 ```
 
-#### `showTrainingDraft` — `70-rest.fragment.js:2868–2871`（4 行，视图）
+#### `showTrainingDraft` — `70-rest.fragment.js:2777–2780`（4 行，视图）
 
 ```js
   function showTrainingDraft(draft) {
@@ -2875,7 +2904,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `openMealDraft` — `70-rest.fragment.js:2873–2889`（17 行，视图）
+#### `openMealDraft` — `70-rest.fragment.js:2782–2798`（17 行，视图）
 
 ```js
   function openMealDraft(draft) {
@@ -2897,7 +2926,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `applyDraft` — `70-rest.fragment.js:2894–2913`（20 行，数据）
+#### `applyDraft` — `70-rest.fragment.js:2803–2822`（20 行，数据）
 
 ```js
   async function applyDraft(draft) {
@@ -2924,7 +2953,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
 
 ### 3.12 本地规则引擎 ③：离线建议与体检（60-training-copy）
 
-#### `relaxDayInfoFor` — `60-training-copy.fragment.js:177–216`（40 行，规则）
+#### `relaxDayInfoFor` — `60-training-copy.fragment.js:182–221`（40 行，规则）
 
 ```js
   function relaxDayInfoFor(date) {
@@ -2969,7 +2998,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `dailyCheck` — `60-training-copy.fragment.js:217–322`（106 行，计算）
+#### `dailyCheck` — `60-training-copy.fragment.js:222–327`（106 行，计算）
 
 ```js
   function dailyCheck(input) {
@@ -3080,7 +3109,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `plateauFromWeekly` — `60-training-copy.fragment.js:328–335`（8 行，计算）
+#### `plateauFromWeekly` — `60-training-copy.fragment.js:333–340`（8 行，计算）
 
 ```js
   function plateauFromWeekly(weekly) {
@@ -3093,7 +3122,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `localCoachLine` — `60-training-copy.fragment.js:338–341`（4 行，文案）
+#### `localCoachLine` — `60-training-copy.fragment.js:343–346`（4 行，文案）
 
 ```js
   function localCoachLine(check) {
@@ -3102,7 +3131,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `dietAudit` — `60-training-copy.fragment.js:345–376`（32 行，计算）
+#### `dietAudit` — `60-training-copy.fragment.js:350–381`（32 行，计算）
 
 ```js
   function dietAudit(days) {
@@ -3139,7 +3168,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `weeklyWeightMeans` — `60-training-copy.fragment.js:378–396`（19 行，计算）
+#### `weeklyWeightMeans` — `60-training-copy.fragment.js:383–401`（19 行，计算）
 
 ```js
   function weeklyWeightMeans() {
@@ -3163,7 +3192,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `weekDetailHtml` — `60-training-copy.fragment.js:409–428`（20 行，视图）
+#### `weekDetailHtml` — `60-training-copy.fragment.js:414–433`（20 行，视图）
 
 ```js
   function weekDetailHtml(day, plan) {
@@ -3188,7 +3217,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `renderDailyCheck` — `60-training-copy.fragment.js:431–468`（38 行，视图）
+#### `renderDailyCheck` — `60-training-copy.fragment.js:436–470`（35 行，视图）
 
 ```js
   function renderDailyCheck() {
@@ -3217,11 +3246,8 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
     TODAY_SIGNALS.check = check.verdict || '';
     if (typeof renderTodayAction === 'function') renderTodayAction();
     // 首屏只有一条行动行（#today-action）；体检只报状态，不再各给一条「该做什么」。
-    // except for a missing sleep value, which keeps its direct jump.
-    const sleepMissing = number(habit.sleep) === null;
-    if (sleepMissing) {
-      box.innerHTML += '<div class="check-fix-row"><span>还差</span><a class="check-fix" href="#records" data-focus="habit-sleep">' + iconMarkup('icon-habit-sleep.svg') + '补睡眠</a></div>';
-    }
+    // 2026-11-24：删掉体检里那颗「补睡眠」快捷——睡眠在正下方的小习惯格里就是同一个跳转，
+    // 同一屏两处入口属于重复；"睡眠未记" 已经由睡眠那根 0% 的胶囊说清。
     box.querySelectorAll('.check-fix').forEach(button => {
       button.dataset.goBound = '1';
       button.addEventListener('click', () => {
@@ -3231,7 +3257,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `adviceBusy` — `60-training-copy.fragment.js:1263–1268`（6 行，视图）
+#### `adviceBusy` — `60-training-copy.fragment.js:1369–1374`（6 行，视图）
 
 ```js
   function adviceBusy(container) {
@@ -3242,7 +3268,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `refreshAdvice` — `60-training-copy.fragment.js:1269–1292`（24 行，数据）
+#### `refreshAdvice` — `60-training-copy.fragment.js:1375–1398`（24 行，数据）
 
 ```js
   async function refreshAdvice() {
@@ -3273,7 +3299,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
 
 ### 3.13 本地规则引擎 ④：餐食估算（70-rest）
 
-#### `estimateInputNames` — `70-rest.fragment.js:2024–2030`（7 行，规则）
+#### `estimateInputNames` — `70-rest.fragment.js:1992–1998`（7 行，规则）
 
 ```js
   function estimateInputNames(value) {
@@ -3285,7 +3311,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `localFoodEstimate` — `70-rest.fragment.js:2036–2086`（51 行，计算）
+#### `localFoodEstimate` — `70-rest.fragment.js:2004–2054`（51 行，计算）
 
 ```js
   function localFoodEstimate(value) {
@@ -3343,7 +3369,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
 
 ### 3.14 智能教练 ①：AI 排今天（70-rest）
 
-#### `aiPlanStore` — `70-rest.fragment.js:330–337`（8 行，数据）
+#### `aiPlanStore` — `70-rest.fragment.js:314–321`（8 行，数据）
 
 ```js
   function aiPlanStore(date, value) {
@@ -3356,7 +3382,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `aiPlanSets` — `70-rest.fragment.js:339–344`（6 行，计算）
+#### `aiPlanSets` — `70-rest.fragment.js:323–328`（6 行，计算）
 
 ```js
   function aiPlanSets(item) {
@@ -3367,7 +3393,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `planItemMinutes` — `70-rest.fragment.js:351–359`（9 行，计算）
+#### `planItemMinutes` — `70-rest.fragment.js:335–343`（9 行，计算）
 
 ```js
   function planItemMinutes(item) {
@@ -3381,7 +3407,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `planMinutes` — `70-rest.fragment.js:361–364`（4 行，计算）
+#### `planMinutes` — `70-rest.fragment.js:345–348`（4 行，计算）
 
 ```js
   function planMinutes(items) {
@@ -3390,7 +3416,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `effortSignal` — `70-rest.fragment.js:530–546`（17 行，规则）
+#### `effortSignal` — `70-rest.fragment.js:514–530`（17 行，规则）
 
 ```js
   function effortSignal() {
@@ -3412,7 +3438,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `planWeightFor` — `70-rest.fragment.js:669–684`（16 行，规则）
+#### `planWeightFor` — `70-rest.fragment.js:640–655`（16 行，规则）
 
 ```js
   function planWeightFor(row) {
@@ -3433,7 +3459,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `planItemFromRow` — `70-rest.fragment.js:685–700`（16 行，数据）
+#### `planItemFromRow` — `70-rest.fragment.js:656–672`（17 行，数据）
 
 ```js
   function planItemFromRow(row) {
@@ -3448,13 +3474,14 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
       distanceKm: Number(row.distanceKm) > 0 ? Number(row.distanceKm) : null,
       durationMin: Number(row.durationMin) > 0 ? Number(row.durationMin) : null,
       reason: String(row.reason || "").slice(0, 60),
+      ...(row.note ? {note: String(row.note).slice(0, 60)} : {}),
       source: "ai",
       done: false
     };
   }
 ```
 
-#### `partialPlanRows` — `70-rest.fragment.js:702–730`（29 行，规则）
+#### `partialPlanRows` — `70-rest.fragment.js:674–702`（29 行，规则）
 
 ```js
   function partialPlanRows(text) {
@@ -3488,7 +3515,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `parseAiPlanReply` — `70-rest.fragment.js:732–756`（25 行，规则）
+#### `parseAiPlanReply` — `70-rest.fragment.js:704–728`（25 行，规则）
 
 ```js
   function parseAiPlanReply(reply) {
@@ -3518,7 +3545,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `compilePlanContext` — `70-rest.fragment.js:761–795`（35 行，计算）
+#### `compilePlanContext` — `70-rest.fragment.js:733–767`（35 行，计算）
 
 ```js
   function compilePlanContext(date) {
@@ -3558,7 +3585,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `validatePlanAgainstContext` — `70-rest.fragment.js:800–821`（22 行，校验）
+#### `validatePlanAgainstContext` — `70-rest.fragment.js:772–793`（22 行，校验）
 
 ```js
   function validatePlanAgainstContext(plan, context) {
@@ -3585,12 +3612,17 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `askAiPlan` — `70-rest.fragment.js:822–978`（157 行，数据）
+#### `askAiPlan` — `70-rest.fragment.js:794–975`（182 行，数据）
 
 ```js
   async function askAiPlan(button) {
     if (!button) return;
     if (!externalConsent()) { notice("请先到「我的 → 数据与关于」开启外部模型授权。"); return; }
+    // window.QinghengStream 是单实例：同时再跑一条 AI 请求会互相覆盖，先占位。
+    if (typeof claimAiChatStream === "function" && !claimAiChatStream("plan")) {
+      notice("另一条 AI 请求还在进行，等它结束后再排。");
+      return;
+    }
     button.disabled = true;
     const original = button.textContent;
     button.textContent = "正在排…";
@@ -3706,8 +3738,27 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
       }
       aiPlanStore(activeDate, plan);
       // 教练说明：模型把「为什么不完全照办」写进第一个动作的 note，单独取出来显示。
-      const noteMatch = /"note"\s*:\s*"([^"]{1,60})"/.exec(finalText);
-      writePlanNote(activeDate, noteMatch ? noteMatch[1] : "");
+      // 优先用已解析的行（JSON.parse 已经处理过转义）；取不到再在原文里扫一遍 note 的值，
+      // 手写扫描而不是正则：正则里的引号会被源码切片脚本误当成字符串边界（测试里踩过）。
+      let noteText = plan.map(item => item && item.note).find(Boolean) || "";
+      if (!noteText) {
+        const marker = '"note"';
+        const at = finalText.indexOf(marker);
+        const colon = at >= 0 ? finalText.indexOf(':', at + marker.length) : -1;
+        const open = colon >= 0 ? finalText.indexOf('"', colon) : -1;
+        if (open >= 0) {
+          let out = '', escaped = false;
+          for (let i = open + 1; i < finalText.length && out.length < 120; i += 1) {
+            const ch = finalText.charAt(i);
+            if (escaped) { out += ch; escaped = false; continue; }
+            if (ch === '\\') { escaped = true; continue; }
+            if (ch === '"') break;
+            out += ch;
+          }
+          noteText = out.trim();
+        }
+      }
+      writePlanNote(activeDate, String(noteText || "").slice(0, 60));
       // 清单落库同时把重量记进本地记忆：下次排课同名动作直接按上次表现渐进。
       if (typeof rememberPlanWeights === "function") rememberPlanWeights(plan);
       renderAiPlan();
@@ -3743,11 +3794,12 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
       button.disabled = false;
       button.textContent = original;
       hideBusy();
+      if (typeof releaseAiChatStream === "function") releaseAiChatStream("plan");
     }
   }
 ```
 
-#### `installAiPlan` — `70-rest.fragment.js:979–1001`（23 行，绑定）
+#### `installAiPlan` — `70-rest.fragment.js:976–998`（23 行，绑定）
 
 ```js
   function installAiPlan() {
@@ -3775,7 +3827,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `renderAiPlan` — `70-rest.fragment.js:656–658`（3 行，视图）
+#### `renderAiPlan` — `70-rest.fragment.js:627–629`（3 行，视图）
 
 ```js
   function renderAiPlan() {
@@ -3783,7 +3835,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `syncAiPlanControls` — `70-rest.fragment.js:642–654`（13 行，视图）
+#### `syncAiPlanControls` — `70-rest.fragment.js:613–625`（13 行，视图）
 
 ```js
   function syncAiPlanControls() {
@@ -3803,7 +3855,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
 
 ### 3.15 智能教练 ②：训练建议窗口（问答页第二分段，70-rest）
 
-#### `loadTodayAdvice` — `70-rest.fragment.js:2318–2336`（19 行，数据）
+#### `loadTodayAdvice` — `70-rest.fragment.js:2286–2304`（19 行，数据）
 
 ```js
   async function loadTodayAdvice() {
@@ -3827,7 +3879,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `trainingInsights` — `70-rest.fragment.js:2342–2366`（25 行，计算）
+#### `trainingInsights` — `70-rest.fragment.js:2310–2334`（25 行，计算）
 
 ```js
   function trainingInsights() {
@@ -3857,7 +3909,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `renderTrainingInsights` — `70-rest.fragment.js:2368–2374`（7 行，视图）
+#### `renderTrainingInsights` — `70-rest.fragment.js:2336–2342`（7 行，视图）
 
 ```js
   function renderTrainingInsights() {
@@ -3869,7 +3921,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `installTrainingAdvice` — `70-rest.fragment.js:2377–2444`（68 行，绑定）
+#### `installTrainingAdvice` — `70-rest.fragment.js:2345–2414`（70 行，绑定）
 
 ```js
   function installTrainingAdvice() {
@@ -3889,6 +3941,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
       const question = input.value.trim();
       if (!question) {feedback(feedbackBox, '先写一句要问的训练问题。', true); return;}
       if (!externalConsent()) {feedback(feedbackBox, '请先到「我的 → 数据与关于」开启外部模型授权。', true); return;}
+      if (typeof claimAiChatStream === 'function' && !claimAiChatStream('advice')) {feedback(feedbackBox, '另一条 AI 请求还在进行，等它结束后再问。', true); return;}
       feedback(feedbackBox, '正在生成…');
       const button = form.querySelector('button[type="submit"]');
       if (button) button.disabled = true;
@@ -3937,6 +3990,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
         feedback(feedbackBox, error.message, true);
       } finally {
         if (button) button.disabled = false;
+        if (typeof releaseAiChatStream === 'function') releaseAiChatStream('advice');
       }
     });
   }
@@ -3944,7 +3998,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
 
 ### 3.16 智能教练 ③：训练建议里的可勾选执行清单（60-training-copy）
 
-#### `renderAdviceOrder` — `60-training-copy.fragment.js:784–898`（115 行，视图）
+#### `renderAdviceOrder` — `60-training-copy.fragment.js:792–907`（116 行，视图）
 
 ```js
   function renderAdviceOrder() {
@@ -3995,11 +4049,12 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
           }
           // 本周安排长在「训练」分段里：先切分段，再等卡片真的渲染出来再滚。
           // 原来只 switchTab + 80ms 后 scrollIntoView，记录页此刻还停在饮食分段，滚动打空。
+          // 2026-11-27：#ai-plan 卡片 11-22 已删除，AI 清单直接播进执行区，跳转目标改为 #training-log。
           const wantAi = jump.dataset.todayPlan === "ai";
           switchTab("records", true);
           const jumpToPlan = (attempt = 0) => {
-            if (!wantAi && typeof switchRecordPanel === "function") switchRecordPanel("training");
-            const target = $(wantAi ? "#ai-plan" : "#week-plan-card");
+            if (typeof switchRecordPanel === "function") switchRecordPanel("training");
+            const target = $(wantAi ? "#training-log" : "#week-plan-card");
             if (target) {
               target.scrollIntoView({block: "start", behavior: "smooth"});
               if (typeof flashTarget === "function") flashTarget(target);
@@ -4064,9 +4119,95 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-### 3.17 问答页外围：快捷提问、联网开关、偏好写回（70-rest）
+### 3.17 智能教练 ④：周计划生成后的「教练小结」（1.5.37，60-training-copy）
 
-#### `installChatChips` — `70-rest.fragment.js:2836–2848`（13 行，绑定）
+#### `planDayLabels` — `60-training-copy.fragment.js:1057–1067`（11 行，视图）
+
+```js
+  function planDayLabels(days) {
+    const tpl = name => (typeof TRAINING_TEMPLATES === 'object' && TRAINING_TEMPLATES[name]) || name;
+    const runs = [];
+    for (const day of days || []) {
+      const label = tpl(day.template) + (day.light ? '（轻）' : '');
+      const last = runs[runs.length - 1];
+      if (last && last.label === label) last.count += 1;
+      else runs.push({label, count: 1});
+    }
+    return runs.map(run => run.count > 1 ? `${run.label} ×${run.count}` : run.label).join(' / ');
+  }
+```
+
+#### `planQualityLine` — `60-training-copy.fragment.js:1036–1055`（20 行，视图）
+
+```js
+  function planQualityLine(plan) {
+    if (!plan || !Array.isArray(plan.days) || !plan.days.length) return '';
+    const labels = planDayLabels(plan.days);
+    const counts = plan.days.map(day => (day.exercises || []).length);
+    const span = counts.length && Math.min(...counts) === Math.max(...counts)
+      ? `每次 ${counts[0]} 个动作`
+      : `每次 ${Math.min(...counts)}–${Math.max(...counts)} 个动作`;
+    const cap = plan.days[0]?.weeklySets?.cap || null;
+    const part = family => plan.days.reduce((sum, day) => sum + (day.exercises || [])
+      .filter(item => typeof exerciseBodyPart === 'function' && exerciseBodyPart(item.name) === family)
+      .reduce((inner, item) => inner + (Number(item.sets) || 0), 0), 0);
+    const sets = cap ? ` · 周组数 胸 ${part('push')} / 背 ${part('pull')} / 腿 ${part('legs')}（上限 ${cap}）` : '';
+    // 4 练的推拉腿必然有一类练两次（胸 12 / 背 6 / 腿 6 这种）：把差距说出来，并给出不改动作的解法。
+    const fams = [part('push'), part('pull'), part('legs')];
+    const imbalanced = cap && Math.max(...fams) - Math.min(...fams) >= 6;
+    const approx = plan.days.reduce((n, day) => n + (day.exercises || []).filter(item => item.weightApprox).length, 0);
+    return '<p class="fine-print plan-quality">已生成 ' + plan.days.length + ' 练 · ' + labels + ' · ' + span + sets
+      + (approx ? ' · ' + approx + ' 个动作按体重推算起步' : '')
+      + (imbalanced ? ' · 想练得更匀，可把每周改成 3 或 6 练' : '') + '</p>';
+  }
+```
+
+#### `planWhyBadgeHtml` — `60-training-copy.fragment.js:1072–1084`（13 行，视图）
+
+```js
+  function planWhyBadgeHtml(plan) {
+    const a = (plan && plan.applied) || {};
+    const tpl = n => TRAINING_TEMPLATES[n] || n;
+    const first = plan && plan.days && plan.days[0] ? tpl(plan.days[0].template) : '';
+    const bits = [];
+    if (a.minutes) bits.push(`单次按 ${a.minutes} 分钟排，每次 ${a.moves} 个动作、每组最多 ${a.setCap} 组`);
+    if (a.gear) bits.push(`器械：${PLAN_GEAR_LABELS[a.gear] || a.gear}`);
+    if (first) bits.push(`起始接上一次训练之后：从${first}日开始轮换`);
+    if (Array.isArray(a.bannedWords) && a.bannedWords.length) bits.push(`已按你的要求排除：${a.bannedWords.join('、')}`);
+    if (plan && plan.deload) bits.push('本周判定为减载周：负重 ×0.9、组数 −1');
+    if (!bits.length) return '';
+    return `<details class="plan-why-badge"><summary>为什么这样排？</summary><p>${esc(bits.join('；'))}。</p></details>`;
+  }
+```
+
+#### `showCoachSummary` — `60-training-copy.fragment.js:1093–1112`（20 行，交互）
+
+```js
+  function showCoachSummary(prefs, plan) {
+    const a = (plan && plan.applied) || {};
+    const tpl = n => TRAINING_TEMPLATES[n] || n;
+    const days = (plan && plan.days) || [];
+    const labels = planDayLabels(days);
+    const rows = [];
+    rows.push(`每周 ${prefs.days} 练 → 实际排了 ${days.length} 练：${labels || '—'}`);
+    rows.push(`单次 ${prefs.minutes} 分钟上限 → 每次 ${a.moves || '—'} 个动作、每组最多 ${a.setCap || '—'} 组`);
+    rows.push(`器械：${PLAN_GEAR_LABELS[prefs.gear] || prefs.gear || '综合'}`);
+    const request = String(prefs.request || '').trim();
+    rows.push(request
+      ? `训练要求：${request}${Array.isArray(a.bannedWords) && a.bannedWords.length ? ` → 已排除：${a.bannedWords.join('、')}` : ' → 已读取，没有命中要排除的动作'}`
+      : '训练要求：未填写');
+    const cap = days[0] && days[0].weeklySets ? days[0].weeklySets.cap : null;
+    if (cap) rows.push(`周组数：压在每部位 ${cap} 组上限内`);
+    if (plan && plan.deload) rows.push('负荷判定偏高 → 按减载周排：负重 ×0.9、组数 −1');
+    const bodyHtml = `<ul class="dialog-items coach-summary">${rows.map(row => `<li><span>${esc(row)}</span></li>`).join('')}</ul>`;
+    return askConfirm('这一版是按你刚改的偏好重排的。', {title: '这周这样排', ok: '知道了', cancel: '看详细说明', bodyHtml})
+      .then(ok => ok === false);
+  }
+```
+
+### 3.18 问答页外围：快捷提问、联网开关、按天/焦点（80-ai-chat）
+
+#### `installChatChips` — `80-ai-chat.fragment.js:105–117`（13 行，绑定）
 
 ```js
   function installChatChips() {
@@ -4084,7 +4225,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `联网检索开关 #chat-web` — `70-rest.fragment.js:2855–2865`（11 行，绑定）
+#### `联网检索开关 #chat-web` — `80-ai-chat.fragment.js:119–129`（11 行，绑定）
 
 ```js
   (function(){
@@ -4100,7 +4241,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   })();
 ```
 
-#### `installChatFocusReveal` — `70-rest.fragment.js:1078–1089`（12 行，绑定）
+#### `installChatFocusReveal` — `80-ai-chat.fragment.js:64–75`（12 行，绑定）
 
 ```js
   function installChatFocusReveal() {
@@ -4117,7 +4258,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `installChatDayFilter` — `70-rest.fragment.js:1091–1107`（17 行，绑定）
+#### `installChatDayFilter` — `80-ai-chat.fragment.js:77–93`（17 行，绑定）
 
 ```js
   function installChatDayFilter() {
@@ -4139,7 +4280,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `installChatTaskOrder` — `70-rest.fragment.js:1323–1331`（9 行，绑定）
+#### `installChatTaskOrder` — `80-ai-chat.fragment.js:95–103`（9 行，绑定）
 
 ```js
   function installChatTaskOrder() {
@@ -4153,7 +4294,9 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `偏好编辑器（preferenceMetaText … installPreferences）` — `70-rest.fragment.js:2972–3063`（92 行，绑定）
+### 3.19 偏好写回：问答里的一句话变成长期偏好（70-rest）
+
+#### `偏好编辑器（preferenceMetaText … installPreferences）` — `70-rest.fragment.js:2881–2972`（92 行，绑定）
 
 ```js
   function preferenceMetaText(row) {
@@ -4250,7 +4393,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `addPreferenceFromChat` — `70-rest.fragment.js:3064–3075`（12 行，数据）
+#### `addPreferenceFromChat` — `70-rest.fragment.js:2973–2984`（12 行，数据）
 
 ```js
   function addPreferenceFromChat(record) {
@@ -4267,9 +4410,9 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-### 3.18 本地建议库：注入 Prompt 的知识层（55-training-domain）
+### 3.20 本地建议库：注入 Prompt 的知识层（55-training-domain）
 
-#### `trainingLibrary` — `55-training-domain.fragment.js:862–865`（4 行，数据）
+#### `trainingLibrary` — `55-training-domain.fragment.js:932–935`（4 行，数据）
 
 ```js
   function trainingLibrary() {
@@ -4278,7 +4421,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `libraryRule` — `55-training-domain.fragment.js:867–870`（4 行，数据）
+#### `libraryRule` — `55-training-domain.fragment.js:937–940`（4 行，数据）
 
 ```js
   function libraryRule(id) {
@@ -4287,7 +4430,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `libraryDayTemplate` — `55-training-domain.fragment.js:872–876`（5 行，数据）
+#### `libraryDayTemplate` — `55-training-domain.fragment.js:942–946`（5 行，数据）
 
 ```js
   function libraryDayTemplate(template) {
@@ -4297,7 +4440,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `libraryMoves` — `55-training-domain.fragment.js:878–881`（4 行，数据）
+#### `libraryMoves` — `55-training-domain.fragment.js:948–951`（4 行，数据）
 
 ```js
   function libraryMoves(template) {
@@ -4306,7 +4449,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `librarySourceLabel` — `55-training-domain.fragment.js:883–887`（5 行，文案）
+#### `librarySourceLabel` — `55-training-domain.fragment.js:953–957`（5 行，文案）
 
 ```js
   function librarySourceLabel(sourceId) {
@@ -4316,7 +4459,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `planWhy` — `55-training-domain.fragment.js:890–904`（15 行，文案）
+#### `planWhy` — `55-training-domain.fragment.js:960–974`（15 行，文案）
 
 ```js
   function planWhy(input) {
@@ -4336,7 +4479,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `libraryLookup` — `55-training-domain.fragment.js:906–924`（19 行，计算）
+#### `libraryLookup` — `55-training-domain.fragment.js:976–994`（19 行，计算）
 
 ```js
   function libraryLookup(question, max = 8) {
@@ -4360,7 +4503,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `libraryCues` — `55-training-domain.fragment.js:927–939`（13 行，计算）
+#### `libraryCues` — `55-training-domain.fragment.js:997–1009`（13 行，计算）
 
 ```js
   function libraryCues(template) {
@@ -4378,7 +4521,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `exerciseCore` — `55-training-domain.fragment.js:942–947`（6 行，规则）
+#### `exerciseCore` — `55-training-domain.fragment.js:1012–1017`（6 行，规则）
 
 ```js
   function exerciseCore(name) {
@@ -4389,7 +4532,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `cueTokens` — `55-training-domain.fragment.js:951–964`（14 行，规则）
+#### `cueTokens` — `55-training-domain.fragment.js:1021–1034`（14 行，规则）
 
 ```js
   function cueTokens(name) {
@@ -4408,7 +4551,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `trimCue` — `55-training-domain.fragment.js:967–972`（6 行，计算）
+#### `trimCue` — `55-training-domain.fragment.js:1037–1042`（6 行，计算）
 
 ```js
   function trimCue(text) {
@@ -4419,7 +4562,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `pickCueClause` — `55-training-domain.fragment.js:975–983`（9 行，计算）
+#### `pickCueClause` — `55-training-domain.fragment.js:1045–1053`（9 行，计算）
 
 ```js
   function pickCueClause(text, tokens) {
@@ -4433,7 +4576,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `cueForExercise` — `55-training-domain.fragment.js:993–1053`（61 行，计算）
+#### `cueForExercise` — `55-training-domain.fragment.js:1063–1123`（61 行，计算）
 
 ```js
   function cueForExercise(name, family) {
@@ -4499,7 +4642,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `libraryCuesFor` — `55-training-domain.fragment.js:1056–1077`（22 行，计算）
+#### `libraryCuesFor` — `55-training-domain.fragment.js:1126–1147`（22 行，计算）
 
 ```js
   function libraryCuesFor(day) {
@@ -4526,7 +4669,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `libraryRuleForMetric` — `55-training-domain.fragment.js:1080–1084`（5 行，计算）
+#### `libraryRuleForMetric` — `55-training-domain.fragment.js:1150–1154`（5 行，计算）
 
 ```js
   function libraryRuleForMetric(key) {
@@ -4536,7 +4679,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-#### `librarySummary` — `55-training-domain.fragment.js:1087–1102`（16 行，计算）
+#### `librarySummary` — `55-training-domain.fragment.js:1157–1172`（16 行，计算）
 
 ```js
   function librarySummary(max = 6) {
@@ -4557,7 +4700,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-### 3.19 动作要点：本地讲解（65-exercise-guide）
+### 3.21 动作要点：本地讲解（65-exercise-guide）
 
 #### `normalizeExerciseName` — `65-exercise-guide.fragment.js:292–294`（3 行，规则）
 
@@ -4636,7 +4779,7 @@ AI 排今天/重排今天按钮就挂在这条工具栏上。
   }
 ```
 
-### 3.20 桥接层：native-adapter.js（`/api/*` 的字段白名单与流式事件）
+### 3.22 桥接层：native-adapter.js（`/api/*` 的字段白名单与流式事件）
 
 > 这一层是 WebView 与原生之间的唯一通道。它的字段白名单曾经漏掉 `focus/tier/library`，导致「AI 排今天」的提示词从未到达模型（2026-11-07 事故），所以这里把白名单与两条流式分支完整贴出。
 
@@ -4669,9 +4812,9 @@ const chatNativeBody=(body,image)=>({
 
 ```js
     if(path==='/api/chat') {
-      if(path==='/api/push-history') return {records:[]};
       throw new Error('AI 问答需要已安装的 APK 和你的 API Key；浏览器演示不请求外部模型。');
     }
+    if(path==='/api/notification-test') throw new Error('测试通知需要已安装的 APK。');
 ```
 
 #### `localEstimate —— 无模型时的餐食估算` — `native-adapter.js:178–199`（22 行）
@@ -4679,7 +4822,6 @@ const chatNativeBody=(body,image)=>({
 文本按「食物 + 克数」拆分，套内置 12 条常见食物表；照片在离线时明确拒绝。
 
 ```js
-  function localEstimate(body) {
     if(body?.image)throw new Error('离线不能识别照片。请填写已知食物与克重，或在 APK 配置经验证的视觉模型。');
     const parts=String(body?.text || '').split(/[，,、；;\n+]+/).map(x=>x.trim()).filter(Boolean),items=[];
     if(!parts.length)throw new Error('请填写食物与明确克重，例如：米饭 100g、鸡胸肉 150g。');
@@ -4701,6 +4843,7 @@ const chatNativeBody=(body,image)=>({
   const numeric=value=>value!==null && value!==undefined && value!=='' && Number.isFinite(Number(value))?Number(value):null;
   const mealNutrition=(row,key)=>numeric(row?.[key]) ?? numeric(row?.totals?.[key]);
   function nutritionTotals(meals,key) {
+    if(!meals.length)return {value:null,complete:false};
 ```
 
 #### `localAdvice —— 无模型时的建议（规则引擎）` — `native-adapter.js:209–267`（59 行）
@@ -4708,7 +4851,6 @@ const chatNativeBody=(body,image)=>({
 按当天餐食完整度、蛋白缺口、脂肪区间、热量偏差、14 天体重方向，最多给 6 条动作句；不诊断、不做食物等价换算。
 
 ```js
-  function localAdvice(state,date) {
     date=validDateForAdvice(date)?date:localDate();
     const meals=(Array.isArray(state?.meals)?state.meals:[]).filter(row=>row.date===date);
     const p=effectiveProfileForDate(state,date),messages=[];
@@ -4767,6 +4909,7 @@ const chatNativeBody=(body,image)=>({
   }
   const validDateForAdvice=value=>/^\d{4}-\d{2}-\d{2}$/.test(String(value||''))&&Number.isFinite(Date.parse(`${value}T00:00:00Z`));
   const fmtAdviceNumber=value=>Math.abs(Number(value)-Math.round(Number(value)))<.05?String(Math.round(Number(value))):String(Math.round(Number(value)*10)/10);
+  function buildMarkdown(state) {
 ```
 
 #### `/api/advice 分支 —— useAI 决定「外发」还是「本地规则」` — `native-adapter.js:416–423`（8 行）
@@ -4774,14 +4917,14 @@ const chatNativeBody=(body,image)=>({
 `useAI!==true` 直接 `localAdvice`；`useAI:true` 必须已有 APK + 同意 + 已配置密钥。
 
 ```js
-      if(path==='/api/advice') {
         if(body?.useAI===true) {
           if(!hasNative() || body.allowExternal!==true)throw new Error('AI 建议需要 APK、已配置 API 和本次外发同意。');
           const config=await storageRequest('/api/settings','GET');if(!config.apiConfigured)throw new Error('请先保存所选服务商的 API Key。');
-          return response(await nativeRequest(path,method,{date:body.date,useAI:true,allowExternal:true},options.signal));
-        }
-        return response(localAdvice(await storageRequest('/api/state','GET',undefined,options.signal),body?.date));
-      }
+          // relaxDay 与 preferences 必须原样透传：放松日标记是前端按「今天已记录」算的，
+          // 偏好则是「我的 → 偏好与记忆」的当前值，桥接层丢掉它们会让建议倒退成通用口径。
+          const adviceBody={date:body.date,useAI:true,allowExternal:true,relaxDay:body.relaxDay===true};
+          if(Array.isArray(body?.preferences))adviceBody.preferences=body.preferences;
+          return response(await nativeRequest(path,method,adviceBody,options.signal));
 ```
 
 #### `/api/chat/stream 分支 —— 起流、收 delta/think/done、再写历史` — `native-adapter.js:424–473`（50 行）
@@ -4789,6 +4932,9 @@ const chatNativeBody=(body,image)=>({
 120 秒超时兜底；`logToHistory:false` 的调用（AI 排今天、训练问答）不写问答历史。
 
 ```js
+        }
+        return response(localAdvice(await storageRequest('/api/state','GET',undefined,options.signal),body?.date));
+      }
       if(path==='/api/chat/stream') {
         if(body?.allowExternal!==true)throw new Error('发送问题给外部模型前，请先勾选本次发送同意。');
         if(!hasNative())throw new Error('AI 问答需要已安装的 APK 和你的 API Key。');
@@ -4836,9 +4982,6 @@ const chatNativeBody=(body,image)=>({
         });
         // The save happens here, exactly like the buffered route, so streaming never loses a record.
         // logToHistory:false 的调用（AI 排今天、训练问答）是工具，不是问答，不能塞进问答历史。
-        if(body?.logToHistory!==false) await storageRequest('/api/chatlog','POST',{entry:{date:localDate(),question:image?`［含照片］${question}`.slice(0,2000):question,answer:String(final?.reply||''),sources:final?.webSearch?.sources||[]}}).catch(()=>undefined);
-        return response(final);
-      }
 ```
 
 #### `/api/chat 分支 —— 一次性回答 + 写历史` — `native-adapter.js:474–489`（16 行）
@@ -4846,8 +4989,10 @@ const chatNativeBody=(body,image)=>({
 与流式分支共用 `chatNativeBody` 与同一套历史落库。
 
 ```js
+        if(body?.logToHistory!==false) await storageRequest('/api/chatlog','POST',{entry:{date:localDate(),question:image?`［含照片］${question}`.slice(0,2000):question,answer:String(final?.reply||''),sources:final?.webSearch?.sources||[]}}).catch(()=>undefined);
+        return response(final);
+      }
       if(path==='/api/chat') {
-      if(path==='/api/push-history') return {records:[]};
         if(body?.allowExternal!==true)throw new Error('发送问题给外部模型前，请先勾选本次发送同意。');
         if(!hasNative())throw new Error('AI 问答需要已安装的 APK 和你的 API Key。');
         const question=String(body?.question||'').trim();
@@ -4860,8 +5005,6 @@ const chatNativeBody=(body,image)=>({
         // Machine-internal calls (AI plan, training advice) pass logToHistory:false, so the Q&A
         // history keeps holding only questions the user actually asked in the chat view.
         if(body?.logToHistory!==false) await storageRequest('/api/chatlog','POST',{entry:{date:localDate(),question:image?`［含照片］${question}`.slice(0,2000):question,answer:String(reply?.reply||''),sources:reply?.sources||[]}}).catch(()=>undefined);
-        return response(reply);
-      }
 ```
 
 ## 4. 原生层：Java
@@ -8383,22 +8526,22 @@ public class PushService extends Service {
 
 ## 5. 测试基线
 
-`tests/` 现有 10 个测试文件、合计 2187 个 `check` 调用点（`node tools/test-all.mjs` 全绿才允许提交）。问答与建议集中在 `tests/suite-chat.test.mjs`：12 个分组、299 处 `check` + 22 处裸 `assert`。后者多为「某段代码/某个入口必须已删除或不许再出现」的反向断言，数 0 不代表这组是空的。
+`tests/` 现有 12 个测试文件、合计 2268 个 `check` 调用点（`node tools/test-all.mjs` 全绿才允许提交）。问答与建议集中在 `tests/suite-chat.test.mjs`：12 个分组、301 处 `check` + 31 处裸 `assert`。后者多为「某段代码/某个入口必须已删除或不许再出现」的反向断言，数 0 不代表这组是空的。
 
 | 分组 | 行 | check | assert | 这一组在守什么 |
 |---|---|---|---|---|
 | `advice-actions` | 16–112 | 19 | 0 | 建议的 `actionItems`：白名单 + 去重 + 最多 2 条，只能指向已有表单字段；按钮文案来自本地，不用模型给的字符串 |
 | `advice-contract` | 113–139 | 10 | 0 | 建议输出契约：提示词要求严格 JSON、写清 `verdict`/`actions` 与长度上限，本地再解析并校验 |
 | `advice-targets` | 140–261 | 0 | 9 | 目标口径的静态断言：源码里不得出现写死的 TDEE / 2000 kcal / 医疗免责话术；消息不带列表符号；一日削减不低于性别下限 |
-| `ai-plan-focus` | 262–327 | 28 | 0 | 「AI 排今天」：`focus:"plan"`、不得叠加 fast 档、忙碌层先于任何可能抛错的提示词工作、`finally` 恢复按钮、慢调用要说明在等什么 |
-| `ai-upgrade` | 328–398 | 35 | 0 | 推理模型 thinking 走独立通道（不并入回答）、多查询检索、旧函数签名仍兼容 |
-| `analysis-layer` | 399–546 | 50 | 0 | 本地解析层：训练 / 体重 / 睡眠草稿、评分与饮食审计——把纯函数抽出来在 Node 里直接跑真实输出 |
-| `answer-table` | 547–621 | 9 | 0 | 用模型真实输出的文本跑表格解析器：空格分列表格能渲染、管道表格能渲染、超限退回散文 |
-| `chat-compose` | 622–649 | 9 | 0 | 问答输入区密度：一个提问块、一行横向建议胶囊、输入框比旧的三行块更矮 |
-| `chat-quality` | 650–781 | 77 | 0 | 回答口径：先直接回答、禁止拒答、缺数据跳过而不阻塞、缺数据不当 0；DeepSeek Fetch 拒绝内网与本地地址 |
-| `chat-streaming` | 782–847 | 38 | 0 | 流式契约：SSE 解析、delta/message 两种形状都收、keep-alive 行不报错、流式文本与最终回答一致 |
-| `stream-bubble` | 848–998 | 24 | 0 | 流式气泡行为：气泡与日期行同生、思考块默认隐藏、thinking 不并入回答、采纳后行结构完整 |
-| `web-search` | 999–1024 | 0 | 13 | 反向断言：已删除的检索入口不得复活（BraveSearch / search-settings / web_search / search-form），chatlog 删除与推送历史接线仍在 |
+| `ai-plan-focus` | 262–326 | 28 | 0 | 「AI 排今天」：`focus:"plan"`、不得叠加 fast 档、忙碌层先于任何可能抛错的提示词工作、`finally` 恢复按钮、慢调用要说明在等什么 |
+| `ai-upgrade` | 327–397 | 35 | 0 | 推理模型 thinking 走独立通道（不并入回答）、多查询检索、旧函数签名仍兼容 |
+| `analysis-layer` | 398–552 | 52 | 0 | 本地解析层：训练 / 体重 / 睡眠草稿、评分与饮食审计——把纯函数抽出来在 Node 里直接跑真实输出 |
+| `answer-table` | 553–627 | 9 | 0 | 用模型真实输出的文本跑表格解析器：空格分列表格能渲染、管道表格能渲染、超限退回散文 |
+| `chat-compose` | 628–655 | 9 | 0 | 问答输入区密度：一个提问块、一行横向建议胶囊、输入框比旧的三行块更矮 |
+| `chat-quality` | 656–787 | 77 | 0 | 回答口径：先直接回答、禁止拒答、缺数据跳过而不阻塞、缺数据不当 0；DeepSeek Fetch 拒绝内网与本地地址 |
+| `chat-streaming` | 788–853 | 38 | 0 | 流式契约：SSE 解析、delta/message 两种形状都收、keep-alive 行不报错、流式文本与最终回答一致 |
+| `stream-bubble` | 854–1004 | 24 | 0 | 流式气泡行为：气泡与日期行同生、思考块默认隐藏、thinking 不并入回答、采纳后行结构完整 |
+| `web-search` | 1005–1044 | 0 | 22 | 反向断言：已删除的检索入口不得复活（BraveSearch / search-settings / web_search / search-form），chatlog 删除与推送历史接线仍在 |
 
 ### 5.1 不可破坏的断言（原文摘录，含数字/边界词的那些）
 
@@ -8484,22 +8627,22 @@ public class PushService extends Service {
 
 | DOM id | 谁渲染 | 事件绑定位置 |
 |---|---|---|
-| `#today-action` / `#today-action-more` | `renderTodayAction`（00-head:1293） | `installTodayAction`（00-head:1381） |
-| `#day-brief-sheet` / `#day-brief-*` | `openDayBrief`（00-head:1326） | 同上 |
-| `#advice-content` | `renderAdvice`（10-rich-answer:148）/ `refreshAdvice` 的等待态（60:1269） | `renderAdvice` 内 `dataset.adviceActionWired` 一次性委托 |
-| `#advice-data-preview` | `showContextPreview`（70-rest:145） | `installContextPreview`（70-rest:158） |
-| `#chat-log` | `renderChat`（10-rich-answer:863）/ 流式实时行 | 长按菜单（00-head）、`data-chat-toggle`、`data-chat-more` |
-| `#chat-chips` | `installChatChips`（70-rest:2836） | 同左 |
+| `#today-action` / `#today-action-more` | `renderTodayAction`（00-head:1295） | `installTodayAction`（00-head:1383） |
+| `#day-brief-sheet` / `#day-brief-*` | `openDayBrief`（00-head:1328） | 同上 |
+| `#advice-content` | `renderAdvice`（10-rich-answer:148）/ `refreshAdvice` 的等待态（60:1375） | `renderAdvice` 内 `dataset.adviceActionWired` 一次性委托 |
+| `#advice-data-preview` | `showContextPreview`（80-ai-chat:44） | `installContextPreview`（80-ai-chat:58） |
+| `#chat-log` | `renderChat`（10-rich-answer:912）/ 流式实时行 | 长按菜单（00-head）、`data-chat-toggle`、`data-chat-more` |
+| `#chat-chips` | `installChatChips`（80-ai-chat:105） | 同左 |
 | `#chat-question` / `#chat-send` | index.html | `installChatTaskOrder` 之后由页面持有；提交走 `sendChat` |
-| `#chat-image` / `#chat-gallery` / `#chat-image-remove` | index.html | 10-rich-answer:989–1010 |
-| `#chat-training-draft` | `showTrainingDraft`（70-rest:2868）/ `renderTrainingDraft`（60:9） | 草稿卡按钮（`applyDraft`） |
+| `#chat-image` / `#chat-gallery` / `#chat-image-remove` | index.html | 10-rich-answer:1035–1055 |
+| `#chat-training-draft` | `showTrainingDraft`（70-rest:2777）/ `renderTrainingDraft`（60:9） | 草稿卡按钮（`applyDraft`） |
 | `#chat-mode` | `renderChat` 末尾（按 `apiConfigured` 写一句说明） | 无 |
-| `#chat-day-*` | `renderChatDayBar`（10-rich-answer:815） | `installChatDayFilter`（70-rest:1091） |
-| `#chat-web` / `#chat-web-toggle` | index.html | 70-rest:2855–2865（快照行号） |
-| `#training-advice-answer` / `-chips` / `-form` | `installTrainingAdvice`（70-rest:2377） | 同左 |
-| `#training-advice-insights` | `renderTrainingInsights`（70-rest:2368） | 无（只读） |
-| `#last-chat-open` / `-question` / `-preview` | `renderLastChat`（10-rich-answer:942） | 10-rich-answer:955 |
-| `#ai-plan-ask` / `#ai-plan-*` | `renderAiPlan`（70-rest:656）/ `syncAiPlanControls`（642） | `installAiPlan`（70-rest:979） |
+| `#chat-day-*` | `renderChatDayBar`（10-rich-answer:864） | `installChatDayFilter`（80-ai-chat:77） |
+| `#chat-web` / `#chat-web-toggle` | index.html | 80-ai-chat:119–129（快照行号） |
+| `#training-advice-answer` / `-chips` / `-form` | `installTrainingAdvice`（70-rest:2345） | 同左 |
+| `#training-advice-insights` | `renderTrainingInsights`（70-rest:2336） | 无（只读） |
+| `#last-chat-open` / `-question` / `-preview` | `renderLastChat`（10-rich-answer:991） | 10-rich-answer:1004（展开事件，快照行号） |
+| `#ai-plan-ask` / `#ai-plan-*` | `renderAiPlan`（70-rest:627）/ `syncAiPlanControls`（613） | `installAiPlan`（70-rest:976） |
 | `#settings-form` / `#subpage-model` | index.html + `showProvider`/`refreshSettings`（00-head:875/887） | 00-head:899（服务商切换）、保存按钮 |
 | `#external-consent-row` | index.html | `installExternalConsent`（00-head:861） |
 | `#estimate-form` / `#scale-photo` | index.html | `installPhotoEntry`（70-rest:264）等 |
@@ -8540,4 +8683,4 @@ public class PushService extends Service {
 
 ---
 
-生成脚本：`.tmp/ai-chat-extract/build.mjs`（选段表 `sel.mjs`、括号匹配 `lex.mjs`、快照 `snapshot/`；均为一次性工具，未入库）。行号以本文档所述快照为准；源码改动后重跑 `node .tmp/ai-chat-extract/build.mjs` 即可刷新。
+生成脚本：`.tmp/ai-chat-extract/build.mjs`（选段表 `sel.mjs`、括号匹配 `lex.mjs`、快照 `snapshot/`；均为一次性工具，未入库）。行号以本文档所述快照为准。源码改动后刷新三步：①`node .tmp/ai-chat-extract/snapshot.mjs` 重拍快照 → ②`node .tmp/ai-chat-extract/rebase.mjs` 把写死行号的 `[range]` 段按「整块连续匹配」重定位，产出 `ranges.json` → ③`node .tmp/ai-chat-extract/build.mjs` 重建。函数段按名字定位，改了就自动跟；重定位后仍可跑 `verify-blocks.mjs` 逐字回比。
