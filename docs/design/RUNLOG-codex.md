@@ -2054,3 +2054,11 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 流水线：`assemble-app.ps1` 增加「05 必须紧跟 00」断言；`test-all.mjs` 开头跑架构体检，任一错 exit 1 并提示先 assemble；AGENTS.md 命令清单与 tools/README.md 同步。
 - 验收：`assemble-app.ps1` → 17 fragments / 685,284 chars；`check-architecture.mjs` → PASSED（34 checks / 7 warnings）；`test-all.mjs` → 12 run / 0 failed / 6.2s，2,374 条 PASS。
 - 未做：无在线设备，未装机、未提版本号、未推远端 / 未发 Release（用户本轮只要结构与验证）。改 `.ps1` 时 Edit 工具丢 BOM，导致一次 `IndexOf ... Parameter name: array`（变量莫名 null），已补回 BOM 并把这条写进 AGENTS 陷阱 4。
+### r236 · 2026-11-27 00:55 · 1.5.41（未提版本号）：AI 问答 Phase 1 缺陷修复 + Phase 2a 模块挂牌
+
+- 用户要求：按 `轻衡 AI 问答与智能教练模块架构审视与重构方案.md` 实现优化（Phase 1 止血、Phase 2 收口到 80-89 专属层）。
+- Phase 1（bc58a08）：① `parseMealDraft` 补 7 个提问词（还要/多少/够不够/够吗/超没超/行不行/能不能），「今天吃了鸡胸肉，还要补多少蛋白？」不再弹出餐食草稿；② `sendChat` 改走 `parseDraft`，体重/睡眠/步数/饮水四类记录在问答页也能出草稿卡（`renderTrainingDraft` 标题按 `DRAFT_KINDS` 走）；③ `renderAdviceOrder` 的「用 AI 排今天」跳转从已删除的 `#ai-plan` 改为 `#training-log`，并统一先切训练分段；④ 桥接层删两处不可达的 push-history 死分支，`/api/advice` 补传 `relaxDay` 与 `preferences`；⑤ `sendChat` 落库失败时把实时气泡原地接管成历史行（`adopted`），不再被 finally 抹掉；⑥ AI 排今天的教练说明优先取已解析行的 `note`，取不到再手写扫描原文（不用正则：引号会被源码切片脚本误当字符串边界）。
+- Phase 2a：新增 `80-ai-chat.fragment.js`（80-89 层），合并 `72-chat-panels`，迁入 `showContextPreview` / `installContextPreview` / `installChatChips` / `installChatFocusReveal` / `installChatDayFilter` / `installChatTaskOrder` / `#chat-web` 开关；`installAiChatModule()` 幂等初始化并在 boot 调用；`QH.define('chat', {sendChat, renderChat, askAiPlan, renderTrainingInsights, readLastTrainingAdvice, installAiChatModule, claim/releaseAiChatStream, streamOwner, draftKinds})`；`window.QinghengStream` 单实例问题用 `claimAiChatStream` 在问答/排今天/训练建议三入口互斥，占用时直接提示。
+- 断言：`suite-chat` 新增 5 条「提问句不是餐食草稿」、4 条桥接/接线、5 条模块收口；`suite-food` / `suite-training` 的接线断言同步新实现；`tests/lib/extract.mjs` 支持 async 函数整段切片（原实现从 `function` 起切，async 函数必然编译失败）。
+- 验收：assemble 17 片段；`check-architecture` PASSED（34 checks / 6 warnings，LEGACY 删掉 72-chat-panels）；`test-all` 12/12 全绿。
+- 未做（Phase 2b/2c）：`sendChat` / `renderChat` / 历史分页 / 拍照回填桥仍留在 `10-rich-answer`，`aiPlanStore…installTrainingAdvice` 仍留在 `70-rest`；迁移要同步改 4 个套件里按文件读取的断言，另起一轮做。`docs/ai-chat-module-code-extract.md` 的行号在本轮后再次漂移，需重跑 snapshot→rebase→build。
