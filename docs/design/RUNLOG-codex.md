@@ -1014,8 +1014,8 @@
 - README.md 重写为对外门户：徽章更新到 1.4.09 / 72 测试 / 631 KB / 「源码可见·禁止转售」；新增下载表（版本、包名、SHA-256、签名证书指纹）、展示页与 Release 链接；「作者与许可」段写清允许与禁止各四条；构建命令同步到 1.4.09/409。
 - site/index.html（既有展示网页）更新：期号 1.4.09、安装包 631 KB、测试 72 项、工程表同步、导航与 CTA 加下载按钮（指向 releases/latest）、页脚补作者与 GitHub 地址、许可文案改为「源码公开 · 禁止二次转售」；新增 1.4.06 与 1.4.09 两条设计台账。
 - APP 内补作者与许可：index.html 关于页新增「作者与许可」段（作者 散尘、GitHub 地址、禁止二次转售），页脚补一行作者与仓库链接；70-rest 的关于摘要改为「vX · 作者与许可」。
-- 开源前的清理：删除仓库根散落文件  )counts.pushHistory++；把 docs/design/01-audit.md 与两个 one-off 脚本里的个人邮箱替换为「<已删除>」。仓库不含 .signing、API Key 或健康记录。
-- 断言：	ests/ci-and-versions.test.mjs 新增 3 条（关于页写作者与仓库地址、页面与许可都写「严禁二次转售」、README 保留当前版本、签名指纹与许可），已登记  3-global-changes.md §5.1。
+- 开源前的清理：删除仓库根散落文件 ?)counts.pushHistory++；把 docs/design/01-audit.md 与两个 one-off 脚本里的个人邮箱替换为「<已删除>」。仓库不含 .signing、API Key 或健康记录。
+- 断言：	ests/ci-and-versions.test.mjs 新增 3 条（关于页写作者与仓库地址、页面与许可都写「严禁二次转售」、README 保留当前版本、签名指纹与许可），已登记 ?3-global-changes.md §5.1。
 - 验收：assemble 14 片段；
 ode tools/test-all.mjs 72/72；dev-loop 1.4.09/409 装机成功、smoke 无 JS 错误；design-audit.mjs site/index.html 18/18 PASS；esthetic-audit 仅既有 WARN（卡片阴影 6 处、字号 10 级、token 外硬编码）。
 - 未验证：关于页/页脚在真机上的排版未截图核对（导入链接与新增两行说明只由断言守）。
@@ -1071,7 +1071,7 @@ otifyHealthResult、两个桥方法、/api/health-connect/* 路由、healthConne
 - 断言：	ests/records-panels.test.mjs 新增 1 条——补睡眠胶囊指向 habit-sleep，且该 id 在身体段名单里；登记 §5.1。
 - 验收：assemble 14 片段；test-all 72/72；dev-loop 1.4.13/413 装机成功、smoke 无 JS 错误。
 - 未验证：真机点胶囊的滚动效果未截图（WebView 内容 uiautomator 抓不到坐标）；逻辑上分段切换后输入框可见。
-- APK：dist/qingheng-1.4.13.apk（638176 B，sha256  6df66704b560198d63b1c7422534712da8aefc88b4fb529870c64cc63c63850）。
+- APK：dist/qingheng-1.4.13.apk（638176 B，sha256 ?6df66704b560198d63b1c7422534712da8aefc88b4fb529870c64cc63c63850）。
 
 ## r135 · 2026-11-19 · 1.4.14（审视建议批次 1：数字基线）
 - 性别不再缺省按男性算：computeTargets 的 missing 增加「性别」，只接受 male/female；档案表单性别改 required。
@@ -1164,7 +1164,7 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 审计脚本：营销词统计改为先剥掉 HTML/JS 注释，再把「轻松」移出营销词（轻松记一餐 是产品语气，不是口号）。当前 i-flavor-audit 只剩阴影 42、chip/tag 57 两项 WARN。
 - 协作：并行派了 3 个只读审计子代理（阴影清单、徽章清单、文案/结构键清单），产出写 build/，不碰源码，用于批次 2–4。
 - 验收：test-all 74/74；dev-loop 1.4.22/422 装机成功、smoke 无 JS 错误。
-- APK：dist/qingheng-1.4.22.apk（638173 B，sha256  392b97a436bc5172560c96abc17f80074ec2f4c00f278227e72202a01c7e698）。
+- APK：dist/qingheng-1.4.22.apk（638173 B，sha256 ?392b97a436bc5172560c96abc17f80074ec2f4c00f278227e72202a01c7e698）。
 
 ## r146 · 2026-11-19 · 1.4.23（去 AI 味批次 2 + 审美加法）
 - 协作：3 个只读子代理并行产出 uild/shadow-inventory.md（40 条阴影逐条分类）、uild/chip-inventory.md（57 个 chip/tag 分页清单）、uild/copy-inventory.md（营销词与结构键），均只写 build/，未碰源码。
@@ -1200,7 +1200,7 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 断言：无新增测试（纯版式与文案）；74/74 通过。
 - 验收：dev-loop 1.4.26/426 装机成功、smoke 无 JS 错误。
 - 未验证：中文日期与「换一天」的观感需真机；外机只有 deepseek-flash 一个可用模型，无法做「其他模型」的视觉评审（也无法读图），本轮用版式层级与可量化指标自查。
-- APK：dist/qingheng-1.4.26.apk（638176 B，sha256  b5feb2fc91a59a4b5ab1f5edbf75c8fb14d230c13c125c86a5dbd4debca6f90）。
+- APK：dist/qingheng-1.4.26.apk（638176 B，sha256 ?b5feb2fc91a59a4b5ab1f5edbf75c8fb14d230c13c125c86a5dbd4debca6f90）。
 
 ## r150 · 2026-11-19 · 1.4.27（页边诗笺：苏轼五句）
 - 按用户给的关键词选句：今天·日常 →「人间有味是清欢」；记录·新事 →「且将新火试新茶」；问·认知 →「不识庐山真面目」；人生起伏 →「也无风雨也无晴」（趋势页）；自我·安顿 →「此心安处是吾乡」（我的页）。
@@ -1230,7 +1230,7 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 动效：先写了 CSS 卡片错峰入场，motion.test.mjs 立刻拦下——项目已用 Motion 库按真实 .card 顺序做 6px/28ms/最多 5 张的错峰，CSS 再写一套就是重复。删掉 CSS 动画，保留库的实现；这轮印证「加动效前先确认已有编排」。
 - 验收：test-all 74/74；dev-loop 1.4.30/430 装机成功、smoke 无 JS 错误。
 - 未验证：删标签后的卡片留白、以及 Motion 错峰在真机的手感需截图/实测。
-- APK：dist/qingheng-1.4.30.apk（638176 B，sha256  677d2005a4410aeb5e658bc5d18cd45a7e533d1eed03f1d8ef4fa50a0882876）。
+- APK：dist/qingheng-1.4.30.apk（638176 B，sha256 ?677d2005a4410aeb5e658bc5d18cd45a7e533d1eed03f1d8ef4fa50a0882876）。
 
 ## r154 · 2026-11-19 · 1.4.31（标签口径修正、数字排版收口）
 - 审计口径：chip/tag 从「总数 ≤20」改为「静态装饰 ≤10」；带 id 的动态状态（版本/待记录/皮肤/provider/权限/备份/习惯数）与交互 chip（27 个筛选控件）不再计入。当前静态装饰 2 处，PASS；文档 29 同步改口径。
@@ -2080,3 +2080,16 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - `dev-loop -Version 1.5.42 -SkipBackup`：version sync → assemble + syntax → tests（12/12）→ build + packaging（711 KB，sha256 6ED6A8D0…）→ 装到设备 3cba2bdc（dumpsys 确认 versionName=1.5.42 / versionCode=542）→ smoke `js errors: none`，总 27.7s。
 - 提交 dc40366（5 文件 +7/−7）。
 - 未做：三远端未推、gh-pages 未刷、Release 仍停在 1.5.41 → 装机与发布再次不一致，待发 1.5.42 时一起对齐；问答底稿行号仍待刷新。
+
+### r239 · 2026-11-27 01:05 · 1.5.42：饮食模块 Phase 1 五项修复与口径统一
+
+- 用户：「Phase 1 缺陷修复与口径统一」——① 可信度作用域；② 体检放松日 + 闭合标签；③ 校核保留烹饪方式与用油；④ 目标标签统一 + copy 死代码；⑤ mealWindow 纳入配置同步。
+- ① `10-rich-answer`：把 `INTAKE_CONFIDENCE_KEY` / `intakeConfidence` / `recordIntakeConfidence` / `intakeConfidenceLevelFor` 从 `renderBody()` 内整体移到 `renderBody()` 之前（52 行位移，未改一行逻辑）。`calibratedTdee` 的 `typeof intakeConfidenceLevelFor === 'function'` 现在为真，「低可信日不进平均摄入」真正生效。
+- ② `renderDailyCheck`：先算 `relaxDayInfoFor(activeDate)` 并传 `relax: relaxInfo.relax === true`；体检末尾的隐藏结论块补上 `</div>`（此前 `<div hidden>` 永不闭合）。
+- ③ 校核：预览行新增 `data-method` / `data-oil-included`；`#calibrate-foods` 不再直接覆盖四项营养——食材行按当前整餐用油档位用 `applyOilToItems` 补回油（实测 12.1 g / +109 kcal），混合菜保持「已含油」，未匹配行原样保留并把旧油加回热量，避免「油标记还在、热量却没算油」。
+- ④ `goalLabel` 的 lean 改为「薄肌（线条）」，与 `goalLabelOf` / `GOAL_LABEL` 一致。copy 三函数**未删**：`suite-today` 有 4 条断言直接引用 `copyCandidates` 的排序/去重/空态（用户给的例外条款是「有引用就保留兼容空壳」），只补注释标明 1.5.41 起无 UI 入口。
+- ⑤ `qingheng.mealWindow` 进 `CONFIG_REGISTRY`，`saveMealWindow` 同步 `prefs.mealWindow`，`hydratePrefsFromState` 换机恢复；坏值仍逐项回落 11:20 / 16:30 / 22:00。
+- 测试：新增 `diet-phase1` 组 14 条断言（作用域结构、`calibratedTdee` 真实沙箱剔除 6 个低可信日、放松日接线、结论块闭合、校核补油/不重复加油/未匹配保留、mealWindow 双写与回落、lean 文案、copy 壳）；`suite-today` 的 verdict 断言从「缺 `</div>`」改为闭合版。
+- 验收：assemble 17 片段 694,984 bytes；`check-architecture` 34 checks / 6 warnings PASS；`test-all` 12/12 全绿。
+- 顺带：本文件历史上有 6 个 NUL 字节（5 处 sha256/编号处、1 处括号处），会让工具把 Runlog 判成二进制，已替换为 `?` 占位；内容含义不变。
+- 未做：未装机、未提版本、未推三远端；饮食底稿需按本轮结构重跑（`renderBody` 起点与四个可信度函数位置已变）。

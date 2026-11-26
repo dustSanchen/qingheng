@@ -200,6 +200,8 @@
       snackFrom: clockPattern.test(spec?.snackFrom) ? spec.snackFrom : DEFAULT_MEAL_WINDOW.snackFrom
     };
     try { localStorage.setItem(MEAL_WINDOW_KEY, JSON.stringify(next)); } catch {}
+    // 跟着备份走：换机后三餐划分不回到默认值（CONFIG_REGISTRY 里登记了 mealWindow）。
+    if (typeof schedulePrefsSync === 'function') { try { schedulePrefsSync({mealWindow: next}); } catch {} }
     return next;
   }
   /** `clock` defaults to now. Both thresholds are inclusive lower bounds. */
@@ -922,16 +924,65 @@
     if (!window.QinghengFoods) return;
     try {
       const data = window.QinghengFoods.calibrateDraft({items:readItems(true),notes:[]});
+      let restoredOil = 0, keptMethod = 0;
       data.items.forEach((item,i)=>{
         const row = $$('.estimate-item')[i];
-        for(const key of ['calories','protein','fat','carbs']) $('[data-item-field="'+key+'"]',row).value = item[key];
-        row.dataset.baseGrams = number(item.grams) ?? number($('[data-item-field="grams"]', row)?.value);
+        if (!row) return;
+        // 校核只替换「食材本身的营养」，不接管这一行的烹饪方式与用油：
+        // 1.5.41 之前这里直接覆盖 calories/fat，导致已算进去的烹调用油被清零（油量还挂在 data-oil 上）。
+        const method = String(row.dataset.method || '').slice(0, 8);
+        const wasOilIncluded = row.dataset.oilIncluded === '1';
+        const previousOil = number(row.dataset.oil) || 0;
+        let next = {...item};
+        if (method) { next.method = method; keptMethod += 1; }
+        const matched = !!(item.model && typeof item.model === 'object');
+        if (!matched) {
+          // 没匹配到本地库：营养与油都原样保留，不重算也不清零。
+          next.oilGrams = previousOil;
+          if (wasOilIncluded) next.oilIncluded = true; else delete next.oilIncluded;
+          delete next.oilMethod;
+        } else if (item.model.includesOil === true) {
+          // 混合菜基准里已经含了烹调油：保持「已含油」，不重复加。
+          next.oilGrams = 0;
+          next.oilIncluded = true;
+          delete next.oilMethod;
+        } else if (method) {
+          // 食材行：按当前整餐用油档位补回烹调用油（1 g 油 = 9 kcal，同时计入脂肪）。
+          next.oilGrams = 0;
+          next.oilIncluded = false;
+          delete next.oilMethod;
+          if (typeof applyOilToItems === 'function') {
+            const [oiled] = applyOilToItems([next], typeof estimateOilLevel === 'string' ? estimateOilLevel : 'normal');
+            if (oiled) next = oiled;
+          }
+          if (number(next.oilGrams) > 0) restoredOil += Number(next.oilGrams);
+        } else if (previousOil > 0) {
+          // 食材行但没有烹饪方式：把原来那份额度的油加回被替换掉的营养里，避免「有油标记、热量却没算油」。
+          next.oilGrams = previousOil;
+          next.oilIncluded = true;
+          next.calories = Math.round((number(next.calories) || 0) + previousOil * 9);
+          next.fat = Math.round((((number(next.fat) || 0) + previousOil)) * 10) / 10;
+          restoredOil += previousOil;
+        }
+        for(const key of ['calories','protein','fat','carbs']) {
+          const input = $('[data-item-field="'+key+'"]',row);
+          if (input) input.value = number(next[key]) ?? input.value;
+        }
+        const gramsInput = $('[data-item-field="grams"]', row);
+        if (gramsInput && number(next.grams) !== null) gramsInput.value = number(next.grams);
+        row.dataset.baseGrams = number(next.grams) ?? number(gramsInput?.value);
+        row.dataset.method = method;
+        row.dataset.oil = String(number(next.oilGrams) || 0);
+        if (next.oilIncluded === true) row.dataset.oilIncluded = '1'; else delete row.dataset.oilIncluded;
         for(const key of nutritionKeys) {
           const input = $('[data-item-field="'+key+'"]', row);
           if (input) input.dataset.baseValue = number(input.value);
         }
       });
-      $('#estimate-notes').innerHTML = data.notes.map(note=>`<li>${esc(note)}</li>`).join('');
+      const oilNote = restoredOil > 0
+        ? `已按当前用油档位补回烹调用油 ${fmt(restoredOil,0)} g（已含在热量与脂肪里）。`
+        : keptMethod > 0 ? '已保留每行的烹饪方式；这些做法不计或已含烹调油。' : '';
+      $('#estimate-notes').innerHTML = (oilNote ? `<li>${esc(oilNote)}</li>` : '') + data.notes.map(note=>`<li>${esc(note)}</li>`).join('');
       updatePreviewTotals(); feedback($('#preview-feedback'),'已按本地模型校核。菜品配方、油量和图片估计克重仍需人工确认。');
     } catch(error){feedback($('#preview-feedback'),error.message,true);}
   });
@@ -974,6 +1025,15 @@
       if (Array.isArray(prefs.unhelpfulChats)) localStorage.setItem(CHAT_UNHELPFUL_KEY, JSON.stringify(prefs.unhelpfulChats));
       if (typeof prefs.chatWeb === 'boolean') localStorage.setItem(CHAT_WEB_KEY, prefs.chatWeb ? '1' : '0');
       if (prefs.trainingConsent === true) localStorage.setItem(TRAINING_CONSENT_KEY, '1');
+      // 三餐/加餐划分时刻：随备份恢复，否则换机后回到默认 11:20 / 16:30 / 22:00。
+      if (prefs.mealWindow && typeof prefs.mealWindow === 'object' && !Array.isArray(prefs.mealWindow)) {
+        const saved = prefs.mealWindow;
+        localStorage.setItem(MEAL_WINDOW_KEY, JSON.stringify({
+          lunchFrom: clockPattern.test(saved.lunchFrom) ? saved.lunchFrom : DEFAULT_MEAL_WINDOW.lunchFrom,
+          dinnerFrom: clockPattern.test(saved.dinnerFrom) ? saved.dinnerFrom : DEFAULT_MEAL_WINDOW.dinnerFrom,
+          snackFrom: clockPattern.test(saved.snackFrom) ? saved.snackFrom : DEFAULT_MEAL_WINDOW.snackFrom
+        }));
+      }
     if (Array.isArray(prefs.bodyweightMoves)) {
       localStorage.setItem(BODYWEIGHT_MARK_KEY, JSON.stringify(prefs.bodyweightMoves));
       if (typeof loadUserBodyweightMarks === 'function') loadUserBodyweightMarks();
@@ -1013,6 +1073,12 @@
     {id: 'preferences', read: () => readPreferenceRows(), fromState: prefs => normalizePreferenceEntries(Array.isArray(prefs.preferences) ? prefs.preferences : [], prefs.preferenceMeta)},
     // 用户手工标记的自重动作名：跟着备份走，换机后同名动作仍然按自重处理。
     {id: 'bodyweightMoves', read: () => { try { return JSON.parse(localStorage.getItem(BODYWEIGHT_MARK_KEY) || '[]'); } catch { return []; } }, fromState: prefs => Array.isArray(prefs.bodyweightMoves) ? prefs.bodyweightMoves : []},
+    // 三餐/加餐的划分时刻（11:20 / 16:30 / 22:00 可改）：以前只写 localStorage，换机就丢。
+    {id: 'mealWindow', read: () => readMealWindow(), fromState: prefs => (prefs.mealWindow && typeof prefs.mealWindow === 'object') ? {
+      lunchFrom: clockPattern.test(prefs.mealWindow.lunchFrom) ? prefs.mealWindow.lunchFrom : DEFAULT_MEAL_WINDOW.lunchFrom,
+      dinnerFrom: clockPattern.test(prefs.mealWindow.dinnerFrom) ? prefs.mealWindow.dinnerFrom : DEFAULT_MEAL_WINDOW.dinnerFrom,
+      snackFrom: clockPattern.test(prefs.mealWindow.snackFrom) ? prefs.mealWindow.snackFrom : DEFAULT_MEAL_WINDOW.snackFrom
+    } : null},
   ];
   /** 启动时对齐一次：本地缓存是当前事实，state.prefs 是随备份走的那份；漂移时以本地为准回写。 */
   function verifyConfigSync() {
@@ -1524,7 +1590,8 @@ function applyTrainingVisibility() {
     }
   }
   function goalLabel(goal) {
-    const map = {gain: '增肌', cut: '减脂', recomp: '增肌同时减脂', lean: '薄肌', maintain: '保持身材'};
+    // 与 40-targets 的 goalLabelOf / GOAL_LABEL 保持同一套文案：同一目标在能量卡与目标状态区不能出现两种写法。
+    const map = {gain: '增肌', cut: '减脂', recomp: '增肌同时减脂', lean: '薄肌（线条）', maintain: '保持身材'};
     return map[String(goal || 'recomp')] || '饮食';
   }
 function intakeRangeForDate(date = activeDate, profileOverride = null) {

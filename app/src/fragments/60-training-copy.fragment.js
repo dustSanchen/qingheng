@@ -440,7 +440,9 @@
     const habit = habitRowFor(activeDate) || {};
     const profile = effectiveProfileForDate(activeDate);
     const range = intakeRangeForDate(activeDate);
-    const check = dailyCheck({meals, habit, range,
+    // 放松日是当日免除超标扣分的唯一依据：漏传它会让「本周 1/1 放松日」只在文案里存在。
+    const relaxInfo = typeof relaxDayInfoFor === 'function' ? relaxDayInfoFor(activeDate) : {relax: false};
+    const check = dailyCheck({meals, habit, range, relax: relaxInfo.relax === true,
       proteinMin: number(profile.proteinMin), proteinMax: number(profile.proteinMax),
       fatMin: number(profile.fatMin), fatMax: number(profile.fatMax)});
     if (tag) {
@@ -454,7 +456,7 @@
       return `<div class="check-cap ${level}"><span class="check-cap-name">${esc(item.label)}</span>`
         + `<span class="check-cap-track"><span class="check-cap-fill" style="width:${pct}%"></span></span></div>`;
     }).join('') + '</div>'
-      + '<div hidden>' + `<p class="check-verdict">${esc(check.verdict)}</p>`;
+      + '<div hidden>' + `<p class="check-verdict">${esc(check.verdict)}</p>` + '</div>';
     // 结论不再单独占一行：并进状态胶囊，和热量/宏量提示按优先级轮播。
     TODAY_SIGNALS.check = check.verdict || '';
     if (typeof renderTodayAction === 'function') renderTodayAction();
@@ -1302,6 +1304,11 @@
     // 折叠态标题的常用指标也要跟着数据走，别等用户展开才补。
     if (typeof paintBodyDataHints === 'function') paintBodyDataHints();
   }
+  /**
+   * 复制上一餐的手机端入口在 1.5.41 已随入口预算移除（index.html 里没有 #copy-meal-buttons），
+   * 但这段候选排序 / 去重 / 空态仍被 suite-today 的回归断言直接引用，且快速记录弹窗复用同一套
+   * 「昨天优先 + 同名去重」口径，所以保留实现，只把它标注为无 UI 入口。
+   */
   /** One-tap copies: yesterday's meals first, then the most recent ones. */
   function copyCandidates() {
     const rows = (state.meals || []).filter(row => row && validDate(row.date) && !row.needsDate);
@@ -1329,6 +1336,11 @@
       return `<button type="button" class="button subtle" data-copy-meal="${esc(row.id ?? '')}">${esc(label)}</button>`;
     }).join('') : empty('还没有可复制的餐食记录', '记下一餐后，这里会列出来可直接复制。');
   }
+  /**
+   * 复制一条餐食到当前日（新 id、当前时刻、来源标 quick-copy）。
+   * 注：1.5.41 起没有页面入口（见 renderCopyMeals 的说明），保留它是因为数据层仍需要这一段
+   * 「复制后如何打标」的语义；点击委托也已用可选链兜住。
+   */
   /** Copies one meal to the viewed date with a fresh id; totals and items are carried over as-is. */
   async function copyMeal(id) {
     const source = (state.meals || []).find(row => row && String(row.id ?? '') === String(id));
@@ -1655,7 +1667,7 @@
     // Each row keeps its original estimate as a ratio baseline, so repeated gram edits never accumulate rounding drift.
     // Editing a saved meal keeps its stored nutrition: applying oil again would double-count it.
     const oiledItems = view.editingId ? estimateRawItems : applyOilToItems(estimateRawItems, estimateOilLevel);
-    $('#estimate-items').innerHTML=oiledItems.map(item => `<div class="estimate-item" data-base-grams="${Number(item.grams)}" data-oil="${Number(item.oilGrams)||0}"><div class="estimate-item-head"><label>食物名称<input data-item-field="name" value="${esc(item.name)}" maxlength="120" required></label><div class="estimate-item-actions"><button type="button" class="recalc-item" title="按克重和每 100g 数据重算" aria-label="按克重重算${esc(item.name)}"><span class="inline-icon" aria-hidden="true"><img src="./icon-refresh.svg" alt="" width="17" height="17"></span></button><button type="button" class="remove-item" title="移除这项" aria-label="移除${esc(item.name)}">×</button></div></div>${modelNote(item)}${number(item.oilGrams)>0?`<p class="fine-print estimate-item-oil">${esc(item.oilMethod||item.method||'按克重')} · 用油 ${fmt(item.oilGrams,0)} g，已含在热量与脂肪里。</p>`:''}<div class="form-grid">${fields.map(([key,label]) => `<label>${label}<input data-item-field="${key}" type="number" value="${Number(item[key])}" ${key === 'grams' ? '' : `data-base-value="${Number(item[key])}"`} min="0" max="20000" step="0.01" required></label>`).join('')}</div></div>`).join('');
+    $('#estimate-items').innerHTML=oiledItems.map(item => `<div class="estimate-item" data-base-grams="${Number(item.grams)}" data-oil="${Number(item.oilGrams)||0}" data-method="${esc(item.oilMethod||item.method||'')}"${item.oilIncluded===true?' data-oil-included="1"':''}><div class="estimate-item-head"><label>食物名称<input data-item-field="name" value="${esc(item.name)}" maxlength="120" required></label><div class="estimate-item-actions"><button type="button" class="recalc-item" title="按克重和每 100g 数据重算" aria-label="按克重重算${esc(item.name)}"><span class="inline-icon" aria-hidden="true"><img src="./icon-refresh.svg" alt="" width="17" height="17"></span></button><button type="button" class="remove-item" title="移除这项" aria-label="移除${esc(item.name)}">×</button></div></div>${modelNote(item)}${number(item.oilGrams)>0?`<p class="fine-print estimate-item-oil">${esc(item.oilMethod||item.method||'按克重')} · 用油 ${fmt(item.oilGrams,0)} g，已含在热量与脂肪里。</p>`:''}<div class="form-grid">${fields.map(([key,label]) => `<label>${label}<input data-item-field="${key}" type="number" value="${Number(item[key])}" ${key === 'grams' ? '' : `data-base-value="${Number(item[key])}"`} min="0" max="20000" step="0.01" required></label>`).join('')}</div></div>`).join('');
     $('#estimate-source').textContent=view.editingId?'编辑已保存餐食':`${view.source==='api'?'外部模型':view.localFoodModel?'本地食品库':'本地估算'} · ${view.confidence==='medium'?'中等':'低'}置信度${restored?' · 已恢复未确认草稿':''}`;
     const uncertainty=number(view.uncertaintyPercent) ?? 15;
     draft.uncertaintyPercent=uncertainty; draft.oilGrams=number(view.oilGrams) ?? 0;

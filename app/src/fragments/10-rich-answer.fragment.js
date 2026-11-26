@@ -256,6 +256,58 @@
     if (!body || !ring || !detail || (body.contains(ring) && body.contains(detail))) return;
     body.replaceChildren(ring, detail);
   }
+  /**
+   * 记录可信度（1.4.56 引入，1.4.58 起只存内部）：这个 App 的热量是估的，估的基础是记录全不全。
+   * 用户明确要求「允许误差、不对外展示」——所以不占界面，只给内部两处逻辑用：
+   * 目标校准（低可信度的日子不同权）与 AI 提示（别把估算说成精确值）。
+   */
+  // 可信度缓存键（只存内部；键名走常量，避免裸字面量散落）
+  const INTAKE_CONFIDENCE_KEY = 'qingheng.intakeConfidence';
+  function intakeConfidence(date = activeDate) {
+    const history = Array.isArray(state.meals) ? state.meals : [];
+    const meals = history.filter(row => row && row.date === date && number(row.calories) !== null);
+    if (!meals.length) return {level: 'none', score: 0, reasons: ['今天还没有可用记录'], meals: 0, recordedDays: 0};
+    let score = 100;
+    const reasons = [];
+    if (meals.length < 2) { score -= 25; reasons.push('今天只记了 ' + meals.length + ' 餐'); }
+    const oilTracked = meals.filter(row => number(row.oilGrams) > 0 || row.oilIncluded === true).length;
+    if (oilTracked === 0) { score -= 20; reasons.push('没有一处标了烹调用油'); }
+    else if (oilTracked / meals.length < 0.5) { score -= 20; reasons.push('多数餐没标用油'); }
+    const detailed = meals.filter(row => Array.isArray(row.items) && row.items.length > 0).length;
+    if (detailed / meals.length < 0.5) { score -= 10; reasons.push('有一半餐只有总数、没有逐项'); }
+    let recordedDays = 0;
+    for (let offset = 0; offset < 7; offset++) {
+      const day = typeof shiftDay === 'function' ? shiftDay(date, -offset) : date;
+      if (history.some(row => row && row.date === day && number(row.calories) !== null)) recordedDays += 1;
+    }
+    if (recordedDays <= 2) { score -= 15; reasons.push('近 7 天只记了 ' + recordedDays + ' 天'); }
+    else if (recordedDays <= 4) { score -= 8; reasons.push('近 7 天记了 ' + recordedDays + ' 天'); }
+    score = Math.max(10, Math.min(100, score));
+    // 只记了一餐就没有「一天」可言：无论分数多少都按低可信度处理。
+    const level = meals.length < 2 ? 'low' : score >= 85 ? 'high' : score >= 60 ? 'medium' : 'low';
+    return {level, score, reasons, meals: meals.length, recordedDays};
+  }
+  /** 只写本地缓存，不改界面。上限 60 天，滚动保留。 */
+  function recordIntakeConfidence() {
+    const confidence = intakeConfidence();
+    if (!confidence || confidence.level === 'none') return confidence;
+    try {
+      const map = JSON.parse(localStorage.getItem(INTAKE_CONFIDENCE_KEY) || '{}') || {};
+      map[activeDate] = {level: confidence.level, score: confidence.score, reasons: confidence.reasons.slice(0, 3)};
+      const dates = Object.keys(map).sort();
+      for (const old of dates.slice(0, Math.max(0, dates.length - 60))) delete map[old];
+      localStorage.setItem(INTAKE_CONFIDENCE_KEY, JSON.stringify(map));
+    } catch {}
+    return confidence;
+  }
+  /** 按日期取可信度：当天现算，历史读缓存；取不到时返回 high（不参与扣分）。 */
+  function intakeConfidenceLevelFor(date) {
+    if (date === activeDate) return intakeConfidence(date).level;
+    try {
+      const map = JSON.parse(localStorage.getItem(INTAKE_CONFIDENCE_KEY) || '{}') || {};
+      return (map[date] && map[date].level) || 'high';
+    } catch { return 'high'; }
+  }
   function renderBody() {
     arrangeEnergyCard();
     const count=state.meals.filter(row=>row.date===activeDate).length;
@@ -366,58 +418,6 @@
     if (!parts.length && proteinNow !== null && proteinMinNow !== null && proteinNow >= proteinMinNow) parts.push('蛋白质已达标，剩下的额度分给主食与蔬菜即可。');
     TODAY_SIGNALS.energy = parts.map(text => ({text, tone: /超/.test(text) ? 'warn' : 'info'}));
     renderTodayAction();
-  /**
-   * 记录可信度（1.4.56 引入，1.4.58 起只存内部）：这个 App 的热量是估的，估的基础是记录全不全。
-   * 用户明确要求「允许误差、不对外展示」——所以不占界面，只给内部两处逻辑用：
-   * 目标校准（低可信度的日子不同权）与 AI 提示（别把估算说成精确值）。
-   */
-  // 可信度缓存键（只存内部；键名走常量，避免裸字面量散落）
-  const INTAKE_CONFIDENCE_KEY = 'qingheng.intakeConfidence';
-  function intakeConfidence(date = activeDate) {
-    const history = Array.isArray(state.meals) ? state.meals : [];
-    const meals = history.filter(row => row && row.date === date && number(row.calories) !== null);
-    if (!meals.length) return {level: 'none', score: 0, reasons: ['今天还没有可用记录'], meals: 0, recordedDays: 0};
-    let score = 100;
-    const reasons = [];
-    if (meals.length < 2) { score -= 25; reasons.push('今天只记了 ' + meals.length + ' 餐'); }
-    const oilTracked = meals.filter(row => number(row.oilGrams) > 0 || row.oilIncluded === true).length;
-    if (oilTracked === 0) { score -= 20; reasons.push('没有一处标了烹调用油'); }
-    else if (oilTracked / meals.length < 0.5) { score -= 20; reasons.push('多数餐没标用油'); }
-    const detailed = meals.filter(row => Array.isArray(row.items) && row.items.length > 0).length;
-    if (detailed / meals.length < 0.5) { score -= 10; reasons.push('有一半餐只有总数、没有逐项'); }
-    let recordedDays = 0;
-    for (let offset = 0; offset < 7; offset++) {
-      const day = typeof shiftDay === 'function' ? shiftDay(date, -offset) : date;
-      if (history.some(row => row && row.date === day && number(row.calories) !== null)) recordedDays += 1;
-    }
-    if (recordedDays <= 2) { score -= 15; reasons.push('近 7 天只记了 ' + recordedDays + ' 天'); }
-    else if (recordedDays <= 4) { score -= 8; reasons.push('近 7 天记了 ' + recordedDays + ' 天'); }
-    score = Math.max(10, Math.min(100, score));
-    // 只记了一餐就没有「一天」可言：无论分数多少都按低可信度处理。
-    const level = meals.length < 2 ? 'low' : score >= 85 ? 'high' : score >= 60 ? 'medium' : 'low';
-    return {level, score, reasons, meals: meals.length, recordedDays};
-  }
-  /** 只写本地缓存，不改界面。上限 60 天，滚动保留。 */
-  function recordIntakeConfidence() {
-    const confidence = intakeConfidence();
-    if (!confidence || confidence.level === 'none') return confidence;
-    try {
-      const map = JSON.parse(localStorage.getItem(INTAKE_CONFIDENCE_KEY) || '{}') || {};
-      map[activeDate] = {level: confidence.level, score: confidence.score, reasons: confidence.reasons.slice(0, 3)};
-      const dates = Object.keys(map).sort();
-      for (const old of dates.slice(0, Math.max(0, dates.length - 60))) delete map[old];
-      localStorage.setItem(INTAKE_CONFIDENCE_KEY, JSON.stringify(map));
-    } catch {}
-    return confidence;
-  }
-  /** 按日期取可信度：当天现算，历史读缓存；取不到时返回 high（不参与扣分）。 */
-  function intakeConfidenceLevelFor(date) {
-    if (date === activeDate) return intakeConfidence(date).level;
-    try {
-      const map = JSON.parse(localStorage.getItem(INTAKE_CONFIDENCE_KEY) || '{}') || {};
-      return (map[date] && map[date].level) || 'high';
-    } catch { return 'high'; }
-  }
     // 宏量改成三枚胶囊卡：数值、目标、余量都在同一枚里（2026-11-22 第六轮）。
     $('#macro-summary').innerHTML = [['protein','蛋白质',p.proteinMin,p.proteinMax],['fat','脂肪',p.fatMin,p.fatMax],['carbs','碳水',null,carbCap(p, range)]].map(([key,label,min,max]) => {
       const value = totals[key], capValue = number(max);

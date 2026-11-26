@@ -53,7 +53,7 @@ check('adding a photo still lives on the meal card', html.includes('id="photo-ad
 
 // --- 3. 体检只有一行点评 -----------------------------------------------------------------------------
 check('the second line is gone', !app.includes('check-action') && !css.includes('.check-action'));
-check('the verdict is one paragraph', app.includes('+ `<p class="check-verdict">${esc(check.verdict)}</p>`;'));
+check('the verdict is one paragraph', app.includes('+ `<p class="check-verdict">${esc(check.verdict)}</p>` + \'</div>\';'));
 const checkSource = grab('const DAILY_CHECK_WEIGHTS', ['function relaxDayInfoFor'])
   + grab('function dailyCheck(', ['function plateauFromWeekly'])
   + 'return {dailyCheck};';

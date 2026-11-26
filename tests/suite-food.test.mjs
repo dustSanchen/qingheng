@@ -409,6 +409,147 @@ check('the calorie number is no longer prefixed with ≈', !app.includes("(confi
 ;return typeof fail === 'number' ? fail : 0;
 });
 
+await __run("diet-phase1", async () => {
+/**
+ * 饮食 Phase 1 修复的回归（2026-11-27）：
+ * ① 记录可信度四声明必须在模块作用域，否则 calibratedTdee 的 typeof 守卫恒为假、低可信日不会被剔除；
+ * ② renderDailyCheck 必须把放松日状态传进 dailyCheck，并闭合隐藏结论块；
+ * ③ 按食品模型校核时保留烹饪方式与已算用油；
+ * ④ mealWindow 随备份同步；
+ * ⑤ goalLabel 的薄肌文案与 40-targets 一致。
+ */
+let fail = 0;
+const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + label + (detail === undefined ? '' : '  -> ' + detail)); if (!ok) fail++; };
+
+const app = fs.readFileSync('app/src/main/assets/app.js', 'utf8');
+const head = fs.readFileSync('app/src/fragments/00-head.fragment.js', 'utf8');
+const rich = fs.readFileSync('app/src/fragments/10-rich-answer.fragment.js', 'utf8');
+const content = fs.readFileSync('app/src/fragments/60-training-copy.fragment.js', 'utf8');
+const targets = fs.readFileSync('app/src/fragments/40-targets.fragment.js', 'utf8');
+
+// --- 1. 作用域：四个声明不在 renderBody 里，且在它之前 ---
+const bodyStart = app.indexOf('  function renderBody() {');
+const bodyEnd = app.indexOf('  function renderTodayPeek(', bodyStart);
+if (bodyStart < 0 || bodyEnd < 0) throw new Error('renderBody boundaries not found');
+const body = app.slice(bodyStart, bodyEnd);
+check('confidence helpers are no longer nested inside renderBody',
+  !body.includes('function intakeConfidence(') && !body.includes('function intakeConfidenceLevelFor(') &&
+  !body.includes('function recordIntakeConfidence(') && !body.includes('INTAKE_CONFIDENCE_KEY'),
+  'renderBody=' + body.length + ' chars');
+check('confidence helpers sit at module scope before renderBody',
+  rich.indexOf('  function intakeConfidenceLevelFor(') > 0 &&
+  rich.indexOf('  function intakeConfidenceLevelFor(') < rich.indexOf('  function renderBody()'));
+
+// --- 2. 行为：calibratedTdee 用缓存等级剔除低可信日（真实函数 + vm） ---
+const pick = (name) => {
+  const start = app.indexOf('  function ' + name + '(');
+  if (start < 0) throw new Error('missing function ' + name);
+  let end = app.indexOf('\n  }', start);
+  while (end >= 0) {
+    try { new Function(app.slice(start, end + 4)); return app.slice(start, end + 4); } catch { end = app.indexOf('\n  }', end + 4); }
+  }
+  throw new Error('unterminated function ' + name);
+};
+const store = new Map();
+const storage = {getItem: k => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: k => store.delete(k)};
+const days = [];
+for (let i = 0; i < 20; i++) days.push(new Date(Date.parse('2026-11-01T00:00:00Z') + i * 86400000).toISOString().slice(0, 10));
+const meal = date => ({date, calories: 600, protein: 40, fat: 20, carbs: 60, oilGrams: 8, oilIncluded: true, items: [{name: '米饭', grams: 180}]});
+const lowDays = new Set(days.slice(7, 13));
+store.set('qingheng.intakeConfidence', JSON.stringify(Object.fromEntries(days.map(d => [d, {level: lowDays.has(d) ? 'low' : 'high'}]))));
+const sandbox = {
+  state: {meals: days.flatMap(d => [meal(d), meal(d), meal(d)]), measurements: [{date: days[0], weight: 60}, {date: days[days.length - 1], weight: 60}]},
+  activeDate: '2026-12-31',
+  number: v => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v)),
+  validDate: d => /^\d{4}-\d{2}-\d{2}$/.test(String(d)),
+  shiftDay: (date, offset) => new Date(Date.parse(date + 'T00:00:00Z') + offset * 86400000).toISOString().slice(0, 10),
+  localStorage: storage, Date, Math, Array, Object, Number, String, JSON, Map, Set,
+};
+vm.createContext(sandbox);
+vm.runInContext(
+  "const INTAKE_CONFIDENCE_KEY = 'qingheng.intakeConfidence';\n"
+  + pick('intakeConfidence') + '\n' + pick('recordIntakeConfidence') + '\n' + pick('intakeConfidenceLevelFor') + '\n' + pick('calibratedTdee')
+  + '\nthis.run = () => calibratedTdee(21);', sandbox);
+const calibrated = sandbox.run();
+check('calibration drops the low-confidence days',
+  calibrated.ok === true && calibrated.days === 14 && calibrated.skippedDays === 6,
+  JSON.stringify({ok: calibrated.ok, days: calibrated.days, skipped: calibrated.skippedDays, reason: calibrated.reason}));
+
+// --- 3. 放松日接线 + 隐藏结论块闭合 ---
+const dailyStart = app.indexOf('  function renderDailyCheck() {');
+const dailyEnd = app.indexOf('  function planPrefs(', dailyStart);
+if (dailyStart < 0 || dailyEnd < 0) throw new Error('renderDailyCheck boundaries not found');
+const daily = app.slice(dailyStart, dailyEnd);
+check('the day check receives the relax flag',
+  daily.includes('relaxDayInfoFor(activeDate)') && daily.includes('relax: relaxInfo.relax === true'));
+check('the hidden verdict block is closed', /check\.verdict\)\}<\/p>` \+ '<\/div>'/.test(daily));
+
+// --- 4. 校核保留烹饪方式与用油 ---
+check('calibration keeps the row cooking method', /row\.dataset\.method/.test(app) && /data-method="\$\{esc\(item\.oilMethod\|\|item\.method\|\|''\)\}"/.test(app));
+check('calibration re-applies oil for ingredient rows', app.includes('applyOilToItems([next]'));
+check('calibration leaves unmatched rows and their oil alone',
+  app.includes('const matched = !!(item.model && typeof item.model === \'object\')') && app.includes('if (!matched) {')
+  && app.includes('next.calories = Math.round((number(next.calories) || 0) + previousOil * 9)'));
+
+// --- 5. mealWindow 随备份 ---
+check('the meal window is registered for pref sync',
+  app.includes("{id: 'mealWindow'") && app.includes('schedulePrefsSync({mealWindow: next})')
+  && app.includes('prefs.mealWindow && typeof prefs.mealWindow === \'object\'')
+  && app.includes('localStorage.setItem(MEAL_WINDOW_KEY, JSON.stringify({'));
+
+// --- 6. 目标文案统一 + 复制壳 ---
+check('lean label agrees between modules',
+  /function goalLabel\(goal\)[\s\S]{0,240}lean: '薄肌（线条）'/.test(head) && /lean: '薄肌（线条）'/.test(targets));
+check('copy list has no container but keeps compatible names',
+  !fs.readFileSync('app/src/main/assets/index.html', 'utf8').includes('id="copy-meal-buttons"')
+  && /function copyCandidates\(\)/.test(content) && /function renderCopyMeals\(\)/.test(content) && /async function copyMeal\(/.test(content));
+
+// --- 7. 行为：食材行按当前用油档位补回烹调用油（校核不再清零） ---
+const lineOf = (name) => {
+  const at = app.indexOf('const ' + name + ' = ');
+  if (at < 0) throw new Error('missing const ' + name);
+  return app.slice(at, app.indexOf('\n', at));
+};
+const oilSandbox = {number: v => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v)), String, Object, Math, Array};
+vm.createContext(oilSandbox);
+vm.runInContext(
+  lineOf('OIL_METHOD_FACTORS') + '\n' + lineOf('OIL_LEVELS') + '\n' + lineOf('PACKAGED_METHODS') + '\n' + lineOf('PACKAGED_NAME_HINTS') + '\n'
+  + pick('isPackagedFood') + '\n' + pick('oilRuleFor') + '\n' + pick('applyOilToItems')
+  + '\nthis.oil = (items, level) => applyOilToItems(items, level);', oilSandbox);
+const [oiled] = oilSandbox.oil([{name: '鸡胸肉', grams: 150, calories: 180, protein: 34, fat: 4, carbs: 0, method: '炒'}], 'normal');
+check('ingredient rows get cooking oil back after calibration',
+  oiled.oilGrams > 0 && oiled.calories === 180 + Math.round(oiled.oilGrams * 9) && oiled.fat > 4,
+  JSON.stringify({oil: oiled.oilGrams, kcal: oiled.calories, fat: oiled.fat}));
+const [dish] = oilSandbox.oil([{name: '宫保鸡丁', grams: 200, calories: 370, protein: 30, fat: 22, carbs: 14, method: '炒', oilIncluded: true}], 'normal');
+check('dishes that already include oil are not double-oiled', dish.oilGrams === undefined || dish.calories === 370);
+
+// --- 8. 行为：saveMealWindow 同时写本地缓存与 prefs ---
+const winStore = new Map();
+const patches = [];
+const winSandbox = {
+  localStorage: {getItem: k => (winStore.has(k) ? winStore.get(k) : null), setItem: (k, v) => winStore.set(k, String(v))},
+  schedulePrefsSync: patch => patches.push(patch),
+  JSON, String, Number, Object, Math, Array,
+};
+vm.createContext(winSandbox);
+vm.runInContext(
+  lineOf('clockPattern') + '\n' + lineOf('MEAL_WINDOW_KEY') + '\n' + lineOf('DEFAULT_MEAL_WINDOW') + '\n'
+  + pick('readMealWindow') + '\n' + pick('saveMealWindow')
+  + '\nthis.save = saveMealWindow; this.read = readMealWindow;', winSandbox);
+const savedWindow = winSandbox.save({lunchFrom: '10:30', dinnerFrom: '16:00', snackFrom: '21:30'});
+check('saving the meal window writes both the cache and prefs',
+  savedWindow.lunchFrom === '10:30'
+  && JSON.parse(winStore.get('qingheng.mealWindow')).snackFrom === '21:30'
+  && patches.some(p => p.mealWindow && p.mealWindow.dinnerFrom === '16:00'),
+  JSON.stringify({patches, stored: winStore.get('qingheng.mealWindow')}));
+const fallbackWindow = winSandbox.save({lunchFrom: '99:99', dinnerFrom: '', snackFrom: undefined});
+check('a malformed meal window falls back to the defaults',
+  fallbackWindow.lunchFrom === '11:20' && fallbackWindow.dinnerFrom === '16:30' && fallbackWindow.snackFrom === '22:00',
+  JSON.stringify(fallbackWindow));
+
+;return typeof fail === 'number' ? fail : 0;
+});
+
 await __run("local-food-estimate", async () => {
 /**
  * Local-food pre-pass: exact USDA-backed foods with explicit grams finish without a model.

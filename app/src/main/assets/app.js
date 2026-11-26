@@ -200,6 +200,8 @@
       snackFrom: clockPattern.test(spec?.snackFrom) ? spec.snackFrom : DEFAULT_MEAL_WINDOW.snackFrom
     };
     try { localStorage.setItem(MEAL_WINDOW_KEY, JSON.stringify(next)); } catch {}
+    // 跟着备份走：换机后三餐划分不回到默认值（CONFIG_REGISTRY 里登记了 mealWindow）。
+    if (typeof schedulePrefsSync === 'function') { try { schedulePrefsSync({mealWindow: next}); } catch {} }
     return next;
   }
   /** `clock` defaults to now. Both thresholds are inclusive lower bounds. */
@@ -922,16 +924,65 @@
     if (!window.QinghengFoods) return;
     try {
       const data = window.QinghengFoods.calibrateDraft({items:readItems(true),notes:[]});
+      let restoredOil = 0, keptMethod = 0;
       data.items.forEach((item,i)=>{
         const row = $$('.estimate-item')[i];
-        for(const key of ['calories','protein','fat','carbs']) $('[data-item-field="'+key+'"]',row).value = item[key];
-        row.dataset.baseGrams = number(item.grams) ?? number($('[data-item-field="grams"]', row)?.value);
+        if (!row) return;
+        // 校核只替换「食材本身的营养」，不接管这一行的烹饪方式与用油：
+        // 1.5.41 之前这里直接覆盖 calories/fat，导致已算进去的烹调用油被清零（油量还挂在 data-oil 上）。
+        const method = String(row.dataset.method || '').slice(0, 8);
+        const wasOilIncluded = row.dataset.oilIncluded === '1';
+        const previousOil = number(row.dataset.oil) || 0;
+        let next = {...item};
+        if (method) { next.method = method; keptMethod += 1; }
+        const matched = !!(item.model && typeof item.model === 'object');
+        if (!matched) {
+          // 没匹配到本地库：营养与油都原样保留，不重算也不清零。
+          next.oilGrams = previousOil;
+          if (wasOilIncluded) next.oilIncluded = true; else delete next.oilIncluded;
+          delete next.oilMethod;
+        } else if (item.model.includesOil === true) {
+          // 混合菜基准里已经含了烹调油：保持「已含油」，不重复加。
+          next.oilGrams = 0;
+          next.oilIncluded = true;
+          delete next.oilMethod;
+        } else if (method) {
+          // 食材行：按当前整餐用油档位补回烹调用油（1 g 油 = 9 kcal，同时计入脂肪）。
+          next.oilGrams = 0;
+          next.oilIncluded = false;
+          delete next.oilMethod;
+          if (typeof applyOilToItems === 'function') {
+            const [oiled] = applyOilToItems([next], typeof estimateOilLevel === 'string' ? estimateOilLevel : 'normal');
+            if (oiled) next = oiled;
+          }
+          if (number(next.oilGrams) > 0) restoredOil += Number(next.oilGrams);
+        } else if (previousOil > 0) {
+          // 食材行但没有烹饪方式：把原来那份额度的油加回被替换掉的营养里，避免「有油标记、热量却没算油」。
+          next.oilGrams = previousOil;
+          next.oilIncluded = true;
+          next.calories = Math.round((number(next.calories) || 0) + previousOil * 9);
+          next.fat = Math.round((((number(next.fat) || 0) + previousOil)) * 10) / 10;
+          restoredOil += previousOil;
+        }
+        for(const key of ['calories','protein','fat','carbs']) {
+          const input = $('[data-item-field="'+key+'"]',row);
+          if (input) input.value = number(next[key]) ?? input.value;
+        }
+        const gramsInput = $('[data-item-field="grams"]', row);
+        if (gramsInput && number(next.grams) !== null) gramsInput.value = number(next.grams);
+        row.dataset.baseGrams = number(next.grams) ?? number(gramsInput?.value);
+        row.dataset.method = method;
+        row.dataset.oil = String(number(next.oilGrams) || 0);
+        if (next.oilIncluded === true) row.dataset.oilIncluded = '1'; else delete row.dataset.oilIncluded;
         for(const key of nutritionKeys) {
           const input = $('[data-item-field="'+key+'"]', row);
           if (input) input.dataset.baseValue = number(input.value);
         }
       });
-      $('#estimate-notes').innerHTML = data.notes.map(note=>`<li>${esc(note)}</li>`).join('');
+      const oilNote = restoredOil > 0
+        ? `已按当前用油档位补回烹调用油 ${fmt(restoredOil,0)} g（已含在热量与脂肪里）。`
+        : keptMethod > 0 ? '已保留每行的烹饪方式；这些做法不计或已含烹调油。' : '';
+      $('#estimate-notes').innerHTML = (oilNote ? `<li>${esc(oilNote)}</li>` : '') + data.notes.map(note=>`<li>${esc(note)}</li>`).join('');
       updatePreviewTotals(); feedback($('#preview-feedback'),'已按本地模型校核。菜品配方、油量和图片估计克重仍需人工确认。');
     } catch(error){feedback($('#preview-feedback'),error.message,true);}
   });
@@ -974,6 +1025,15 @@
       if (Array.isArray(prefs.unhelpfulChats)) localStorage.setItem(CHAT_UNHELPFUL_KEY, JSON.stringify(prefs.unhelpfulChats));
       if (typeof prefs.chatWeb === 'boolean') localStorage.setItem(CHAT_WEB_KEY, prefs.chatWeb ? '1' : '0');
       if (prefs.trainingConsent === true) localStorage.setItem(TRAINING_CONSENT_KEY, '1');
+      // 三餐/加餐划分时刻：随备份恢复，否则换机后回到默认 11:20 / 16:30 / 22:00。
+      if (prefs.mealWindow && typeof prefs.mealWindow === 'object' && !Array.isArray(prefs.mealWindow)) {
+        const saved = prefs.mealWindow;
+        localStorage.setItem(MEAL_WINDOW_KEY, JSON.stringify({
+          lunchFrom: clockPattern.test(saved.lunchFrom) ? saved.lunchFrom : DEFAULT_MEAL_WINDOW.lunchFrom,
+          dinnerFrom: clockPattern.test(saved.dinnerFrom) ? saved.dinnerFrom : DEFAULT_MEAL_WINDOW.dinnerFrom,
+          snackFrom: clockPattern.test(saved.snackFrom) ? saved.snackFrom : DEFAULT_MEAL_WINDOW.snackFrom
+        }));
+      }
     if (Array.isArray(prefs.bodyweightMoves)) {
       localStorage.setItem(BODYWEIGHT_MARK_KEY, JSON.stringify(prefs.bodyweightMoves));
       if (typeof loadUserBodyweightMarks === 'function') loadUserBodyweightMarks();
@@ -1013,6 +1073,12 @@
     {id: 'preferences', read: () => readPreferenceRows(), fromState: prefs => normalizePreferenceEntries(Array.isArray(prefs.preferences) ? prefs.preferences : [], prefs.preferenceMeta)},
     // 用户手工标记的自重动作名：跟着备份走，换机后同名动作仍然按自重处理。
     {id: 'bodyweightMoves', read: () => { try { return JSON.parse(localStorage.getItem(BODYWEIGHT_MARK_KEY) || '[]'); } catch { return []; } }, fromState: prefs => Array.isArray(prefs.bodyweightMoves) ? prefs.bodyweightMoves : []},
+    // 三餐/加餐的划分时刻（11:20 / 16:30 / 22:00 可改）：以前只写 localStorage，换机就丢。
+    {id: 'mealWindow', read: () => readMealWindow(), fromState: prefs => (prefs.mealWindow && typeof prefs.mealWindow === 'object') ? {
+      lunchFrom: clockPattern.test(prefs.mealWindow.lunchFrom) ? prefs.mealWindow.lunchFrom : DEFAULT_MEAL_WINDOW.lunchFrom,
+      dinnerFrom: clockPattern.test(prefs.mealWindow.dinnerFrom) ? prefs.mealWindow.dinnerFrom : DEFAULT_MEAL_WINDOW.dinnerFrom,
+      snackFrom: clockPattern.test(prefs.mealWindow.snackFrom) ? prefs.mealWindow.snackFrom : DEFAULT_MEAL_WINDOW.snackFrom
+    } : null},
   ];
   /** 启动时对齐一次：本地缓存是当前事实，state.prefs 是随备份走的那份；漂移时以本地为准回写。 */
   function verifyConfigSync() {
@@ -1524,7 +1590,8 @@ function applyTrainingVisibility() {
     }
   }
   function goalLabel(goal) {
-    const map = {gain: '增肌', cut: '减脂', recomp: '增肌同时减脂', lean: '薄肌', maintain: '保持身材'};
+    // 与 40-targets 的 goalLabelOf / GOAL_LABEL 保持同一套文案：同一目标在能量卡与目标状态区不能出现两种写法。
+    const map = {gain: '增肌', cut: '减脂', recomp: '增肌同时减脂', lean: '薄肌（线条）', maintain: '保持身材'};
     return map[String(goal || 'recomp')] || '饮食';
   }
 function intakeRangeForDate(date = activeDate, profileOverride = null) {
@@ -2071,6 +2138,58 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     if (!body || !ring || !detail || (body.contains(ring) && body.contains(detail))) return;
     body.replaceChildren(ring, detail);
   }
+  /**
+   * 记录可信度（1.4.56 引入，1.4.58 起只存内部）：这个 App 的热量是估的，估的基础是记录全不全。
+   * 用户明确要求「允许误差、不对外展示」——所以不占界面，只给内部两处逻辑用：
+   * 目标校准（低可信度的日子不同权）与 AI 提示（别把估算说成精确值）。
+   */
+  // 可信度缓存键（只存内部；键名走常量，避免裸字面量散落）
+  const INTAKE_CONFIDENCE_KEY = 'qingheng.intakeConfidence';
+  function intakeConfidence(date = activeDate) {
+    const history = Array.isArray(state.meals) ? state.meals : [];
+    const meals = history.filter(row => row && row.date === date && number(row.calories) !== null);
+    if (!meals.length) return {level: 'none', score: 0, reasons: ['今天还没有可用记录'], meals: 0, recordedDays: 0};
+    let score = 100;
+    const reasons = [];
+    if (meals.length < 2) { score -= 25; reasons.push('今天只记了 ' + meals.length + ' 餐'); }
+    const oilTracked = meals.filter(row => number(row.oilGrams) > 0 || row.oilIncluded === true).length;
+    if (oilTracked === 0) { score -= 20; reasons.push('没有一处标了烹调用油'); }
+    else if (oilTracked / meals.length < 0.5) { score -= 20; reasons.push('多数餐没标用油'); }
+    const detailed = meals.filter(row => Array.isArray(row.items) && row.items.length > 0).length;
+    if (detailed / meals.length < 0.5) { score -= 10; reasons.push('有一半餐只有总数、没有逐项'); }
+    let recordedDays = 0;
+    for (let offset = 0; offset < 7; offset++) {
+      const day = typeof shiftDay === 'function' ? shiftDay(date, -offset) : date;
+      if (history.some(row => row && row.date === day && number(row.calories) !== null)) recordedDays += 1;
+    }
+    if (recordedDays <= 2) { score -= 15; reasons.push('近 7 天只记了 ' + recordedDays + ' 天'); }
+    else if (recordedDays <= 4) { score -= 8; reasons.push('近 7 天记了 ' + recordedDays + ' 天'); }
+    score = Math.max(10, Math.min(100, score));
+    // 只记了一餐就没有「一天」可言：无论分数多少都按低可信度处理。
+    const level = meals.length < 2 ? 'low' : score >= 85 ? 'high' : score >= 60 ? 'medium' : 'low';
+    return {level, score, reasons, meals: meals.length, recordedDays};
+  }
+  /** 只写本地缓存，不改界面。上限 60 天，滚动保留。 */
+  function recordIntakeConfidence() {
+    const confidence = intakeConfidence();
+    if (!confidence || confidence.level === 'none') return confidence;
+    try {
+      const map = JSON.parse(localStorage.getItem(INTAKE_CONFIDENCE_KEY) || '{}') || {};
+      map[activeDate] = {level: confidence.level, score: confidence.score, reasons: confidence.reasons.slice(0, 3)};
+      const dates = Object.keys(map).sort();
+      for (const old of dates.slice(0, Math.max(0, dates.length - 60))) delete map[old];
+      localStorage.setItem(INTAKE_CONFIDENCE_KEY, JSON.stringify(map));
+    } catch {}
+    return confidence;
+  }
+  /** 按日期取可信度：当天现算，历史读缓存；取不到时返回 high（不参与扣分）。 */
+  function intakeConfidenceLevelFor(date) {
+    if (date === activeDate) return intakeConfidence(date).level;
+    try {
+      const map = JSON.parse(localStorage.getItem(INTAKE_CONFIDENCE_KEY) || '{}') || {};
+      return (map[date] && map[date].level) || 'high';
+    } catch { return 'high'; }
+  }
   function renderBody() {
     arrangeEnergyCard();
     const count=state.meals.filter(row=>row.date===activeDate).length;
@@ -2181,58 +2300,6 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     if (!parts.length && proteinNow !== null && proteinMinNow !== null && proteinNow >= proteinMinNow) parts.push('蛋白质已达标，剩下的额度分给主食与蔬菜即可。');
     TODAY_SIGNALS.energy = parts.map(text => ({text, tone: /超/.test(text) ? 'warn' : 'info'}));
     renderTodayAction();
-  /**
-   * 记录可信度（1.4.56 引入，1.4.58 起只存内部）：这个 App 的热量是估的，估的基础是记录全不全。
-   * 用户明确要求「允许误差、不对外展示」——所以不占界面，只给内部两处逻辑用：
-   * 目标校准（低可信度的日子不同权）与 AI 提示（别把估算说成精确值）。
-   */
-  // 可信度缓存键（只存内部；键名走常量，避免裸字面量散落）
-  const INTAKE_CONFIDENCE_KEY = 'qingheng.intakeConfidence';
-  function intakeConfidence(date = activeDate) {
-    const history = Array.isArray(state.meals) ? state.meals : [];
-    const meals = history.filter(row => row && row.date === date && number(row.calories) !== null);
-    if (!meals.length) return {level: 'none', score: 0, reasons: ['今天还没有可用记录'], meals: 0, recordedDays: 0};
-    let score = 100;
-    const reasons = [];
-    if (meals.length < 2) { score -= 25; reasons.push('今天只记了 ' + meals.length + ' 餐'); }
-    const oilTracked = meals.filter(row => number(row.oilGrams) > 0 || row.oilIncluded === true).length;
-    if (oilTracked === 0) { score -= 20; reasons.push('没有一处标了烹调用油'); }
-    else if (oilTracked / meals.length < 0.5) { score -= 20; reasons.push('多数餐没标用油'); }
-    const detailed = meals.filter(row => Array.isArray(row.items) && row.items.length > 0).length;
-    if (detailed / meals.length < 0.5) { score -= 10; reasons.push('有一半餐只有总数、没有逐项'); }
-    let recordedDays = 0;
-    for (let offset = 0; offset < 7; offset++) {
-      const day = typeof shiftDay === 'function' ? shiftDay(date, -offset) : date;
-      if (history.some(row => row && row.date === day && number(row.calories) !== null)) recordedDays += 1;
-    }
-    if (recordedDays <= 2) { score -= 15; reasons.push('近 7 天只记了 ' + recordedDays + ' 天'); }
-    else if (recordedDays <= 4) { score -= 8; reasons.push('近 7 天记了 ' + recordedDays + ' 天'); }
-    score = Math.max(10, Math.min(100, score));
-    // 只记了一餐就没有「一天」可言：无论分数多少都按低可信度处理。
-    const level = meals.length < 2 ? 'low' : score >= 85 ? 'high' : score >= 60 ? 'medium' : 'low';
-    return {level, score, reasons, meals: meals.length, recordedDays};
-  }
-  /** 只写本地缓存，不改界面。上限 60 天，滚动保留。 */
-  function recordIntakeConfidence() {
-    const confidence = intakeConfidence();
-    if (!confidence || confidence.level === 'none') return confidence;
-    try {
-      const map = JSON.parse(localStorage.getItem(INTAKE_CONFIDENCE_KEY) || '{}') || {};
-      map[activeDate] = {level: confidence.level, score: confidence.score, reasons: confidence.reasons.slice(0, 3)};
-      const dates = Object.keys(map).sort();
-      for (const old of dates.slice(0, Math.max(0, dates.length - 60))) delete map[old];
-      localStorage.setItem(INTAKE_CONFIDENCE_KEY, JSON.stringify(map));
-    } catch {}
-    return confidence;
-  }
-  /** 按日期取可信度：当天现算，历史读缓存；取不到时返回 high（不参与扣分）。 */
-  function intakeConfidenceLevelFor(date) {
-    if (date === activeDate) return intakeConfidence(date).level;
-    try {
-      const map = JSON.parse(localStorage.getItem(INTAKE_CONFIDENCE_KEY) || '{}') || {};
-      return (map[date] && map[date].level) || 'high';
-    } catch { return 'high'; }
-  }
     // 宏量改成三枚胶囊卡：数值、目标、余量都在同一枚里（2026-11-22 第六轮）。
     $('#macro-summary').innerHTML = [['protein','蛋白质',p.proteinMin,p.proteinMax],['fat','脂肪',p.fatMin,p.fatMax],['carbs','碳水',null,carbCap(p, range)]].map(([key,label,min,max]) => {
       const value = totals[key], capValue = number(max);
@@ -6085,7 +6152,9 @@ const values = points.length<=7 ? points.map((item,i) => {
     const habit = habitRowFor(activeDate) || {};
     const profile = effectiveProfileForDate(activeDate);
     const range = intakeRangeForDate(activeDate);
-    const check = dailyCheck({meals, habit, range,
+    // 放松日是当日免除超标扣分的唯一依据：漏传它会让「本周 1/1 放松日」只在文案里存在。
+    const relaxInfo = typeof relaxDayInfoFor === 'function' ? relaxDayInfoFor(activeDate) : {relax: false};
+    const check = dailyCheck({meals, habit, range, relax: relaxInfo.relax === true,
       proteinMin: number(profile.proteinMin), proteinMax: number(profile.proteinMax),
       fatMin: number(profile.fatMin), fatMax: number(profile.fatMax)});
     if (tag) {
@@ -6099,7 +6168,7 @@ const values = points.length<=7 ? points.map((item,i) => {
       return `<div class="check-cap ${level}"><span class="check-cap-name">${esc(item.label)}</span>`
         + `<span class="check-cap-track"><span class="check-cap-fill" style="width:${pct}%"></span></span></div>`;
     }).join('') + '</div>'
-      + '<div hidden>' + `<p class="check-verdict">${esc(check.verdict)}</p>`;
+      + '<div hidden>' + `<p class="check-verdict">${esc(check.verdict)}</p>` + '</div>';
     // 结论不再单独占一行：并进状态胶囊，和热量/宏量提示按优先级轮播。
     TODAY_SIGNALS.check = check.verdict || '';
     if (typeof renderTodayAction === 'function') renderTodayAction();
@@ -6947,6 +7016,11 @@ const values = points.length<=7 ? points.map((item,i) => {
     // 折叠态标题的常用指标也要跟着数据走，别等用户展开才补。
     if (typeof paintBodyDataHints === 'function') paintBodyDataHints();
   }
+  /**
+   * 复制上一餐的手机端入口在 1.5.41 已随入口预算移除（index.html 里没有 #copy-meal-buttons），
+   * 但这段候选排序 / 去重 / 空态仍被 suite-today 的回归断言直接引用，且快速记录弹窗复用同一套
+   * 「昨天优先 + 同名去重」口径，所以保留实现，只把它标注为无 UI 入口。
+   */
   /** One-tap copies: yesterday's meals first, then the most recent ones. */
   function copyCandidates() {
     const rows = (state.meals || []).filter(row => row && validDate(row.date) && !row.needsDate);
@@ -6974,6 +7048,11 @@ const values = points.length<=7 ? points.map((item,i) => {
       return `<button type="button" class="button subtle" data-copy-meal="${esc(row.id ?? '')}">${esc(label)}</button>`;
     }).join('') : empty('还没有可复制的餐食记录', '记下一餐后，这里会列出来可直接复制。');
   }
+  /**
+   * 复制一条餐食到当前日（新 id、当前时刻、来源标 quick-copy）。
+   * 注：1.5.41 起没有页面入口（见 renderCopyMeals 的说明），保留它是因为数据层仍需要这一段
+   * 「复制后如何打标」的语义；点击委托也已用可选链兜住。
+   */
   /** Copies one meal to the viewed date with a fresh id; totals and items are carried over as-is. */
   async function copyMeal(id) {
     const source = (state.meals || []).find(row => row && String(row.id ?? '') === String(id));
@@ -7300,7 +7379,7 @@ const values = points.length<=7 ? points.map((item,i) => {
     // Each row keeps its original estimate as a ratio baseline, so repeated gram edits never accumulate rounding drift.
     // Editing a saved meal keeps its stored nutrition: applying oil again would double-count it.
     const oiledItems = view.editingId ? estimateRawItems : applyOilToItems(estimateRawItems, estimateOilLevel);
-    $('#estimate-items').innerHTML=oiledItems.map(item => `<div class="estimate-item" data-base-grams="${Number(item.grams)}" data-oil="${Number(item.oilGrams)||0}"><div class="estimate-item-head"><label>食物名称<input data-item-field="name" value="${esc(item.name)}" maxlength="120" required></label><div class="estimate-item-actions"><button type="button" class="recalc-item" title="按克重和每 100g 数据重算" aria-label="按克重重算${esc(item.name)}"><span class="inline-icon" aria-hidden="true"><img src="./icon-refresh.svg" alt="" width="17" height="17"></span></button><button type="button" class="remove-item" title="移除这项" aria-label="移除${esc(item.name)}">×</button></div></div>${modelNote(item)}${number(item.oilGrams)>0?`<p class="fine-print estimate-item-oil">${esc(item.oilMethod||item.method||'按克重')} · 用油 ${fmt(item.oilGrams,0)} g，已含在热量与脂肪里。</p>`:''}<div class="form-grid">${fields.map(([key,label]) => `<label>${label}<input data-item-field="${key}" type="number" value="${Number(item[key])}" ${key === 'grams' ? '' : `data-base-value="${Number(item[key])}"`} min="0" max="20000" step="0.01" required></label>`).join('')}</div></div>`).join('');
+    $('#estimate-items').innerHTML=oiledItems.map(item => `<div class="estimate-item" data-base-grams="${Number(item.grams)}" data-oil="${Number(item.oilGrams)||0}" data-method="${esc(item.oilMethod||item.method||'')}"${item.oilIncluded===true?' data-oil-included="1"':''}><div class="estimate-item-head"><label>食物名称<input data-item-field="name" value="${esc(item.name)}" maxlength="120" required></label><div class="estimate-item-actions"><button type="button" class="recalc-item" title="按克重和每 100g 数据重算" aria-label="按克重重算${esc(item.name)}"><span class="inline-icon" aria-hidden="true"><img src="./icon-refresh.svg" alt="" width="17" height="17"></span></button><button type="button" class="remove-item" title="移除这项" aria-label="移除${esc(item.name)}">×</button></div></div>${modelNote(item)}${number(item.oilGrams)>0?`<p class="fine-print estimate-item-oil">${esc(item.oilMethod||item.method||'按克重')} · 用油 ${fmt(item.oilGrams,0)} g，已含在热量与脂肪里。</p>`:''}<div class="form-grid">${fields.map(([key,label]) => `<label>${label}<input data-item-field="${key}" type="number" value="${Number(item[key])}" ${key === 'grams' ? '' : `data-base-value="${Number(item[key])}"`} min="0" max="20000" step="0.01" required></label>`).join('')}</div></div>`).join('');
     $('#estimate-source').textContent=view.editingId?'编辑已保存餐食':`${view.source==='api'?'外部模型':view.localFoodModel?'本地食品库':'本地估算'} · ${view.confidence==='medium'?'中等':'低'}置信度${restored?' · 已恢复未确认草稿':''}`;
     const uncertainty=number(view.uncertaintyPercent) ?? 15;
     draft.uncertaintyPercent=uncertainty; draft.oilGrams=number(view.oilGrams) ?? 0;
