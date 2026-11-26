@@ -22,6 +22,7 @@ const read = path => fs.readFileSync(path, 'utf8');
 const meals = read('app/src/fragments/50-onboarding.fragment.js');
 const targets = read('app/src/fragments/40-targets.fragment.js');
 const rest = read('app/src/fragments/68-training-log.fragment.js') + read('app/src/fragments/70-rest.fragment.js');
+const aiChatSrc = read('app/src/fragments/80-ai-chat.fragment.js');
 const app = read('app/src/main/assets/app.js');
 const css = read('app/src/main/assets/styles.css');
 
@@ -243,6 +244,7 @@ const domain = read('app/src/fragments/55-training-domain.fragment.js');
 const onboarding = read('app/src/fragments/68-training-log.fragment.js') + read('app/src/fragments/50-onboarding.fragment.js');
 const rich = read('app/src/fragments/10-rich-answer.fragment.js');
 const rest = read('app/src/fragments/68-training-log.fragment.js') + read('app/src/fragments/70-rest.fragment.js');
+const aiChatSrc = read('app/src/fragments/80-ai-chat.fragment.js');
 const html = read('app/src/main/assets/index.html');
 const adapter = read('app/src/main/assets/native-adapter.js');
 const main = read('app/src/main/java/cn/qingheng/health/MainActivity.java');
@@ -286,7 +288,7 @@ check('the training form can repeat the last session',
 
 check('recommended loads are plate-achievable',
   domain.includes('function loadableWeightKg') && domain.includes('loadableWeightKg(name, next)')
-  && rest.includes('20 kg 空杆 + 每侧 2.5 kg'));
+  && aiChatSrc.includes('20 kg 空杆 + 每侧 2.5 kg'));
 check('the training overview connects diet and lifting',
   html.includes('id="training-overview"') && html.includes('train-overview-head')
   && rest.includes('function renderTrainingOverview'));
@@ -314,7 +316,7 @@ check('diet and training link both ways',
 check('each set can be marked done and starts the rest timer',
   onboarding.includes('data-set-done') && rest.includes('startRestTimer(true, restSecondsFor(name))'));
 check('swapping an exercise re-rounds the load',
-  rest.includes('function planWeightFor') && rest.includes('loadableWeightKg(row.name'));
+  aiChatSrc.includes('function planWeightFor') && aiChatSrc.includes('loadableWeightKg(row.name'));
 
 console.log('\nPASS total: 0 failed');
 ;return typeof fail === 'number' ? fail : 0;

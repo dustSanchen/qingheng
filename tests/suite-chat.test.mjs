@@ -271,7 +271,7 @@ const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + 
 const read = path => fs.readFileSync(path, 'utf8');
 
 const app = read('app/src/main/assets/app.js');
-const rest = read('app/src/fragments/70-rest.fragment.js');
+const rest = read('app/src/fragments/70-rest.fragment.js') + read('app/src/fragments/80-ai-chat.fragment.js');
 const main = read('app/src/main/java/cn/qingheng/health/MainActivity.java');
 
 // --- client: one dedicated request -------------------------------------------------------------------
@@ -872,7 +872,7 @@ const slice = (startMarker, endMarker) => {
   if (end < 0) throw new Error(`end marker for ${startMarker} not found`);
   return source.slice(start, end);
 };
-const code = slice('  function beginChatStream(', '  function renderChat()');
+const code = slice('  function beginChatStream(', '  function renderPush(');
 
 // --- minimal fake DOM --------------------------------------------------------------------------------
 const CLASS_RE = /class="([^"]+)"([^>]*)>/g;

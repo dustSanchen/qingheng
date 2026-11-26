@@ -27,7 +27,7 @@ const read = path => fs.readFileSync(path, 'utf8');
 
 const html = read('app/src/main/assets/index.html');
 const app = read('app/src/main/assets/app.js');
-const rest = read('app/src/fragments/68-training-log.fragment.js') + read('app/src/fragments/70-rest.fragment.js');
+const rest = read('app/src/fragments/68-training-log.fragment.js') + read('app/src/fragments/70-rest.fragment.js') + read('app/src/fragments/80-ai-chat.fragment.js');
 // 2026-11-27：问答外围接线（快捷胶囊/分段/上下文预览）收口到 80-ai-chat 专属层。
 const aiChat = read('app/src/fragments/80-ai-chat.fragment.js');
 const head = read('app/src/fragments/00-head.fragment.js');
@@ -231,7 +231,7 @@ let fail = 0;
 const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + label + (detail === undefined ? '' : '  -> ' + detail)); if (!ok) fail++; };
 
 const readSrc = path => fs.readFileSync(path, 'utf8').replace(/\r\n/g, '\n');
-const rest = readSrc('app/src/fragments/68-training-log.fragment.js') + readSrc('app/src/fragments/70-rest.fragment.js');
+const rest = readSrc('app/src/fragments/68-training-log.fragment.js') + readSrc('app/src/fragments/70-rest.fragment.js') + readSrc('app/src/fragments/80-ai-chat.fragment.js');
 const training = readSrc('app/src/fragments/60-training-copy.fragment.js');
 const onboarding = readSrc('app/src/fragments/68-training-log.fragment.js') + readSrc('app/src/fragments/50-onboarding.fragment.js');
 // 2026-11-23 Phase 2：自重判定 / 可装重量 / 重量记忆 / 渐进全部收进 55-training-domain，
@@ -249,8 +249,9 @@ function sliceBetween(source, startMarker, endMarker, label) {
 const pieces = [
   // 自重判定 + 可装重量 + 重量记忆 + 渐进 + 计划生成（55 整层）
   domain,
-  // 强度信号 + 教练说明（70）
+  // 强度信号 + 教练说明（70 的标签/取值 + 80 迁走的 effortSignal，2026-11-27）
   sliceBetween(rest, '  const EFFORT_LABELS = ', '  function syncPlanDoneFromRow(', 'effort block'),
+  sliceBetween(rest, '  function effortSignal() {', '  function syncAiPlanControls(', 'effort signal'),
   // 补重量 + 逐行转换（70）
   sliceBetween(rest, '  function planWeightFor(row) {', '  /** 流式期间只认已经闭合的', 'plan row'),
   // 解析模型回复（70）
@@ -400,7 +401,7 @@ const read = path => fs.readFileSync(path, 'utf8');
 
 const app = read('app/src/main/assets/app.js');
 const training = read(DOMAIN_FILE) + read('app/src/fragments/60-training-copy.fragment.js');
-const rest = read('app/src/fragments/68-training-log.fragment.js') + read('app/src/fragments/70-rest.fragment.js');
+const rest = read('app/src/fragments/68-training-log.fragment.js') + read('app/src/fragments/70-rest.fragment.js') + read('app/src/fragments/80-ai-chat.fragment.js');
 const main = read('app/src/main/java/cn/qingheng/health/MainActivity.java');
 
 // --- P0 部位单一来源 -----------------------------------------------------------------------------
@@ -1907,7 +1908,7 @@ const read = path => fs.readFileSync(path, 'utf8');
 const appJs = read('app/src/main/assets/app.js');
 const onboarding = read('app/src/fragments/68-training-log.fragment.js') + read('app/src/fragments/50-onboarding.fragment.js');
 const training = read(DOMAIN_FILE) + read('app/src/fragments/60-training-copy.fragment.js');
-const rest = read('app/src/fragments/68-training-log.fragment.js') + read('app/src/fragments/70-rest.fragment.js');
+const rest = read('app/src/fragments/68-training-log.fragment.js') + read('app/src/fragments/70-rest.fragment.js') + read('app/src/fragments/80-ai-chat.fragment.js');
 const main = read('app/src/main/java/cn/qingheng/health/MainActivity.java');
 
 // ① 杠铃总重回填：负重框是 [data-set="weight"]，没有 name 属性 --------------------------------------

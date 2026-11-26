@@ -2062,3 +2062,13 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 断言：`suite-chat` 新增 5 条「提问句不是餐食草稿」、4 条桥接/接线、5 条模块收口；`suite-food` / `suite-training` 的接线断言同步新实现；`tests/lib/extract.mjs` 支持 async 函数整段切片（原实现从 `function` 起切，async 函数必然编译失败）。
 - 验收：assemble 17 片段；`check-architecture` PASSED（34 checks / 6 warnings，LEGACY 删掉 72-chat-panels）；`test-all` 12/12 全绿。
 - 未做（Phase 2b/2c）：`sendChat` / `renderChat` / 历史分页 / 拍照回填桥仍留在 `10-rich-answer`，`aiPlanStore…installTrainingAdvice` 仍留在 `70-rest`；迁移要同步改 4 个套件里按文件读取的断言，另起一轮做。`docs/ai-chat-module-code-extract.md` 的行号在本轮后再次漂移，需重跑 snapshot→rebase→build。
+
+### r237 · 2026-11-27 00:4x · 1.5.41（未提版本号）：AI 问答 Phase 2b/2c 控制流迁入 80-ai-chat
+
+- 用户：「完成 Phase 2b/2c，完成后告知我重构成果」。
+- 从 `10-rich-answer` 迁出 404 行：`streamInto` / `streamChat` / 历史渲染与分页（`renderChat`、`groupChatsByDate`、`chatMatches`、`chatQuery`、`chatShownCount`、`CHAT_PAGE_SIZE`、`streamExpandedAnswer`、`chatDayFilter`、`chatRowsInScope`、`chatDates`、`setChatDayFilter`、`stepChatDay`、`renderChatDayBar`、`adoptStreamChatRow`）/ 收藏与无用标记（`unhelpfulChats`、`markUnhelpful`、`regenerateChat`、`citationBlock`）/ 上次训练建议缓存（`LAST_TRAINING_KEY`、`read/saveLastTrainingAdvice`、`renderLastChat` + 点击监听）/ 拍照链（`chatImage` 状态、`clearChatImage`、两个 input 监听、`__qinghengPendingImage`、`__qinghengImageError`）/ `sendChat`。10 现在只剩富文本解析（`answerHtml` 等）与流式气泡骨架（`beginChatStream` … `finishChatStream`）+ 推送设置，743 行。
+- 从 `70-rest` 迁出 522+30 行：`aiPlanStore` / `aiPlanSets` / `planItemMinutes` / `planMinutes` / `effortSignal` / `syncAiPlanControls` / `renderAiPlan` / `planWeightFor` / `planItemFromRow` / `partialPlanRows` / `parseAiPlanReply` / `compilePlanContext` / `validatePlanAgainstContext` / `askAiPlan` / `installAiPlan` / `trainingInsights` / `renderTrainingInsights` / `installTrainingAdvice` + `lastTrainingReply`。70 剩 2,475 行（组间休息、导航、偏好、饮食/习惯表单）。
+- 80-ai-chat 现 1,123 行：分段控制、快捷胶囊、上下文预览、`#chat-web`、问答控制流、教练组、并发守卫、`installAiChatModule()`、`QH.define('chat', …)`。全局函数名一律保留，调用点未改。
+- 测试：`suite-chat` 的流式气泡切片结束标记改到 `renderPush(`、教练组 `rest` 补 80 片段；`suite-records` 新增 `aiChatSrc` 并改两条按文件读取的断言；`suite-training` 四处 `rest` 补 80、`effortSignal` 单独从 80 切（标签仍在 70）。
+- 验收：assemble 17 片段、`node --check` 通过；`check-architecture` 34 checks / 6 warnings PASS；`test-all` 12/12 全绿。
+- 影响：纯移动，无语义变更；`app.js` 体积不变（同一份代码换文件）。问答底稿的行号再次漂移，需下一轮 snapshot→rebase→build（`sel.mjs` 的 10/70 组要改指向 80）。
