@@ -632,5 +632,63 @@ check('Monday starts its own week', isoWeekStart('2026-10-12') === '2026-10-12')
 check('Saturday stays in the same week', isoWeekStart('2026-10-17') === '2026-10-12');
 ;return typeof fail === 'number' ? fail : 0;
 });
+await __run("today-hub", async () => {
+/**
+ * 今天页刷新中枢（2026-11-27 Phase 3）：
+ * 保存饮食/训练/体重/习惯/偏好后不再各自硬编码重画，而是广播事件、由 25-today-hub 按帧合并刷新。
+ */
+let fail = 0;
+const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + label + (detail === undefined ? '' : '  -> ' + detail)); if (!ok) fail++; };
+
+const hub = fs.readFileSync('app/src/fragments/25-today-hub.fragment.js', 'utf8');
+const app = fs.readFileSync('app/src/main/assets/app.js', 'utf8');
+
+check('the hub fragment exists in the 20-29 band', fs.existsSync('app/src/fragments/25-today-hub.fragment.js'));
+for (const event of ['DIET_SAVED', 'TRAINING_SAVED', 'WEIGHT_SAVED', 'HABIT_UPDATED', 'PREFS_CHANGED']) {
+  check('it subscribes ' + event, hub.includes('events.' + event));
+}
+check('it batches with requestAnimationFrame', hub.includes('requestAnimationFrame(flush)'));
+check('it keeps one pending set per frame', hub.includes('todayRefreshPending = new Set()'));
+
+// --- 行为：同一帧两次保存只渲染一次；只有时间线时只重画时间线 ---
+let renderBodyCount = 0, timelineCount = 0;
+let frame = null;
+const handlers = {};
+const sandbox = {
+  console, JSON, Math, Date, Object, Array, String, Number, Set, Map,
+  state: {meals: [{date: '2026-11-27'}, {date: '2026-11-26'}]},
+  activeDate: '2026-11-27',
+  $: () => null,
+  requestAnimationFrame: cb => { frame = cb; return 1; },
+  setTimeout: () => 1,
+  renderBody: () => { renderBodyCount += 1; },
+  renderTodayTimeline: () => { timelineCount += 1; },
+  window: null,
+  QH: {
+    EVENTS: {DIET_SAVED: 'diet:saved', TRAINING_SAVED: 'training:saved', WEIGHT_SAVED: 'weight:saved', HABIT_UPDATED: 'habit:updated', PREFS_CHANGED: 'prefs:changed'},
+    bus: {on: (event, fn) => { handlers[event] = fn; }},
+  },
+};
+sandbox.window = sandbox;
+vm.createContext(sandbox);
+vm.runInContext(hub, sandbox);
+check('five events are wired', Object.keys(handlers).length === 5, Object.keys(handlers).join(','));
+
+handlers['diet:saved']();
+handlers['habit:updated']();
+check('one frame is scheduled, not one per event', typeof frame === 'function' && renderBodyCount === 0);
+frame();
+check('two saves in the same frame render once', renderBodyCount === 1, String(renderBodyCount));
+
+frame = null;
+sandbox.scheduleTodayRefresh('timeline');
+sandbox.scheduleTodayRefresh('timeline');
+frame();
+check('a timeline-only refresh does not repaint the whole page', timelineCount === 1 && renderBodyCount === 1, `timeline=${timelineCount} body=${renderBodyCount}`);
+
+check('save paths emit the domain events', app.includes("QH.EVENTS.WEIGHT_SAVED") && app.includes("QH.EVENTS.HABIT_UPDATED") && app.includes('QH.bus.emit(QH.EVENTS.PREFS_CHANGED'));
+;return typeof fail === 'number' ? fail : 0;
+});
+
 console.log('\nFAIL total: ' + __fail);
 process.exitCode = __fail ? 1 : 0;

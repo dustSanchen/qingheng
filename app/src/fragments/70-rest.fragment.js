@@ -1189,6 +1189,22 @@
     button.dataset.left = String(left);
     syncRestDock();
   }
+  /** 剩余秒数只按绝对目标时间算：切后台/锁屏期间 setInterval 会被节流甚至暂停，不能靠递减。 */
+  function restLeftNow() {
+    return Math.max(0, Math.ceil((restEnd - Date.now()) / 1000));
+  }
+  /** 一帧的绘制：校准剩余时间 → 画 → 到点收尾（清计时器、响一次）。 */
+  function tickRest() {
+    const left = restLeftNow();
+    paintRest(left);
+    if (!left) {
+      if (restTick) { clearInterval(restTick); restTick = 0; }
+      // 到点只响一次：先清掉计时器再播音，避免下一帧重复触发。
+      playRestChime();
+      return false;
+    }
+    return true;
+  }
   /**
    * 组间休息：标记一组完成后按那个动作的时长自动开始；再点按钮取消。
    * seconds 传 0（有氧）就不计时。
@@ -1205,18 +1221,8 @@
       clearInterval(restTick); restTick = 0;
     }
     restEnd = Date.now() + length * 1000;
-    const paint = () => {
-      const left = Math.max(0, Math.ceil((restEnd - Date.now()) / 1000));
-      paintRest(left);
-      if (!left) {
-        clearInterval(restTick);
-        restTick = 0;
-        // 到点只响一次：先清掉计时器再播音，避免下一帧重复触发。
-        playRestChime();
-      }
-    };
-    paint();
-    restTick = setInterval(paint, 1000);
+    tickRest();
+    restTick = setInterval(tickRest, 1000);
   }
   function installRestDock() {
     const exercises = $('#training-exercises');
@@ -1225,6 +1231,11 @@
     if (!exercises || !actions || !dock || restDockWired) return;
     restDockWired = true;
     paintRest(0);
+    // 锁屏/切后台回来：立即按绝对时间校准一次；后台期间已到期就直接收尾并补一次提示音。
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible' || !restTick) return;
+      tickRest();
+    });
     if ('IntersectionObserver' in window) {
       const io = new IntersectionObserver(entries => {
         entries.forEach(entry => {

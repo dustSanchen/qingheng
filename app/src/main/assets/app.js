@@ -887,7 +887,11 @@
   /** Debounced fire-and-forget write; a failed sync must never interrupt the user's action. */
   function schedulePrefsSync(patch) {
     try { clearTimeout(prefsSyncTimer); } catch { }
-    prefsSyncTimer = setTimeout(() => { api('/api/prefs', {prefs: patch}).catch(() => { }); }, 400);
+    prefsSyncTimer = setTimeout(() => {
+      api('/api/prefs', {prefs: patch})
+        .then(() => { if (window.QH && QH.bus && QH.EVENTS) QH.bus.emit(QH.EVENTS.PREFS_CHANGED, {}); })
+        .catch(() => { });
+    }, 400);
   }
   /** Restores localStorage from state.prefs on load, so a fresh phone regains its preferences.
    *  Uses the shared key constants (PLAN_PREFS_KEY / AI_PLAN_KEY) instead of new literals. */
@@ -2577,6 +2581,76 @@ function applyTrainingVisibility() {
     quickRecordOpener = null;
   }
 
+/* Fragment 25-today-hub -- 今天页刷新中枢（事件订阅 + 按帧合并），2026-11-27 Phase 3
+ *
+ * 以前「保存之后重画今天页」散在 10-rich-answer 的 renderBody 内部调用与 70-rest 的保存路径里：
+ * 连记两笔就是两次整页重绘，数字还会闪。这里只做一件事——订阅领域事件，把同一帧内的多次变更
+ * 合并成一次刷新，并按区域选择重画范围。
+ *
+ * 口径：能量环 / 体检 / 行动条的读数只由 renderBody 生产（同一份 totalsFor/effectiveProfileForDate），
+ * 这里不复制第二套算法；时间线可以单独重画。
+ */
+  const TODAY_REFRESH_SECTIONS = ['energy', 'timeline', 'check', 'action'];
+  const TODAY_REFRESH_ALL = TODAY_REFRESH_SECTIONS.slice();
+  let todayRefreshFrame = 0;
+  let todayRefreshPending = new Set();
+
+  /** 只重画「今日记录」时间线：数据源与 renderBody 里那段完全一致。 */
+  function refreshTodayTimeline() {
+    if (typeof renderTodayTimeline !== 'function' || !state) return;
+    const meals = (state.meals || []).filter(row => row && row.date === activeDate);
+    renderTodayTimeline($('#today-meals'), meals);
+    const count = $('#today-record-count');
+    if (count) count.textContent = meals.length ? `${meals.length} 餐` : '暂无';
+  }
+
+  /**
+   * 按区域刷新。能量环、今日体检、行动条共用 renderBody 的同一条口径——
+   * 分开重画会各算一遍 totalsFor，数字对不上时更难查，所以这三段仍然走整页渲染。
+   */
+  function runTodayRefresh(section) {
+    if (section === 'timeline') { refreshTodayTimeline(); return; }
+    if (typeof renderBody === 'function') renderBody();
+  }
+
+  /**
+   * 把同一帧里的多次保存合并成一次刷新。
+   * @param {string|string[]} sections 需要刷新的区域，超出白名单的值忽略。
+   */
+  function scheduleTodayRefresh(sections) {
+    const list = Array.isArray(sections) ? sections : [sections];
+    for (const section of list) {
+      if (TODAY_REFRESH_SECTIONS.includes(section)) todayRefreshPending.add(section);
+    }
+    if (!todayRefreshPending.size || todayRefreshFrame) return;
+    const flush = () => {
+      todayRefreshFrame = 0;
+      const pending = [...todayRefreshPending];
+      todayRefreshPending = new Set();
+      if (pending.some(section => section !== 'timeline')) { runTodayRefresh('energy'); return; }
+      runTodayRefresh('timeline');
+    };
+    todayRefreshFrame = typeof requestAnimationFrame === 'function' ? requestAnimationFrame(flush) : setTimeout(flush, 16);
+  }
+
+  /** 订阅五个领域事件；没有 QH（老产物/单测沙箱）时安静退出。 */
+  function installTodayHub() {
+    if (!window.QH || !QH.bus || typeof QH.bus.on !== 'function') return;
+    const events = QH.EVENTS || {};
+    const map = [
+      [events.DIET_SAVED, TODAY_REFRESH_ALL],
+      [events.TRAINING_SAVED, TODAY_REFRESH_ALL],
+      [events.WEIGHT_SAVED, ['check', 'action', 'timeline']],
+      [events.HABIT_UPDATED, ['check', 'action']],
+      [events.PREFS_CHANGED, ['energy', 'check', 'action']],
+    ];
+    for (const [event, sections] of map) {
+      if (!event) continue;
+      try { QH.bus.on(event, () => scheduleTodayRefresh(sections)); } catch { }
+    }
+  }
+
+  installTodayHub();
 /* Fragment of assets/app.js -- assembled by tools/assemble-app.ps1 in filename order.
  * Edit this file, never the generated assets/app.js; tests/app-fragments.test.mjs fails on drift. */
   // ---- Voice input ----------------------------------------------------------------------------
@@ -7879,6 +7953,13 @@ const values = points.length<=7 ? points.map((item,i) => {
       const payload=build(form); if (payload===null) return;
       await api(path,payload);
       feedback(message,'已保存。');
+      // 领域事件：今天页由 25-today-hub 订阅后按帧合并刷新，保存路径不再各自硬编码重画。
+      if (window.QH && QH.bus && QH.EVENTS) {
+        const savedEvent = path === '/api/measurements' ? QH.EVENTS.WEIGHT_SAVED
+          : path === '/api/habits' ? QH.EVENTS.HABIT_UPDATED
+          : path === '/api/profile' ? QH.EVENTS.PREFS_CHANGED : null;
+        if (savedEvent) QH.bus.emit(savedEvent, {date: activeDate});
+      }
       // 快捷值不再由「保存过什么」自动改写：它现在由「自定义快捷值」显式设定，卡底两枚要可预期。
       if (path === '/api/meals') {form.reset();setDefaultDates();}
       if (path === '/api/settings') {delete providerDrafts[selectedProvider];form.elements.apiKey.value='';form.elements.clearKey.checked=false;}
@@ -10618,6 +10699,22 @@ function metricIcon(label) {
     button.dataset.left = String(left);
     syncRestDock();
   }
+  /** 剩余秒数只按绝对目标时间算：切后台/锁屏期间 setInterval 会被节流甚至暂停，不能靠递减。 */
+  function restLeftNow() {
+    return Math.max(0, Math.ceil((restEnd - Date.now()) / 1000));
+  }
+  /** 一帧的绘制：校准剩余时间 → 画 → 到点收尾（清计时器、响一次）。 */
+  function tickRest() {
+    const left = restLeftNow();
+    paintRest(left);
+    if (!left) {
+      if (restTick) { clearInterval(restTick); restTick = 0; }
+      // 到点只响一次：先清掉计时器再播音，避免下一帧重复触发。
+      playRestChime();
+      return false;
+    }
+    return true;
+  }
   /**
    * 组间休息：标记一组完成后按那个动作的时长自动开始；再点按钮取消。
    * seconds 传 0（有氧）就不计时。
@@ -10634,18 +10731,8 @@ function metricIcon(label) {
       clearInterval(restTick); restTick = 0;
     }
     restEnd = Date.now() + length * 1000;
-    const paint = () => {
-      const left = Math.max(0, Math.ceil((restEnd - Date.now()) / 1000));
-      paintRest(left);
-      if (!left) {
-        clearInterval(restTick);
-        restTick = 0;
-        // 到点只响一次：先清掉计时器再播音，避免下一帧重复触发。
-        playRestChime();
-      }
-    };
-    paint();
-    restTick = setInterval(paint, 1000);
+    tickRest();
+    restTick = setInterval(tickRest, 1000);
   }
   function installRestDock() {
     const exercises = $('#training-exercises');
@@ -10654,6 +10741,11 @@ function metricIcon(label) {
     if (!exercises || !actions || !dock || restDockWired) return;
     restDockWired = true;
     paintRest(0);
+    // 锁屏/切后台回来：立即按绝对时间校准一次；后台期间已到期就直接收尾并补一次提示音。
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible' || !restTick) return;
+      tickRest();
+    });
     if ('IntersectionObserver' in window) {
       const io = new IntersectionObserver(entries => {
         entries.forEach(entry => {

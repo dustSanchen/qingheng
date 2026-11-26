@@ -47,8 +47,11 @@ try {
   const live = checkArchitecture({quiet: true});
   check('the live tree passes', live.ok, live.errors.join(' | '));
   check('the core runtime is the second fragment', live.fragments[1] === '05-core-runtime.fragment.js', live.fragments.slice(0, 2).join(', '));
+  const legacyWarnings = live.warnings.filter(warning => warning.startsWith('legacy '));
+  const sizeWarnings = live.warnings.filter(warning => warning.startsWith('fragment over '));
   check('unmigrated band deviations are warnings, not errors',
-    live.ok && live.warnings.every(warning => warning.startsWith('legacy ')), live.warnings.join(' | '));
+    live.ok && legacyWarnings.length === 6 && live.warnings.length === legacyWarnings.length + sizeWarnings.length,
+    live.warnings.join(' | '));
 
   // --- 3. 迁移开关：存量偏差在 --strict-bands 下必须变红 ----------------------------------------
   const strict = checkArchitecture({quiet: true, strictBands: true});

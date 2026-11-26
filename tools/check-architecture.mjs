@@ -188,6 +188,32 @@ export function checkArchitecture(options = {}) {
     else fail('domain layer stays DOM-free: ' + name, hits.slice(0, 6).join('; '));
   }
 
+  // ---- 2b. 防回潮：单文件体积上限 + 大列表渲染上限（2026-11-27 Phase 3）-----------------------
+  const MAX_FRAGMENT_LINES = 1500;
+  const oversized = [];
+  for (const name of names) {
+    const lineCount = fs.readFileSync(path.join(fragmentDir, name), 'utf8').split(/\r?\n/).length;
+    if (lineCount > MAX_FRAGMENT_LINES) oversized.push(name + ' (' + lineCount + ' 行)');
+  }
+  if (oversized.length) warn('fragment over ' + MAX_FRAGMENT_LINES + ' lines', oversized.join(', '));
+  else pass('every fragment stays under ' + MAX_FRAGMENT_LINES + ' lines');
+
+  // 大列表渲染保护：问答历史与记录流默认就要有上限，长周期使用不会无限堆 DOM。
+  if (assembled.includes('CHAT_PAGE_SIZE')) {
+    const chatCapped = /CHAT_PAGE_SIZE\s*=\s*(\d+)/.test(assembled) && /ordered\.slice\(0, chatShownCount\)/.test(assembled);
+    if (chatCapped) pass('the chat history renders a capped page');
+    else fail('the chat history renders a capped page', 'CHAT_PAGE_SIZE exists but the render does not clamp to chatShownCount');
+  } else {
+    fail('the chat history renders a capped page', 'CHAT_PAGE_SIZE missing');
+  }
+  if (assembled.includes('RECORD_MEALS_COLLAPSED')) {
+    const recordsCapped = /RECORD_MEALS_COLLAPSED\s*=\s*(\d+)/.test(assembled) && assembled.includes('rows.slice(0, RECORD_MEALS_COLLAPSED)');
+    if (recordsCapped) pass('the records list is capped by default');
+    else fail('the records list is capped by default', 'RECORD_MEALS_COLLAPSED exists but the list is not sliced by it');
+  } else {
+    fail('the records list is capped by default', 'RECORD_MEALS_COLLAPSED missing');
+  }
+
   // ---- 3. 总线合入 + 可执行 --------------------------------------------------------------------
   if (assembled && assembled.includes('QH.bus = QH.bus || {};')) {
     const coreAt = assembled.indexOf('QH.bus = QH.bus || {};');

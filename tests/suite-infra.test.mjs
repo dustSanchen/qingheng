@@ -1097,5 +1097,88 @@ assert(!fs.existsSync(new URL('app/src/main/assets/node_modules', root)), 'node_
 assert(fs.existsSync(new URL('vendor/src/motion-entry.js', root)), 'the vendor entry stays reviewable');
 ;return typeof fail === 'number' ? fail : 0;
 });
+await __run("settings-backup", async () => {
+/**
+ * 全量备份/恢复一致性（2026-11-27 Phase 3）：
+ * 「导出 JSON → 清空 localStorage → 导入」之后，用户设置、今日训练清单/计划、餐次窗口必须能回来。
+ * 派生缓存（周计划、重量记忆、计时起点、可信度）刻意不进 prefs：它们能从记录重算。
+ */
+let fail = 0;
+const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + label + (detail === undefined ? '' : '  -> ' + detail)); if (!ok) fail++; };
+
+const app = fs.readFileSync('app/src/main/assets/app.js', 'utf8');
+const constOf = name => {
+  const at = app.indexOf('const ' + name + ' =');
+  if (at < 0) throw new Error('missing const ' + name);
+  const line = app.slice(at, app.indexOf('\n', at));
+  return /;\s*$/.test(line) ? line : line + ';';
+};
+const grab = (startMarker, endMarkers) => {
+  const start = app.indexOf(startMarker);
+  if (start < 0) throw new Error('missing ' + startMarker);
+  let end = app.length;
+  for (const marker of endMarkers) {
+    const i = app.indexOf(marker, start);
+    if (i >= 0 && i < end) end = i;
+  }
+  return app.slice(start, end);
+};
+
+// --- 1. 注册表覆盖所有需要跟备份走的设置 -----------------------------------------------------
+check('the config registry lists every portable preference',
+  ["'planPrefs'", "'aiPlans'", "'preferences'", "'bodyweightMoves'", "'mealWindow'"].every(id => app.includes('{id: ' + id)));
+check('derived caches stay out of the registry',
+  !app.includes("{id: 'weekPlan'") && !app.includes("{id: 'weightMemory'") && !app.includes("{id: 'intakeConfidence'"));
+
+// --- 2. 行为：把一份备份喂给 hydratePrefsFromState，本地缓存要全部写回 -------------------------
+const stored = new Map();
+const localStorage = {
+  getItem: key => (stored.has(key) ? stored.get(key) : null),
+  setItem: (key, value) => stored.set(key, String(value)),
+  removeItem: key => stored.delete(key),
+};
+const sandbox = {
+  console, JSON, Math, Object, Array, String, Number,
+  localStorage,
+  schedulePrefsSync: () => {},
+  renderPreferences: () => {},
+  loadUserBodyweightMarks: () => {},
+  normalizePreferenceEntries: list => (Array.isArray(list) ? list : []),
+  readPreferenceRows: () => [],
+};
+sandbox.window = sandbox;
+sandbox.globalThis = sandbox;
+vm.createContext(sandbox);
+const consts = ['MEAL_WINDOW_KEY', 'DEFAULT_MEAL_WINDOW', 'PLAN_PREFS_KEY', 'AI_PLAN_KEY', 'CHAT_UNHELPFUL_KEY', 'CHAT_WEB_KEY', 'TRAINING_CONSENT_KEY', 'BODYWEIGHT_MARK_KEY', 'PREFERENCES_KEY', 'PREFERENCE_META_KEY', 'clockPattern']
+  .map(constOf).join('\n');
+const hydrate = grab('function hydratePrefsFromState(data) {', ['const CONFIG_REGISTRY = [']);
+vm.runInContext(consts + '\n' + hydrate + '\nthis.hydrate = hydratePrefsFromState;', sandbox);
+
+sandbox.hydrate({prefs: {
+  planPrefs: {days: 4, split: 'ppl', gear: 'mixed', minutes: 45},
+  aiPlans: {'2026-11-27': [{name: '卧推', sets: 4, reps: 8}]},
+  bodyweightMoves: ['引体向上'],
+  preferences: [{id: 'p1', text: '少油', source: 'manual', createdAt: 1, updatedAt: 1}],
+  mealWindow: {lunchFrom: '10:00', dinnerFrom: '15:00', snackFrom: '21:00'},
+  chatWeb: false,
+  trainingConsent: true,
+  unhelpfulChats: ['q1'],
+}});
+
+check('the training plan preferences come back', stored.get('qingheng.planPrefs') === JSON.stringify({days: 4, split: 'ppl', gear: 'mixed', minutes: 45}), stored.get('qingheng.planPrefs'));
+check("today's AI plan comes back per date", stored.get('qingheng.aiPlan.2026-11-27') === JSON.stringify([{name: '卧推', sets: 4, reps: 8}]), stored.get('qingheng.aiPlan.2026-11-27'));
+check('the meal window comes back', stored.get('qingheng.mealWindow') === JSON.stringify({lunchFrom: '10:00', dinnerFrom: '15:00', snackFrom: '21:00'}), stored.get('qingheng.mealWindow'));
+check('bodyweight marks and preferences come back',
+  stored.get('qingheng.bodyweightMoves') === JSON.stringify(['引体向上']) && stored.get('qingheng.preferences') === JSON.stringify([{id: 'p1', text: '少油', source: 'manual', createdAt: 1, updatedAt: 1}]), stored.get('qingheng.bodyweightMoves'));
+check('the chat and consent switches come back',
+  stored.get('qingheng.chat.web') === '0' && stored.get('qingheng.training.consent') === '1' && stored.get('qingheng.chat.unhelpful') === JSON.stringify(['q1']));
+
+// --- 3. 坏值不砸掉恢复：餐次窗口逐项回落默认 -------------------------------------------------
+stored.set('qingheng.mealWindow', 'stale');
+sandbox.hydrate({prefs: {mealWindow: {lunchFrom: '99:99', dinnerFrom: '', snackFrom: '21:00'}}});
+check('a malformed meal window falls back field by field', stored.get('qingheng.mealWindow') === JSON.stringify({lunchFrom: '11:20', dinnerFrom: '16:30', snackFrom: '21:00'}), stored.get('qingheng.mealWindow'));
+;return typeof fail === 'number' ? fail : 0;
+});
+
 console.log('\nFAIL total: ' + __fail);
 process.exitCode = __fail ? 1 : 0;

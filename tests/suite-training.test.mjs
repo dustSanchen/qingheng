@@ -576,6 +576,18 @@ check('compound and isolation are classified', app.includes('function isCompound
 check('isolation is excluded from compound', app.includes('if (ISOLATION_MOVES.test(text)) return false;'));
 check('the pill still exists', html.includes('id="rest-timer"') && app.includes('function installRestDock()'));
 
+// --- 后台/锁屏回来按绝对时间校准（2026-11-27 Phase 3） --------------------------------------
+check('the remaining seconds come from an absolute target', app.includes('function restLeftNow()') && app.includes('Math.ceil((restEnd - Date.now()) / 1000)'));
+check('the timer ticks through one helper, not a decrement counter', app.includes('restTick = setInterval(tickRest, 1000);') && !/seconds\s*--|--\s*seconds/.test(app));
+check('coming back to the foreground recalibrates immediately', /addEventListener\('visibilitychange'[\s\S]{0,200}tickRest\(\)/.test(app));
+const restSrc = 'let restEnd = 0;' + grab('function restLeftNow()', ['function tickRest()'])
+  + '\nreturn {left: restLeftNow, set: v => {restEnd = v;}};';
+const restClock = new Function(restSrc)();
+restClock.set(Date.now() + 1120);
+check('a running timer rounds the remaining time up', restClock.left() === 2, String(restClock.left()));
+restClock.set(Date.now() - 500);
+check('an expired timer reads zero, not negative', restClock.left() === 0, String(restClock.left()));
+
 // --- 行为：用假 AudioContext 跑一次，确认真的排了两个音、不是空函数 --------------------------
 function grab(startMarker, endMarkers) {
   const start = app.indexOf(startMarker);

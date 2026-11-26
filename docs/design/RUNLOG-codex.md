@@ -2105,3 +2105,14 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 测试修复 18 处：按旧片段路径或 slice 标记取饮食源码的断言改为读 42/45（suite-chat / suite-food / suite-records / suite-today / suite-training / suite-trends）；suite-infra 的启动行断言改找 `installDietModule()`；两处「索引取自 A 却切 B」的切片一并修正。
 - 验收：assemble 19 片段 697,792 bytes；check-architecture 37 checks / 6 warnings PASS（42 领域层零 DOM）；test-all 12/12 全绿；42/45 在无 DOM 的 vm 里可加载并完成 `QH.define('diet')`；42 之前片段的顶层语句引用被移走的 const = 0（无 TDZ）。
 - 未做：未装机、未提版本、未推三远端；饮食底稿 docs/diet-module-code-extract.md 需按新片段重跑（生成器的 file 映射要改到 42/45，函数集合不变）。
+
+### r241 · 2026-11-27 02:05 · 1.5.42：今天页事件总线 + 休息计时防后台 + 备份一致性与架构防回潮
+
+- 用户下发《架构最终收口与真机加固指令》（五节）。本轮落地一、三、四；第二节（70-rest 拆分与 document 委托收敛）未动，原因见末尾。
+- 一、今天页刷新中枢：新增 `25-today-hub.fragment.js`（20-29 带宽）——`scheduleTodayRefresh(sections)` 用 `requestAnimationFrame` 合并同一帧的多次变更，订阅 `DIET_SAVED / TRAINING_SAVED / WEIGHT_SAVED / HABIT_UPDATED / PREFS_CHANGED`；时间线可单独重画，能量环/体检/行动条仍走 renderBody 的同一条口径。补上缺失的发射点：`submitForm` 按 `/api/measurements`→WEIGHT_SAVED、`/api/habits`→HABIT_UPDATED、`/api/profile`→PREFS_CHANGED；`schedulePrefsSync` 成功回包后发 PREFS_CHANGED。
+- 三、休息计时防后台：本来就是绝对时间戳（`restEnd = Date.now() + length*1000`，`Math.ceil((restEnd - Date.now())/1000)`），本轮把它收成 `restLeftNow()/tickRest()` 两个函数并加 `visibilitychange` 监听——回前台立即校准，后台已到期就直接收尾并补一次提示音。
+- 四.1 备份一致性：核查 5 个 CONFIG_REGISTRY 键（planPrefs / aiPlans / preferences / bodyweightMoves / mealWindow），派生缓存（weekPlan / weightMemory / intakeConfidence / sessionStart）刻意不进备份、可重算。新增 `settings-backup` 组：把一份 prefs 喂给 `hydratePrefsFromState` 后逐键断言（含 AI 计划按日期、餐次窗口坏值逐项回落）。
+- 四.2 架构守卫：`check-architecture` 新增两条——① 单片段 >1500 行给出 `fragment over 1500 lines` 警告（当前只有 70-rest 触发）；② 大列表渲染保护：问答历史必须有 `CHAT_PAGE_SIZE` 且按 `chatShownCount` 截断、记录流必须按 `RECORD_MEALS_COLLAPSED` 截断，缺一即失败。
+- 测试：新增 `today-hub`（13 条，含「同一帧两次保存只渲染一次」「只有时间线时不整页重画」的行为断言）、休息计时 4 条（含绝对时间行为断言）、`settings-backup` 11 条；`suite-architecture` 的警告断言改为「legacy 恰 6 条 + 体积警告单列」。
+- 验收：assemble 20 片段 701,404 bytes；`check-architecture` 41 checks / 7 warnings PASS；`test-all` 12/12 全绿。
+- 未做（下一轮）：`70-rest` 拆分（1960 行，仍需按 30-body / 90-trends-settings / 68 / 80 归位后才会消掉体积警告）与 `document` 点击委托收敛到各 view 根。本轮只加守卫不改该文件，避免在已绿基线上做大迁移；饮食底稿的 42/45 映射重跑也未做。

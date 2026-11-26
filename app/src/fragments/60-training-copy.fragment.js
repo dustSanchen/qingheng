@@ -1105,6 +1105,13 @@
       const payload=build(form); if (payload===null) return;
       await api(path,payload);
       feedback(message,'已保存。');
+      // 领域事件：今天页由 25-today-hub 订阅后按帧合并刷新，保存路径不再各自硬编码重画。
+      if (window.QH && QH.bus && QH.EVENTS) {
+        const savedEvent = path === '/api/measurements' ? QH.EVENTS.WEIGHT_SAVED
+          : path === '/api/habits' ? QH.EVENTS.HABIT_UPDATED
+          : path === '/api/profile' ? QH.EVENTS.PREFS_CHANGED : null;
+        if (savedEvent) QH.bus.emit(savedEvent, {date: activeDate});
+      }
       // 快捷值不再由「保存过什么」自动改写：它现在由「自定义快捷值」显式设定，卡底两枚要可预期。
       if (path === '/api/meals') {form.reset();setDefaultDates();}
       if (path === '/api/settings') {delete providerDrafts[selectedProvider];form.elements.apiKey.value='';form.elements.clearKey.checked=false;}

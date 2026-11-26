@@ -887,7 +887,11 @@
   /** Debounced fire-and-forget write; a failed sync must never interrupt the user's action. */
   function schedulePrefsSync(patch) {
     try { clearTimeout(prefsSyncTimer); } catch { }
-    prefsSyncTimer = setTimeout(() => { api('/api/prefs', {prefs: patch}).catch(() => { }); }, 400);
+    prefsSyncTimer = setTimeout(() => {
+      api('/api/prefs', {prefs: patch})
+        .then(() => { if (window.QH && QH.bus && QH.EVENTS) QH.bus.emit(QH.EVENTS.PREFS_CHANGED, {}); })
+        .catch(() => { });
+    }, 400);
   }
   /** Restores localStorage from state.prefs on load, so a fresh phone regains its preferences.
    *  Uses the shared key constants (PLAN_PREFS_KEY / AI_PLAN_KEY) instead of new literals. */
