@@ -965,13 +965,6 @@
       finally { if(button) button.disabled=false; }
     });
     $('#confirm-estimate').addEventListener('click',confirmDraft);$('#cancel-estimate').addEventListener('click',discardDraft);
-    document.addEventListener('click',async event=>{const button=event.target.closest('[data-delete-meal]');if(!button || button.disabled)return;if(!await askConfirm('确定删除这条餐食记录吗？此操作无法撤销。',{title:'删除餐食',ok:'删除',danger:true}))return;const removed=(state.meals||[]).find(row=>row && String(row.id)===String(button.dataset.deleteMeal));button.disabled=true;try{await api(`/api/meals/${encodeURIComponent(button.dataset.deleteMeal)}`,undefined,'DELETE');if(window.QH && QH.bus && QH.EVENTS) QH.bus.emit(QH.EVENTS.DIET_SAVED,{date:(removed && removed.date)||activeDate});try{await loadState({quiet:true});notice('餐食已删除。');}catch{notice('删除成功，但刷新失败。请重新加载检查记录。',true);}}catch(error){notice(error.message,true);button.disabled=false;}});
-    document.addEventListener('click', event => {
-      const button = event.target.closest('[data-edit-meal]');
-      if (!button) return;
-      const record = (state.meals || []).find(row => row && String(row.id) === String(button.dataset.editMeal));
-      if (record) beginMealEdit(record);
-    });
   }
 
   /** 「按食品模型校核」：只换食材营养，保留烹饪方式与已算用油。1.5.42 Phase 2 从 00-head 迁入。 */
@@ -1048,11 +1041,40 @@
    * 饮食模块唯一安装入口：dataset.dietWired 保证幂等，重复调用不会重复绑定。
    * 调用点在 70-rest 的启动装配行（原来直接调 installQuickRecordControls）。
    */
+
+  /**
+   * 餐食行（删除 / 编辑 / 展开每项）的点击委托：只挂在会渲染餐食行的两个视图根上，
+   * 不挂 document——避免在其他标签页误触，也避免与全局导航委托抢事件。
+   */
+  function bindMealRowActions() {
+    for (const root of [$('#view-today'), $('#view-records')]) {
+      if (!root || root.dataset.mealRowsWired === '1') continue;
+      root.dataset.mealRowsWired = '1';
+      root.addEventListener('click',async event=>{const button=event.target.closest('[data-delete-meal]');if(!button || button.disabled)return;if(!await askConfirm('确定删除这条餐食记录吗？此操作无法撤销。',{title:'删除餐食',ok:'删除',danger:true}))return;const removed=(state.meals||[]).find(row=>row && String(row.id)===String(button.dataset.deleteMeal));button.disabled=true;try{await api(`/api/meals/${encodeURIComponent(button.dataset.deleteMeal)}`,undefined,'DELETE');if(window.QH && QH.bus && QH.EVENTS) QH.bus.emit(QH.EVENTS.DIET_SAVED,{date:(removed && removed.date)||activeDate});try{await loadState({quiet:true});notice('餐食已删除。');}catch{notice('删除成功，但刷新失败。请重新加载检查记录。',true);}}catch(error){notice(error.message,true);button.disabled=false;}});
+      root.addEventListener('click', event => {
+        const button = event.target.closest('[data-edit-meal]');
+        if (!button) return;
+        const record = (state.meals || []).find(row => row && String(row.id) === String(button.dataset.editMeal));
+        if (record) beginMealEdit(record);
+      });
+      root.addEventListener('click', event => {
+        const toggle = event.target.closest('[data-meal-items]');
+        if (!toggle) return;
+        const panel = toggle.parentElement?.querySelector('.meal-items');
+        if (!panel) return;
+        const open = panel.hidden;
+        panel.hidden = !open;
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+    }
+  }
+
   function installDietModule() {
     const root = document.body;
     if (!root || root.dataset.dietWired === '1') return;
     root.dataset.dietWired = '1';
     installDietEstimateForm();
+    bindMealRowActions();
     installDietCalibrate();
     installQuickRecordControls();
     installMealWindow();
@@ -1064,3 +1086,14 @@
     totalsFor, intakeRangeForDate, effectiveProfileForDate, dailyCheck, relaxDayInfoFor,
     renderDailyCheck, renderDietTrend, openQuickRecord
   });
+  function mealWindowSummaryText(spec) {
+    return `早于 ${spec.lunchFrom} 记早餐，${spec.lunchFrom} 起记午餐，${spec.dinnerFrom} 起记晚餐，${spec.snackFrom} 起记加餐。`;
+  }
+
+  /** The estimate form starts on the slot the clock implies, unless the user already picked one. */
+  function applyMealTypeDefault() {
+    const form = $('#estimate-form');
+    if (!form || mealTypeTouched) return;
+    const select = form.querySelector('select[name="mealType"]');
+    if (select) select.value = defaultMealTypeFor(nowClock());
+  }

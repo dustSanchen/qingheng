@@ -690,5 +690,34 @@ check('save paths emit the domain events', app.includes("QH.EVENTS.WEIGHT_SAVED"
 ;return typeof fail === 'number' ? fail : 0;
 });
 
+await __run("delegation-scope", async () => {
+/**
+ * 点击委托收敛（2026-11-27 Phase 3 第二节）：
+ * 餐食行只挂在 #view-today / #view-records，聊天行只挂 #view-chat；
+ * 70-rest 只留休息引擎与记录页装配，业务函数不得回潮。
+ */
+let fail = 0;
+const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + label + (detail === undefined ? '' : '  -> ' + detail)); if (!ok) fail++; };
+
+const diet = fs.readFileSync('app/src/fragments/45-diet-ui.fragment.js', 'utf8');
+const rest = fs.readFileSync('app/src/fragments/70-rest.fragment.js', 'utf8');
+const app = fs.readFileSync('app/src/main/assets/app.js', 'utf8');
+
+check('meal rows are delegated on the two record views',
+  diet.includes('function bindMealRowActions()') && diet.includes("$('#view-today')") && diet.includes("$('#view-records')"));
+check('the meal delegate is not bound to document', !/document\.addEventListener\('click',\s*async\s*event\s*=>\s*\{[^}]*data-delete-meal/.test(diet));
+check('the meal list toggle moved with the delegate', diet.includes("closest('[data-meal-items]')") && !rest.includes("closest('[data-meal-items]')"));
+check('chat row actions stay inside the chat view', rest.includes("$('#view-chat')?.addEventListener('click'") && !/document\.addEventListener\('click',\s*event\s*=>\s*\{[^}]*data-chat-more/.test(rest));
+check('the hub installer wires the scoped delegates', /function installDietModule\(\)[\s\S]{0,400}bindMealRowActions\(\);/.test(diet));
+
+// 回潮检查：业务函数不得再出现在 70-rest
+const movedOut = ['renderHub', 'loadVersions', 'applySkin', 'installSkinPicker', 'loadStorageStatus', 'installProfileMore', 'installTrendPanels', 'switchTrendPanel', 'installPreferences', 'renderPreferences', 'installHabitChips', 'installBodyDataControls', 'paintBodyDataHints', 'installWeightCalc', 'addExercisesToToday', 'togglePlanDone', 'loadTodayAdvice', 'installTodayQuickActions', 'applyUndatedDate'];
+const leftOver = movedOut.filter(name => new RegExp('^ {2}(async\\s+)?function\\s+' + name + '\\s*\\(', 'm').test(rest));
+check('70-rest holds only the rest engine and record wiring', leftOver.length === 0, leftOver.join(', '));
+check('70-rest fits the size budget', rest.split('\n').length < 1500, String(rest.split('\n').length));
+check('the assembled app still exposes the 8 diet APIs', app.includes("QH.define('diet'") && app.includes('renderDietTrend'));
+;return typeof fail === 'number' ? fail : 0;
+});
+
 console.log('\nFAIL total: ' + __fail);
 process.exitCode = __fail ? 1 : 0;

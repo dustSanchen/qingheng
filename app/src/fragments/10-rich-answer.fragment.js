@@ -720,3 +720,175 @@
   }
 
 
+
+  function bindFavoriteFilter(buttonId, apply) {
+    const button = $('#' + buttonId);
+    if (!button) return;
+    button.addEventListener('click', () => {
+      const next = button.getAttribute('aria-pressed') !== 'true';
+      button.setAttribute('aria-pressed', next ? 'true' : 'false');
+      apply(next);
+    });
+  }
+
+  function setActiveDate(value) {
+    if(!validDate(value)) return false;
+    activeDate=value; $('#active-date').value=value; syncActiveDateLabel(); setDefaultDates(); render();
+    const content=$('#advice-content'); content.textContent=''; content.removeAttribute('data-date');
+    return true;
+  }
+
+  function markBusyButton(on) {
+    const active = document.activeElement;
+    if (on) {
+      if (active && active.tagName === "BUTTON") { busyButton = active; busyButton.setAttribute("aria-busy", "true"); }
+    } else if (busyButton) {
+      busyButton.removeAttribute("aria-busy");
+      busyButton = null;
+    }
+  }
+
+  function showBusy(text, target) {
+    markBusyButton(true);
+    hideBusy();
+    const label = text || "正在计算…";
+    // 等待反馈只留两种：目标容器内的行内提示，以及一次性 notice。全屏遮罩已删除。
+    if (target) {
+      const node = document.getElementById(target);
+      if (node) { node.hidden = false; const t2 = node.querySelector(".inline-busy-text"); if (t2) t2.textContent = label; }
+    }
+    // 兜底：任何异常都不该让等待提示常驻。
+    busyTimer = setTimeout(() => hideBusy(), 25000);
+  }
+
+  function hideBusy() {
+    markBusyButton(false);
+    if (busyTimer) { clearTimeout(busyTimer); busyTimer = null; }
+    const inline = document.getElementById("estimate-busy"); if (inline) inline.hidden = true;
+    const planInline = document.getElementById("plan-busy"); if (planInline) planInline.hidden = true;
+  }
+
+  function prependHeadingKicker(heading, text) {
+    const titleBox = heading?.querySelector('div');
+    if (!titleBox || titleBox.querySelector('.heading-kicker')) return;
+    const kicker = document.createElement('p');
+    kicker.className = 'eyebrow heading-kicker';
+    kicker.textContent = text;
+    titleBox.prepend(kicker);
+  }
+
+  function installPageHeadingStructures() {
+    const todayHeading = $('.page-heading', $('#view-today'));
+    const datePicker = todayHeading?.querySelector('.date-picker');
+    const dateInput = $('#active-date');
+    if (todayHeading && datePicker && dateInput) {
+      todayHeading.classList.add('page-heading--today');
+      prependHeadingKicker(todayHeading, '今日手札');
+      const currentDate = document.createElement('time');
+      currentDate.id = 'active-date-label';
+      currentDate.className = 'date-picker-value';
+      currentDate.setAttribute('aria-hidden', 'true');
+      dateInput.setAttribute('aria-label', '查看日期');
+      datePicker.replaceChildren(currentDate, dateInput);
+    }
+    const recordHeading = $('.page-heading', $('#view-records'));
+    if (recordHeading) {
+      recordHeading.classList.add('page-heading--records');
+      
+    }
+    const trendsHeading = $('.page-heading', $('#view-trends'));
+    const rangeLabel = trendsHeading?.querySelector('label');
+    const rangeSelect = $('#trend-range');
+    if (trendsHeading && rangeLabel && rangeSelect) {
+      trendsHeading.classList.add('page-heading--trends');
+      
+      rangeLabel.className = 'range-picker';
+      rangeSelect.setAttribute('aria-label', '观察范围');
+      const accessibleLabel = document.createElement('span');
+      accessibleLabel.className = 'sr-only';
+      accessibleLabel.textContent = '观察范围';
+      rangeLabel.replaceChildren(accessibleLabel, rangeSelect);
+    }
+  }
+
+  /** The 今天-page window: training questions only; external sending uses the one-time consent. */
+  /**
+   * 记录页低频卡片的折叠位（1.4.46 起清空）。
+   * 「食品热量参考库」「手动记录餐食」已按入口预算移除：估算卡本身就能描述任意餐食与克重，
+   * 这两张卡解决的是同一个低频需求，却各占一个折叠标题。留空数组，机制保留给以后真正的低频卡。
+   */
+  function installCardCollapse() {
+    const groups = [];
+    for (const [selector, label] of groups) {
+      const anchor = document.querySelector(selector);
+      const card = anchor && anchor.closest('article.card');
+      if (!card || card.dataset.collapsed === '1') continue;
+      const details = document.createElement('details');
+      details.className = 'card-collapse';
+      const summary = document.createElement('summary');
+      summary.textContent = label;
+      const body = document.createElement('div');
+      body.className = 'card-collapse-body';
+      while (card.firstChild) body.appendChild(card.removeChild(card.firstChild));
+      details.appendChild(summary);
+      details.appendChild(body);
+      details.open = false;
+      card.appendChild(details);
+      card.dataset.collapsed = '1';
+    }
+  }
+
+  /**
+   * Applies one confirmed draft. Training merges into the day's exercise list; the simple metrics
+   * merge into the same habit row; weight goes to measurements. Returns what undo has to restore.
+   */
+  async function applyDraft(draft) {
+    if (draft.kind === 'meal') throw new Error('餐食草稿需要在餐食表单生成预览并确认，不能直接写入。');
+    const habit = habitRowFor(draft.date) || {date: draft.date};
+    const existing = Array.isArray(habit.exercises) ? habit.exercises : [];
+    if (draft.kind === 'weight') {
+      // 带当天那行的 id 写入：否则同一天会有两行测量，「身体近况」按日期取第一条会读到旧值。
+      const before = measurementRowFor(draft.date);
+      await api('/api/measurements', {...(before || {}), date: draft.date, weight: draft.payload.weight});
+      return {kind: 'weight', date: draft.date, before};
+    }
+    if (draft.kind === 'training') {
+      await api('/api/habits', {...habit, date: draft.date, training: true,
+        exercises: [...existing, ...(draft.payload.exercises || [])]});
+      return {kind: 'habits', date: draft.date, before: {...habit, date: draft.date, exercises: existing}};
+    }
+    const key = draft.payload && Object.keys(draft.payload)[0];
+    if (!key) throw new Error('这条草稿没有可写入的字段');
+    await api('/api/habits', {...habit, date: draft.date, [key]: draft.payload[key]});
+    return {kind: 'habits', date: draft.date, before: {...habit, date: draft.date}};
+  }
+
+  /** 展开/收起：把内容包进 grid 容器，0fr→1fr 过渡 0.28s（真机验证过，不依赖新 CSS 特性）。 */
+  function installDisclosureAnimation() {
+    const wrap = details => {
+      if (!details || details.tagName !== 'DETAILS') return;
+      if (details.querySelector(':scope > .disclosure-body')) return;
+      const summary = details.querySelector(':scope > summary');
+      if (!summary) return;
+      const body = document.createElement('div');
+      body.className = 'disclosure-body';
+      const inner = document.createElement('div');
+      inner.className = 'disclosure-inner';
+      while (details.lastChild && details.lastChild !== summary) inner.insertBefore(details.lastChild, inner.firstChild);
+      body.append(inner);
+      details.append(body);
+    };
+    document.querySelectorAll('details').forEach(wrap);
+    new MutationObserver(records => {
+      for (const record of records) {
+        // 内容被 innerHTML 重写时，包裹层会被冲掉：从变更目标往上找 details 再包一次。
+        const owner = record.target?.closest?.('details');
+        if (owner) wrap(owner);
+        for (const node of record.addedNodes) {
+          if (node.nodeType !== 1) continue;
+          if (node.tagName === 'DETAILS') wrap(node);
+          node.querySelectorAll?.('details').forEach(wrap);
+        }
+      }
+    }).observe(document.body, {childList: true, subtree: true});
+  }

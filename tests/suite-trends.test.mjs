@@ -169,8 +169,8 @@ check('a missing training plan is reported, not assumed silently', unset.provisi
 const noWeight = computeTargets({sex: 'male', height: 166, age: 24, training: 3, goal: 'lean'});
 check('missing weight still blocks the estimate', noWeight.incomplete === true && noWeight.missing.includes('体重'));
 
-check('the hub summary knows the 薄肌 label', fs.readFileSync('app/src/fragments/70-rest.fragment.js', 'utf8').includes('GOAL_LABEL[profile.goal]'));
-check('the hub summary uses the goal-aware range', fs.readFileSync('app/src/fragments/70-rest.fragment.js', 'utf8').includes('const range = intakeRangeForDate();'));
+check('the hub summary knows the 薄肌 label', fs.readFileSync('app/src/fragments/90-trends-settings.fragment.js', 'utf8').includes('GOAL_LABEL[profile.goal]'));
+check('the hub summary uses the goal-aware range', fs.readFileSync('app/src/fragments/90-trends-settings.fragment.js', 'utf8').includes('const range = intakeRangeForDate();'));
 ;return typeof fail === 'number' ? fail : 0;
 });
 
@@ -187,7 +187,7 @@ const read = path => fs.readFileSync(path, 'utf8');
 
 const head = read('app/src/fragments/00-head.fragment.js') + read('app/src/fragments/42-diet-domain.fragment.js');
 const targetOffer = read('app/src/fragments/20-permissions-backup.fragment.js') + read('app/src/fragments/45-diet-ui.fragment.js');
-const rest = read('app/src/fragments/70-rest.fragment.js') + read('app/src/fragments/45-diet-ui.fragment.js');
+const rest = read('app/src/fragments/70-rest.fragment.js') + read('app/src/fragments/45-diet-ui.fragment.js') + read('app/src/fragments/90-trends-settings.fragment.js');
 const main = read('app/src/main/java/cn/qingheng/health/MainActivity.java');
 
 const effective = head.slice(head.indexOf('function effectiveProfileForDate'), head.indexOf('function effectiveProfileForDate') + 1800);

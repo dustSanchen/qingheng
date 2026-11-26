@@ -51,7 +51,7 @@ export const LEGACY_BAND_MISMATCH = {
   '40-targets.fragment.js': '目标预设属于 90-99 趋势与设置',
   '50-onboarding.fragment.js': '首次引导属于 20-29 今天页',
   '55-usage.fragment.js': '用量统计属于 90-99 趋势与设置',
-  '80-boot.fragment.js': '启动装配属于 00-09 核心基座'
+  '99-boot.fragment.js': '启动装配属于 00-09 核心基座，但必须排在最后收尾 IIFE'
 };
 
 /** 领域层（纯计算）里一律不许出现的浏览器交互 token。 */

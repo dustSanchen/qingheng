@@ -27,7 +27,7 @@ const read = path => fs.readFileSync(path, 'utf8');
 
 const html = read('app/src/main/assets/index.html');
 const app = read('app/src/main/assets/app.js');
-const rest = read('app/src/fragments/68-training-log.fragment.js') + read('app/src/fragments/70-rest.fragment.js') + read('app/src/fragments/80-ai-chat.fragment.js');
+const rest = read('app/src/fragments/68-training-log.fragment.js') + read('app/src/fragments/70-rest.fragment.js') + read('app/src/fragments/80-ai-chat.fragment.js') + read('app/src/fragments/25-today-hub.fragment.js') + read('app/src/fragments/31-body.fragment.js');
 // 2026-11-27：问答外围接线（快捷胶囊/分段/上下文预览）收口到 80-ai-chat 专属层。
 const aiChat = read('app/src/fragments/80-ai-chat.fragment.js');
 const head = read('app/src/fragments/00-head.fragment.js');

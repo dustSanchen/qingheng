@@ -68,3 +68,58 @@
   }
 
   installTodayHub();
+
+  /** Place common actions below the calorie summary, in reach without covering page content. */
+  function installTodayQuickActions() {
+    const view = $('#view-today');
+    if (!view || $('#today-quick-actions')) return;
+    const energyCard = $('.energy-card', view);
+    if (!energyCard) return;
+    const row = document.createElement('div');
+    row.className = 'quick-actions';
+    row.id = 'today-quick-actions';
+    row.setAttribute('role', 'group');
+    row.setAttribute('aria-label', '今日快捷操作');
+    row.innerHTML = [
+      ['icon-meal.svg', '记一餐', 'meal-text', 'quick-chip-primary'],
+      ['icon-glyph-training.svg', '训练', 'training-form', ''],
+      ['icon-glyph-balance.svg', '身体', 'measurement-weight', '']
+    ].filter(([, , focus]) => focus !== 'training-form' || trainingEnabled()).map(([icon, label, focus, className = '']) => `<button type="button" class="quick-chip ${className}" data-quick-focus="${focus}" data-quick-icon="${icon}"><span class="quick-chip-icon" aria-hidden="true">${iconMarkup(icon)}</span>${label}</button>`).join('');
+    // 动作组紧贴能量卡之下：先读数（环 → 宏量三列 → 补蛋白提示），再动作。
+    // 不放进卡里——卡内动作条会把一张卡切成两半；也没挂在宏量后面，空态时环与宏量都是 hidden，锚点会消失。
+    // 2026-11-22 第五轮：三个核心入口进卡，固定在能量环下方的黄金区；
+    // 不再靠 ⋯ 菜单承载主操作，低频的「显示指标」移到小习惯卡标题。
+    const anchor = $('.energy-body', energyCard);
+    if (anchor && anchor.parentElement === energyCard) anchor.after(row);
+    else energyCard.prepend(row);
+
+    row.addEventListener('click', event => {
+      const chip = event.target.closest('[data-quick-focus]');
+      if (!chip) return;
+      openRecordTarget(chip.dataset.quickFocus);
+    });
+  }
+
+  /**
+   * Today's advice, grouped by slot. The page used to open on an empty query form, which read as
+   * "there is no advice" even when this morning's push had already written one.
+   */
+  async function loadTodayAdvice() {
+    const box = $('#push-today'); if (!box) return;
+    const tag = $('#push-today-tag');
+    const today = localDate();
+    if (tag) tag.textContent = today;
+    try {
+      const data = await api('/api/push-history');
+      const order = {morning: 0, meal: 1, evening: 2, weekly: 3};
+      const slotNames = {morning: '白天建议', meal: '餐后反馈', evening: '晚间复盘', weekly: '每周复盘'};
+      const rows = (Array.isArray(data && data.records) ? data.records : [])
+        .filter(row => row && String(row.date) === today)
+        .sort((a, b) => (order[a.slot] ?? 9) - (order[b.slot] ?? 9) || Number(a.createdAt || 0) - Number(b.createdAt || 0));
+      box.innerHTML = rows.length
+        ? rows.map(row => `<div class="meal-row list-row" role="listitem"><div class="row-body"><div class="row-head"><strong>${esc(slotNames[row.slot] || row.slot || '建议')}</strong><span class="row-tag">${row.source === 'api' ? '外部模型' : row.source === 'skipped' ? '已跳过' : '提醒'}</span><span class="row-date">${esc(String(row.date || ''))}</span></div><div class="answer">${answerHtml(row.message || '')}</div></div></div>`).join('')
+        : empty('今天还没有生成建议。开启每日推送后，07:30 与 20:30 的分析会出现在这里；也可以直接在问答页问一句。');
+    } catch (error) {
+      box.textContent = error.message;
+    }
+  }

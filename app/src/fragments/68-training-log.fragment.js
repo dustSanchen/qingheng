@@ -1,5 +1,7 @@
 /* Fragment of assets/app.js -- assembled by tools/assemble-app.ps1 in filename order.
  * Edit this file, never the generated assets/app.js; tests/app-fragments.test.mjs fails on drift. */
+
+
   // ---------------------------------------------------------------------------------------------
   // 训练日志：动作行 / 组次 / 草稿 / 保存弹窗 / 课后总结 / 训练概览 / 容量表 / 事件绑定
   // 视图与它自己的交互放在一处；纯计算在 55-training-domain，计划与清单在 60，休息计时在 70。
@@ -1101,3 +1103,348 @@
       return dailyLoads(Math.max(1, Math.min(180, span)));
     }
   });
+
+  /** 「按部位查解剖要点」：每个部位取 2~3 条最相关的规则，带口述时间戳。 */
+  function bodyPartHints() {
+    const lib = window.TRAINING_PRINCIPLES;
+    if (!lib || !Array.isArray(lib.rules)) return '';
+    const parts = [
+      {label: '关节活动度', tags: ['anatomy', 'warmup']},
+      {label: '胸', tags: ['push']},
+      {label: '肩', tags: ['shoulder']},
+      {label: '背', tags: ['pull']},
+      {label: '手臂', tags: ['isolation', 'arm']},
+      {label: '腹肌 / 核心', tags: ['abs']},
+      {label: '腿 / 臀', tags: ['legs']},
+      {label: '减脂与恢复', tags: ['fatloss', 'recovery', 'sleep']}
+    ];
+    const order = Array.isArray(lib.priority) ? lib.priority : [];
+    const rank = source => { const index = order.indexOf(source); return index >= 0 ? index : 9; };
+    const rows = parts.map(part => {
+      const hits = lib.rules
+        .filter(rule => (rule.tags || []).some(tag => part.tags.includes(tag)))
+        .sort((a, b) => rank(a.source) - rank(b.source))
+        .slice(0, 3);
+      if (!hits.length) return '';
+      const items = hits.map(rule => '<p>' + esc(rule.claim.split('；')[0]) + '</p>').join('');
+      return '<p class="part-title">' + esc(part.label) + '</p>' + items;
+    }).join('');
+    return rows ? '<details class="body-parts"><summary>按部位查解剖要点</summary>' + rows + '</details>' : '';
+  }
+
+  /**
+   * 把一批动作并入当天训练记录：同名跳过，只追加不覆盖。
+   * 训练日志与 AI 计划是两份数据，这里是唯一把它们接起来的入口。
+   */
+  async function addExercisesToToday(items, options = {}) {
+    const wanted = (items || []).filter(item => item && String(item.name || "").trim());
+    if (!wanted.length) { notice("没有可加入的动作。"); return; }
+    const existing = habitRowFor(activeDate) || {};
+    const current = Array.isArray(existing.exercises) ? existing.exercises.map(item => ({...item})) : [];
+    const names = new Set(current.map(item => String(item && item.name || "").trim()));
+    const added = [];
+    for (const item of wanted) {
+      const name = String(item.name).trim().slice(0, 60);
+      if (names.has(name)) continue;
+      // 自重动作的 weight 0 归一成 null：模型常把「没有配重」写成 0，别让它变成一条 0 kg 记录。
+      const rawWeight = number(item.weight);
+      const weight = typeof isBodyweightMove === "function" && isBodyweightMove(name) && rawWeight !== null && rawWeight <= 0 ? null : rawWeight;
+      const record = {
+        id: (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : "ex-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8),
+        name,
+        sets: number(item.sets) === null ? null : number(item.sets),
+        reps: number(item.reps) === null ? null : number(item.reps),
+        weight
+      };
+      // 有氧项没有组次重量，改记距离与时长，训练日志那边才有东西可显示。
+      if (number(item.distanceKm) !== null) record.distanceKm = number(item.distanceKm);
+      if (number(item.durationMin) !== null) record.durationMin = number(item.durationMin);
+      // 勾选即记录写进来的行带标记：取消勾选时只回收「还没动过」的行。
+      if (options.fromPlan === true) record.fromPlan = true;
+      current.push(record);
+      names.add(name);
+      added.push(name);
+    }
+    if (!added.length) { notice("这些动作已经在今天的训练记录里了。"); return; }
+    try {
+      await api("/api/habits", {...existing, date: activeDate, exercises: current});
+      await loadState({quiet: true});
+      if (options.keepInPlan === true) {
+        // 勾选路径：清单项要留着显示「已做完」，不能像批量导入那样从清单里消失。
+        notice("已记入今天的训练：" + added.join("、") + "。");
+        return;
+      }
+      // 已经进了训练记录的动作，从今日顺序里拿掉；没进记录的留着，避免清单凭空缩水。
+      const addedSet = new Set(added);
+      const planNow = aiPlanStore(activeDate) || [];
+      const planRest = planNow.filter(row => !addedSet.has(String(row && row.name || "").trim()));
+      if (planRest.length !== planNow.length) {
+        aiPlanStore(activeDate, planRest);
+        renderAiPlan();
+        if (typeof renderAdviceOrder === "function") renderAdviceOrder();
+      }
+      notice("已加入今天的训练记录：" + added.join("、") + "。");
+    } catch (error) {
+      notice("加入训练记录失败：" + (error && error.message ? error.message : "未知错误"), true);
+    }
+  }
+
+  /**
+   * 勾选即记录（2026-11-22 第七轮）：清单勾一个就落一条训练记录，不再要求二次导入。
+   * 只对今天生效、只在有组次时写库；取消勾选只回收「自己加进来且没动过」的行。
+   */
+  async function removeExerciseFromToday(target) {
+    const existing = habitRowFor(activeDate) || {};
+    const list = Array.isArray(existing.exercises) ? existing.exercises : [];
+    const next = list.filter(row => !(row && target && row.id === target.id));
+    if (next.length === list.length) return;
+    await api("/api/habits", {...existing, date: activeDate, exercises: next});
+    await loadState({quiet: true});
+  }
+
+  async function togglePlanDone(index, checked) {
+    const plan = aiPlanStore(activeDate) || [];
+    const item = plan[index];
+    if (!item || !String(item.name || "").trim()) return;
+    const name = String(item.name).trim();
+    const isToday = activeDate === localDate();
+    const canRecord = isToday && (number(item.sets) !== null || number(item.reps) !== null);
+    if (!canRecord) {
+      // 历史日期或没填组次：只做勾选框标记，绝不写历史记录。
+      item.done = checked === true;
+      aiPlanStore(activeDate, plan);
+      renderAiPlan();
+      return;
+    }
+    if (checked) {
+      const existing = exercisesFor(activeDate).find(row => String(row && row.name || "").trim() === name);
+      if (!existing) await addExercisesToToday([item], {fromPlan: true, keepInPlan: true});
+      item.done = true;
+      aiPlanStore(activeDate, plan);
+      renderAiPlan();
+      if (typeof renderTrainingLog === "function") renderTrainingLog();
+      return;
+    }
+    item.done = false;
+    aiPlanStore(activeDate, plan);
+    const current = exercisesFor(activeDate).find(row => String(row && row.name || "").trim() === name);
+    // 「没动过」= 组次负重仍然全是计划里给的那组数字（或还没生成组明细）。
+    // 只看「数组是否为空」会误判：表单重建后每组都是对象，而计划本来就带 5 组 × 5 次 × 60 kg。
+    const sameAsPlan = !Array.isArray(current?.setDetails) || !current.setDetails.length
+      || current.setDetails.every(set => set
+        && (number(set.reps) ?? null) === (number(item.reps) ?? null)
+        && (number(set.weight) ?? null) === (number(item.weight) ?? null));
+    const untouched = current && current.fromPlan === true && sameAsPlan;
+    if (untouched) {
+      await removeExerciseFromToday(current);
+      if (typeof renderTrainingLog === "function") renderTrainingLog();
+      notice("已取消勾选，并从今天的训练记录里撤掉。");
+    } else if (current) {
+      notice("已保留这条记录（里面已经有改动）。");
+    }
+    renderAiPlan();
+  }
+
+  /**
+   * 从「今日清单」直接进入记录：把动作并进今天，跳到训练日志并聚焦负重。
+   * 主流健身 App 的路径都是「看清单 → 点这个动作 → 记实际组次」，不要求重新打字。
+   */
+  async function startLoggingFromPlan(item) {
+    const name = String(item && item.name || "").trim();
+    if (!name) return;
+    const already = exercisesFor(activeDate).some(row => String(row && row.name || "").trim() === name);
+    if (!already) await addExercisesToToday([item]);
+    switchTab("records", true);
+    if (typeof switchRecordPanel === "function") switchRecordPanel("training");
+    setTimeout(() => {
+      const row = [...document.querySelectorAll("#training-exercises [data-exercise-row]")]
+        .find(node => String(($('[data-exercise="name"]', node) || {}).value || "").trim() === name);
+      (row || $("#training-form"))?.scrollIntoView({block: "center", behavior: "smooth"});
+      const target = row ? (row.querySelector('[data-cardio="distance"]') || row.querySelector('[data-exercise="weight"]')) : null;
+      target?.focus();
+    }, 220);
+  }
+
+  /** 从 AI 回答的纯文本里挑出「动作名 3组×8次 60kg」这类片段；认不出就返回空。 */
+  function parseExercisesFromText(text) {
+    const cleaned = String(text || "").replace(/<[^>]+>/g, "\n");
+    const pattern = /([\u4e00-\u9fa5A-Za-z][\u4e00-\u9fa5A-Za-z0-9·\- ]{1,19}?)\s*[:：]?\s*(\d{1,2})\s*组?\s*[×xX*]\s*(\d{1,3})\s*次?\s*(?:[×xX*]\s*)?(\d{1,3}(?:\.\d)?)?\s*(?:kg|公斤)?/g;
+    const out = [];
+    let hit;
+    while ((hit = pattern.exec(cleaned))) {
+      const name = hit[1].trim().replace(/[：:，,。]$/, "");
+      if (!name || name.length < 2) continue;
+      out.push({
+        name: name.slice(0, 24),
+        sets: Number(hit[2]) || null,
+        reps: Number(hit[3]) || null,
+        weight: hit[4] ? Number(hit[4]) : null
+      });
+    }
+    return out;
+  }
+
+  const EFFORT_LABELS = {tooLight: "太轻", justRight: "刚好", tired: "有点累", tooMuch: "太累"};
+  const EFFORT_LEVELS = ["tooLight", "justRight", "tired", "tooMuch"];
+  function effortFor(date) {
+    const row = (state.habits || []).find(item => item && item.date === date);
+    const value = row && row.effort;
+    return EFFORT_LEVELS.includes(value) ? value : null;
+  }
+
+  /** 强度信号落到清单：降载时每个配重动作少一组、重量退 5%；加量时第一个复合动作多一组。 */
+  function applyEffortSignalToPlan(plan) {
+    const signal = effortSignal();
+    if (!Array.isArray(plan) || !plan.length || signal.level === "keep") return plan;
+    if (signal.level === "deload") {
+      for (const item of plan) {
+        if (!item || item.bodyweight || Number(item.distanceKm) > 0) continue;
+        // 少一组，但别把只有 1 组的孤立动作「减」成 2 组（以前 Math.max(2, 0) 会越减越多）。
+        item.sets = Math.max(1, (Number(item.sets) || 1) - 1);
+        if (Number(item.weight) > 0 && typeof reduceLoadableWeightKg === "function") {
+          const kg = reduceLoadableWeightKg(item.name, Number(item.weight) * 0.95, Number(item.weight));
+          if (kg > 0) { item.weight = kg; item.weightSource = "deload"; }
+        }
+      }
+    } else if (signal.level === "push") {
+      const first = plan.find(item => item && !item.bodyweight && !(Number(item.distanceKm) > 0));
+      if (first) first.sets = Math.min(5, (Number(first.sets) || 3) + 1);
+    }
+    return plan;
+  }
+
+  /** 体感只落在结束训练弹窗里（2026-11-23 删掉卡片底部那一行），这里不再有可刷新的行内 UI。 */
+  async function saveTrainingEffort(value) {
+    if (!EFFORT_LEVELS.includes(value)) return;
+    const existing = (state.habits || []).find(item => item && item.date === activeDate) || {};
+    await api("/api/habits", {...existing, date: activeDate, effort: value, effortAt: new Date().toISOString()});
+    await loadState({quiet: true});
+    notice("已记下：练下来" + EFFORT_LABELS[value] + "。下次排课会参考。");
+  }
+
+  /** 教练说明只留在本机：它解释「为什么没完全照要求办」，不进导出数据。 */
+  function planNoteKey(date) { return "qingheng.planNote." + date; }
+
+  function readPlanNote(date) {
+    try { return localStorage.getItem(planNoteKey(date)) || ""; } catch { return ""; }
+  }
+
+  function writePlanNote(date, text) {
+    try {
+      if (text) localStorage.setItem(planNoteKey(date), text);
+      else localStorage.removeItem(planNoteKey(date));
+    } catch {}
+  }
+
+  function renderPlanNote() {
+    const node = $("#ai-plan-note");
+    if (!node) return;
+    const text = readPlanNote(activeDate);
+    node.hidden = !text;
+    node.textContent = text || "";
+  }
+
+  /** 只把「上一次没排成」的原因贴在清单上方：toast 只活 10 秒，失败原因要留得住。
+   *  成功时不报耗时（2026-11-23 用户：不追求生成速度，追求排得对）。 */
+  function renderPlanTiming() {
+    const node = $("#ai-plan-timing");
+    if (!node) return;
+    let timing = null;
+    try { timing = JSON.parse(localStorage.getItem("qingheng.planTiming." + activeDate) || "null"); } catch { timing = null; }
+    if (!timing || !timing.error) { node.hidden = true; node.textContent = ""; return; }
+    node.hidden = false;
+    node.textContent = "上次没排成：" + timing.error;
+  }
+
+  /**
+   * 播种行的每组 ○ 反过来决定计划项的 done（2026-11-22）：
+   * 计划清单不再单独渲染，但 agenda 的「N 个动作还没完成」必须仍然说真话。
+   */
+  function syncPlanDoneFromRow(row) {
+    if (!row || row.dataset.planIndex == null) return;
+    const index = Number(row.dataset.planIndex);
+    const plan = aiPlanStore(activeDate) || [];
+    const item = plan[index];
+    if (!item) return;
+    const sets = $$('[data-set-row]', row);
+    const allDone = sets.length > 0 && sets.every(set => set.classList.contains('is-done'));
+    if (item.done === allDone) return;
+    item.done = allDone;
+    aiPlanStore(activeDate, plan);
+    renderAiPlan();
+    if (typeof renderTodayAction === 'function') renderTodayAction();
+  }
+
+  /** 杠铃总重计算器：杆重 + 2 × 每侧片重。 */
+  function installWeightCalc() {
+    const open = $("#weight-calc"), sheet = $("#weight-sheet");
+    if (!open || !sheet) return;
+    const bar = $("#bar-weight"), plate = $("#plate-weight"), perSide = $("#weight-per-side"), out = $("#weight-result");
+    const savedBar = Number(localStorage.getItem("qingheng.barWeight") || 0);
+    if (savedBar > 0) bar.value = String(savedBar);
+    const total = () => {
+      const b = Number(bar.value) || 0, p = Number(plate.value) || 0;
+      return Math.round((b + (perSide.checked ? 2 * p : p)) * 10) / 10;
+    };
+    const update = () => {
+      const b = Number(bar.value) || 0, p = Number(plate.value) || 0;
+      const sum = total();
+      out.textContent = perSide.checked
+        ? "总重 " + sum + " kg（杆 " + b + " + " + p + " × 2）——这个数填进负重。"
+        : "总重 " + sum + " kg（杆 " + b + " + " + p + "）——这个数填进负重。";
+    };
+    open.addEventListener("click", () => { sheet.hidden = false; update(); });
+    $("#weight-close").addEventListener("click", () => { sheet.hidden = true; });
+    bar.addEventListener("input", () => { update(); localStorage.setItem("qingheng.barWeight", String(Number(bar.value) || 0)); });
+    plate.addEventListener("input", update);
+    perSide.addEventListener("change", update);
+    const fill = $("#weight-fill");
+    if (fill && !fill.dataset.wired) {
+      fill.dataset.wired = "1";
+      fill.addEventListener("click", () => {
+        // 负重输入由 setRowHtml 渲染成 [data-set="weight"]，没有 name 属性；
+        // 旧选择器 input[name="weight"] 一个都选不到，回填永远是「先添加一个动作」。
+        const inputs = $$('#training-exercises [data-set="weight"]');
+        const target = inputs.find(input => !input.value) || inputs[inputs.length - 1];
+        if (!target) { notice("先添加一个动作，再回填负重。"); return; }
+        target.value = String(total());
+        target.dispatchEvent(new Event("input", {bubbles: true}));
+        sheet.hidden = true;
+        notice("已填入 " + total() + " kg。");
+      });
+    }
+  }
+
+  /**
+   * 训练的两张静态 sheet：计划说明放本周要求 / 怎么排的 / 负荷；
+   * 顺延与清空已从「其他」里搬出来，直接挂在训练日志的操作行（2026-11-23 用户要求）——
+   * 这两件低频动作不再需要一个折叠层，也少一个「其他」按钮。
+   */
+  function installTrainingSheets() {
+    const sheetOf = id => $(id);
+    const open = id => {
+      const node = sheetOf(id);
+      if (!node) return;
+      node.hidden = false;
+      const first = node.querySelector('button, textarea, [data-sheet-focus]');
+      if (first) first.focus({preventScroll: true});
+    };
+    const close = id => { const node = sheetOf(id); if (node) node.hidden = true; };
+    const pairs = [['#plan-explain-open', '#plan-sheet', '#plan-sheet-close']];
+    for (const [trigger, sheet, closer] of pairs) {
+      $(trigger)?.addEventListener('click', () => open(sheet));
+      $(closer)?.addEventListener('click', () => close(sheet));
+      $(sheet)?.addEventListener('click', event => { if (event.target === sheetOf(sheet)) close(sheet); });
+    }
+    // 2026-11-23 Phase 3：教练说明与排课耗时不再搬进计划说明抽屉——它们留在训练日志工具栏下方，
+    // 点「重排今天」之后抬头就能看到（搬走会让反馈藏在另一张卡里）。
+    document.addEventListener('keydown', event => {
+      if (event.key !== 'Escape') return;
+      if (sheetOf('#plan-sheet') && !sheetOf('#plan-sheet').hidden) close('#plan-sheet');
+    });
+  }
+
+  function showTrainingDraft(draft) {
+    pendingDraft = draft;
+    renderTrainingDraft(draft);
+  }

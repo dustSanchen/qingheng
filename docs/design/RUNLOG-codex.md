@@ -2116,3 +2116,19 @@ otice() 支持 {label, run}，到期的备份提醒显示「去导出」，点�
 - 测试：新增 `today-hub`（13 条，含「同一帧两次保存只渲染一次」「只有时间线时不整页重画」的行为断言）、休息计时 4 条（含绝对时间行为断言）、`settings-backup` 11 条；`suite-architecture` 的警告断言改为「legacy 恰 6 条 + 体积警告单列」。
 - 验收：assemble 20 片段 701,404 bytes；`check-architecture` 41 checks / 7 warnings PASS；`test-all` 12/12 全绿。
 - 未做（下一轮）：`70-rest` 拆分（1960 行，仍需按 30-body / 90-trends-settings / 68 / 80 归位后才会消掉体积警告）与 `document` 点击委托收敛到各 view 根。本轮只加守卫不改该文件，避免在已绿基线上做大迁移；饮食底稿的 42/45 映射重跑也未做。
+
+### r242 · 2026-11-27 02:40 · 1.5.42：架构收口第二节（70-rest 拆分 + 委托收敛 + boot 改名）
+
+- 用户：「执行」——接着做 r241 未动的第二节。
+- 70-rest 从 1978 行拆到 708 行，只留组间休息引擎（restLeftNow/tickRest/paintRest/installRestDock/音频）、记录页面板装配（installRecordPanels 等）与顶层绑定；61 个函数按层归位：
+  - 10-rich-answer：bindFavoriteFilter / setActiveDate / markBusy/show/hideBusy / prependHeadingKicker / installPageHeadingStructures / installCardCollapse / installDisclosureAnimation / applyDraft（842 行）。
+  - 25-today-hub：installTodayQuickActions / loadTodayAdvice（106 行）。
+  - **新增 31-body**（30-39 带，297 行）：bodyOutlierLines / paintBodyDataHints / installBodyDataControls / read-writeHabitQuick / habitQuickLabel / installHabitChips。
+  - 45-diet-ui：mealWindowSummaryText / applyMealTypeDefault（1090 行）。
+  - 68-training-log：bodyPartHints / add-taste 计划组（addExercisesToToday、togglePlanDone、parseExercisesFromText、effort*、planNote*、renderPlanTiming、syncPlanDoneFromRow、installWeightCalc、installTrainingSheets、showTrainingDraft）+ EFFORT_LABELS/LEVELS 常量（1387 行）。
+  - **新增 90-trends-settings**（90-99 带，401 行）：renderHub / loadVersions / 皮肤组 / loadStorageStatus / installProfileMore / 趋势面板 / 迁移导出校验 / 偏好编辑组。
+- **80-boot 改名 99-boot**：90-trends-settings 排在 80 之后，IIFE 的收尾必须最后执行；架构守卫的 legacy 映射同步改键，suite-misc 的两条断言改为按 `-boot` 后缀判定。仍是 6 条 legacy 警告。
+- 点委托收敛：餐食行（删除/编辑/展开每项）从 document 收敛到 `#view-today` + `#view-records`（45 的 bindMealRowActions，dataset 幂等）；聊天行（展开全文/更早）收敛到 `#view-chat`；meal-items 的旧 document 委托删除。跨视图导航（data-go / data-subpage-*）、外部链接、Esc 等仍留 document——它们本来就跨标签页。
+- 测试：suite-training / suite-trends 的取源补上 25/31/90；新增 delegation-scope 组 8 条（含「70-rest 业务函数回潮为 0」「70-rest < 1500 行」「委托不挂 document」）。
+- 验收：assemble 22 片段 701,963 bytes；check-architecture 43 checks / 6 warnings PASS（体积警告已消失，所有片段 < 1500）；test-all 12/12 全绿。fragment 行数：00-head 1453 / 05 187 / 10 842 / 20 173 / 25 106 / 30 296 / 31 297 / 40 439 / 42 622 / 45 1090 / 50 479 / 55-domain 1097 / 55-usage 113 / 60 1098 / 65 338 / 68 1387 / 70 708 / 75 119 / 76 34 / 80-ai-chat 1107 / 90 401 / 99 22。
+- 未做：装机、提版本、推三远端；饮食底稿仍未按 42/45/31/90 重跑。

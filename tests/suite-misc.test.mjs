@@ -35,7 +35,7 @@ const names = fs.readdirSync(dir).filter(name => name.endsWith('.fragment.js')).
 check('several fragments exist', names.length >= 5, names.length);
 check('fragments are numbered so the order is explicit', names.every(name => /^\d\d-[a-z-]+\.fragment\.js$/.test(name)), names.join(', '));
 check('the head fragment comes first', names[0].startsWith('00-'));
-check('the boot fragment comes last', names[names.length - 1].startsWith('80-'));
+check('the boot fragment comes last', /-boot\.fragment\.js$/.test(names[names.length - 1]));
 
 // The browser must not be able to fetch fragments directly: they live outside assets/.
 check('fragments are not shipped as separate assets', !fs.existsSync('app/src/main/assets/app'));

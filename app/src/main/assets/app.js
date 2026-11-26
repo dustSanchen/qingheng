@@ -2405,6 +2405,178 @@ function applyTrainingVisibility() {
   }
 
 
+
+  function bindFavoriteFilter(buttonId, apply) {
+    const button = $('#' + buttonId);
+    if (!button) return;
+    button.addEventListener('click', () => {
+      const next = button.getAttribute('aria-pressed') !== 'true';
+      button.setAttribute('aria-pressed', next ? 'true' : 'false');
+      apply(next);
+    });
+  }
+
+  function setActiveDate(value) {
+    if(!validDate(value)) return false;
+    activeDate=value; $('#active-date').value=value; syncActiveDateLabel(); setDefaultDates(); render();
+    const content=$('#advice-content'); content.textContent=''; content.removeAttribute('data-date');
+    return true;
+  }
+
+  function markBusyButton(on) {
+    const active = document.activeElement;
+    if (on) {
+      if (active && active.tagName === "BUTTON") { busyButton = active; busyButton.setAttribute("aria-busy", "true"); }
+    } else if (busyButton) {
+      busyButton.removeAttribute("aria-busy");
+      busyButton = null;
+    }
+  }
+
+  function showBusy(text, target) {
+    markBusyButton(true);
+    hideBusy();
+    const label = text || "正在计算…";
+    // 等待反馈只留两种：目标容器内的行内提示，以及一次性 notice。全屏遮罩已删除。
+    if (target) {
+      const node = document.getElementById(target);
+      if (node) { node.hidden = false; const t2 = node.querySelector(".inline-busy-text"); if (t2) t2.textContent = label; }
+    }
+    // 兜底：任何异常都不该让等待提示常驻。
+    busyTimer = setTimeout(() => hideBusy(), 25000);
+  }
+
+  function hideBusy() {
+    markBusyButton(false);
+    if (busyTimer) { clearTimeout(busyTimer); busyTimer = null; }
+    const inline = document.getElementById("estimate-busy"); if (inline) inline.hidden = true;
+    const planInline = document.getElementById("plan-busy"); if (planInline) planInline.hidden = true;
+  }
+
+  function prependHeadingKicker(heading, text) {
+    const titleBox = heading?.querySelector('div');
+    if (!titleBox || titleBox.querySelector('.heading-kicker')) return;
+    const kicker = document.createElement('p');
+    kicker.className = 'eyebrow heading-kicker';
+    kicker.textContent = text;
+    titleBox.prepend(kicker);
+  }
+
+  function installPageHeadingStructures() {
+    const todayHeading = $('.page-heading', $('#view-today'));
+    const datePicker = todayHeading?.querySelector('.date-picker');
+    const dateInput = $('#active-date');
+    if (todayHeading && datePicker && dateInput) {
+      todayHeading.classList.add('page-heading--today');
+      prependHeadingKicker(todayHeading, '今日手札');
+      const currentDate = document.createElement('time');
+      currentDate.id = 'active-date-label';
+      currentDate.className = 'date-picker-value';
+      currentDate.setAttribute('aria-hidden', 'true');
+      dateInput.setAttribute('aria-label', '查看日期');
+      datePicker.replaceChildren(currentDate, dateInput);
+    }
+    const recordHeading = $('.page-heading', $('#view-records'));
+    if (recordHeading) {
+      recordHeading.classList.add('page-heading--records');
+      
+    }
+    const trendsHeading = $('.page-heading', $('#view-trends'));
+    const rangeLabel = trendsHeading?.querySelector('label');
+    const rangeSelect = $('#trend-range');
+    if (trendsHeading && rangeLabel && rangeSelect) {
+      trendsHeading.classList.add('page-heading--trends');
+      
+      rangeLabel.className = 'range-picker';
+      rangeSelect.setAttribute('aria-label', '观察范围');
+      const accessibleLabel = document.createElement('span');
+      accessibleLabel.className = 'sr-only';
+      accessibleLabel.textContent = '观察范围';
+      rangeLabel.replaceChildren(accessibleLabel, rangeSelect);
+    }
+  }
+
+  /** The 今天-page window: training questions only; external sending uses the one-time consent. */
+  /**
+   * 记录页低频卡片的折叠位（1.4.46 起清空）。
+   * 「食品热量参考库」「手动记录餐食」已按入口预算移除：估算卡本身就能描述任意餐食与克重，
+   * 这两张卡解决的是同一个低频需求，却各占一个折叠标题。留空数组，机制保留给以后真正的低频卡。
+   */
+  function installCardCollapse() {
+    const groups = [];
+    for (const [selector, label] of groups) {
+      const anchor = document.querySelector(selector);
+      const card = anchor && anchor.closest('article.card');
+      if (!card || card.dataset.collapsed === '1') continue;
+      const details = document.createElement('details');
+      details.className = 'card-collapse';
+      const summary = document.createElement('summary');
+      summary.textContent = label;
+      const body = document.createElement('div');
+      body.className = 'card-collapse-body';
+      while (card.firstChild) body.appendChild(card.removeChild(card.firstChild));
+      details.appendChild(summary);
+      details.appendChild(body);
+      details.open = false;
+      card.appendChild(details);
+      card.dataset.collapsed = '1';
+    }
+  }
+
+  /**
+   * Applies one confirmed draft. Training merges into the day's exercise list; the simple metrics
+   * merge into the same habit row; weight goes to measurements. Returns what undo has to restore.
+   */
+  async function applyDraft(draft) {
+    if (draft.kind === 'meal') throw new Error('餐食草稿需要在餐食表单生成预览并确认，不能直接写入。');
+    const habit = habitRowFor(draft.date) || {date: draft.date};
+    const existing = Array.isArray(habit.exercises) ? habit.exercises : [];
+    if (draft.kind === 'weight') {
+      // 带当天那行的 id 写入：否则同一天会有两行测量，「身体近况」按日期取第一条会读到旧值。
+      const before = measurementRowFor(draft.date);
+      await api('/api/measurements', {...(before || {}), date: draft.date, weight: draft.payload.weight});
+      return {kind: 'weight', date: draft.date, before};
+    }
+    if (draft.kind === 'training') {
+      await api('/api/habits', {...habit, date: draft.date, training: true,
+        exercises: [...existing, ...(draft.payload.exercises || [])]});
+      return {kind: 'habits', date: draft.date, before: {...habit, date: draft.date, exercises: existing}};
+    }
+    const key = draft.payload && Object.keys(draft.payload)[0];
+    if (!key) throw new Error('这条草稿没有可写入的字段');
+    await api('/api/habits', {...habit, date: draft.date, [key]: draft.payload[key]});
+    return {kind: 'habits', date: draft.date, before: {...habit, date: draft.date}};
+  }
+
+  /** 展开/收起：把内容包进 grid 容器，0fr→1fr 过渡 0.28s（真机验证过，不依赖新 CSS 特性）。 */
+  function installDisclosureAnimation() {
+    const wrap = details => {
+      if (!details || details.tagName !== 'DETAILS') return;
+      if (details.querySelector(':scope > .disclosure-body')) return;
+      const summary = details.querySelector(':scope > summary');
+      if (!summary) return;
+      const body = document.createElement('div');
+      body.className = 'disclosure-body';
+      const inner = document.createElement('div');
+      inner.className = 'disclosure-inner';
+      while (details.lastChild && details.lastChild !== summary) inner.insertBefore(details.lastChild, inner.firstChild);
+      body.append(inner);
+      details.append(body);
+    };
+    document.querySelectorAll('details').forEach(wrap);
+    new MutationObserver(records => {
+      for (const record of records) {
+        // 内容被 innerHTML 重写时，包裹层会被冲掉：从变更目标往上找 details 再包一次。
+        const owner = record.target?.closest?.('details');
+        if (owner) wrap(owner);
+        for (const node of record.addedNodes) {
+          if (node.nodeType !== 1) continue;
+          if (node.tagName === 'DETAILS') wrap(node);
+          node.querySelectorAll?.('details').forEach(wrap);
+        }
+      }
+    }).observe(document.body, {childList: true, subtree: true});
+  }
 /* Fragment of assets/app.js -- assembled by tools/assemble-app.ps1 in filename order.
  * Edit this file, never the generated assets/app.js; tests/app-fragments.test.mjs fails on drift. */
   // ---- The three things that decide whether reminders and watch data actually work --------------
@@ -2651,6 +2823,61 @@ function applyTrainingVisibility() {
   }
 
   installTodayHub();
+
+  /** Place common actions below the calorie summary, in reach without covering page content. */
+  function installTodayQuickActions() {
+    const view = $('#view-today');
+    if (!view || $('#today-quick-actions')) return;
+    const energyCard = $('.energy-card', view);
+    if (!energyCard) return;
+    const row = document.createElement('div');
+    row.className = 'quick-actions';
+    row.id = 'today-quick-actions';
+    row.setAttribute('role', 'group');
+    row.setAttribute('aria-label', '今日快捷操作');
+    row.innerHTML = [
+      ['icon-meal.svg', '记一餐', 'meal-text', 'quick-chip-primary'],
+      ['icon-glyph-training.svg', '训练', 'training-form', ''],
+      ['icon-glyph-balance.svg', '身体', 'measurement-weight', '']
+    ].filter(([, , focus]) => focus !== 'training-form' || trainingEnabled()).map(([icon, label, focus, className = '']) => `<button type="button" class="quick-chip ${className}" data-quick-focus="${focus}" data-quick-icon="${icon}"><span class="quick-chip-icon" aria-hidden="true">${iconMarkup(icon)}</span>${label}</button>`).join('');
+    // 动作组紧贴能量卡之下：先读数（环 → 宏量三列 → 补蛋白提示），再动作。
+    // 不放进卡里——卡内动作条会把一张卡切成两半；也没挂在宏量后面，空态时环与宏量都是 hidden，锚点会消失。
+    // 2026-11-22 第五轮：三个核心入口进卡，固定在能量环下方的黄金区；
+    // 不再靠 ⋯ 菜单承载主操作，低频的「显示指标」移到小习惯卡标题。
+    const anchor = $('.energy-body', energyCard);
+    if (anchor && anchor.parentElement === energyCard) anchor.after(row);
+    else energyCard.prepend(row);
+
+    row.addEventListener('click', event => {
+      const chip = event.target.closest('[data-quick-focus]');
+      if (!chip) return;
+      openRecordTarget(chip.dataset.quickFocus);
+    });
+  }
+
+  /**
+   * Today's advice, grouped by slot. The page used to open on an empty query form, which read as
+   * "there is no advice" even when this morning's push had already written one.
+   */
+  async function loadTodayAdvice() {
+    const box = $('#push-today'); if (!box) return;
+    const tag = $('#push-today-tag');
+    const today = localDate();
+    if (tag) tag.textContent = today;
+    try {
+      const data = await api('/api/push-history');
+      const order = {morning: 0, meal: 1, evening: 2, weekly: 3};
+      const slotNames = {morning: '白天建议', meal: '餐后反馈', evening: '晚间复盘', weekly: '每周复盘'};
+      const rows = (Array.isArray(data && data.records) ? data.records : [])
+        .filter(row => row && String(row.date) === today)
+        .sort((a, b) => (order[a.slot] ?? 9) - (order[b.slot] ?? 9) || Number(a.createdAt || 0) - Number(b.createdAt || 0));
+      box.innerHTML = rows.length
+        ? rows.map(row => `<div class="meal-row list-row" role="listitem"><div class="row-body"><div class="row-head"><strong>${esc(slotNames[row.slot] || row.slot || '建议')}</strong><span class="row-tag">${row.source === 'api' ? '外部模型' : row.source === 'skipped' ? '已跳过' : '提醒'}</span><span class="row-date">${esc(String(row.date || ''))}</span></div><div class="answer">${answerHtml(row.message || '')}</div></div></div>`).join('')
+        : empty('今天还没有生成建议。开启每日推送后，07:30 与 20:30 的分析会出现在这里；也可以直接在问答页问一句。');
+    } catch (error) {
+      box.textContent = error.message;
+    }
+  }
 /* Fragment of assets/app.js -- assembled by tools/assemble-app.ps1 in filename order.
  * Edit this file, never the generated assets/app.js; tests/app-fragments.test.mjs fails on drift. */
   // ---- Voice input ----------------------------------------------------------------------------
@@ -2947,6 +3174,310 @@ function applyTrainingVisibility() {
    * Every number the app hands back is derived from these, so the app and the written rules can
    * never drift apart silently.
    */
+/* Fragment 31-body -- 体重体态与日常习惯的视图层（2026-11-27 Phase 3，从 70-rest 迁入）
+ * 只放身体数据卡、习惯刻度卡与习惯快捷值；领域计算与目标口径在 40-targets / 55-training-domain。
+ */
+
+  // 两项「更多测量」与「日常习惯」都并进当天那一行：同一天只有一行测量、一行习惯（2026-11-18）。
+  // 空着的格不再写成 null，否则只改腰围会把当天的体重冲掉。
+  /**
+   * 身体数据保存前的阈值风控（2026-11-22 第六轮）：与同日期之前的最近一条比，
+   * 体重差 ≥2 kg 或体脂差 ≥3 个百分点时先确认，避免换秤/脱水/手误污染趋势图。
+   */
+  function bodyOutlierLines(form) {
+    const date = String(form.elements.date?.value || activeDate);
+    const prev = (state.measurements || []).filter(row => row && validDate(row.date) && row.date < date)
+      .sort((a, b) => b.date.localeCompare(a.date))[0] || null;
+    if (!prev) return [];
+    const lines = [];
+    const weight = number(form.elements.weight?.value), prevWeight = number(prev.weight);
+    const values = numericForm(form, ['weight', 'waist', 'bodyFat', 'muscle', 'visceralFat', 'bmr']);
+    if (weight !== null && prevWeight !== null && Math.abs(weight - prevWeight) >= 2) lines.push(`体重差 ${fmt(Math.abs(weight - prevWeight), 1)} kg`);
+    if (number(values.bodyFat) !== null && number(prev.bodyFat) !== null && Math.abs(values.bodyFat - prev.bodyFat) >= 3) {
+      lines.push(`体脂差 ${fmt(Math.abs(values.bodyFat - prev.bodyFat), 1)} 个百分点`);
+    }
+    return lines;
+  }
+
+  /**
+   * 身体数据的参照值：每项取「最近一条真填过这一项」的记录。
+   * 收起态的标题也用它——折叠只报常用指标，不能只剩一个「选填」。
+   */
+  function paintBodyDataHints() {
+    const form = $('#measurement-form');
+    if (!form || !state) return;
+    const base = validDate(form.elements.date.value) ? form.elements.date.value : activeDate;
+    const rows = (state.measurements || [])
+      .filter(row => row && validDate(row.date) && row.date < base)
+      .sort((a, b) => b.date.localeCompare(a.date));
+    const lastWith = key => rows.find(row => number(row[key]) !== null) || null;
+    for (const metric of BODY_METRICS) {
+      const node = $(`[data-metric-hint="${metric.key}"]`, form);
+      if (!node) continue;
+      const row = lastWith(metric.key);
+      const value = row ? number(row[metric.key]) : null;
+      // 百分号贴着数字，其他单位留一个空格（「上次 18.4%」而不是「18.4 %」）。
+      const suffix = metric.unit === '%' ? '%' : ` ${metric.unit}`;
+      node.textContent = value === null ? '' : `上次 ${fmt(value, metric.digits)}${suffix}`;
+    }
+    const tag = $('#body-data-fold .tag');
+    if (tag) {
+      const parts = [];
+      const fat = lastWith('bodyFat'), muscle = lastWith('muscle');
+      if (fat && number(fat.bodyFat) !== null) parts.push(`体脂 ${fmt(fat.bodyFat, 1)}%`);
+      if (muscle && number(muscle.muscle) !== null) parts.push(`肌肉 ${fmt(muscle.muscle, 1)} kg`);
+      tag.textContent = parts.length ? parts.join(' · ') : '选填';
+    }
+  }
+
+  /**
+   * 身体数据（1.5.09）：指标卡片化、按围度/成分分组，加一条「拍秤面识别」。
+   * 卡片只放读数，动作在卡外；识别结果先回填表单，用户核对后才入库——错一个数字不该直接写进记录。
+   */
+  function installBodyDataControls() {
+    const form = $('#measurement-form');
+    if (!form || form.dataset.bodyWired === '1') return;
+    form.dataset.bodyWired = '1';
+    paintBodyDataHints();
+    form.elements.date.addEventListener('change', paintBodyDataHints);
+    // 启动时 state 还没到，门一开再补一次：否则「上次 74」与折叠态摘要都不会出现。
+    const fold = $('#body-data-fold');
+    if (fold) fold.addEventListener('toggle', () => { if (fold.open) setTimeout(paintBodyDataHints, 0); });
+    const input = $('#scale-photo-input'), shotInput = $('#scale-shot-input'), note = $('#scale-sync-note'), button = $('#scale-photo'), shotButton = $('#scale-shot');
+    // 先在 canvas 缩到 1400px：一张 4000px 原图的 base64 会把整条链路拖慢一倍以上。
+    const shrink = file => new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const image = new Image();
+      image.onload = () => {
+        const scale = Math.min(1, 1400 / Math.max(image.width, image.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(image.width * scale);
+        canvas.height = Math.round(image.height * scale);
+        canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        resolve(canvas.toDataURL('image/jpeg', 0.82));
+      };
+      image.onerror = () => { URL.revokeObjectURL(url); reject(new Error('这张图片读不出来，换一张试试')); };
+      image.src = url;
+    });
+    const askFor = picker => {
+      if (!externalConsent()) { note.textContent = '识别秤面需要外部模型：先到「我的 → 数据与关于」开启授权。'; return; }
+      if (!navigator.onLine) { note.textContent = '当前离线，秤面识别需要联网；也可以手动填写。'; return; }
+      picker?.click();
+    };
+    button.addEventListener('click', () => askFor(input));
+    shotButton?.addEventListener('click', () => askFor(shotInput));
+    const applyScaleFile = async file => {
+      if (!file) return;
+      button.disabled = true;
+      if (shotButton) shotButton.disabled = true;
+      note.textContent = '正在读图…';
+      try {
+        const image = await shrink(file);
+        const data = await api('/api/scale-read', {image, allowExternal: true});
+        // 统一契约：越界/非数字在这里就被丢掉，不让脏值进表单。
+        const vision = normaliseVision(data, 'scale');
+        const filled = [];
+        for (const metric of METRICS) {
+          const value = number(vision.fields[metric.key]);
+          if (value === null) continue;
+          form.elements[metric.key].value = value;
+          filled.push(`${metric.label} ${fmt(value, metric.digits)} ${metric.unit}`);
+          const card = form.elements[metric.key].closest('.metric-card');
+          if (card) {
+            card.classList.add('is-filled');
+            setTimeout(() => card.classList.remove('is-filled'), 1600);
+          }
+        }
+        if (data?.measuredAt && validDate(data.measuredAt)) form.elements.date.value = data.measuredAt;
+        const skipped = vision.rejected.length ? `（跳过 ${vision.rejected.length} 项异常读数）` : '';
+        note.classList.toggle('is-recognised', filled.length > 0);
+        note.textContent = filled.length
+          ? `已自动识别，可微调：${filled.join('、')}。核对后点保存。${skipped}`
+          : `没读到可用数值，换个角度重试，或直接手填。${skipped}`;
+      } catch (error) { note.textContent = error.message; }
+      finally {
+        button.disabled = false;
+        if (shotButton) shotButton.disabled = false;
+      }
+    };
+    input.addEventListener('change', async () => {
+      const file = input.files && input.files[0];
+      input.value = '';
+      await applyScaleFile(file);
+    });
+    shotInput?.addEventListener('change', async () => {
+      const file = shotInput.files && shotInput.files[0];
+      shotInput.value = '';
+      await applyScaleFile(file);
+    });
+  }
+
+  function readHabitQuick() {
+    let raw = {};
+    try { raw = JSON.parse(localStorage.getItem(HABIT_QUICK_KEY) || '{}') || {}; } catch { raw = {}; }
+    const pick = key => {
+      // 只认可选档位：旧版存过「饮水总量」1500/2000，进了累加语义会变成「一次加 1.5L」，直接淘汰。
+      const list = Array.isArray(raw[key])
+        ? raw[key].map(value => number(value)).filter(value => value !== null && HABIT_DIAL[key].candidates.includes(value))
+        : [];
+      const clean = [...new Set(list)].slice(0, 2);
+      return clean.length === 2 ? clean : HABIT_QUICK_FALLBACK[key].slice();
+    };
+    return {steps: pick('steps'), water: pick('water')};
+  }
+
+  function writeHabitQuick(next) {
+    try { localStorage.setItem(HABIT_QUICK_KEY, JSON.stringify({steps: next.steps, water: next.water})); } catch {}
+  }
+
+  /** 胶囊标签：步数按 k、饮水写毫升、睡眠写小时。 */
+  function habitQuickLabel(key, value) {
+    if (key === 'sleep') return `${fmt(value, 1)}h`;
+    if (key === 'steps') return `${fmt(value / 1000, value % 1000 ? 1 : 0)}k`;
+    // 饮水是「再加多少」，用毫升写更贴近动作（+250ml 比 +0.25L 好读）。
+    return `${fmt(value, 0)}ml`;
+  }
+
+  function installHabitChips() {
+    const form = $('#habit-form');
+    if (!form || form.dataset.habitWired === '1') return;
+    form.dataset.habitWired = '1';
+    const meters = {};
+    for (const key of HABIT_KEYS) {
+      const meter = $(`[data-habit="${key}"]`, form);
+      const field = form.elements[key];
+      if (!meter || !field) continue;
+      const spec = HABIT_DIAL[key];
+      meters[key] = {meter, field, spec};
+      // 输入途中只跟状态、不整形：把「7.」立刻写成「7」会把小数点吃掉。
+      field.addEventListener('input', () => paintMeter(key));
+      field.addEventListener('change', () => { snapMeter(key); paintMeter(key); });
+      // 刻度轨道退场后的键盘通路：↑↓ 走一档，Shift+↑↓ 走四档（等价于原来的 Home/End 之外的可达值）。
+      field.addEventListener('keydown', event => {
+        if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+        event.preventDefault();
+        bump(key, (event.key === 'ArrowUp' ? 1 : -1) * (event.shiftKey ? 4 : 1));
+      });
+    }
+    const valueOf = key => meters[key] ? number(meters[key].field.value) : null;
+    const specOf = key => HABIT_DIAL[key];
+    function paintMeter(key) {
+      const entry = meters[key];
+      if (!entry) return;
+      const value = number(entry.field.value) ?? 0;
+      // 单行账本只保留「空 / 非空」这一层视觉；数值本身已是 20px 主数字，不再画刻度。
+      entry.meter.classList.toggle('is-empty', value <= 0);
+      // 老内核没有 field-sizing：按位数给宽度，避免空值或短值在名称与单位之间留一条空隙。
+      const digits = String(entry.field.value || '').length;
+      const width = digits === 0 ? 0.9 : Math.max(2.2, digits * 0.62 + 0.4);
+      entry.field.style.setProperty('--habit-width', `${width.toFixed(2)}em`);
+    }
+    for (const key of HABIT_KEYS) paintMeter(key);
+    function setMeter(key, value) {
+      const entry = meters[key];
+      if (!entry) return null;
+      const {min, max, digits} = entry.spec;
+      const clamped = Math.max(min, Math.min(max, Number(Number(value).toFixed(1))));
+      entry.field.value = digits ? String(Number(clamped.toFixed(1))) : String(Math.round(clamped));
+      paintMeter(key);
+      return Number(entry.field.value);
+    }
+    function snapMeter(key) {
+      const entry = meters[key];
+      if (!entry) return;
+      const raw = number(entry.field.value);
+      if (raw === null) { entry.field.value = ''; paintMeter(key); return; }
+      setMeter(key, raw);
+    }
+    const bump = (key, direction) => {
+      if (!meters[key]) return;
+      setMeter(key, (valueOf(key) ?? 0) + direction * specOf(key).step);
+    };
+    const renderChips = () => {
+      const quick = readHabitQuick();
+      for (const key of HABIT_KEYS) {
+        const box = $(`[data-habit-chips="${key}"]`, form);
+        if (!box) continue;
+        const spec = specOf(key);
+        // 饮水两枚是「再加」：一次喝掉多少比「总量定格」更接近真实动作；步数与睡眠是设值。
+        const mode = key === 'water' ? 'add' : 'set';
+        const values = key === 'sleep' ? [7, 8] : quick[key];
+        box.innerHTML = values.map(value =>
+          `<button type="button" class="habit-chip" data-habit-chip="1" data-habit-key="${key}" data-habit-mode="${mode}" data-habit-value="${value}" aria-label="${mode === 'add' ? '再加' : '填入'}${fmt(value, spec.digits)}${spec.unit}">${mode === 'add' ? '+' : ''}${habitQuickLabel(key, value)}</button>`
+        ).join('');
+      }
+    };
+    renderChips();
+    // 点一下走一步，按住连加：120ms 一步，松手即停；越界由 setMeter 夹住。
+    let repeat = null;
+    const stopRepeat = () => { if (repeat) { clearInterval(repeat); repeat = null; } };
+    form.addEventListener('pointerdown', event => {
+      const button = event.target.closest('[data-habit-step]');
+      if (!button) return;
+      event.preventDefault();
+      const key = button.dataset.habitStep, direction = Number(button.dataset.habitDir) || 1;
+      bump(key, direction);
+      stopRepeat();
+      repeat = setInterval(() => bump(key, direction), 120);
+    });
+    window.addEventListener('pointerup', stopRepeat);
+    window.addEventListener('pointercancel', stopRepeat);
+    form.addEventListener('click', event => {
+      const step = event.target.closest('[data-habit-step]');
+      // 键盘回车/空格只派发 click（detail = 0）：补这一下，指针那一路已经在 pointerdown 里做过。
+      if (step) {
+        if (event.detail === 0) bump(step.dataset.habitStep, Number(step.dataset.habitDir) || 1);
+        return;
+      }
+      const chip = event.target.closest('[data-habit-chip]');
+      if (chip) {
+        const key = chip.dataset.habitKey, value = Number(chip.dataset.habitValue);
+        setMeter(key, (chip.dataset.habitMode === 'add' ? (valueOf(key) ?? 0) : 0) + value);
+        chip.classList.add('is-used');
+        setTimeout(() => chip.classList.remove('is-used'), 600);
+        return;
+      }
+      // 沿用昨日数据：只填昨天真记过的项，空项不写成本日数字。
+      const copy = event.target.closest('[data-habit-copy]');
+      if (!copy) return;
+      const yesterday = shiftDay(localDate(), -1);
+      const rowData = (state.habits || []).find(item => item && item.date === yesterday);
+      if (!rowData) { notice('昨天没有习惯记录可复制。', true); return; }
+      let filled = 0;
+      for (const key of HABIT_KEYS) {
+        if (number(rowData[key]) === null) continue;
+        setMeter(key, number(rowData[key]));
+        filled += 1;
+      }
+      notice(filled ? '已填入昨天的数值，可修改后保存。' : '昨天只有训练记录，没有可沿用的数值。', !filled);
+    });
+    // 快捷值可改，但改法不进卡面：右上角两步 sheet——先选槽位，再选数值，写完立刻生效。
+    $('#habit-quick-edit')?.addEventListener('click', async () => {
+      if (sheetOpen()) return;
+      const quick = readHabitQuick();
+      const slots = [{key: 'steps', index: 0}, {key: 'steps', index: 1}, {key: 'water', index: 0}, {key: 'water', index: 1}];
+      const slotChoice = await openSheet({title: '自定义快捷值', options: slots.map(slot => ({
+        label: `${HABIT_DIAL[slot.key].label}${slot.key === 'water' ? '每次加量' : '快捷值'} ${slot.index + 1} · ${habitQuickLabel(slot.key, quick[slot.key][slot.index])}`
+      }))});
+      if (slotChoice === null) return;
+      const slot = slots[slotChoice];
+      const spec = HABIT_DIAL[slot.key];
+      const valueChoice = await openSheet({title: `${spec.label}快捷值 ${slot.index + 1}`, options: spec.candidates.map(value => ({
+        label: `${fmt(value, spec.digits)} ${spec.unit}`, current: quick[slot.key][slot.index] === value
+      }))});
+      if (valueChoice === null) return;
+      const value = spec.candidates[valueChoice];
+      if (quick[slot.key][slot.index] === value) return;
+      // 两枚胶囊不重复：撞上另一槽就交换，否则卡底会出现两个一样的数。
+      const other = 1 - slot.index;
+      if (quick[slot.key][other] === value) quick[slot.key][other] = quick[slot.key][slot.index];
+      quick[slot.key][slot.index] = value;
+      writeHabitQuick(quick);
+      renderChips();
+      notice(`已改为 ${fmt(value, spec.digits)} ${spec.unit}。`);
+    });
+  }
 /* Fragment of assets/app.js -- assembled by tools/assemble-app.ps1 in filename order.
  * Edit this file, never the generated assets/app.js; tests/app-fragments.test.mjs fails on drift. */
   const TARGET_RULES = {
@@ -4980,13 +5511,6 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
       finally { if(button) button.disabled=false; }
     });
     $('#confirm-estimate').addEventListener('click',confirmDraft);$('#cancel-estimate').addEventListener('click',discardDraft);
-    document.addEventListener('click',async event=>{const button=event.target.closest('[data-delete-meal]');if(!button || button.disabled)return;if(!await askConfirm('确定删除这条餐食记录吗？此操作无法撤销。',{title:'删除餐食',ok:'删除',danger:true}))return;const removed=(state.meals||[]).find(row=>row && String(row.id)===String(button.dataset.deleteMeal));button.disabled=true;try{await api(`/api/meals/${encodeURIComponent(button.dataset.deleteMeal)}`,undefined,'DELETE');if(window.QH && QH.bus && QH.EVENTS) QH.bus.emit(QH.EVENTS.DIET_SAVED,{date:(removed && removed.date)||activeDate});try{await loadState({quiet:true});notice('餐食已删除。');}catch{notice('删除成功，但刷新失败。请重新加载检查记录。',true);}}catch(error){notice(error.message,true);button.disabled=false;}});
-    document.addEventListener('click', event => {
-      const button = event.target.closest('[data-edit-meal]');
-      if (!button) return;
-      const record = (state.meals || []).find(row => row && String(row.id) === String(button.dataset.editMeal));
-      if (record) beginMealEdit(record);
-    });
   }
 
   /** 「按食品模型校核」：只换食材营养，保留烹饪方式与已算用油。1.5.42 Phase 2 从 00-head 迁入。 */
@@ -5063,11 +5587,40 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
    * 饮食模块唯一安装入口：dataset.dietWired 保证幂等，重复调用不会重复绑定。
    * 调用点在 70-rest 的启动装配行（原来直接调 installQuickRecordControls）。
    */
+
+  /**
+   * 餐食行（删除 / 编辑 / 展开每项）的点击委托：只挂在会渲染餐食行的两个视图根上，
+   * 不挂 document——避免在其他标签页误触，也避免与全局导航委托抢事件。
+   */
+  function bindMealRowActions() {
+    for (const root of [$('#view-today'), $('#view-records')]) {
+      if (!root || root.dataset.mealRowsWired === '1') continue;
+      root.dataset.mealRowsWired = '1';
+      root.addEventListener('click',async event=>{const button=event.target.closest('[data-delete-meal]');if(!button || button.disabled)return;if(!await askConfirm('确定删除这条餐食记录吗？此操作无法撤销。',{title:'删除餐食',ok:'删除',danger:true}))return;const removed=(state.meals||[]).find(row=>row && String(row.id)===String(button.dataset.deleteMeal));button.disabled=true;try{await api(`/api/meals/${encodeURIComponent(button.dataset.deleteMeal)}`,undefined,'DELETE');if(window.QH && QH.bus && QH.EVENTS) QH.bus.emit(QH.EVENTS.DIET_SAVED,{date:(removed && removed.date)||activeDate});try{await loadState({quiet:true});notice('餐食已删除。');}catch{notice('删除成功，但刷新失败。请重新加载检查记录。',true);}}catch(error){notice(error.message,true);button.disabled=false;}});
+      root.addEventListener('click', event => {
+        const button = event.target.closest('[data-edit-meal]');
+        if (!button) return;
+        const record = (state.meals || []).find(row => row && String(row.id) === String(button.dataset.editMeal));
+        if (record) beginMealEdit(record);
+      });
+      root.addEventListener('click', event => {
+        const toggle = event.target.closest('[data-meal-items]');
+        if (!toggle) return;
+        const panel = toggle.parentElement?.querySelector('.meal-items');
+        if (!panel) return;
+        const open = panel.hidden;
+        panel.hidden = !open;
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+    }
+  }
+
   function installDietModule() {
     const root = document.body;
     if (!root || root.dataset.dietWired === '1') return;
     root.dataset.dietWired = '1';
     installDietEstimateForm();
+    bindMealRowActions();
     installDietCalibrate();
     installQuickRecordControls();
     installMealWindow();
@@ -5078,7 +5631,19 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
   QH.define('diet', {
     totalsFor, intakeRangeForDate, effectiveProfileForDate, dailyCheck, relaxDayInfoFor,
     renderDailyCheck, renderDietTrend, openQuickRecord
-  });/* Fragment of assets/app.js -- assembled by tools/assemble-app.ps1 in filename order.
+  });
+  function mealWindowSummaryText(spec) {
+    return `早于 ${spec.lunchFrom} 记早餐，${spec.lunchFrom} 起记午餐，${spec.dinnerFrom} 起记晚餐，${spec.snackFrom} 起记加餐。`;
+  }
+
+  /** The estimate form starts on the slot the clock implies, unless the user already picked one. */
+  function applyMealTypeDefault() {
+    const form = $('#estimate-form');
+    if (!form || mealTypeTouched) return;
+    const select = form.querySelector('select[name="mealType"]');
+    if (select) select.value = defaultMealTypeFor(nowClock());
+  }
+/* Fragment of assets/app.js -- assembled by tools/assemble-app.ps1 in filename order.
  * Edit this file, never the generated assets/app.js; tests/app-fragments.test.mjs fails on drift. */
   const onboarding = {step: 1, total: 4, done: false, result: null, saving: false};
   function onboardingStep(step) {
@@ -8407,6 +8972,8 @@ function metricIcon(label) {
   }
 /* Fragment of assets/app.js -- assembled by tools/assemble-app.ps1 in filename order.
  * Edit this file, never the generated assets/app.js; tests/app-fragments.test.mjs fails on drift. */
+
+
   // ---------------------------------------------------------------------------------------------
   // 训练日志：动作行 / 组次 / 草稿 / 保存弹窗 / 课后总结 / 训练概览 / 容量表 / 事件绑定
   // 视图与它自己的交互放在一处；纯计算在 55-training-domain，计划与清单在 60，休息计时在 70。
@@ -9508,104 +10075,7 @@ function metricIcon(label) {
       return dailyLoads(Math.max(1, Math.min(180, span)));
     }
   });
-/* Fragment of assets/app.js -- assembled by tools/assemble-app.ps1 in filename order.
- * Edit this file, never the generated assets/app.js; tests/app-fragments.test.mjs fails on drift. */
-  // ---- Unconfirmed draft box -------------------------------------------------------------------
-  // A photo estimate is expensive to redo, so the preview is stored on the phone until it is either
-  // confirmed or dropped. The image itself is never stored.
-  let favoriteOnlyChats = false, favoriteOnlyMeals = false;
-  // Long answers are clamped to one readable block; expanding is remembered per record id.
-  const expandedChats = new Set();
-  function bindFavoriteFilter(buttonId, apply) {
-    const button = $('#' + buttonId);
-    if (!button) return;
-    button.addEventListener('click', () => {
-      const next = button.getAttribute('aria-pressed') !== 'true';
-      button.setAttribute('aria-pressed', next ? 'true' : 'false');
-      apply(next);
-    });
-  }
-  bindFavoriteFilter('chat-favorites-only', value => {favoriteOnlyChats = value; resetChatPaging(); renderChat();});
-  bindFavoriteFilter('meal-favorites-only', value => {favoriteOnlyMeals = value; render();});
-  let storedDrafts = [];
-  function setActiveDate(value) {
-    if(!validDate(value)) return false;
-    activeDate=value; $('#active-date').value=value; syncActiveDateLabel(); setDefaultDates(); render();
-    const content=$('#advice-content'); content.textContent=''; content.removeAttribute('data-date');
-    return true;
-  }
-  // ---- What would be sent, shown before anything is sent ----------------------------------------
 
-
-  // ---- Hub entries and sub-page navigation -------------------------------------------------------
-  const APP_VERSION = '1.5.42';
-  document.addEventListener('click', event => {
-    const entry = event.target.closest('[data-subpage-open]');
-    if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
-    const back = event.target.closest('[data-subpage-back]');
-    if (back) {
-      // Prefer real history so the system back button and this button do the same thing.
-      const {sub} = parseHash();
-      if (sub) {try {history.back();} catch {switchTab('profile', false, '');}}
-    }
-  });
-  function renderHub() {
-    const version = $('#about-version');
-    if (version) version.textContent = `v${APP_VERSION}`;
-    const profile = state.profile || {};
-    const targets = $('#hub-summary-targets');
-    if (targets) {
-      const height = number(profile.height), age = number(profile.age), calorie = number(profile.calorieTarget);
-      const training = plannedSessions();
-      // Same source as the 今天 page: a lean plan must not be summarised with the recomp ranges.
-      const range = intakeRangeForDate();
-      const bits = [
-        GOAL_LABEL[profile.goal] || '未设置目标',
-        height !== null ? `${fmt(height,0)} cm` : '身高未填',
-        age !== null ? `${fmt(age,0)} 岁` : '年龄未填',
-        training !== null ? `每周 ${fmt(training,0)} 练` : '训练次数未填',
-        !range.unset && calorie !== null ? `训练日 ${fmt(range.trainingDay.min,0)}~${fmt(range.trainingDay.max,0)} / 休息日 ${fmt(range.restDay.min,0)}~${fmt(range.restDay.max,0)} kcal` : '目标未测算'
-      ];
-      targets.textContent = bits.join(' · ');
-    }
-    const model = $('#hub-summary-model');
-    if (model) {
-      const settings = state.settings || {};
-      const provider = ({deepseek: 'DeepSeek', bai: 'B.AI', siliconflow: '硅基流动'})[settings.provider] || 'DeepSeek';
-      model.textContent = settings.apiConfigured === true ? `${provider} · 已配置${settings.visionEnabled === true ? '（含图片）' : ''}` : `${provider} · 未配置`;
-    }
-    const about = $('#hub-summary-about');
-    if (about) about.textContent = `v${APP_VERSION} · 作者与许可`;
-  }
-  /** Shows which prompt/口径/anchors produced the records, and when the last backup was made. */
-  async function loadVersions() {
-    const box = $('#version-info');
-    if (!box) return;
-    try {
-      const info = await api('/api/versions');
-      const backup = info?.backupAt ? new Date(info.backupAt).toLocaleString('zh-CN') : '从未';
-      const anchors = info?.anchorsPresent
-        ? `锚点 ${info.anchorsUpdatedAt ? new Date(info.anchorsUpdatedAt).toLocaleDateString('zh-CN') : '已同步'}`
-        : '锚点未同步';
-      const repaired = number(info?.chatAnswersRepaired) ?? 0;
-      // Privacy-safe histogram of stored answers; shows what a broken answer actually looks like.
-      const audit = Array.isArray(info?.answerAudit) ? info.answerAudit.join(' · ') : '';
-      const coldStart = number(info?.coldStartMs) ?? 0;
-      box.innerHTML = `<span>应用 <b>v${esc(info?.appVersion || APP_VERSION)}</b></span><span>提示词 <b>v${fmt(info?.promptVersion, 0)}</b></span><span>口径 <b>v${fmt(info?.rulesVersion, 0)}</b></span><span>${esc(anchors)}</span><span>上次备份 <b>${esc(backup)}</b></span>`
-        + (repaired > 0 ? `<span>已修复 <b>${fmt(repaired, 0)}</b> 条无效回答</span>` : '')
-        + (audit ? `<span>问答体检 <b>${esc(audit)}</b></span>` : '')
-        + (coldStart > 0 ? `<span>冷启动 <b>${fmt(coldStart, 0)}</b> ms</span>` : '')
-        + (info?.official === false
-          ? '<span>非官方构建 <b>签名不符</b></span>'
-          : `<span>构建 <b>${esc(info?.signature || 'Sanchen/qingheng')}</b></span>`)
-        + (window.TRAINING_PRINCIPLES
-          ? `<span>建议库 <b>${esc(window.TRAINING_PRINCIPLES.version)}</b> · ${window.TRAINING_PRINCIPLES.rules.length} 条 · ${window.TRAINING_PRINCIPLES.sources.length} 来源</span>`
-          : '')
-        + bodyPartHints();
-    } catch (error) {
-      box.textContent = error.message;
-    }
-  }
   /** 「按部位查解剖要点」：每个部位取 2~3 条最相关的规则，带口述时间戳。 */
   function bodyPartHints() {
     const lib = window.TRAINING_PRINCIPLES;
@@ -9634,46 +10104,6 @@ function metricIcon(label) {
     return rows ? '<details class="body-parts"><summary>按部位查解剖要点</summary>' + rows + '</details>' : '';
   }
 
-  /** 等待动画：任何需要等模型的地方都复用它。 */
-  let busyTimer = null;
-  /** 等待提示：默认全局遮罩；传 target 时显示在该元素里（行内，不挡操作）。 */
-  let busyButton = null;
-  function markBusyButton(on) {
-    const active = document.activeElement;
-    if (on) {
-      if (active && active.tagName === "BUTTON") { busyButton = active; busyButton.setAttribute("aria-busy", "true"); }
-    } else if (busyButton) {
-      busyButton.removeAttribute("aria-busy");
-      busyButton = null;
-    }
-  }
-  function showBusy(text, target) {
-    markBusyButton(true);
-    hideBusy();
-    const label = text || "正在计算…";
-    // 等待反馈只留两种：目标容器内的行内提示，以及一次性 notice。全屏遮罩已删除。
-    if (target) {
-      const node = document.getElementById(target);
-      if (node) { node.hidden = false; const t2 = node.querySelector(".inline-busy-text"); if (t2) t2.textContent = label; }
-    }
-    // 兜底：任何异常都不该让等待提示常驻。
-    busyTimer = setTimeout(() => hideBusy(), 25000);
-  }
-  function hideBusy() {
-    markBusyButton(false);
-    if (busyTimer) { clearTimeout(busyTimer); busyTimer = null; }
-    const inline = document.getElementById("estimate-busy"); if (inline) inline.hidden = true;
-    const planInline = document.getElementById("plan-busy"); if (planInline) planInline.hidden = true;
-  }
-
-  /** 用模型按顺序排今天的训练：需要勾选同意，失败就明确报错，不伪造计划。 */
-  const AI_PLAN_KEY = date => "qingheng.aiPlan." + date;
-  /**
-   * 一次课的时间：每组执行约 45 秒 + 该动作的组间休息（restSecondsFor 的同一档位），
-   * 有氧按它自己的时长算。以前用固定的 2.5 分钟/组，复合动作休 120~150 秒时低估近一半。
-   */
-  const AI_PLAN_WORK_SECONDS = 45;
-  const AI_PLAN_MINUTE_STEPS = [30, 45, 60, 75, 90];
   /**
    * 把一批动作并入当天训练记录：同名跳过，只追加不覆盖。
    * 训练日志与 AI 计划是两份数据，这里是唯一把它们接起来的入口。
@@ -9730,6 +10160,7 @@ function metricIcon(label) {
       notice("加入训练记录失败：" + (error && error.message ? error.message : "未知错误"), true);
     }
   }
+
   /**
    * 勾选即记录（2026-11-22 第七轮）：清单勾一个就落一条训练记录，不再要求二次导入。
    * 只对今天生效、只在有组次时写库；取消勾选只回收「自己加进来且没动过」的行。
@@ -9742,6 +10173,7 @@ function metricIcon(label) {
     await api("/api/habits", {...existing, date: activeDate, exercises: next});
     await loadState({quiet: true});
   }
+
   async function togglePlanDone(index, checked) {
     const plan = aiPlanStore(activeDate) || [];
     const item = plan[index];
@@ -9784,6 +10216,7 @@ function metricIcon(label) {
     }
     renderAiPlan();
   }
+
   /**
    * 从「今日清单」直接进入记录：把动作并进今天，跳到训练日志并聚焦负重。
    * 主流健身 App 的路径都是「看清单 → 点这个动作 → 记实际组次」，不要求重新打字。
@@ -9822,19 +10255,15 @@ function metricIcon(label) {
     }
     return out;
   }
-  /** 剂量由字段派生；编辑后重算，不会与旧字符串脱节。 */
-  /* ── 训练强度反馈与「今天的要求」（2026-11-19，1.4.45）────────────────────
-     练完点一下「太轻 / 刚好 / 有点累 / 太累」，写进当天 habit 行的 effort 字段；
-     下一次排课据此降一档或加一档。用户对今天的要求写在同一张卡的折叠输入框里，
-     交给模型按教练的角色判断要不要照办，并把一句原因放进第一个动作的 note。 */
+
   const EFFORT_LABELS = {tooLight: "太轻", justRight: "刚好", tired: "有点累", tooMuch: "太累"};
   const EFFORT_LEVELS = ["tooLight", "justRight", "tired", "tooMuch"];
-
   function effortFor(date) {
     const row = (state.habits || []).find(item => item && item.date === date);
     const value = row && row.effort;
     return EFFORT_LEVELS.includes(value) ? value : null;
   }
+
   /** 强度信号落到清单：降载时每个配重动作少一组、重量退 5%；加量时第一个复合动作多一组。 */
   function applyEffortSignalToPlan(plan) {
     const signal = effortSignal();
@@ -9855,6 +10284,7 @@ function metricIcon(label) {
     }
     return plan;
   }
+
   /** 体感只落在结束训练弹窗里（2026-11-23 删掉卡片底部那一行），这里不再有可刷新的行内 UI。 */
   async function saveTrainingEffort(value) {
     if (!EFFORT_LEVELS.includes(value)) return;
@@ -9863,17 +10293,21 @@ function metricIcon(label) {
     await loadState({quiet: true});
     notice("已记下：练下来" + EFFORT_LABELS[value] + "。下次排课会参考。");
   }
+
   /** 教练说明只留在本机：它解释「为什么没完全照要求办」，不进导出数据。 */
   function planNoteKey(date) { return "qingheng.planNote." + date; }
+
   function readPlanNote(date) {
     try { return localStorage.getItem(planNoteKey(date)) || ""; } catch { return ""; }
   }
+
   function writePlanNote(date, text) {
     try {
       if (text) localStorage.setItem(planNoteKey(date), text);
       else localStorage.removeItem(planNoteKey(date));
     } catch {}
   }
+
   function renderPlanNote() {
     const node = $("#ai-plan-note");
     if (!node) return;
@@ -9881,6 +10315,7 @@ function metricIcon(label) {
     node.hidden = !text;
     node.textContent = text || "";
   }
+
   /** 只把「上一次没排成」的原因贴在清单上方：toast 只活 10 秒，失败原因要留得住。
    *  成功时不报耗时（2026-11-23 用户：不追求生成速度，追求排得对）。 */
   function renderPlanTiming() {
@@ -9892,6 +10327,7 @@ function metricIcon(label) {
     node.hidden = false;
     node.textContent = "上次没排成：" + timing.error;
   }
+
   /**
    * 播种行的每组 ○ 反过来决定计划项的 done（2026-11-22）：
    * 计划清单不再单独渲染，但 agenda 的「N 个动作还没完成」必须仍然说真话。
@@ -9951,103 +10387,97 @@ function metricIcon(label) {
     }
   }
 
+  /**
+   * 训练的两张静态 sheet：计划说明放本周要求 / 怎么排的 / 负荷；
+   * 顺延与清空已从「其他」里搬出来，直接挂在训练日志的操作行（2026-11-23 用户要求）——
+   * 这两件低频动作不再需要一个折叠层，也少一个「其他」按钮。
+   */
+  function installTrainingSheets() {
+    const sheetOf = id => $(id);
+    const open = id => {
+      const node = sheetOf(id);
+      if (!node) return;
+      node.hidden = false;
+      const first = node.querySelector('button, textarea, [data-sheet-focus]');
+      if (first) first.focus({preventScroll: true});
+    };
+    const close = id => { const node = sheetOf(id); if (node) node.hidden = true; };
+    const pairs = [['#plan-explain-open', '#plan-sheet', '#plan-sheet-close']];
+    for (const [trigger, sheet, closer] of pairs) {
+      $(trigger)?.addEventListener('click', () => open(sheet));
+      $(closer)?.addEventListener('click', () => close(sheet));
+      $(sheet)?.addEventListener('click', event => { if (event.target === sheetOf(sheet)) close(sheet); });
+    }
+    // 2026-11-23 Phase 3：教练说明与排课耗时不再搬进计划说明抽屉——它们留在训练日志工具栏下方，
+    // 点「重排今天」之后抬头就能看到（搬走会让反馈藏在另一张卡里）。
+    document.addEventListener('keydown', event => {
+      if (event.key !== 'Escape') return;
+      if (sheetOf('#plan-sheet') && !sheetOf('#plan-sheet').hidden) close('#plan-sheet');
+    });
+  }
+
+  function showTrainingDraft(draft) {
+    pendingDraft = draft;
+    renderTrainingDraft(draft);
+  }
+/* Fragment of assets/app.js -- assembled by tools/assemble-app.ps1 in filename order.
+ * Edit this file, never the generated assets/app.js; tests/app-fragments.test.mjs fails on drift. */
+  // ---- Unconfirmed draft box -------------------------------------------------------------------
+  // A photo estimate is expensive to redo, so the preview is stored on the phone until it is either
+  // confirmed or dropped. The image itself is never stored.
+  let favoriteOnlyChats = false, favoriteOnlyMeals = false;
+  // Long answers are clamped to one readable block; expanding is remembered per record id.
+  const expandedChats = new Set();
+  bindFavoriteFilter('chat-favorites-only', value => {favoriteOnlyChats = value; resetChatPaging(); renderChat();});
+  bindFavoriteFilter('meal-favorites-only', value => {favoriteOnlyMeals = value; render();});
+  let storedDrafts = [];
+  // ---- What would be sent, shown before anything is sent ----------------------------------------
+
+
+  // ---- Hub entries and sub-page navigation -------------------------------------------------------
+  const APP_VERSION = '1.5.42';
+  document.addEventListener('click', event => {
+    const entry = event.target.closest('[data-subpage-open]');
+    if (entry) {openSubpage(entry.dataset.subpageOpen); return;}
+    const back = event.target.closest('[data-subpage-back]');
+    if (back) {
+      // Prefer real history so the system back button and this button do the same thing.
+      const {sub} = parseHash();
+      if (sub) {try {history.back();} catch {switchTab('profile', false, '');}}
+    }
+  });
+
+  /** 等待动画：任何需要等模型的地方都复用它。 */
+  let busyTimer = null;
+  /** 等待提示：默认全局遮罩；传 target 时显示在该元素里（行内，不挡操作）。 */
+  let busyButton = null;
+
+  /** 用模型按顺序排今天的训练：需要勾选同意，失败就明确报错，不伪造计划。 */
+  const AI_PLAN_KEY = date => "qingheng.aiPlan." + date;
+  /**
+   * 一次课的时间：每组执行约 45 秒 + 该动作的组间休息（restSecondsFor 的同一档位），
+   * 有氧按它自己的时长算。以前用固定的 2.5 分钟/组，复合动作休 120~150 秒时低估近一半。
+   */
+  const AI_PLAN_WORK_SECONDS = 45;
+  const AI_PLAN_MINUTE_STEPS = [30, 45, 60, 75, 90];
+
+  /** 剂量由字段派生；编辑后重算，不会与旧字符串脱节。 */
+  /* ── 训练强度反馈与「今天的要求」（2026-11-19，1.4.45）────────────────────
+     练完点一下「太轻 / 刚好 / 有点累 / 太累」，写进当天 habit 行的 effort 字段；
+     下一次排课据此降一档或加一档。用户对今天的要求写在同一张卡的折叠输入框里，
+     交给模型按教练的角色判断要不要照办，并把一句原因放进第一个动作的 note。 */
+
+
+
   /** 皮肤：attribute + localStorage；不写进 state，避免一次换肤触发整份数据同步。 */
   const SKINS = ['paper', 'ledger', 'night'];
-  /** 夜间是显式选择：全程账本 + 暗色令牌，不再看系统深浅色。 */
-  function skinForPage(base, tab) {
-    if (base === 'night') return 'ledger';
-    if (base !== 'paper' && base !== 'ledger') base = 'paper';
-    return base;
-  }
   const SKIN_KEY = 'qingheng.skin';
-  function currentSkin() {
-    // 默认纸感；历史存过 auto 的用户按「夜间」处理，因为自动模式已移除（不再依赖系统深浅色）。
-    try {
-      const saved = localStorage.getItem(SKIN_KEY);
-      if (saved === 'auto') return 'night';
-      return SKINS.includes(saved) ? saved : 'paper';
-    } catch (error) { return 'paper'; }
-  }
-  function applySkin(name, persist = true) {
-    const choice = SKINS.includes(name) ? name : 'paper';
-    const skin = skinForPage(choice, document.documentElement.dataset.tab || 'today');
-    // 暗色不再跟系统走：[data-theme="dark"] 是唯一的暗色开关，由「夜间」这个显式选择驱动。
-    const night = choice === 'night';
-    document.documentElement.dataset.skin = skin;
-    document.documentElement.dataset.skinChoice = choice;
-    document.documentElement.dataset.theme = night ? 'dark' : 'light';
-    if (persist) { try { localStorage.setItem(SKIN_KEY, choice); } catch (error) {} }
-    const tag = $('#skin-tag'); if (tag) tag.textContent = night ? '夜间 · ledger' : skin;
-    // 系统状态栏颜色跟随皮肤：夜间用暗底，其余保持浅绿。
-    const theme = document.querySelector('meta[name="theme-color"]');
-    if (theme) theme.setAttribute('content', night ? '#141719' : '#eaf4ed');
-    for (const button of $$('[data-skin-pick]')) button.setAttribute('aria-pressed', String(button.dataset.skinPick === choice));
-    return skin;
-  }
   let chatSearchTimer = 0;
   /** 输入区一聚焦，把「提问」滚进可视区：键盘弹起后按钮不会被压在键盘下面。 */
 
   /** 问答记录的按天浏览：日期 chip 打开原生日历，两侧箭头在「有记录的日期」之间翻页。 */
 
-  function installSkinPicker() {
-    const chatSearch = $("#chat-search");
-    if (chatSearch && !chatSearch.dataset.wired) {
-      chatSearch.dataset.wired = "1";
-      chatSearch.addEventListener("input", () => {
-        // 每个按键都整段重建问答记录，长历史下会卡；停顿 180ms 后只渲染一次。
-        chatQuery = chatSearch.value.trim();
-        clearTimeout(chatSearchTimer);
-        chatSearchTimer = setTimeout(() => {resetChatPaging(); renderChat();}, 180);
-      });
-    }
-    if (typeof renderLastChat === "function") renderLastChat();
-    if (typeof installWeightCalc === "function") installWeightCalc();
-    if (typeof installPlanPrefs === "function") installPlanPrefs();
-    if (typeof installExerciseGuide === "function") installExerciseGuide();
-    if (typeof installUsagePanel === "function") installUsagePanel();
-    if (typeof installAiPlan === "function") installAiPlan();
-    if (typeof installSegmentKeys === "function") installSegmentKeys();
-    if (typeof installPhotoEntry === "function") installPhotoEntry();
-    applySkin(currentSkin(), false);
-    // 系统深浅色不再影响皮肤：夜间是用户显式选择的开关。
-    for (const button of $$('[data-skin-pick]')) {
-      button.addEventListener('click', () => { applySkin(button.dataset.skinPick); notice('外观已切换为「' + ({paper: '纸感', ledger: '账本', night: '夜间'}[button.dataset.skinPick] || '纸感') + '」。'); });
-    }
-  }
 
-  async function loadStorageStatus(remirror = false) {
-    const node = $('#storage-status');
-    if (node) node.textContent = remirror ? '正在重新镜像…' : '正在读取存储状态…';
-    try {
-      const data = await api(remirror ? '/api/storage-remirror' : '/api/storage-status', remirror ? {} : undefined);
-      if (!node) return data;
-      const json = data?.json || {}, sqlite = data?.sqlite || {};
-      // 用户语言的主行：只说「记录在哪、有多少、备份了没」；JSON/SQLite 细节留在技术细节折叠里。
-      const summaryNode = $('#storage-summary');
-      if (summaryNode) {
-        const label = {meals:'餐食', measurements:'身体', habits:'习惯', chats:'问答'};
-        const plain = Object.keys(json).map(key => `${label[key] || key} ${json[key]}`);
-        const autoAt = number(data?.autoBackup?.at) !== null ? new Date(Number(data.autoBackup.at)).toLocaleString('zh-CN') : '';
-        const files = number(data?.autoBackup?.files);
-        summaryNode.textContent = `记录都保存在这台手机上：${plain.join('、')}`
-          + (files ? `；应用内自动备份 ${files} 份${autoAt ? `（最近 ${autoAt}）` : ''}，每 12 小时更新` : '')
-          + '。';
-      }
-      const when = number(data?.lastMirroredAt) !== null ? new Date(Number(data.lastMirroredAt)).toLocaleString('zh-CN') : '尚未镜像';
-      const parts = Object.keys(json).map(key => `${({meals:'餐食',measurements:'身体',habits:'习惯',chats:'问答'})[key] || key} ${json[key]}`);
-      // 应用内自动备份：只存在私有目录，最多 3 份；导出 SAF 文件仍是正式备份。
-      const autoAt = number(data?.autoBackup?.at) !== null ? new Date(Number(data.autoBackup.at)).toLocaleString('zh-CN') : '尚无';
-      node.textContent = `${data?.parity === true ? '一致' : '不一致'}｜JSON：${parts.join('、')}`
-        + `｜SQLite：${Object.keys(sqlite).map(key => `${({meals:'餐食',measurements:'身体',habits:'习惯',chats:'问答'})[key] || key} ${sqlite[key]}`).join('、')}`
-        + `｜最近镜像：${when}${data?.lastError ? `｜最近错误：${data.lastError}` : ''}`
-        + `｜应用内备份：${autoAt}（${number(data?.autoBackup?.files) ?? 0} 份，每 12 小时轮换）`
-        + `｜${data?.mode || ''}`;
-      return data;
-    } catch (error) {
-      if (node) node.textContent = error.message;
-      return null;
-    }
-  }
   const storageRefresh = $('#storage-refresh');
   // 1.4.68：项目主页与外链统一交给系统浏览器；WebView 内不开外站。
   const openExternalUrl = (url) => {
@@ -10102,7 +10532,7 @@ function metricIcon(label) {
     if (!setActiveDate(event.target.value)) event.target.value = activeDate;
     if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur();
   });
-  document.addEventListener('click', event => {
+  $('#view-chat')?.addEventListener('click', event => {
     const more = event.target.closest('[data-chat-more]');
     if (more) {event.preventDefault(); showEarlierChats(); return;}
     const toggle = event.target.closest('[data-chat-toggle]');
@@ -10133,210 +10563,8 @@ function metricIcon(label) {
   installContextPreview('chat-data-preview-panel','chat-data-preview','chat');
   installContextPreview('advice-data-preview-panel','advice-data-preview','advice');
   $$('[data-tab]').forEach(button=>button.addEventListener('click',()=>switchTab(button.dataset.tab,true)));
-  function prependHeadingKicker(heading, text) {
-    const titleBox = heading?.querySelector('div');
-    if (!titleBox || titleBox.querySelector('.heading-kicker')) return;
-    const kicker = document.createElement('p');
-    kicker.className = 'eyebrow heading-kicker';
-    kicker.textContent = text;
-    titleBox.prepend(kicker);
-  }
-  function installPageHeadingStructures() {
-    const todayHeading = $('.page-heading', $('#view-today'));
-    const datePicker = todayHeading?.querySelector('.date-picker');
-    const dateInput = $('#active-date');
-    if (todayHeading && datePicker && dateInput) {
-      todayHeading.classList.add('page-heading--today');
-      prependHeadingKicker(todayHeading, '今日手札');
-      const currentDate = document.createElement('time');
-      currentDate.id = 'active-date-label';
-      currentDate.className = 'date-picker-value';
-      currentDate.setAttribute('aria-hidden', 'true');
-      dateInput.setAttribute('aria-label', '查看日期');
-      datePicker.replaceChildren(currentDate, dateInput);
-    }
-    const recordHeading = $('.page-heading', $('#view-records'));
-    if (recordHeading) {
-      recordHeading.classList.add('page-heading--records');
-      
-    }
-    const trendsHeading = $('.page-heading', $('#view-trends'));
-    const rangeLabel = trendsHeading?.querySelector('label');
-    const rangeSelect = $('#trend-range');
-    if (trendsHeading && rangeLabel && rangeSelect) {
-      trendsHeading.classList.add('page-heading--trends');
-      
-      rangeLabel.className = 'range-picker';
-      rangeSelect.setAttribute('aria-label', '观察范围');
-      const accessibleLabel = document.createElement('span');
-      accessibleLabel.className = 'sr-only';
-      accessibleLabel.textContent = '观察范围';
-      rangeLabel.replaceChildren(accessibleLabel, rangeSelect);
-    }
-  }
-  /** Place common actions below the calorie summary, in reach without covering page content. */
-  function installTodayQuickActions() {
-    const view = $('#view-today');
-    if (!view || $('#today-quick-actions')) return;
-    const energyCard = $('.energy-card', view);
-    if (!energyCard) return;
-    const row = document.createElement('div');
-    row.className = 'quick-actions';
-    row.id = 'today-quick-actions';
-    row.setAttribute('role', 'group');
-    row.setAttribute('aria-label', '今日快捷操作');
-    row.innerHTML = [
-      ['icon-meal.svg', '记一餐', 'meal-text', 'quick-chip-primary'],
-      ['icon-glyph-training.svg', '训练', 'training-form', ''],
-      ['icon-glyph-balance.svg', '身体', 'measurement-weight', '']
-    ].filter(([, , focus]) => focus !== 'training-form' || trainingEnabled()).map(([icon, label, focus, className = '']) => `<button type="button" class="quick-chip ${className}" data-quick-focus="${focus}" data-quick-icon="${icon}"><span class="quick-chip-icon" aria-hidden="true">${iconMarkup(icon)}</span>${label}</button>`).join('');
-    // 动作组紧贴能量卡之下：先读数（环 → 宏量三列 → 补蛋白提示），再动作。
-    // 不放进卡里——卡内动作条会把一张卡切成两半；也没挂在宏量后面，空态时环与宏量都是 hidden，锚点会消失。
-    // 2026-11-22 第五轮：三个核心入口进卡，固定在能量环下方的黄金区；
-    // 不再靠 ⋯ 菜单承载主操作，低频的「显示指标」移到小习惯卡标题。
-    const anchor = $('.energy-body', energyCard);
-    if (anchor && anchor.parentElement === energyCard) anchor.after(row);
-    else energyCard.prepend(row);
 
-    row.addEventListener('click', event => {
-      const chip = event.target.closest('[data-quick-focus]');
-      if (!chip) return;
-      openRecordTarget(chip.dataset.quickFocus);
-    });
-  }
-
-  /**
-   * 我的 is a list of entries, so the low-frequency block is one too: 数据管理 opens its own
-   * sub-page exactly like 模型连接 (same .subpage shell, same 21px hub icon, same back header)
-   * instead of unfolding a second-level details inside the list.
-   */
-  function installProfileMore() {
-    const hub = $('#profile-hub');
-    if (!hub) return;
-    // 每个入口一枚专属图标：人像+靶心、AI 火花、铃铛、便签、皮肤半明暗、齿轮、数据库、叶子。
-    // 图标取自 Lucide（MIT），统一 24 网格 / 1.8 描边 / currentColor，八个入口各司其职。
-    // 轻衡自有图形语言：1.7 圆头描边 + 每枚一块实心墨块 + 右下角品牌小墨点（账本里的「已记录」点）。
-    // 轻衡自有图形语言：1.7 圆头描边 + 每枚一块实心墨块 + 右下角品牌小墨点（账本里的「已记录」点）。
-    // 图标规格：24 网格 / 1.5 描边 / 圆头 / 以线为主；实心只留一个微型记号（≤1.1r），圆角统一 2.5。
-    // 以 24px 实际显示为准：主体撑满 16–17 单位，内部细节 ≤2 条线，实心只做小记号。
-    const PROFILE_ICONS = {
-      targets: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="7.9" r="3.6"/><path d="M3.9 20.6v-.7a4.9 4.9 0 0 1 4.9-4.9h4.6a4.9 4.9 0 0 1 4.9 4.9v.7"/><circle cx="18.9" cy="5.7" r="1.2" fill="currentColor" stroke="none"/></svg>',
-      model: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.2" y="8.8" width="11.2" height="11.2" rx="2.6"/><path d="M18.4 3.4v5M15.9 5.9h5"/><path d="M8.8 11.6v4.8M6.4 14.4h4.8" stroke-width="1.2" opacity=".5"/></svg>',
-      push: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 16.8c1.5-1.6 2.4-3.5 2.4-5.9a4.2 4.2 0 0 1 8.4 0c0 2.4.9 4.3 2.4 5.9Z"/><path d="M9.9 19.6a2.1 2.1 0 0 0 4.2 0"/><circle cx="12" cy="16.8" r="1.25" fill="currentColor" stroke="none"/></svg>',
-      prefs: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.6" y="3.6" width="12.4" height="16.8" rx="2.6"/><path d="M8.2 8.4h5.4M8.2 12.4h5.4"/><path d="M17 6.4v11.2" stroke-width="1.2" opacity=".45"/></svg>',
-      appearance: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.2"/><path d="M12 8.4v3.9l2.8 2"/><path d="M12 3.8a8.2 8.2 0 0 1 0 16.4Z" fill="currentColor" stroke="none"/></svg>',
-      more: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.1"/><path d="M12 3.4v3M12 17.6v3M3.4 12h3M17.6 12h3M5.9 5.9l2.1 2.1M16 16l2.1 2.1M18.1 5.9L16 8M8 16l-2.1 2.1"/><circle cx="12" cy="12" r="1.15" fill="currentColor" stroke="none"/></svg>',
-      data: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.8" y="7.6" width="16.4" height="13" rx="2.6"/><path d="M3.8 11.8h16.4"/><path d="M12 14.4v3.4M9.9 16.2l2.1 2 2.1-2" stroke-width="1.4"/></svg>',
-      about: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.4 9.2c0-3.6-3.8-5.9-8.3-4.9-4 1-6.3 4.2-6.1 8.2.2 3.7 3.1 6.4 6.9 6.4 3.9 0 7.5-4.6 7.5-9.7Z"/><path d="M6.4 19.4c1-4.4 4-7.6 8.4-9.6"/></svg>'
-    };
-    Object.entries(PROFILE_ICONS).forEach(([id, markup]) => {
-      const node = hub.querySelector(`[data-subpage-open="${id}"] .hub-icon`);
-      if (node && markup) node.innerHTML = markup;
-    });
-    const appearance = $("#subpage-appearance");
-    // 外观页只留「查看相关」的东西：外观皮肤 + 默认餐次。
-    const anchor = $('#meal-window-card');
-    const skin = $('#skin-card');
-    if (appearance && skin && anchor) appearance.insertBefore(skin, anchor);
-    // 重新设置档案是档案页里的一节（1.4.52 起不再单独成卡）。
-    const restart = $('#targets-restart-slot');
-    const restartButton = $('#restart-onboarding');
-    if (restartButton && restart) restart.append(restartButton);
-    const notes = $('#about-notes-slot');
-    const chatNotes = $('#view-chat .card-notes');
-    if (chatNotes && notes) {
-      // 关于页里已经有一个「说明」，搬过来的问答说明要自己标明是哪一份。
-      const summary = chatNotes.querySelector('summary');
-      if (summary) summary.textContent = '问答说明';
-      notes.append(chatNotes);
-    }
-  }
-  function mealWindowSummaryText(spec) {
-    return `早于 ${spec.lunchFrom} 记早餐，${spec.lunchFrom} 起记午餐，${spec.dinnerFrom} 起记晚餐，${spec.snackFrom} 起记加餐。`;
-  }
   let mealTypeTouched = false;
-  /** The estimate form starts on the slot the clock implies, unless the user already picked one. */
-  function applyMealTypeDefault() {
-    const form = $('#estimate-form');
-    if (!form || mealTypeTouched) return;
-    const select = form.querySelector('select[name="mealType"]');
-    if (select) select.value = defaultMealTypeFor(nowClock());
-  }
-  /**
-   * Trends also grew into one long column. Same segmented treatment, plus a diet card that the page
-   * never had (it only showed weight, volume and body composition).
-   */
-  function installTrendPanels() {
-    const view = $('#view-trends');
-    if (!view || $('#trends-tabs')) return;
-    const cards = [...view.querySelectorAll('article.card')];
-    const cardFor = heading => cards.find(card => $('h2', card)?.textContent.trim() === heading);
-    const host = $('.record-grid', view) || view;
-    const panels = [
-      {key: 'weight', label: '体重', headings: ['体重变化', '上周回看', '身体成分对照', '身体记录明细'], foldedHeadings: ['身体记录明细']},
-      {key: 'diet', label: '饮食', headings: [], extra: true},
-      {key: 'training', label: '训练', headings: ['训练容量（渐进超负荷）']}
-    ];
-    const bar = document.createElement('div');
-    bar.className = 'segment-bar';
-    bar.id = 'trends-tabs';
-    bar.setAttribute('role', 'tablist');
-    bar.setAttribute('aria-label', '趋势分类');
-    bar.innerHTML = panels.map(panel => `<button type="button" class="segment" role="tab" data-trends-panel="${panel.key}">${panel.label}</button>`).join('');
-    // The trends view has no .record-grid wrapper, so the bar goes inside the view itself; inserting it
-    // beside the section put a stray segmented bar at the bottom of the records page.
-    const heading = $('.page-heading', view);
-    if (heading) heading.after(bar); else view.prepend(bar);
-    for (const panel of panels) {
-      const container = document.createElement('div');
-      container.className = 'record-panel';
-      container.id = 'trend-panel-' + panel.key;
-      container.dataset.panel = panel.key;
-      let more = null;
-      for (const heading of panel.headings) {
-        const card = cardFor(heading);
-        if (!card) continue;
-        if (panel.foldedHeadings?.includes(heading)) {
-          if (!more) {
-            more = document.createElement('details');
-            more.className = 'panel-more';
-            const summary = document.createElement('summary');
-            summary.textContent = panel.key === 'weight' ? '更多身体数据' : '更多趋势';
-            more.append(summary);
-            container.append(more);
-          }
-          more.append(card);
-        } else {
-          container.append(card);
-        }
-      }
-      if (panel.extra) container.append(dietTrendCard());
-      host.append(container);
-    }
-    // 2026-11-24：趋势页也记住上次看的那一段（与记录页同一条约定）。
-    const savedTrend = (() => { try { return localStorage.getItem(TREND_PANEL_STORAGE); } catch { return null; } })();
-    switchTrendPanel(['weight', 'diet', 'training'].includes(savedTrend) ? savedTrend : 'weight');
-    bar.addEventListener('click', event => {
-      const button = event.target.closest('[data-trends-panel]');
-      if (button) switchTrendPanel(button.dataset.trendsPanel);
-    });
-  }
-  function switchTrendPanel(key) {
-    const wanted = ['weight', 'diet', 'training'].includes(key) ? key : 'weight';
-    const target = wanted === 'training' && !trainingEnabled() ? 'weight' : wanted;
-    for (const panel of ['weight', 'diet', 'training']) {
-      const node = $('#trend-panel-' + panel);
-      if (node) node.hidden = panel !== target;
-    }
-    for (const button of $$('[data-trends-panel]')) {
-      const active = button.dataset.trendsPanel === target;
-      button.setAttribute('aria-selected', active ? 'true' : 'false');
-      button.classList.toggle('active', active);
-      if (button.dataset.trendsPanel === 'training') button.hidden = !trainingEnabled();
-    }
-    try { localStorage.setItem(TREND_PANEL_STORAGE, target); } catch {}
-    if ($('#trend-panel-training')?.hidden !== false) { /* no-op, keeps the guard explicit */ }
-  }
   /**
    * The records page had eight cards in one column — a very long scroll where the primary action
    * (log a meal) competed with rarely-used utilities. It is now split into three segments, ordered so
@@ -10512,26 +10740,6 @@ function metricIcon(label) {
   });
   window.addEventListener('hashchange',()=>{const {tab,sub}=parseHash();switchTab(tab||'today',false,sub);});
   $('#trend-range').addEventListener('change',renderTrends);$('#refresh-advice').addEventListener('click',refreshAdvice);
-  // 两项「更多测量」与「日常习惯」都并进当天那一行：同一天只有一行测量、一行习惯（2026-11-18）。
-  // 空着的格不再写成 null，否则只改腰围会把当天的体重冲掉。
-  /**
-   * 身体数据保存前的阈值风控（2026-11-22 第六轮）：与同日期之前的最近一条比，
-   * 体重差 ≥2 kg 或体脂差 ≥3 个百分点时先确认，避免换秤/脱水/手误污染趋势图。
-   */
-  function bodyOutlierLines(form) {
-    const date = String(form.elements.date?.value || activeDate);
-    const prev = (state.measurements || []).filter(row => row && validDate(row.date) && row.date < date)
-      .sort((a, b) => b.date.localeCompare(a.date))[0] || null;
-    if (!prev) return [];
-    const lines = [];
-    const weight = number(form.elements.weight?.value), prevWeight = number(prev.weight);
-    const values = numericForm(form, ['weight', 'waist', 'bodyFat', 'muscle', 'visceralFat', 'bmr']);
-    if (weight !== null && prevWeight !== null && Math.abs(weight - prevWeight) >= 2) lines.push(`体重差 ${fmt(Math.abs(weight - prevWeight), 1)} kg`);
-    if (number(values.bodyFat) !== null && number(prev.bodyFat) !== null && Math.abs(values.bodyFat - prev.bodyFat) >= 3) {
-      lines.push(`体脂差 ${fmt(Math.abs(values.bodyFat - prev.bodyFat), 1)} 个百分点`);
-    }
-    return lines;
-  }
   $('#measurement-form').addEventListener('submit', event => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -10547,15 +10755,6 @@ function metricIcon(label) {
   });
   // 2026-11-22：睡眠从「今天两样」迁回这一行——步数/饮水/睡眠同属日常习惯，一次保存。
   $('#habit-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/habits',form=>{const filled=Object.fromEntries(Object.entries(numericForm(form,['steps','water','sleep'])).filter(([,value])=>value!==null));if(!Object.keys(filled).length) throw new Error('请至少填写一项日常习惯。');return {...(habitRowFor(form.elements.date.value)||{}), date:form.elements.date.value, ...filled};});});
-  document.addEventListener('click', event => {
-    const toggle = event.target.closest('[data-meal-items]');
-    if (!toggle) return;
-    const panel = toggle.parentElement?.querySelector('.meal-items');
-    if (!panel) return;
-    const open = panel.hidden;
-    panel.hidden = !open;
-    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-  });
   // 组间休息从卡片底部的工具行挪到「训练动作视野内」：固定小药丸，上下滚动都看得见，
   // 键盘弹起时也随布局视口上移；只有训练日志在视野里或计时进行中才出现（2026-11-17）。
   let restTick = 0, restEnd = 0, restExercisesInView = false, restActionsInView = false, restDockWired = false;
@@ -10812,35 +11011,7 @@ function metricIcon(label) {
   $('#settings-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/settings',form=>{const provider=form.elements.provider.value,baseUrl=form.elements.baseUrl.value.trim(),model=form.elements.model.value.trim(),visionModel=form.elements.visionModel.value.trim(),visionEnabled=form.elements.visionEnabled.checked,key=form.elements.apiKey.value.trim(),clear=form.elements.clearKey.checked;if(key && clear)throw new Error('请不要同时填写新密钥并清除密钥。');if(key && !window.QinghengAdapter.hasNative()){form.elements.apiKey.value='';throw new Error('浏览器演示不保存 API Key；请在 APK 中配置。');}if(!/^https:\/\//i.test(baseUrl))throw new Error('API 地址必须使用 https://。');if(visionEnabled && !visionModel)throw new Error('启用图片需要填写已验证支持图片的视觉模型。');return {provider,baseUrl,model,visionModel,visionEnabled,allowExternal:form.elements.allowExternal.checked,...(key?{apiKey:key}:{}),...(clear?{clearKey:true}:{})};});});
   $('#meal-image').addEventListener('change',async event=>{const file=event.target.files[0];if(!file){feedback($('#estimate-feedback'),'没有选择照片，原来的内容没动。');return;}const revision=++imageVersion;imageData=null;imageBusy=true;feedback($('#estimate-feedback'),'正在本地压缩图片…');try{const result=await compressImage(file);if(revision!==imageVersion)return;imageData=result;mealPhotoMeta=photoMeta(null);showPhotoTime('meal',mealPhotoMeta);$('#meal-image-preview').src=result;$('#image-preview').hidden=false;feedback($('#estimate-feedback'),'图片已压缩为 JPEG，原始元数据不会上传。');}catch(error){if(revision===imageVersion){clearImage();feedback($('#estimate-feedback'),error.message,true);}}finally{if(revision===imageVersion)imageBusy=false;}});
   $('#remove-image').addEventListener('click',clearImage);
-  // ---- 迁移到新手机：导出附带计数与校验和，导入时自动核对 ---------------------------------------
-  /** Key-sorted JSON，校验和不受 org.json 与 JS 之间键序差异影响。 */
-  function stableStringify(value) {
-    if (value === undefined) return 'null';
-    if (value === null || typeof value !== 'object') return JSON.stringify(value);
-    if (Array.isArray(value)) return '[' + value.map(stableStringify).join(',') + ']';
-    const keys = Object.keys(value).sort();
-    return '{' + keys.map(key => JSON.stringify(key) + ':' + stableStringify(value[key])).join(',') + '}';
-  }
-  function fnv1a(text) {
-    let hash = 0x811c9dc5;
-    for (let i = 0; i < text.length; i++) { hash ^= text.charCodeAt(i); hash = Math.imul(hash, 0x01000193) >>> 0; }
-    return ('0000000' + hash.toString(16)).slice(-8);
-  }
-  function migrationPayload(data) {
-    return stableStringify({profile: data.profile ?? null, measurements: data.measurements ?? [],
-      meals: data.meals ?? [], habits: data.habits ?? [], chats: data.chats ?? []});
-  }
-  function buildMigrationMeta(data) {
-    return {app: 'qingheng', kind: 'migration', appVersion: APP_VERSION, exportedAt: new Date().toISOString(),
-      counts: {measurements: (data.measurements || []).length, meals: (data.meals || []).length,
-        habits: (data.habits || []).length, chats: (data.chats || []).length},
-      checksum: fnv1a(migrationPayload(data))};
-  }
   const MIGRATION_LABELS = {measurements: '身体', meals: '餐食', habits: '习惯', chats: '问答'};
-  function migrationCounts(data) {
-    return {measurements: (data.measurements || []).length, meals: (data.meals || []).length,
-      habits: (data.habits || []).length, chats: (data.chats || []).length};
-  }
   $('#export-data').addEventListener('click',async()=>{const button=$('#export-data'),message=$('#data-feedback');button.disabled=true;feedback(message,'正在生成备份…');let url;try{const data=await api('/api/export');data.meta=buildMigrationMeta(data);if(window.QinghengAdapter.hasNative()){if(typeof window.QinghengNative.exportJson!=='function')throw new Error('手机导出功能未连接。');window.QinghengNative.exportJson(JSON.stringify(data));await markBackedUp();feedback(message,'请选择保存位置。备份含健康记录，请妥善保管。');return;}url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download=`qingheng-backup-${localDate()}.json`;document.body.append(link);link.click();link.remove();feedback(message,'备份下载已开始。文件含健康记录，请妥善保管。');setTimeout(()=>URL.revokeObjectURL(url),10000);await markBackedUp();}catch(error){feedback(message,error.message,true);}finally{button.disabled=false;}});
   $('#import-data').addEventListener('change',async event=>{const input=event.currentTarget,file=input.files[0],message=$('#data-feedback');if(!file)return;input.disabled=true;try{if(file.size>10*1024*1024)throw new Error('导入文件不能大于 10MB。');let data;try{data=JSON.parse(await file.text());}catch{throw new Error('文件不是有效 JSON，请选择轻衡备份。');}if(!data || typeof data.profile!=='object' || data.profile===null || !['measurements','meals','habits'].every(key=>Array.isArray(data[key])))throw new Error('备份必须包含 profile、measurements、meals 和 habits。');const chats=Array.isArray(data.chats)?data.chats:[];const meta=(data.meta && typeof data.meta==='object')?data.meta:null;let integrity='';
 if(meta && meta.kind==='migration'){const countsOk=!meta.counts || Object.keys(MIGRATION_LABELS).every(key=>Number(meta.counts[key])===migrationCounts(data)[key]);integrity=(meta.checksum===fnv1a(migrationPayload(data)) && countsOk)?'迁移包校验一致，文件完整。':'注意：校验和不一致，文件可能被改动或不完整。';}
@@ -10865,55 +11036,6 @@ feedback(message,'数据已导入。'+report);
       ? rows.map(row => `<div class="meal-row list-row" role="listitem"><div class="row-body"><div class="row-head"><strong>${esc(row.date || '')}</strong><span class="row-tag">${esc(slotNames[row.slot] || row.slot || '')}</span>${row.source === 'api' ? '<span class="row-tag">外部模型</span>' : row.source === 'skipped' ? '<span class="row-tag">已跳过</span>' : '<span class="row-tag">提醒</span>'}</div><div class="answer">${answerHtml(row.message || '')}</div></div></div>`).join('')
       : empty(useRange ? '这个日期范围内没有保存的生活建议。' : '还没有保存的推送建议。开启每日推送后，早晚建议会保存在这里。');
   }
-  /**
-   * Today's advice, grouped by slot. The page used to open on an empty query form, which read as
-   * "there is no advice" even when this morning's push had already written one.
-   */
-  async function loadTodayAdvice() {
-    const box = $('#push-today'); if (!box) return;
-    const tag = $('#push-today-tag');
-    const today = localDate();
-    if (tag) tag.textContent = today;
-    try {
-      const data = await api('/api/push-history');
-      const order = {morning: 0, meal: 1, evening: 2, weekly: 3};
-      const slotNames = {morning: '白天建议', meal: '餐后反馈', evening: '晚间复盘', weekly: '每周复盘'};
-      const rows = (Array.isArray(data && data.records) ? data.records : [])
-        .filter(row => row && String(row.date) === today)
-        .sort((a, b) => (order[a.slot] ?? 9) - (order[b.slot] ?? 9) || Number(a.createdAt || 0) - Number(b.createdAt || 0));
-      box.innerHTML = rows.length
-        ? rows.map(row => `<div class="meal-row list-row" role="listitem"><div class="row-body"><div class="row-head"><strong>${esc(slotNames[row.slot] || row.slot || '建议')}</strong><span class="row-tag">${row.source === 'api' ? '外部模型' : row.source === 'skipped' ? '已跳过' : '提醒'}</span><span class="row-date">${esc(String(row.date || ''))}</span></div><div class="answer">${answerHtml(row.message || '')}</div></div></div>`).join('')
-        : empty('今天还没有生成建议。开启每日推送后，07:30 与 20:30 的分析会出现在这里；也可以直接在问答页问一句。');
-    } catch (error) {
-      box.textContent = error.message;
-    }
-  }
-  /** The 今天-page window: training questions only; external sending uses the one-time consent. */
-  /**
-   * 记录页低频卡片的折叠位（1.4.46 起清空）。
-   * 「食品热量参考库」「手动记录餐食」已按入口预算移除：估算卡本身就能描述任意餐食与克重，
-   * 这两张卡解决的是同一个低频需求，却各占一个折叠标题。留空数组，机制保留给以后真正的低频卡。
-   */
-  function installCardCollapse() {
-    const groups = [];
-    for (const [selector, label] of groups) {
-      const anchor = document.querySelector(selector);
-      const card = anchor && anchor.closest('article.card');
-      if (!card || card.dataset.collapsed === '1') continue;
-      const details = document.createElement('details');
-      details.className = 'card-collapse';
-      const summary = document.createElement('summary');
-      summary.textContent = label;
-      const body = document.createElement('div');
-      body.className = 'card-collapse-body';
-      while (card.firstChild) body.appendChild(card.removeChild(card.firstChild));
-      details.appendChild(summary);
-      details.appendChild(body);
-      details.open = false;
-      card.appendChild(details);
-      card.dataset.collapsed = '1';
-    }
-  }
   const BODY_METRICS = [
     // 体重是这块卡的第一指标（2026-11-22 从「今天两样」并进来）：它排在最前，首屏就能填。
     {key: 'weight', label: '体重', unit: 'kg', digits: 1},
@@ -10923,118 +11045,6 @@ feedback(message,'数据已导入。'+report);
     {key: 'visceralFat', label: '内脏脂肪', unit: '级', digits: 1},
     {key: 'bmr', label: '基础代谢', unit: 'kcal', digits: 0}
   ];
-  /**
-   * 身体数据的参照值：每项取「最近一条真填过这一项」的记录。
-   * 收起态的标题也用它——折叠只报常用指标，不能只剩一个「选填」。
-   */
-  function paintBodyDataHints() {
-    const form = $('#measurement-form');
-    if (!form || !state) return;
-    const base = validDate(form.elements.date.value) ? form.elements.date.value : activeDate;
-    const rows = (state.measurements || [])
-      .filter(row => row && validDate(row.date) && row.date < base)
-      .sort((a, b) => b.date.localeCompare(a.date));
-    const lastWith = key => rows.find(row => number(row[key]) !== null) || null;
-    for (const metric of BODY_METRICS) {
-      const node = $(`[data-metric-hint="${metric.key}"]`, form);
-      if (!node) continue;
-      const row = lastWith(metric.key);
-      const value = row ? number(row[metric.key]) : null;
-      // 百分号贴着数字，其他单位留一个空格（「上次 18.4%」而不是「18.4 %」）。
-      const suffix = metric.unit === '%' ? '%' : ` ${metric.unit}`;
-      node.textContent = value === null ? '' : `上次 ${fmt(value, metric.digits)}${suffix}`;
-    }
-    const tag = $('#body-data-fold .tag');
-    if (tag) {
-      const parts = [];
-      const fat = lastWith('bodyFat'), muscle = lastWith('muscle');
-      if (fat && number(fat.bodyFat) !== null) parts.push(`体脂 ${fmt(fat.bodyFat, 1)}%`);
-      if (muscle && number(muscle.muscle) !== null) parts.push(`肌肉 ${fmt(muscle.muscle, 1)} kg`);
-      tag.textContent = parts.length ? parts.join(' · ') : '选填';
-    }
-  }
-  /**
-   * 身体数据（1.5.09）：指标卡片化、按围度/成分分组，加一条「拍秤面识别」。
-   * 卡片只放读数，动作在卡外；识别结果先回填表单，用户核对后才入库——错一个数字不该直接写进记录。
-   */
-  function installBodyDataControls() {
-    const form = $('#measurement-form');
-    if (!form || form.dataset.bodyWired === '1') return;
-    form.dataset.bodyWired = '1';
-    paintBodyDataHints();
-    form.elements.date.addEventListener('change', paintBodyDataHints);
-    // 启动时 state 还没到，门一开再补一次：否则「上次 74」与折叠态摘要都不会出现。
-    const fold = $('#body-data-fold');
-    if (fold) fold.addEventListener('toggle', () => { if (fold.open) setTimeout(paintBodyDataHints, 0); });
-    const input = $('#scale-photo-input'), shotInput = $('#scale-shot-input'), note = $('#scale-sync-note'), button = $('#scale-photo'), shotButton = $('#scale-shot');
-    // 先在 canvas 缩到 1400px：一张 4000px 原图的 base64 会把整条链路拖慢一倍以上。
-    const shrink = file => new Promise((resolve, reject) => {
-      const url = URL.createObjectURL(file);
-      const image = new Image();
-      image.onload = () => {
-        const scale = Math.min(1, 1400 / Math.max(image.width, image.height));
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.round(image.width * scale);
-        canvas.height = Math.round(image.height * scale);
-        canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
-        URL.revokeObjectURL(url);
-        resolve(canvas.toDataURL('image/jpeg', 0.82));
-      };
-      image.onerror = () => { URL.revokeObjectURL(url); reject(new Error('这张图片读不出来，换一张试试')); };
-      image.src = url;
-    });
-    const askFor = picker => {
-      if (!externalConsent()) { note.textContent = '识别秤面需要外部模型：先到「我的 → 数据与关于」开启授权。'; return; }
-      if (!navigator.onLine) { note.textContent = '当前离线，秤面识别需要联网；也可以手动填写。'; return; }
-      picker?.click();
-    };
-    button.addEventListener('click', () => askFor(input));
-    shotButton?.addEventListener('click', () => askFor(shotInput));
-    const applyScaleFile = async file => {
-      if (!file) return;
-      button.disabled = true;
-      if (shotButton) shotButton.disabled = true;
-      note.textContent = '正在读图…';
-      try {
-        const image = await shrink(file);
-        const data = await api('/api/scale-read', {image, allowExternal: true});
-        // 统一契约：越界/非数字在这里就被丢掉，不让脏值进表单。
-        const vision = normaliseVision(data, 'scale');
-        const filled = [];
-        for (const metric of METRICS) {
-          const value = number(vision.fields[metric.key]);
-          if (value === null) continue;
-          form.elements[metric.key].value = value;
-          filled.push(`${metric.label} ${fmt(value, metric.digits)} ${metric.unit}`);
-          const card = form.elements[metric.key].closest('.metric-card');
-          if (card) {
-            card.classList.add('is-filled');
-            setTimeout(() => card.classList.remove('is-filled'), 1600);
-          }
-        }
-        if (data?.measuredAt && validDate(data.measuredAt)) form.elements.date.value = data.measuredAt;
-        const skipped = vision.rejected.length ? `（跳过 ${vision.rejected.length} 项异常读数）` : '';
-        note.classList.toggle('is-recognised', filled.length > 0);
-        note.textContent = filled.length
-          ? `已自动识别，可微调：${filled.join('、')}。核对后点保存。${skipped}`
-          : `没读到可用数值，换个角度重试，或直接手填。${skipped}`;
-      } catch (error) { note.textContent = error.message; }
-      finally {
-        button.disabled = false;
-        if (shotButton) shotButton.disabled = false;
-      }
-    };
-    input.addEventListener('change', async () => {
-      const file = input.files && input.files[0];
-      input.value = '';
-      await applyScaleFile(file);
-    });
-    shotInput?.addEventListener('change', async () => {
-      const file = shotInput.files && shotInput.files[0];
-      shotInput.value = '';
-      await applyScaleFile(file);
-    });
-  }
   /**
    * 日常习惯（2026-11-23 四模块之四·单行化）：三行账本，名称 + 大数字 + 单位在左，−/＋ 与两枚胶囊在右。
    * 每行 = 名称 + 可直接输入的大数字 + 单位 + −/＋ 圆钮 + 两枚快捷胶囊；刻度轨道已退场（↑↓ 走键盘调值）。
@@ -11051,196 +11061,6 @@ feedback(message,'数据已导入。'+report);
     sleep: {label: '睡眠', unit: '小时', min: 0, max: 24, step: 0.5, digits: 1, color: 'var(--tone-sleep)'}
   };
   const HABIT_KEYS = ['steps', 'water', 'sleep'];
-  function readHabitQuick() {
-    let raw = {};
-    try { raw = JSON.parse(localStorage.getItem(HABIT_QUICK_KEY) || '{}') || {}; } catch { raw = {}; }
-    const pick = key => {
-      // 只认可选档位：旧版存过「饮水总量」1500/2000，进了累加语义会变成「一次加 1.5L」，直接淘汰。
-      const list = Array.isArray(raw[key])
-        ? raw[key].map(value => number(value)).filter(value => value !== null && HABIT_DIAL[key].candidates.includes(value))
-        : [];
-      const clean = [...new Set(list)].slice(0, 2);
-      return clean.length === 2 ? clean : HABIT_QUICK_FALLBACK[key].slice();
-    };
-    return {steps: pick('steps'), water: pick('water')};
-  }
-  function writeHabitQuick(next) {
-    try { localStorage.setItem(HABIT_QUICK_KEY, JSON.stringify({steps: next.steps, water: next.water})); } catch {}
-  }
-  /** 胶囊标签：步数按 k、饮水写毫升、睡眠写小时。 */
-  function habitQuickLabel(key, value) {
-    if (key === 'sleep') return `${fmt(value, 1)}h`;
-    if (key === 'steps') return `${fmt(value / 1000, value % 1000 ? 1 : 0)}k`;
-    // 饮水是「再加多少」，用毫升写更贴近动作（+250ml 比 +0.25L 好读）。
-    return `${fmt(value, 0)}ml`;
-  }
-  /**
-   * 训练的两张静态 sheet：计划说明放本周要求 / 怎么排的 / 负荷；
-   * 顺延与清空已从「其他」里搬出来，直接挂在训练日志的操作行（2026-11-23 用户要求）——
-   * 这两件低频动作不再需要一个折叠层，也少一个「其他」按钮。
-   */
-  function installTrainingSheets() {
-    const sheetOf = id => $(id);
-    const open = id => {
-      const node = sheetOf(id);
-      if (!node) return;
-      node.hidden = false;
-      const first = node.querySelector('button, textarea, [data-sheet-focus]');
-      if (first) first.focus({preventScroll: true});
-    };
-    const close = id => { const node = sheetOf(id); if (node) node.hidden = true; };
-    const pairs = [['#plan-explain-open', '#plan-sheet', '#plan-sheet-close']];
-    for (const [trigger, sheet, closer] of pairs) {
-      $(trigger)?.addEventListener('click', () => open(sheet));
-      $(closer)?.addEventListener('click', () => close(sheet));
-      $(sheet)?.addEventListener('click', event => { if (event.target === sheetOf(sheet)) close(sheet); });
-    }
-    // 2026-11-23 Phase 3：教练说明与排课耗时不再搬进计划说明抽屉——它们留在训练日志工具栏下方，
-    // 点「重排今天」之后抬头就能看到（搬走会让反馈藏在另一张卡里）。
-    document.addEventListener('keydown', event => {
-      if (event.key !== 'Escape') return;
-      if (sheetOf('#plan-sheet') && !sheetOf('#plan-sheet').hidden) close('#plan-sheet');
-    });
-  }
-  function installHabitChips() {
-    const form = $('#habit-form');
-    if (!form || form.dataset.habitWired === '1') return;
-    form.dataset.habitWired = '1';
-    const meters = {};
-    for (const key of HABIT_KEYS) {
-      const meter = $(`[data-habit="${key}"]`, form);
-      const field = form.elements[key];
-      if (!meter || !field) continue;
-      const spec = HABIT_DIAL[key];
-      meters[key] = {meter, field, spec};
-      // 输入途中只跟状态、不整形：把「7.」立刻写成「7」会把小数点吃掉。
-      field.addEventListener('input', () => paintMeter(key));
-      field.addEventListener('change', () => { snapMeter(key); paintMeter(key); });
-      // 刻度轨道退场后的键盘通路：↑↓ 走一档，Shift+↑↓ 走四档（等价于原来的 Home/End 之外的可达值）。
-      field.addEventListener('keydown', event => {
-        if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
-        event.preventDefault();
-        bump(key, (event.key === 'ArrowUp' ? 1 : -1) * (event.shiftKey ? 4 : 1));
-      });
-    }
-    const valueOf = key => meters[key] ? number(meters[key].field.value) : null;
-    const specOf = key => HABIT_DIAL[key];
-    function paintMeter(key) {
-      const entry = meters[key];
-      if (!entry) return;
-      const value = number(entry.field.value) ?? 0;
-      // 单行账本只保留「空 / 非空」这一层视觉；数值本身已是 20px 主数字，不再画刻度。
-      entry.meter.classList.toggle('is-empty', value <= 0);
-      // 老内核没有 field-sizing：按位数给宽度，避免空值或短值在名称与单位之间留一条空隙。
-      const digits = String(entry.field.value || '').length;
-      const width = digits === 0 ? 0.9 : Math.max(2.2, digits * 0.62 + 0.4);
-      entry.field.style.setProperty('--habit-width', `${width.toFixed(2)}em`);
-    }
-    for (const key of HABIT_KEYS) paintMeter(key);
-    function setMeter(key, value) {
-      const entry = meters[key];
-      if (!entry) return null;
-      const {min, max, digits} = entry.spec;
-      const clamped = Math.max(min, Math.min(max, Number(Number(value).toFixed(1))));
-      entry.field.value = digits ? String(Number(clamped.toFixed(1))) : String(Math.round(clamped));
-      paintMeter(key);
-      return Number(entry.field.value);
-    }
-    function snapMeter(key) {
-      const entry = meters[key];
-      if (!entry) return;
-      const raw = number(entry.field.value);
-      if (raw === null) { entry.field.value = ''; paintMeter(key); return; }
-      setMeter(key, raw);
-    }
-    const bump = (key, direction) => {
-      if (!meters[key]) return;
-      setMeter(key, (valueOf(key) ?? 0) + direction * specOf(key).step);
-    };
-    const renderChips = () => {
-      const quick = readHabitQuick();
-      for (const key of HABIT_KEYS) {
-        const box = $(`[data-habit-chips="${key}"]`, form);
-        if (!box) continue;
-        const spec = specOf(key);
-        // 饮水两枚是「再加」：一次喝掉多少比「总量定格」更接近真实动作；步数与睡眠是设值。
-        const mode = key === 'water' ? 'add' : 'set';
-        const values = key === 'sleep' ? [7, 8] : quick[key];
-        box.innerHTML = values.map(value =>
-          `<button type="button" class="habit-chip" data-habit-chip="1" data-habit-key="${key}" data-habit-mode="${mode}" data-habit-value="${value}" aria-label="${mode === 'add' ? '再加' : '填入'}${fmt(value, spec.digits)}${spec.unit}">${mode === 'add' ? '+' : ''}${habitQuickLabel(key, value)}</button>`
-        ).join('');
-      }
-    };
-    renderChips();
-    // 点一下走一步，按住连加：120ms 一步，松手即停；越界由 setMeter 夹住。
-    let repeat = null;
-    const stopRepeat = () => { if (repeat) { clearInterval(repeat); repeat = null; } };
-    form.addEventListener('pointerdown', event => {
-      const button = event.target.closest('[data-habit-step]');
-      if (!button) return;
-      event.preventDefault();
-      const key = button.dataset.habitStep, direction = Number(button.dataset.habitDir) || 1;
-      bump(key, direction);
-      stopRepeat();
-      repeat = setInterval(() => bump(key, direction), 120);
-    });
-    window.addEventListener('pointerup', stopRepeat);
-    window.addEventListener('pointercancel', stopRepeat);
-    form.addEventListener('click', event => {
-      const step = event.target.closest('[data-habit-step]');
-      // 键盘回车/空格只派发 click（detail = 0）：补这一下，指针那一路已经在 pointerdown 里做过。
-      if (step) {
-        if (event.detail === 0) bump(step.dataset.habitStep, Number(step.dataset.habitDir) || 1);
-        return;
-      }
-      const chip = event.target.closest('[data-habit-chip]');
-      if (chip) {
-        const key = chip.dataset.habitKey, value = Number(chip.dataset.habitValue);
-        setMeter(key, (chip.dataset.habitMode === 'add' ? (valueOf(key) ?? 0) : 0) + value);
-        chip.classList.add('is-used');
-        setTimeout(() => chip.classList.remove('is-used'), 600);
-        return;
-      }
-      // 沿用昨日数据：只填昨天真记过的项，空项不写成本日数字。
-      const copy = event.target.closest('[data-habit-copy]');
-      if (!copy) return;
-      const yesterday = shiftDay(localDate(), -1);
-      const rowData = (state.habits || []).find(item => item && item.date === yesterday);
-      if (!rowData) { notice('昨天没有习惯记录可复制。', true); return; }
-      let filled = 0;
-      for (const key of HABIT_KEYS) {
-        if (number(rowData[key]) === null) continue;
-        setMeter(key, number(rowData[key]));
-        filled += 1;
-      }
-      notice(filled ? '已填入昨天的数值，可修改后保存。' : '昨天只有训练记录，没有可沿用的数值。', !filled);
-    });
-    // 快捷值可改，但改法不进卡面：右上角两步 sheet——先选槽位，再选数值，写完立刻生效。
-    $('#habit-quick-edit')?.addEventListener('click', async () => {
-      if (sheetOpen()) return;
-      const quick = readHabitQuick();
-      const slots = [{key: 'steps', index: 0}, {key: 'steps', index: 1}, {key: 'water', index: 0}, {key: 'water', index: 1}];
-      const slotChoice = await openSheet({title: '自定义快捷值', options: slots.map(slot => ({
-        label: `${HABIT_DIAL[slot.key].label}${slot.key === 'water' ? '每次加量' : '快捷值'} ${slot.index + 1} · ${habitQuickLabel(slot.key, quick[slot.key][slot.index])}`
-      }))});
-      if (slotChoice === null) return;
-      const slot = slots[slotChoice];
-      const spec = HABIT_DIAL[slot.key];
-      const valueChoice = await openSheet({title: `${spec.label}快捷值 ${slot.index + 1}`, options: spec.candidates.map(value => ({
-        label: `${fmt(value, spec.digits)} ${spec.unit}`, current: quick[slot.key][slot.index] === value
-      }))});
-      if (valueChoice === null) return;
-      const value = spec.candidates[valueChoice];
-      if (quick[slot.key][slot.index] === value) return;
-      // 两枚胶囊不重复：撞上另一槽就交换，否则卡底会出现两个一样的数。
-      const other = 1 - slot.index;
-      if (quick[slot.key][other] === value) quick[slot.key][other] = quick[slot.key][slot.index];
-      quick[slot.key][slot.index] = value;
-      writeHabitQuick(quick);
-      renderChips();
-      notice(`已改为 ${fmt(value, spec.digits)} ${spec.unit}。`);
-    });
-  }
   /** Suggested questions: an empty box is the main reason people do not ask anything. */
 
   const runPushHistory = (useRange, button) => {
@@ -11251,34 +11071,6 @@ feedback(message,'数据已导入。'+report);
   $('#query-push-history').addEventListener('click', event => runPushHistory(true, event.currentTarget));
   // ---- Generic draft: recognise -> confirm -> write -> undo ----------------------------------------
   let pendingDraft = null, draftUndo = null;
-  function showTrainingDraft(draft) {
-    pendingDraft = draft;
-    renderTrainingDraft(draft);
-  }
-  /**
-   * Applies one confirmed draft. Training merges into the day's exercise list; the simple metrics
-   * merge into the same habit row; weight goes to measurements. Returns what undo has to restore.
-   */
-  async function applyDraft(draft) {
-    if (draft.kind === 'meal') throw new Error('餐食草稿需要在餐食表单生成预览并确认，不能直接写入。');
-    const habit = habitRowFor(draft.date) || {date: draft.date};
-    const existing = Array.isArray(habit.exercises) ? habit.exercises : [];
-    if (draft.kind === 'weight') {
-      // 带当天那行的 id 写入：否则同一天会有两行测量，「身体近况」按日期取第一条会读到旧值。
-      const before = measurementRowFor(draft.date);
-      await api('/api/measurements', {...(before || {}), date: draft.date, weight: draft.payload.weight});
-      return {kind: 'weight', date: draft.date, before};
-    }
-    if (draft.kind === 'training') {
-      await api('/api/habits', {...habit, date: draft.date, training: true,
-        exercises: [...existing, ...(draft.payload.exercises || [])]});
-      return {kind: 'habits', date: draft.date, before: {...habit, date: draft.date, exercises: existing}};
-    }
-    const key = draft.payload && Object.keys(draft.payload)[0];
-    if (!key) throw new Error('这条草稿没有可写入的字段');
-    await api('/api/habits', {...habit, date: draft.date, [key]: draft.payload[key]});
-    return {kind: 'habits', date: draft.date, before: {...habit, date: draft.date}};
-  }
   $('#chat-training-draft')?.addEventListener('click', async event => {
     if (event.target.closest('[data-draft-cancel]')) { pendingDraft = null; draftUndo = null; renderTrainingDraft(null); return; }
     if (event.target.closest('[data-draft-undo]')) {
@@ -11337,141 +11129,8 @@ feedback(message,'数据已导入。'+report);
   installProfileMore();
   let editingPreferenceIndex = -1;
   const PREFERENCE_SOURCE_LABEL = {manual: '手动添加', chat: '来自问答', legacy: '旧记录'};
-  function preferenceMetaText(row) {
-    const source = PREFERENCE_SOURCE_LABEL[row.source] || PREFERENCE_SOURCE_LABEL.manual;
-    const date = row.updatedAt ? row.updatedAt.slice(0, 10) : '';
-    return source + (date ? ' · ' + date : '');
-  }
-  function syncPreferenceEditor() {
-    const add = $('#preference-add'), cancel = $('#preference-cancel');
-    if (add) add.textContent = editingPreferenceIndex >= 0 ? '保存修改' : '记住这条';
-    if (cancel) cancel.hidden = editingPreferenceIndex < 0;
-  }
-  function resetPreferenceEditor() {
-    editingPreferenceIndex = -1;
-    const input = $('#preference-input'), feedback = $('#preference-feedback');
-    input?.closest('article.card')?.classList.remove('is-editing-preference');
-    if (input) input.value = '';
-    if (feedback) feedback.textContent = '';
-    syncPreferenceEditor();
-  }
-  function beginPreferenceEdit(index) {
-    const rows = readPreferenceRows();
-    const row = rows[index];
-    const input = $('#preference-input'), feedback = $('#preference-feedback');
-    if (!row || !input) {resetPreferenceEditor(); return;}
-    editingPreferenceIndex = index;
-    input.value = row.text;
-    input.closest('article.card')?.classList.add('is-editing-preference');
-    if (feedback) feedback.textContent = '改完点「保存修改」。';
-    syncPreferenceEditor();
-    // Add scroll room first; a focused input at the page bottom otherwise hides the save row behind the keyboard.
-    const align = () => input.scrollIntoView({block: 'center', behavior: 'smooth'});
-    align();
-    setTimeout(() => {if (document.activeElement !== input) input.focus({preventScroll: true}); align();}, 140);
-    setTimeout(align, 460);
-  }
-  function renderPreferences() {
-    const rows = readPreferenceRows();
-    const box = $('#preference-list'), tag = $('#preference-count'), hub = $('#hub-summary-prefs');
-    if (tag) tag.textContent = rows.length + ' 条';
-    if (hub) hub.textContent = rows.length ? rows.slice(0, 2).map(row => row.text).join(' · ') + (rows.length > 2 ? '…' : '') : '让建议记住你的习惯';
-    if (!box) {syncPreferenceEditor(); return;}
-    box.innerHTML = rows.length
-      ? rows.map((row, index) => `<div class="hub-row preference-row" role="listitem"><span class="hub-text"><span class="hub-title">${esc(row.text)}</span><span class="hub-summary">${esc(preferenceMetaText(row))}</span></span><span class="preference-row-actions"><button type="button" class="icon-button" data-preference-edit="${index}" aria-label="编辑这条偏好">改</button><button type="button" class="icon-button danger" data-preference-remove="${index}" aria-label="删除这条偏好">×</button></span></div>`).join('')
-      : '<p class="empty-note">还没有偏好。写一句「不吃香菜」或「早餐固定两个鸡蛋加豆浆」，之后的估算与建议都会避开它。</p>';
-    syncPreferenceEditor();
-  }
-  function installPreferences() {
-    const add = $('#preference-add'), input = $('#preference-input'), feedback = $('#preference-feedback');
-    if (!add || !input || add.dataset.bound) return;
-    add.dataset.bound = '1';
-    const submit = () => {
-      const text = input.value.trim();
-      if (!text) {feedback.textContent = '写一句再记。'; return;}
-      const rows = readPreferenceRows();
-      if (rows.some((row, index) => index !== editingPreferenceIndex && row.text === text)) {
-        feedback.textContent = '这条已经记过了。';
-        return;
-      }
-      if (editingPreferenceIndex >= 0) {
-        if (!rows[editingPreferenceIndex]) {resetPreferenceEditor(); feedback.textContent = '这条偏好已经不在了。'; return;}
-        rows[editingPreferenceIndex] = {...rows[editingPreferenceIndex], text, updatedAt: new Date().toISOString()};
-        writePreferenceRows(rows);
-        feedback.textContent = '已更新。';
-      } else {
-        if (rows.length >= 20) {feedback.textContent = '最多 20 条，先删掉旧的再记。'; return;}
-        const now = new Date().toISOString();
-        rows.push({id: preferenceIdFor(text), text, source: 'manual', createdAt: now, updatedAt: now});
-        writePreferenceRows(rows);
-        feedback.textContent = '已记住。';
-      }
-      editingPreferenceIndex = -1;
-      input.value = '';
-      input.closest('article.card')?.classList.remove('is-editing-preference');
-      renderPreferences();
-    };
-    add.addEventListener('click', submit);
-    input.addEventListener('keydown', event => {if (event.key === 'Enter') {event.preventDefault(); submit();}});
-    $('#preference-cancel')?.addEventListener('click', () => {resetPreferenceEditor(); renderPreferences();});
-    $('#preference-list')?.addEventListener('click', event => {
-      const edit = event.target.closest('[data-preference-edit]');
-      if (edit) {beginPreferenceEdit(Number(edit.dataset.preferenceEdit)); return;}
-      const remove = event.target.closest('[data-preference-remove]');
-      if (!remove) return;
-      const index = Number(remove.dataset.preferenceRemove);
-      const rows = readPreferenceRows();
-      if (!rows[index]) return;
-      rows.splice(index, 1);
-      writePreferenceRows(rows);
-      if (editingPreferenceIndex === index) resetPreferenceEditor();
-      else if (editingPreferenceIndex > index) editingPreferenceIndex -= 1;
-      renderPreferences();
-    });
-  }
-  function addPreferenceFromChat(record) {
-    const text = String(record?.question || record?.prompt || record?.answer || '').trim().slice(0, 80);
-    if (!text) {notice('这条记录没有可记的内容。', true); return;}
-    const rows = readPreferenceRows();
-    if (rows.some(row => row.text === text)) {notice('这条已经记过了。'); return;}
-    if (rows.length >= 20) {notice('最多 20 条，先到「我的 → 偏好与记忆」删掉旧的。', true); return;}
-    const now = new Date().toISOString();
-    rows.push({id: preferenceIdFor(text), text, source: 'chat', createdAt: now, updatedAt: now});
-    writePreferenceRows(rows);
-    renderPreferences();
-    notice('已记为偏好，之后的估算与建议会带上它。');
-  }
   renderPreferences();
   installPreferences();
-  /** 展开/收起：把内容包进 grid 容器，0fr→1fr 过渡 0.28s（真机验证过，不依赖新 CSS 特性）。 */
-  function installDisclosureAnimation() {
-    const wrap = details => {
-      if (!details || details.tagName !== 'DETAILS') return;
-      if (details.querySelector(':scope > .disclosure-body')) return;
-      const summary = details.querySelector(':scope > summary');
-      if (!summary) return;
-      const body = document.createElement('div');
-      body.className = 'disclosure-body';
-      const inner = document.createElement('div');
-      inner.className = 'disclosure-inner';
-      while (details.lastChild && details.lastChild !== summary) inner.insertBefore(details.lastChild, inner.firstChild);
-      body.append(inner);
-      details.append(body);
-    };
-    document.querySelectorAll('details').forEach(wrap);
-    new MutationObserver(records => {
-      for (const record of records) {
-        // 内容被 innerHTML 重写时，包裹层会被冲掉：从变更目标往上找 details 再包一次。
-        const owner = record.target?.closest?.('details');
-        if (owner) wrap(owner);
-        for (const node of record.addedNodes) {
-          if (node.nodeType !== 1) continue;
-          if (node.tagName === 'DETAILS') wrap(node);
-          node.querySelectorAll?.('details').forEach(wrap);
-        }
-      }
-    }).observe(document.body, {childList: true, subtree: true});
-  }
   installDisclosureAnimation();
   installMealWindow();
   installRecordPanels();
@@ -12792,6 +12451,429 @@ feedback(message,'数据已导入。'+report);
     });
   }
 
+/* Fragment 90-trends-settings -- 趋势与设置层（2026-11-27 Phase 3，从 70-rest 迁入）
+ * 趋势面板、外观皮肤、我的页抽屉、数据管理与偏好编辑。
+ */
+
+  function renderHub() {
+    const version = $('#about-version');
+    if (version) version.textContent = `v${APP_VERSION}`;
+    const profile = state.profile || {};
+    const targets = $('#hub-summary-targets');
+    if (targets) {
+      const height = number(profile.height), age = number(profile.age), calorie = number(profile.calorieTarget);
+      const training = plannedSessions();
+      // Same source as the 今天 page: a lean plan must not be summarised with the recomp ranges.
+      const range = intakeRangeForDate();
+      const bits = [
+        GOAL_LABEL[profile.goal] || '未设置目标',
+        height !== null ? `${fmt(height,0)} cm` : '身高未填',
+        age !== null ? `${fmt(age,0)} 岁` : '年龄未填',
+        training !== null ? `每周 ${fmt(training,0)} 练` : '训练次数未填',
+        !range.unset && calorie !== null ? `训练日 ${fmt(range.trainingDay.min,0)}~${fmt(range.trainingDay.max,0)} / 休息日 ${fmt(range.restDay.min,0)}~${fmt(range.restDay.max,0)} kcal` : '目标未测算'
+      ];
+      targets.textContent = bits.join(' · ');
+    }
+    const model = $('#hub-summary-model');
+    if (model) {
+      const settings = state.settings || {};
+      const provider = ({deepseek: 'DeepSeek', bai: 'B.AI', siliconflow: '硅基流动'})[settings.provider] || 'DeepSeek';
+      model.textContent = settings.apiConfigured === true ? `${provider} · 已配置${settings.visionEnabled === true ? '（含图片）' : ''}` : `${provider} · 未配置`;
+    }
+    const about = $('#hub-summary-about');
+    if (about) about.textContent = `v${APP_VERSION} · 作者与许可`;
+  }
+
+  /** Shows which prompt/口径/anchors produced the records, and when the last backup was made. */
+  async function loadVersions() {
+    const box = $('#version-info');
+    if (!box) return;
+    try {
+      const info = await api('/api/versions');
+      const backup = info?.backupAt ? new Date(info.backupAt).toLocaleString('zh-CN') : '从未';
+      const anchors = info?.anchorsPresent
+        ? `锚点 ${info.anchorsUpdatedAt ? new Date(info.anchorsUpdatedAt).toLocaleDateString('zh-CN') : '已同步'}`
+        : '锚点未同步';
+      const repaired = number(info?.chatAnswersRepaired) ?? 0;
+      // Privacy-safe histogram of stored answers; shows what a broken answer actually looks like.
+      const audit = Array.isArray(info?.answerAudit) ? info.answerAudit.join(' · ') : '';
+      const coldStart = number(info?.coldStartMs) ?? 0;
+      box.innerHTML = `<span>应用 <b>v${esc(info?.appVersion || APP_VERSION)}</b></span><span>提示词 <b>v${fmt(info?.promptVersion, 0)}</b></span><span>口径 <b>v${fmt(info?.rulesVersion, 0)}</b></span><span>${esc(anchors)}</span><span>上次备份 <b>${esc(backup)}</b></span>`
+        + (repaired > 0 ? `<span>已修复 <b>${fmt(repaired, 0)}</b> 条无效回答</span>` : '')
+        + (audit ? `<span>问答体检 <b>${esc(audit)}</b></span>` : '')
+        + (coldStart > 0 ? `<span>冷启动 <b>${fmt(coldStart, 0)}</b> ms</span>` : '')
+        + (info?.official === false
+          ? '<span>非官方构建 <b>签名不符</b></span>'
+          : `<span>构建 <b>${esc(info?.signature || 'Sanchen/qingheng')}</b></span>`)
+        + (window.TRAINING_PRINCIPLES
+          ? `<span>建议库 <b>${esc(window.TRAINING_PRINCIPLES.version)}</b> · ${window.TRAINING_PRINCIPLES.rules.length} 条 · ${window.TRAINING_PRINCIPLES.sources.length} 来源</span>`
+          : '')
+        + bodyPartHints();
+    } catch (error) {
+      box.textContent = error.message;
+    }
+  }
+
+  /** 夜间是显式选择：全程账本 + 暗色令牌，不再看系统深浅色。 */
+  function skinForPage(base, tab) {
+    if (base === 'night') return 'ledger';
+    if (base !== 'paper' && base !== 'ledger') base = 'paper';
+    return base;
+  }
+
+  function currentSkin() {
+    // 默认纸感；历史存过 auto 的用户按「夜间」处理，因为自动模式已移除（不再依赖系统深浅色）。
+    try {
+      const saved = localStorage.getItem(SKIN_KEY);
+      if (saved === 'auto') return 'night';
+      return SKINS.includes(saved) ? saved : 'paper';
+    } catch (error) { return 'paper'; }
+  }
+
+  function applySkin(name, persist = true) {
+    const choice = SKINS.includes(name) ? name : 'paper';
+    const skin = skinForPage(choice, document.documentElement.dataset.tab || 'today');
+    // 暗色不再跟系统走：[data-theme="dark"] 是唯一的暗色开关，由「夜间」这个显式选择驱动。
+    const night = choice === 'night';
+    document.documentElement.dataset.skin = skin;
+    document.documentElement.dataset.skinChoice = choice;
+    document.documentElement.dataset.theme = night ? 'dark' : 'light';
+    if (persist) { try { localStorage.setItem(SKIN_KEY, choice); } catch (error) {} }
+    const tag = $('#skin-tag'); if (tag) tag.textContent = night ? '夜间 · ledger' : skin;
+    // 系统状态栏颜色跟随皮肤：夜间用暗底，其余保持浅绿。
+    const theme = document.querySelector('meta[name="theme-color"]');
+    if (theme) theme.setAttribute('content', night ? '#141719' : '#eaf4ed');
+    for (const button of $$('[data-skin-pick]')) button.setAttribute('aria-pressed', String(button.dataset.skinPick === choice));
+    return skin;
+  }
+
+  function installSkinPicker() {
+    const chatSearch = $("#chat-search");
+    if (chatSearch && !chatSearch.dataset.wired) {
+      chatSearch.dataset.wired = "1";
+      chatSearch.addEventListener("input", () => {
+        // 每个按键都整段重建问答记录，长历史下会卡；停顿 180ms 后只渲染一次。
+        chatQuery = chatSearch.value.trim();
+        clearTimeout(chatSearchTimer);
+        chatSearchTimer = setTimeout(() => {resetChatPaging(); renderChat();}, 180);
+      });
+    }
+    if (typeof renderLastChat === "function") renderLastChat();
+    if (typeof installWeightCalc === "function") installWeightCalc();
+    if (typeof installPlanPrefs === "function") installPlanPrefs();
+    if (typeof installExerciseGuide === "function") installExerciseGuide();
+    if (typeof installUsagePanel === "function") installUsagePanel();
+    if (typeof installAiPlan === "function") installAiPlan();
+    if (typeof installSegmentKeys === "function") installSegmentKeys();
+    if (typeof installPhotoEntry === "function") installPhotoEntry();
+    applySkin(currentSkin(), false);
+    // 系统深浅色不再影响皮肤：夜间是用户显式选择的开关。
+    for (const button of $$('[data-skin-pick]')) {
+      button.addEventListener('click', () => { applySkin(button.dataset.skinPick); notice('外观已切换为「' + ({paper: '纸感', ledger: '账本', night: '夜间'}[button.dataset.skinPick] || '纸感') + '」。'); });
+    }
+  }
+
+  async function loadStorageStatus(remirror = false) {
+    const node = $('#storage-status');
+    if (node) node.textContent = remirror ? '正在重新镜像…' : '正在读取存储状态…';
+    try {
+      const data = await api(remirror ? '/api/storage-remirror' : '/api/storage-status', remirror ? {} : undefined);
+      if (!node) return data;
+      const json = data?.json || {}, sqlite = data?.sqlite || {};
+      // 用户语言的主行：只说「记录在哪、有多少、备份了没」；JSON/SQLite 细节留在技术细节折叠里。
+      const summaryNode = $('#storage-summary');
+      if (summaryNode) {
+        const label = {meals:'餐食', measurements:'身体', habits:'习惯', chats:'问答'};
+        const plain = Object.keys(json).map(key => `${label[key] || key} ${json[key]}`);
+        const autoAt = number(data?.autoBackup?.at) !== null ? new Date(Number(data.autoBackup.at)).toLocaleString('zh-CN') : '';
+        const files = number(data?.autoBackup?.files);
+        summaryNode.textContent = `记录都保存在这台手机上：${plain.join('、')}`
+          + (files ? `；应用内自动备份 ${files} 份${autoAt ? `（最近 ${autoAt}）` : ''}，每 12 小时更新` : '')
+          + '。';
+      }
+      const when = number(data?.lastMirroredAt) !== null ? new Date(Number(data.lastMirroredAt)).toLocaleString('zh-CN') : '尚未镜像';
+      const parts = Object.keys(json).map(key => `${({meals:'餐食',measurements:'身体',habits:'习惯',chats:'问答'})[key] || key} ${json[key]}`);
+      // 应用内自动备份：只存在私有目录，最多 3 份；导出 SAF 文件仍是正式备份。
+      const autoAt = number(data?.autoBackup?.at) !== null ? new Date(Number(data.autoBackup.at)).toLocaleString('zh-CN') : '尚无';
+      node.textContent = `${data?.parity === true ? '一致' : '不一致'}｜JSON：${parts.join('、')}`
+        + `｜SQLite：${Object.keys(sqlite).map(key => `${({meals:'餐食',measurements:'身体',habits:'习惯',chats:'问答'})[key] || key} ${sqlite[key]}`).join('、')}`
+        + `｜最近镜像：${when}${data?.lastError ? `｜最近错误：${data.lastError}` : ''}`
+        + `｜应用内备份：${autoAt}（${number(data?.autoBackup?.files) ?? 0} 份，每 12 小时轮换）`
+        + `｜${data?.mode || ''}`;
+      return data;
+    } catch (error) {
+      if (node) node.textContent = error.message;
+      return null;
+    }
+  }
+
+  /**
+   * 我的 is a list of entries, so the low-frequency block is one too: 数据管理 opens its own
+   * sub-page exactly like 模型连接 (same .subpage shell, same 21px hub icon, same back header)
+   * instead of unfolding a second-level details inside the list.
+   */
+  function installProfileMore() {
+    const hub = $('#profile-hub');
+    if (!hub) return;
+    // 每个入口一枚专属图标：人像+靶心、AI 火花、铃铛、便签、皮肤半明暗、齿轮、数据库、叶子。
+    // 图标取自 Lucide（MIT），统一 24 网格 / 1.8 描边 / currentColor，八个入口各司其职。
+    // 轻衡自有图形语言：1.7 圆头描边 + 每枚一块实心墨块 + 右下角品牌小墨点（账本里的「已记录」点）。
+    // 轻衡自有图形语言：1.7 圆头描边 + 每枚一块实心墨块 + 右下角品牌小墨点（账本里的「已记录」点）。
+    // 图标规格：24 网格 / 1.5 描边 / 圆头 / 以线为主；实心只留一个微型记号（≤1.1r），圆角统一 2.5。
+    // 以 24px 实际显示为准：主体撑满 16–17 单位，内部细节 ≤2 条线，实心只做小记号。
+    const PROFILE_ICONS = {
+      targets: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="7.9" r="3.6"/><path d="M3.9 20.6v-.7a4.9 4.9 0 0 1 4.9-4.9h4.6a4.9 4.9 0 0 1 4.9 4.9v.7"/><circle cx="18.9" cy="5.7" r="1.2" fill="currentColor" stroke="none"/></svg>',
+      model: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.2" y="8.8" width="11.2" height="11.2" rx="2.6"/><path d="M18.4 3.4v5M15.9 5.9h5"/><path d="M8.8 11.6v4.8M6.4 14.4h4.8" stroke-width="1.2" opacity=".5"/></svg>',
+      push: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 16.8c1.5-1.6 2.4-3.5 2.4-5.9a4.2 4.2 0 0 1 8.4 0c0 2.4.9 4.3 2.4 5.9Z"/><path d="M9.9 19.6a2.1 2.1 0 0 0 4.2 0"/><circle cx="12" cy="16.8" r="1.25" fill="currentColor" stroke="none"/></svg>',
+      prefs: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.6" y="3.6" width="12.4" height="16.8" rx="2.6"/><path d="M8.2 8.4h5.4M8.2 12.4h5.4"/><path d="M17 6.4v11.2" stroke-width="1.2" opacity=".45"/></svg>',
+      appearance: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.2"/><path d="M12 8.4v3.9l2.8 2"/><path d="M12 3.8a8.2 8.2 0 0 1 0 16.4Z" fill="currentColor" stroke="none"/></svg>',
+      more: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.1"/><path d="M12 3.4v3M12 17.6v3M3.4 12h3M17.6 12h3M5.9 5.9l2.1 2.1M16 16l2.1 2.1M18.1 5.9L16 8M8 16l-2.1 2.1"/><circle cx="12" cy="12" r="1.15" fill="currentColor" stroke="none"/></svg>',
+      data: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.8" y="7.6" width="16.4" height="13" rx="2.6"/><path d="M3.8 11.8h16.4"/><path d="M12 14.4v3.4M9.9 16.2l2.1 2 2.1-2" stroke-width="1.4"/></svg>',
+      about: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.4 9.2c0-3.6-3.8-5.9-8.3-4.9-4 1-6.3 4.2-6.1 8.2.2 3.7 3.1 6.4 6.9 6.4 3.9 0 7.5-4.6 7.5-9.7Z"/><path d="M6.4 19.4c1-4.4 4-7.6 8.4-9.6"/></svg>'
+    };
+    Object.entries(PROFILE_ICONS).forEach(([id, markup]) => {
+      const node = hub.querySelector(`[data-subpage-open="${id}"] .hub-icon`);
+      if (node && markup) node.innerHTML = markup;
+    });
+    const appearance = $("#subpage-appearance");
+    // 外观页只留「查看相关」的东西：外观皮肤 + 默认餐次。
+    const anchor = $('#meal-window-card');
+    const skin = $('#skin-card');
+    if (appearance && skin && anchor) appearance.insertBefore(skin, anchor);
+    // 重新设置档案是档案页里的一节（1.4.52 起不再单独成卡）。
+    const restart = $('#targets-restart-slot');
+    const restartButton = $('#restart-onboarding');
+    if (restartButton && restart) restart.append(restartButton);
+    const notes = $('#about-notes-slot');
+    const chatNotes = $('#view-chat .card-notes');
+    if (chatNotes && notes) {
+      // 关于页里已经有一个「说明」，搬过来的问答说明要自己标明是哪一份。
+      const summary = chatNotes.querySelector('summary');
+      if (summary) summary.textContent = '问答说明';
+      notes.append(chatNotes);
+    }
+  }
+
+  /**
+   * Trends also grew into one long column. Same segmented treatment, plus a diet card that the page
+   * never had (it only showed weight, volume and body composition).
+   */
+  function installTrendPanels() {
+    const view = $('#view-trends');
+    if (!view || $('#trends-tabs')) return;
+    const cards = [...view.querySelectorAll('article.card')];
+    const cardFor = heading => cards.find(card => $('h2', card)?.textContent.trim() === heading);
+    const host = $('.record-grid', view) || view;
+    const panels = [
+      {key: 'weight', label: '体重', headings: ['体重变化', '上周回看', '身体成分对照', '身体记录明细'], foldedHeadings: ['身体记录明细']},
+      {key: 'diet', label: '饮食', headings: [], extra: true},
+      {key: 'training', label: '训练', headings: ['训练容量（渐进超负荷）']}
+    ];
+    const bar = document.createElement('div');
+    bar.className = 'segment-bar';
+    bar.id = 'trends-tabs';
+    bar.setAttribute('role', 'tablist');
+    bar.setAttribute('aria-label', '趋势分类');
+    bar.innerHTML = panels.map(panel => `<button type="button" class="segment" role="tab" data-trends-panel="${panel.key}">${panel.label}</button>`).join('');
+    // The trends view has no .record-grid wrapper, so the bar goes inside the view itself; inserting it
+    // beside the section put a stray segmented bar at the bottom of the records page.
+    const heading = $('.page-heading', view);
+    if (heading) heading.after(bar); else view.prepend(bar);
+    for (const panel of panels) {
+      const container = document.createElement('div');
+      container.className = 'record-panel';
+      container.id = 'trend-panel-' + panel.key;
+      container.dataset.panel = panel.key;
+      let more = null;
+      for (const heading of panel.headings) {
+        const card = cardFor(heading);
+        if (!card) continue;
+        if (panel.foldedHeadings?.includes(heading)) {
+          if (!more) {
+            more = document.createElement('details');
+            more.className = 'panel-more';
+            const summary = document.createElement('summary');
+            summary.textContent = panel.key === 'weight' ? '更多身体数据' : '更多趋势';
+            more.append(summary);
+            container.append(more);
+          }
+          more.append(card);
+        } else {
+          container.append(card);
+        }
+      }
+      if (panel.extra) container.append(dietTrendCard());
+      host.append(container);
+    }
+    // 2026-11-24：趋势页也记住上次看的那一段（与记录页同一条约定）。
+    const savedTrend = (() => { try { return localStorage.getItem(TREND_PANEL_STORAGE); } catch { return null; } })();
+    switchTrendPanel(['weight', 'diet', 'training'].includes(savedTrend) ? savedTrend : 'weight');
+    bar.addEventListener('click', event => {
+      const button = event.target.closest('[data-trends-panel]');
+      if (button) switchTrendPanel(button.dataset.trendsPanel);
+    });
+  }
+
+  function switchTrendPanel(key) {
+    const wanted = ['weight', 'diet', 'training'].includes(key) ? key : 'weight';
+    const target = wanted === 'training' && !trainingEnabled() ? 'weight' : wanted;
+    for (const panel of ['weight', 'diet', 'training']) {
+      const node = $('#trend-panel-' + panel);
+      if (node) node.hidden = panel !== target;
+    }
+    for (const button of $$('[data-trends-panel]')) {
+      const active = button.dataset.trendsPanel === target;
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+      button.classList.toggle('active', active);
+      if (button.dataset.trendsPanel === 'training') button.hidden = !trainingEnabled();
+    }
+    try { localStorage.setItem(TREND_PANEL_STORAGE, target); } catch {}
+    if ($('#trend-panel-training')?.hidden !== false) { /* no-op, keeps the guard explicit */ }
+  }
+
+  // ---- 迁移到新手机：导出附带计数与校验和，导入时自动核对 ---------------------------------------
+  /** Key-sorted JSON，校验和不受 org.json 与 JS 之间键序差异影响。 */
+  function stableStringify(value) {
+    if (value === undefined) return 'null';
+    if (value === null || typeof value !== 'object') return JSON.stringify(value);
+    if (Array.isArray(value)) return '[' + value.map(stableStringify).join(',') + ']';
+    const keys = Object.keys(value).sort();
+    return '{' + keys.map(key => JSON.stringify(key) + ':' + stableStringify(value[key])).join(',') + '}';
+  }
+
+  function fnv1a(text) {
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < text.length; i++) { hash ^= text.charCodeAt(i); hash = Math.imul(hash, 0x01000193) >>> 0; }
+    return ('0000000' + hash.toString(16)).slice(-8);
+  }
+
+  function migrationPayload(data) {
+    return stableStringify({profile: data.profile ?? null, measurements: data.measurements ?? [],
+      meals: data.meals ?? [], habits: data.habits ?? [], chats: data.chats ?? []});
+  }
+
+  function buildMigrationMeta(data) {
+    return {app: 'qingheng', kind: 'migration', appVersion: APP_VERSION, exportedAt: new Date().toISOString(),
+      counts: {measurements: (data.measurements || []).length, meals: (data.meals || []).length,
+        habits: (data.habits || []).length, chats: (data.chats || []).length},
+      checksum: fnv1a(migrationPayload(data))};
+  }
+
+  function migrationCounts(data) {
+    return {measurements: (data.measurements || []).length, meals: (data.meals || []).length,
+      habits: (data.habits || []).length, chats: (data.chats || []).length};
+  }
+
+  function preferenceMetaText(row) {
+    const source = PREFERENCE_SOURCE_LABEL[row.source] || PREFERENCE_SOURCE_LABEL.manual;
+    const date = row.updatedAt ? row.updatedAt.slice(0, 10) : '';
+    return source + (date ? ' · ' + date : '');
+  }
+
+  function syncPreferenceEditor() {
+    const add = $('#preference-add'), cancel = $('#preference-cancel');
+    if (add) add.textContent = editingPreferenceIndex >= 0 ? '保存修改' : '记住这条';
+    if (cancel) cancel.hidden = editingPreferenceIndex < 0;
+  }
+
+  function resetPreferenceEditor() {
+    editingPreferenceIndex = -1;
+    const input = $('#preference-input'), feedback = $('#preference-feedback');
+    input?.closest('article.card')?.classList.remove('is-editing-preference');
+    if (input) input.value = '';
+    if (feedback) feedback.textContent = '';
+    syncPreferenceEditor();
+  }
+
+  function beginPreferenceEdit(index) {
+    const rows = readPreferenceRows();
+    const row = rows[index];
+    const input = $('#preference-input'), feedback = $('#preference-feedback');
+    if (!row || !input) {resetPreferenceEditor(); return;}
+    editingPreferenceIndex = index;
+    input.value = row.text;
+    input.closest('article.card')?.classList.add('is-editing-preference');
+    if (feedback) feedback.textContent = '改完点「保存修改」。';
+    syncPreferenceEditor();
+    // Add scroll room first; a focused input at the page bottom otherwise hides the save row behind the keyboard.
+    const align = () => input.scrollIntoView({block: 'center', behavior: 'smooth'});
+    align();
+    setTimeout(() => {if (document.activeElement !== input) input.focus({preventScroll: true}); align();}, 140);
+    setTimeout(align, 460);
+  }
+
+  function renderPreferences() {
+    const rows = readPreferenceRows();
+    const box = $('#preference-list'), tag = $('#preference-count'), hub = $('#hub-summary-prefs');
+    if (tag) tag.textContent = rows.length + ' 条';
+    if (hub) hub.textContent = rows.length ? rows.slice(0, 2).map(row => row.text).join(' · ') + (rows.length > 2 ? '…' : '') : '让建议记住你的习惯';
+    if (!box) {syncPreferenceEditor(); return;}
+    box.innerHTML = rows.length
+      ? rows.map((row, index) => `<div class="hub-row preference-row" role="listitem"><span class="hub-text"><span class="hub-title">${esc(row.text)}</span><span class="hub-summary">${esc(preferenceMetaText(row))}</span></span><span class="preference-row-actions"><button type="button" class="icon-button" data-preference-edit="${index}" aria-label="编辑这条偏好">改</button><button type="button" class="icon-button danger" data-preference-remove="${index}" aria-label="删除这条偏好">×</button></span></div>`).join('')
+      : '<p class="empty-note">还没有偏好。写一句「不吃香菜」或「早餐固定两个鸡蛋加豆浆」，之后的估算与建议都会避开它。</p>';
+    syncPreferenceEditor();
+  }
+
+  function installPreferences() {
+    const add = $('#preference-add'), input = $('#preference-input'), feedback = $('#preference-feedback');
+    if (!add || !input || add.dataset.bound) return;
+    add.dataset.bound = '1';
+    const submit = () => {
+      const text = input.value.trim();
+      if (!text) {feedback.textContent = '写一句再记。'; return;}
+      const rows = readPreferenceRows();
+      if (rows.some((row, index) => index !== editingPreferenceIndex && row.text === text)) {
+        feedback.textContent = '这条已经记过了。';
+        return;
+      }
+      if (editingPreferenceIndex >= 0) {
+        if (!rows[editingPreferenceIndex]) {resetPreferenceEditor(); feedback.textContent = '这条偏好已经不在了。'; return;}
+        rows[editingPreferenceIndex] = {...rows[editingPreferenceIndex], text, updatedAt: new Date().toISOString()};
+        writePreferenceRows(rows);
+        feedback.textContent = '已更新。';
+      } else {
+        if (rows.length >= 20) {feedback.textContent = '最多 20 条，先删掉旧的再记。'; return;}
+        const now = new Date().toISOString();
+        rows.push({id: preferenceIdFor(text), text, source: 'manual', createdAt: now, updatedAt: now});
+        writePreferenceRows(rows);
+        feedback.textContent = '已记住。';
+      }
+      editingPreferenceIndex = -1;
+      input.value = '';
+      input.closest('article.card')?.classList.remove('is-editing-preference');
+      renderPreferences();
+    };
+    add.addEventListener('click', submit);
+    input.addEventListener('keydown', event => {if (event.key === 'Enter') {event.preventDefault(); submit();}});
+    $('#preference-cancel')?.addEventListener('click', () => {resetPreferenceEditor(); renderPreferences();});
+    $('#preference-list')?.addEventListener('click', event => {
+      const edit = event.target.closest('[data-preference-edit]');
+      if (edit) {beginPreferenceEdit(Number(edit.dataset.preferenceEdit)); return;}
+      const remove = event.target.closest('[data-preference-remove]');
+      if (!remove) return;
+      const index = Number(remove.dataset.preferenceRemove);
+      const rows = readPreferenceRows();
+      if (!rows[index]) return;
+      rows.splice(index, 1);
+      writePreferenceRows(rows);
+      if (editingPreferenceIndex === index) resetPreferenceEditor();
+      else if (editingPreferenceIndex > index) editingPreferenceIndex -= 1;
+      renderPreferences();
+    });
+  }
+
+  function addPreferenceFromChat(record) {
+    const text = String(record?.question || record?.prompt || record?.answer || '').trim().slice(0, 80);
+    if (!text) {notice('这条记录没有可记的内容。', true); return;}
+    const rows = readPreferenceRows();
+    if (rows.some(row => row.text === text)) {notice('这条已经记过了。'); return;}
+    if (rows.length >= 20) {notice('最多 20 条，先到「我的 → 偏好与记忆」删掉旧的。', true); return;}
+    const now = new Date().toISOString();
+    rows.push({id: preferenceIdFor(text), text, source: 'chat', createdAt: now, updatedAt: now});
+    writePreferenceRows(rows);
+    renderPreferences();
+    notice('已记为偏好，之后的估算与建议会带上它。');
+  }
 /* Fragment of assets/app.js -- assembled by tools/assemble-app.ps1 in filename order.
  * Edit this file, never the generated assets/app.js; tests/app-fragments.test.mjs fails on drift. */
   installSkinPicker();
