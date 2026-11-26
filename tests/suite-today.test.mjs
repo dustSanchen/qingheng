@@ -78,8 +78,8 @@ check('the weight card is a read-only jump, not a second form', html.includes('d
 check('sleep lives in the habit form only', html.slice(html.indexOf('id="habit-form"')).includes('name="sleep"') && !html.slice(html.indexOf('id="body-quick"'), html.indexOf('id="body-data-card"')).includes('name="sleep"'));
 check('the weight card follows the viewed day', app.includes('function renderBodyWeight()') && app.includes("$('#body-weight-jump')") && app.includes("tag.textContent = weight === null ? '待记录' : '已记录'"));
 check('the jump lands on the measurement field', app.includes("revealField('measurement-weight', {focus: false, block: 'start'})"));
-check('the body form saves weight with the rest', app.includes("numericForm(f, ['weight', 'waist', 'bodyFat', 'muscle', 'visceralFat', 'bmr'])"));
-check('the same-day measurement row is reused', app.includes('function measurementRowFor(date)') && app.includes('measurementRowFor(f.elements.date.value)'));
+check('the body form saves weight with the rest', app.includes("readRecordedForm(f, ['weight', 'waist', 'bodyFat', 'muscle', 'visceralFat', 'bmr'])"));
+check('the same-day measurement row is reused', app.includes('function measurementRowFor(date)') && app.includes('withClearedRecord(measurementRowFor(date)'));
 check('the outlier guard still compares weight', app.includes('Math.abs(weight - prevWeight) >= 2'));
 check('the body panel lists the weight card first', app.includes("headings: ['今天体重', '身体数据', '日常习惯']"));
 ;return typeof fail === 'number' ? fail : 0;
@@ -108,8 +108,8 @@ check('weight is editable in exactly one place', ((html.slice(html.indexOf('id="
 check('the manual oil field is not duplicated outside the estimate flow', !html.includes('name="oilSpoons"'));
 check('weight is asked for under the documented conditions', html.includes('空腹、同一状态'));
 check('sleep moved into the habit form', html.includes('id="habit-sleep"') && html.slice(html.indexOf('id="habit-form"')).includes('name="sleep"'));
-check('the habit form saves all three numbers', app.includes("numericForm(form,['steps','water','sleep'])"));
-check('weight updates the same-day measurement instead of adding a row', app.includes("numericForm(f, ['weight', 'waist', 'bodyFat', 'muscle', 'visceralFat', 'bmr'])") && app.includes("measurementRowFor(f.elements.date.value)"));
+check('the habit form saves all three numbers', app.includes("readRecordedForm(form,['steps','water','sleep'])"));
+check('weight updates the same-day measurement instead of adding a row', app.includes("readRecordedForm(f, ['weight', 'waist', 'bodyFat', 'muscle', 'visceralFat', 'bmr'])") && app.includes('withClearedRecord(measurementRowFor(date)'));
 check('the card follows the viewed day', app.includes("function renderBodyWeight()") && app.includes("$('#body-weight-jump')"));
 
 // --- native validation for the habit row --------------------------------------------------------------

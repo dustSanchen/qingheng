@@ -190,7 +190,7 @@ check('the habit form says where training comes from', html.includes('训练日�
 check('one derivation helper exists', app.includes('function trainedOn(date)'));
 check('it counts named exercises only', app.includes("return exercisesFor(date).some(item => item && String(item.name || '').trim());"));
 check('the day budget follows the derivation', app.includes("const trained = typeof trainedOn === 'function' ? !!trainedOn(date) : false;"));
-check('the habit submit no longer sends training', !app.includes("form.elements.training.value===''") && app.includes("numericForm(form,['steps','water','sleep'])"));
+check('the habit submit no longer sends training', !app.includes("form.elements.training.value===''") && app.includes("readRecordedForm(form,['steps','water','sleep'])"));
 check('the check card no longer invents a missed training chip', !app.includes("chip('补训练', 'icon-glyph-training.svg', 'training-form')"));
 check('the today hint carries planned training instead', app.includes('function trainingStateFor(input)') && app.includes("trainingState === 'planned'"));
 check('the today tile reads the derivation', app.includes("const training = trainedOn(activeDate) ? '已训练' : '未记录';"));
@@ -1379,7 +1379,7 @@ check('the tag summarises what is logged', app.includes('`${TRAINING_TEMPLATES[t
 // --- one row per day ------------------------------------------------------------------------------------
 check('a habit-row lookup exists', app.includes('function habitRowFor(date)'));
 check('duplicate rows are resolved by keeping the fullest', app.includes('rows.slice().sort((a, b) => JSON.stringify(b).length - JSON.stringify(a).length)[0]'));
-check('the habit submit merges into the same-day row instead of appending', app.includes("return {...(habitRowFor(form.elements.date.value)||{}), date:form.elements.date.value, ...filled};"));
+check('the habit submit merges into the same-day row instead of appending', app.includes('return {...withClearedRecord(habitRowFor(date),values,cleared),date};'));
 check('the training log reads back the stored exercises', app.includes('function exercisesFor(date)'));
 
 // --- volume maths -----------------------------------------------------------------------------------------

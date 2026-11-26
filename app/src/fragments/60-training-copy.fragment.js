@@ -1097,6 +1097,25 @@
     } catch (error) {notice(error.message, true);}
   }
   function numericForm(form, fields) {return Object.fromEntries(fields.map(key => [key, number(form.elements.namedItem(key).value)]));}
+  /**
+   * 记录类表单的取值（2026-11-27）：空与 0 都算「未记录」——0 步 / 0 kg 只会是没填或误触，不该落库。
+   * 旧写法只提交非空字段，于是「已填项清不回未记」：这里把清空的键单独带出来，保存时从旧行里删掉。
+   */
+  function readRecordedForm(form, fields) {
+    const values = {}, cleared = [];
+    for (const key of fields) {
+      const field = form.elements.namedItem(key);
+      const value = number(field ? field.value : null);
+      if (value === null || value === 0) cleared.push(key); else values[key] = value;
+    }
+    return {values, cleared};
+  }
+  /** 合并到旧行：先按 cleared 删键，再写新值；这样「清空」才真的回到未记录。 */
+  function withClearedRecord(row, values, cleared) {
+    const next = {...(row || {})};
+    for (const key of cleared) delete next[key];
+    return {...next, ...values};
+  }
   async function submitForm(form, path, build) {
     const button=$('button[type=submit]',form), message=$('.form-feedback',form);
     if (button.disabled || !form.reportValidity()) return;

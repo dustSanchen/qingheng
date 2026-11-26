@@ -3,6 +3,8 @@
  * 每个原文件仍在自己的函数作用域里跑：一个文件抛错只记一条 FAIL，不会中断同组其他文件。
  */
 import fs from 'node:fs';
+import vm from 'node:vm';
+import {functionSource} from './lib/extract.mjs';
 
 let __fail = 0;
 async function __run(name, fn) {
@@ -353,5 +355,35 @@ check('main buttons expose accessible labels or visible text', html.includes('ar
 console.log('FAIL total: ' + fail);
 ;return typeof fail === 'number' ? fail : 0;
 });
+
+await __run("record-clear", async () => {
+/**
+ * 2026-11-27：记录页表单「已填项清不回未记」——旧写法只提交非空字段，旧值被 {...existing} 带回去。
+ * 现在空与 0 都算未记录，并且清空的键要从旧行里删掉（readRecordedForm / withClearedRecord）。
+ */
+let fail = 0;
+const check = (label, ok, detail) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + label + (detail === undefined ? '' : '  -> ' + detail)); if (!ok) fail++; };
+
+const copy = fs.readFileSync('app/src/fragments/60-training-copy.fragment.js', 'utf8').replace(/\r\n/g, '\n');
+const rest = fs.readFileSync('app/src/fragments/70-rest.fragment.js', 'utf8');
+const ctx = vm.createContext({number: v => (v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v)) ? Number(v) : null)});
+vm.runInContext(functionSource(copy, 'readRecordedForm') + '\n' + functionSource(copy, 'withClearedRecord')
+  + '\n;globalThis.readRecordedForm = readRecordedForm; globalThis.withClearedRecord = withClearedRecord;', ctx);
+const form = values => ({elements: {namedItem: key => ({value: values[key]})}});
+
+const zero = ctx.readRecordedForm(form({steps: '0', water: '250', sleep: ''}), ['steps', 'water', 'sleep']);
+check('0 counts as not recorded', !('steps' in zero.values) && zero.cleared.includes('steps'), JSON.stringify(zero));
+check('an empty field is cleared too', !('sleep' in zero.values) && zero.cleared.includes('sleep'));
+check('a real value survives', zero.values.water === 250);
+const merged = ctx.withClearedRecord({id: 'h1', date: '2026-11-27', steps: 8000, water: 1000}, zero.values, zero.cleared);
+check('clearing really removes the old value', !('steps' in merged) && !('sleep' in merged), JSON.stringify(merged));
+check('the rest of the row is preserved', merged.id === 'h1' && merged.date === '2026-11-27' && merged.water === 250);
+check('the measurement form uses the same reader', rest.includes("readRecordedForm(f, ['weight', 'waist', 'bodyFat', 'muscle', 'visceralFat', 'bmr'])"));
+check('the habit form uses the same reader', rest.includes("readRecordedForm(form,['steps','water','sleep'])"));
+check('both save paths delete cleared keys', (rest.match(/withClearedRecord\(/g) || []).length >= 2);
+console.log('FAIL total: ' + fail);
+;return typeof fail === 'number' ? fail : 0;
+});
+
 console.log('\nFAIL total: ' + __fail);
 process.exitCode = __fail ? 1 : 0;

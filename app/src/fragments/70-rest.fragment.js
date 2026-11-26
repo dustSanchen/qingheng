@@ -322,9 +322,10 @@
     event.preventDefault();
     const form = event.currentTarget;
     const save = () => submitForm(form, '/api/measurements', f => {
-      const filled = Object.fromEntries(Object.entries(numericForm(f, ['weight', 'waist', 'bodyFat', 'muscle', 'visceralFat', 'bmr'])).filter(([, value]) => value !== null));
-      if (!Object.keys(filled).length) throw new Error('请至少填写一项测量数据。');
-      return {...(measurementRowFor(f.elements.date.value) || {}), date: f.elements.date.value, ...filled};
+      const date = f.elements.date.value;
+      const {values, cleared} = readRecordedForm(f, ['weight', 'waist', 'bodyFat', 'muscle', 'visceralFat', 'bmr']);
+      if (!Object.keys(values).length) throw new Error('请至少填写一项测量数据。');
+      return {...withClearedRecord(measurementRowFor(date), values, cleared), date};
     });
     const outliers = bodyOutlierLines(form);
     if (!outliers.length) { save(); return; }
@@ -332,7 +333,7 @@
       .then(ok => { if (ok) save(); });
   });
   // 2026-11-22：睡眠从「今天两样」迁回这一行——步数/饮水/睡眠同属日常习惯，一次保存。
-  $('#habit-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/habits',form=>{const filled=Object.fromEntries(Object.entries(numericForm(form,['steps','water','sleep'])).filter(([,value])=>value!==null));if(!Object.keys(filled).length) throw new Error('请至少填写一项日常习惯。');return {...(habitRowFor(form.elements.date.value)||{}), date:form.elements.date.value, ...filled};});});
+  $('#habit-form').addEventListener('submit',event=>{event.preventDefault();submitForm(event.currentTarget,'/api/habits',form=>{const {values,cleared}=readRecordedForm(form,['steps','water','sleep']);if(!Object.keys(values).length) throw new Error('请至少填写一项日常习惯。');const date=form.elements.date.value;return {...withClearedRecord(habitRowFor(date),values,cleared),date};});});
   // 组间休息从卡片底部的工具行挪到「训练动作视野内」：固定小药丸，上下滚动都看得见，
   // 键盘弹起时也随布局视口上移；只有训练日志在视野里或计时进行中才出现（2026-11-17）。
   let restTick = 0, restEnd = 0, restExercisesInView = false, restActionsInView = false, restDockWired = false;
