@@ -276,9 +276,8 @@ const main = read('app/src/main/java/cn/qingheng/health/MainActivity.java');
 
 // --- client: one dedicated request -------------------------------------------------------------------
 // 窗口而不是 indexOf('\n  }\n')：检出时是 CRLF，按 LF 切片会把函数切空。
-const planBody = rest.slice(rest.indexOf('async function askAiPlan'));
-// 窗口 9000：1.4.44 给提示词加了负重三层兜底与起步重量规则，函数变长了，6000 会把 finally 切在窗口外。
-const planFn = planBody.slice(0, 9000);
+// 按函数名 + 逐行编译校验取整段（原来是 9000 字符窗口，函数一长 finally 就被切到窗口外）。
+const planFn = functionSource(rest, 'askAiPlan');
 check('the plan asks the chat route for plan focus', planFn.includes('focus: "plan"'));
 check('the plan no longer sets the conflicting fast tier', !planFn.includes('tier: "fast"'));
 check('the busy layer is raised before any prompt work can throw',
@@ -437,6 +436,7 @@ const pureSource = [
   functionSource(domain, 'loadableWeightKg'),
   functionSource(chat60, 'parseDraft'),
   functionSource(chat60, 'parseTrainingDraft'),
+  functionSource(chat60, 'parseMealDraft'),
   functionSource(chat60, 'draftSummary'),
   functionSource(chat60, 'dailyCheck'),
   functionSource(domain, 'acwrFromDailyLoads'),
@@ -445,7 +445,7 @@ const pureSource = [
   constSource(domain, 'BODY_PART_RULES'),
   functionSource(domain, 'exerciseBodyPart'),
   'function localCoachLine(c){return c && c.action || "";}',
-  'return {parseDraft, parseTrainingDraft, draftSummary, dailyCheck, acwrFromDailyLoads, plateauFromWeekly, generateWeekPlan, localCoachLine};',
+  'return {parseDraft, parseTrainingDraft, parseMealDraft, draftSummary, dailyCheck, acwrFromDailyLoads, plateauFromWeekly, generateWeekPlan, localCoachLine};',
 ].join('\n');
 const api = new Function(pureSource)();
 
@@ -467,6 +467,12 @@ const water = api.parseDraft('喝了 2 升水', BASE);
 check('water draft recognised in litres', water && water.kind === 'water' && water.payload.water === 2000);
 check('plan talk makes no draft', api.parseDraft('明天打算练推，卧推几组合适？', BASE) === null);
 check('food question makes no draft', api.parseDraft('我这两天蛋白质够吗？', BASE) === null);
+
+// --- 提问句不能被误判成餐食草稿（2026-11-27）-----------------------------------------------------
+for (const text of ['今天吃了鸡胸肉，还要补多少蛋白？', '今天吃了 200g 鸡胸肉，够不够', '晚饭吃了面条，超没超脂肪', '午餐这样吃行不行', '晚餐能不能吃米饭']) {
+  check('a question about eating is not a meal draft: ' + text, api.parseMealDraft(text, BASE) === null);
+}
+check('a finished meal sentence is still a meal draft', (api.parseMealDraft('午餐吃了米饭和鸡胸肉', BASE) || {}).kind === 'meal');
 
 // --- 每日体检 -----------------------------------------------------------------------------------
 const range = {min: 2160, max: 2314};
@@ -1016,6 +1022,12 @@ assert(java.includes('PushRoutes.handle(path, get, post, b, this)'));
 assert(alarm.includes('adviceHistory'));
 assert(app.includes('queryPushHistory'));
 assert(app.includes('acceptConsent'));
+// 桥接层：/api/advice 必须透传放松日与偏好；两条不可达的 push-history 死分支已删（2026-11-27）。
+const adapter = fs.readFileSync(new URL('../app/src/main/assets/native-adapter.js', import.meta.url), 'utf8');
+assert(adapter.includes('relaxDay:body.relaxDay===true'), 'the bridge forwards relaxDay to /api/advice');
+assert(adapter.includes('adviceBody.preferences=body.preferences'), 'the bridge forwards preferences to /api/advice');
+assert(!adapter.includes("if(path==='/api/push-history') return {records:[]};"), 'the unreachable push-history branch is gone from the chat paths');
+assert(app.includes('parseDraft(question, activeDate)') && app.includes('parseMealDraft(question, activeDate)'), 'the chat wire uses the shared draft parser');
 console.log('PASS Brave removal, targeted chat delete, one-time consent, and push advice history.');
 ;return typeof fail === 'number' ? fail : 0;
 });

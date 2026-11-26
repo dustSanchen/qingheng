@@ -1087,10 +1087,10 @@
     if (!question && !chatImage) {feedback(message,'请先写下你的问题，或拍一张照片。',true); $('#chat-question').focus(); return;}
     if (question.length > 2000) {feedback(message,'问题请控制在 2000 字以内。',true); return;}
     // A finished sentence becomes a draft card; local recognition must not require external consent.
-    // Training writes after confirmation, food hands off to the existing estimate form and still
-    // needs a preview + confirmation before writing.
-    if (typeof parseTrainingDraft === 'function') {
-      let draft = parseTrainingDraft(question, activeDate);
+    // parseDraft 覆盖体重/睡眠/步数/饮水/训练五类；餐食用 parseMealDraft 单独兜底。两者都只出草稿，
+    // 写入仍要用户点确认（餐食则走估算预览）。
+    if (typeof parseDraft === 'function' || typeof parseTrainingDraft === 'function') {
+      let draft = typeof parseDraft === 'function' ? parseDraft(question, activeDate) : parseTrainingDraft(question, activeDate);
       if (!draft && typeof parseMealDraft === 'function') draft = parseMealDraft(question, activeDate);
       if (draft) showTrainingDraft(draft); else renderTrainingDraft(null);
     }
@@ -1134,7 +1134,13 @@
       feedback(message, receivedMessage);
       $('#chat-question').value = ''; acceptConsent('chat'); clearChatImage();
       if (liveStream) streamExpandedAnswer={question:stored,answer:withSources,box:liveStream};
-      try {await loadState({quiet:true});} catch {state.chats = [...(Array.isArray(state.chats) ? state.chats : []),{date:localDate(),question:stored,answer:withSources}]; renderChat(); notice('回答已显示，但保存到手机失败，请勿重复提问。',true);}
+      try {await loadState({quiet:true});} catch {
+        // 落库失败也不能让刚显示出来的气泡消失：把它原地接管成历史行，再补一条内存记录。
+        const localRow = {id: 'local-' + Date.now(), date: localDate(), question: stored, answer: withSources};
+        state.chats = [...(Array.isArray(state.chats) ? state.chats : []), localRow];
+        if (liveStream) { try { adoptStreamChatRow(liveStream, localRow); } catch {} liveStream.adopted = true; }
+        notice('回答已显示，但保存到手机失败，请勿重复提问。', true);
+      }
       if (streamExpandedAnswer) streamExpandedAnswer=null;
     } catch (error) {
       if (liveStream) endChatStream(liveStream);

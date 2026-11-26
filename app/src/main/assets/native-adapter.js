@@ -109,7 +109,6 @@ const chatNativeBody=(body,image)=>({
     }
     if(path==='/api/context-preview') throw new Error('浏览器演示不发送数据到外部模型，无法预览将要发送的内容。');
     if(path==='/api/chat') {
-      if(path==='/api/push-history') return {records:[]};
       throw new Error('AI 问答需要已安装的 APK 和你的 API Key；浏览器演示不请求外部模型。');
     }
     if(path==='/api/notification-test') throw new Error('测试通知需要已安装的 APK。');
@@ -417,7 +416,11 @@ const chatNativeBody=(body,image)=>({
         if(body?.useAI===true) {
           if(!hasNative() || body.allowExternal!==true)throw new Error('AI 建议需要 APK、已配置 API 和本次外发同意。');
           const config=await storageRequest('/api/settings','GET');if(!config.apiConfigured)throw new Error('请先保存所选服务商的 API Key。');
-          return response(await nativeRequest(path,method,{date:body.date,useAI:true,allowExternal:true},options.signal));
+          // relaxDay 与 preferences 必须原样透传：放松日标记是前端按「今天已记录」算的，
+          // 偏好则是「我的 → 偏好与记忆」的当前值，桥接层丢掉它们会让建议倒退成通用口径。
+          const adviceBody={date:body.date,useAI:true,allowExternal:true,relaxDay:body.relaxDay===true};
+          if(Array.isArray(body?.preferences))adviceBody.preferences=body.preferences;
+          return response(await nativeRequest(path,method,adviceBody,options.signal));
         }
         return response(localAdvice(await storageRequest('/api/state','GET',undefined,options.signal),body?.date));
       }
@@ -472,7 +475,6 @@ const chatNativeBody=(body,image)=>({
         return response(final);
       }
       if(path==='/api/chat') {
-      if(path==='/api/push-history') return {records:[]};
         if(body?.allowExternal!==true)throw new Error('发送问题给外部模型前，请先勾选本次发送同意。');
         if(!hasNative())throw new Error('AI 问答需要已安装的 APK 和你的 API Key。');
         const question=String(body?.question||'').trim();

@@ -681,6 +681,7 @@
       distanceKm: Number(row.distanceKm) > 0 ? Number(row.distanceKm) : null,
       durationMin: Number(row.durationMin) > 0 ? Number(row.durationMin) : null,
       reason: String(row.reason || "").slice(0, 60),
+      ...(row.note ? {note: String(row.note).slice(0, 60)} : {}),
       source: "ai",
       done: false
     };
@@ -924,8 +925,27 @@
       }
       aiPlanStore(activeDate, plan);
       // 教练说明：模型把「为什么不完全照办」写进第一个动作的 note，单独取出来显示。
-      const noteMatch = /"note"\s*:\s*"([^"]{1,60})"/.exec(finalText);
-      writePlanNote(activeDate, noteMatch ? noteMatch[1] : "");
+      // 优先用已解析的行（JSON.parse 已经处理过转义）；取不到再在原文里扫一遍 note 的值，
+      // 手写扫描而不是正则：正则里的引号会被源码切片脚本误当成字符串边界（测试里踩过）。
+      let noteText = plan.map(item => item && item.note).find(Boolean) || "";
+      if (!noteText) {
+        const marker = '"note"';
+        const at = finalText.indexOf(marker);
+        const colon = at >= 0 ? finalText.indexOf(':', at + marker.length) : -1;
+        const open = colon >= 0 ? finalText.indexOf('"', colon) : -1;
+        if (open >= 0) {
+          let out = '', escaped = false;
+          for (let i = open + 1; i < finalText.length && out.length < 120; i += 1) {
+            const ch = finalText.charAt(i);
+            if (escaped) { out += ch; escaped = false; continue; }
+            if (ch === '\\') { escaped = true; continue; }
+            if (ch === '"') break;
+            out += ch;
+          }
+          noteText = out.trim();
+        }
+      }
+      writePlanNote(activeDate, String(noteText || "").slice(0, 60));
       // 清单落库同时把重量记进本地记忆：下次排课同名动作直接按上次表现渐进。
       if (typeof rememberPlanWeights === "function") rememberPlanWeights(plan);
       renderAiPlan();

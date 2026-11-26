@@ -7,8 +7,11 @@
  */
 
 export function functionSource(source, name) {
-  const marker = 'function ' + name + '(';
-  const start = source.indexOf(marker);
+  // async 函数要把 async 一起切进来，否则拿到的片段单独编译会报
+  // 「await is only valid in async functions」。
+  let marker = 'async function ' + name + '(';
+  let start = source.indexOf(marker);
+  if (start < 0) { marker = 'function ' + name + '('; start = source.indexOf(marker); }
   if (start < 0) throw new Error('missing function ' + name);
   let end = source.indexOf('\n  }', start);
   while (end >= 0) {

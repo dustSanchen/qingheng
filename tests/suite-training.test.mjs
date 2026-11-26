@@ -111,7 +111,7 @@ check('the plan card can take a request, stored with the preferences', html.incl
 check('the request is read when planning', app.includes('const requestText = String((requestBox && requestBox.value) || "").trim().slice(0, 200)'));
 check('the model is told to judge, not to obey', app.includes('用户今天的要求（可能不专业，需要你判断）：') && app.includes('判断原则：先保目标口径'));
 check('a rejected request leaves a one-line coach note', app.includes('把一句不超过 40 字的原因写进第一个动作的 note 字段'));
-check('the coach note is parsed and stored locally', app.includes('writePlanNote(activeDate, noteMatch ? noteMatch[1] : "")') && app.includes('function readPlanNote'));
+check('the coach note is parsed and stored locally', app.includes('let noteText = plan.map(item => item && item.note)') && app.includes('writePlanNote(activeDate, String(noteText || "").slice(0, 60))') && app.includes('function readPlanNote'));
 check('the coach note has a slot in the card', html.includes('id="ai-plan-note"') && css.includes('.ai-plan-note{'));
 ;return typeof fail === 'number' ? fail : 0;
 });
@@ -949,7 +949,7 @@ check('runs keep distance through their own inputs', app.includes('function card
 // 1.4.47 入口预算：问答页的「＋ 记一条训练」已删，记训练只留今日动作条与体检补记两处。
 check('the duplicated chat training chip is gone', !app.includes('data-chat-train'));
 // 1.4.47：问答页的「记一条训练」样例 chip 已删，草稿仍由输入框解析触发。
-check('the draft still comes from parsing what the user typed', app.includes('let draft = parseTrainingDraft(question, activeDate);') && app.includes('draft = parseMealDraft(question, activeDate)') && app.includes('if (draft) showTrainingDraft(draft)') && !app.includes('data-chat-train'));
+check('the draft still comes from parsing what the user typed', app.includes('parseDraft(question, activeDate)') && app.includes('draft = parseMealDraft(question, activeDate)') && app.includes('if (draft) showTrainingDraft(draft)') && !app.includes('data-chat-train'));
 ;return typeof fail === 'number' ? fail : 0;
 });
 

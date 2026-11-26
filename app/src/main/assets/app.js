@@ -2902,10 +2902,10 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
     if (!question && !chatImage) {feedback(message,'请先写下你的问题，或拍一张照片。',true); $('#chat-question').focus(); return;}
     if (question.length > 2000) {feedback(message,'问题请控制在 2000 字以内。',true); return;}
     // A finished sentence becomes a draft card; local recognition must not require external consent.
-    // Training writes after confirmation, food hands off to the existing estimate form and still
-    // needs a preview + confirmation before writing.
-    if (typeof parseTrainingDraft === 'function') {
-      let draft = parseTrainingDraft(question, activeDate);
+    // parseDraft 覆盖体重/睡眠/步数/饮水/训练五类；餐食用 parseMealDraft 单独兜底。两者都只出草稿，
+    // 写入仍要用户点确认（餐食则走估算预览）。
+    if (typeof parseDraft === 'function' || typeof parseTrainingDraft === 'function') {
+      let draft = typeof parseDraft === 'function' ? parseDraft(question, activeDate) : parseTrainingDraft(question, activeDate);
       if (!draft && typeof parseMealDraft === 'function') draft = parseMealDraft(question, activeDate);
       if (draft) showTrainingDraft(draft); else renderTrainingDraft(null);
     }
@@ -2949,7 +2949,13 @@ function intakeRangeForDate(date = activeDate, profileOverride = null) {
       feedback(message, receivedMessage);
       $('#chat-question').value = ''; acceptConsent('chat'); clearChatImage();
       if (liveStream) streamExpandedAnswer={question:stored,answer:withSources,box:liveStream};
-      try {await loadState({quiet:true});} catch {state.chats = [...(Array.isArray(state.chats) ? state.chats : []),{date:localDate(),question:stored,answer:withSources}]; renderChat(); notice('回答已显示，但保存到手机失败，请勿重复提问。',true);}
+      try {await loadState({quiet:true});} catch {
+        // 落库失败也不能让刚显示出来的气泡消失：把它原地接管成历史行，再补一条内存记录。
+        const localRow = {id: 'local-' + Date.now(), date: localDate(), question: stored, answer: withSources};
+        state.chats = [...(Array.isArray(state.chats) ? state.chats : []), localRow];
+        if (liveStream) { try { adoptStreamChatRow(liveStream, localRow); } catch {} liveStream.adopted = true; }
+        notice('回答已显示，但保存到手机失败，请勿重复提问。', true);
+      }
       if (streamExpandedAnswer) streamExpandedAnswer=null;
     } catch (error) {
       if (liveStream) endChatStream(liveStream);
@@ -6052,13 +6058,17 @@ const values = points.length<=7 ? points.map((item,i) => {
     if (!box) return;
     if (!draft) { box.hidden = true; box.innerHTML = ''; return; }
     const isMeal = draft.kind === 'meal';
+    // 问答框里的一句话可能落在六类记录上，标题跟着品类走（写入仍由 applyDraft 按 kind 分流）。
+    const title = '识别到' + (DRAFT_KINDS[draft.kind] || '记录') + (isMeal || draft.kind === 'training' ? '草稿' : '记录');
     const missing = isMeal
       ? '<p class="fine-print">会带入现有餐食表单；生成估算预览并确认后才会写入，不会直接落库。</p>'
-      : draft.missing.length
-        ? '<p class="fine-print">还缺：' + esc(draft.missing.join('、')) + '。可以先写入，稍后在训练日志里补；也可以点「补充信息」再改这句描述。</p>'
-        : '<p class="fine-print">信息齐全，确认后会写入当天的训练记录。</p>';
+      : draft.kind === 'training'
+        ? draft.missing.length
+          ? '<p class="fine-print">还缺：' + esc(draft.missing.join('、')) + '。可以先写入，稍后在训练日志里补；也可以点「补充信息」再改这句描述。</p>'
+          : '<p class="fine-print">信息齐全，确认后会写入当天的训练记录。</p>'
+        : '<p class="fine-print">确认后会写入当天的记录；写错了可以在卡片上撤销。</p>';
     box.hidden = false;
-    box.innerHTML = `<div class="card training-draft"><div class="card-heading"><h2>${isMeal ? '识别到餐食草稿' : '识别到训练草稿'}</h2><span class="tag">待确认</span></div>`
+    box.innerHTML = `<div class="card training-draft"><div class="card-heading"><h2>${title}</h2><span class="tag">待确认</span></div>`
       + `<p><strong>${esc(draft.date)}</strong> · ${esc(draftSummary(draft))}</p>` + missing
       + `<div class="button-row"><button type="button" class="button primary" data-draft-confirm="1">${isMeal ? '去确认餐食' : '写入记录'}</button>`
       + `<button type="button" class="button subtle" data-draft-cancel="1">取消</button></div></div>`;
@@ -6170,7 +6180,8 @@ const values = points.length<=7 ? points.map((item,i) => {
   function parseMealDraft(text, baseDate) {
     const raw = String(text || '').trim();
     if (!raw) return null;
-    if (/[?？]|吗|什么|怎么|该不该|要不要|建议|打算|计划|准备/.test(raw)) return null;
+    // 提问/咨询句不是记录：「今天吃了鸡胸肉，还要补多少蛋白？」曾被误判成餐食草稿。
+    if (/[?？]|吗|什么|怎么|该不该|要不要|建议|打算|计划|准备|还要|多少|够不够|够吗|超没超|行不行|能不能|可以吗/.test(raw)) return null;
     if (!/(吃了|喝了|吃过|喝过|早餐|早饭|午餐|午饭|晚餐|晚饭|加餐|夜宵|零食)/.test(raw)) return null;
     if (/(训练|卧推|深蹲|硬拉|跑步|体重|称重|睡眠|步数|饮水|kg|公斤)/.test(raw)) return null;
     const pad2 = n => String(n).padStart(2, '0');
@@ -6873,11 +6884,12 @@ const values = points.length<=7 ? points.map((item,i) => {
           }
           // 本周安排长在「训练」分段里：先切分段，再等卡片真的渲染出来再滚。
           // 原来只 switchTab + 80ms 后 scrollIntoView，记录页此刻还停在饮食分段，滚动打空。
+          // 2026-11-27：#ai-plan 卡片 11-22 已删除，AI 清单直接播进执行区，跳转目标改为 #training-log。
           const wantAi = jump.dataset.todayPlan === "ai";
           switchTab("records", true);
           const jumpToPlan = (attempt = 0) => {
-            if (!wantAi && typeof switchRecordPanel === "function") switchRecordPanel("training");
-            const target = $(wantAi ? "#ai-plan" : "#week-plan-card");
+            if (typeof switchRecordPanel === "function") switchRecordPanel("training");
+            const target = $(wantAi ? "#training-log" : "#week-plan-card");
             if (target) {
               target.scrollIntoView({block: "start", behavior: "smooth"});
               if (typeof flashTarget === "function") flashTarget(target);
@@ -9861,6 +9873,7 @@ function metricIcon(label) {
       distanceKm: Number(row.distanceKm) > 0 ? Number(row.distanceKm) : null,
       durationMin: Number(row.durationMin) > 0 ? Number(row.durationMin) : null,
       reason: String(row.reason || "").slice(0, 60),
+      ...(row.note ? {note: String(row.note).slice(0, 60)} : {}),
       source: "ai",
       done: false
     };
@@ -10104,8 +10117,27 @@ function metricIcon(label) {
       }
       aiPlanStore(activeDate, plan);
       // 教练说明：模型把「为什么不完全照办」写进第一个动作的 note，单独取出来显示。
-      const noteMatch = /"note"\s*:\s*"([^"]{1,60})"/.exec(finalText);
-      writePlanNote(activeDate, noteMatch ? noteMatch[1] : "");
+      // 优先用已解析的行（JSON.parse 已经处理过转义）；取不到再在原文里扫一遍 note 的值，
+      // 手写扫描而不是正则：正则里的引号会被源码切片脚本误当成字符串边界（测试里踩过）。
+      let noteText = plan.map(item => item && item.note).find(Boolean) || "";
+      if (!noteText) {
+        const marker = '"note"';
+        const at = finalText.indexOf(marker);
+        const colon = at >= 0 ? finalText.indexOf(':', at + marker.length) : -1;
+        const open = colon >= 0 ? finalText.indexOf('"', colon) : -1;
+        if (open >= 0) {
+          let out = '', escaped = false;
+          for (let i = open + 1; i < finalText.length && out.length < 120; i += 1) {
+            const ch = finalText.charAt(i);
+            if (escaped) { out += ch; escaped = false; continue; }
+            if (ch === '\\') { escaped = true; continue; }
+            if (ch === '"') break;
+            out += ch;
+          }
+          noteText = out.trim();
+        }
+      }
+      writePlanNote(activeDate, String(noteText || "").slice(0, 60));
       // 清单落库同时把重量记进本地记忆：下次排课同名动作直接按上次表现渐进。
       if (typeof rememberPlanWeights === "function") rememberPlanWeights(plan);
       renderAiPlan();

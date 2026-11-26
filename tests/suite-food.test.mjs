@@ -1069,7 +1069,8 @@ for (const text of ['午餐该吃什么？', '晚餐吃什么都行吗', '今天
 }
 
 check('DRAFT_KINDS includes a meal label', app.includes("meal: '餐食'"));
-check('the chat detects training first and meal second', app.includes('parseTrainingDraft(question, activeDate)') && app.includes('parseMealDraft(question, activeDate)'));
+check('the chat uses the shared draft parser first, meal second', app.includes('parseDraft(question, activeDate)') && app.includes('parseMealDraft(question, activeDate)'));
+check('the chat draft card titles follow the recognised kind', app.includes("DRAFT_KINDS[draft.kind]") && app.includes('识别到'));
 check('the meal card offers a handoff, not a write', app.includes("isMeal ? '去确认餐食' : '写入记录'") && app.includes('会带入现有餐食表单'));
 check('the handoff fills the existing estimate form', app.includes('function openMealDraft(draft)') && app.includes("field.value = text") && app.includes("form.elements.mealType.value = slot"));
 check('the handoff does not write a meal itself', !/function openMealDraft[\s\S]{0,1600}api\('\/api\/meals'/.test(app));
